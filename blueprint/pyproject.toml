@@ -1,0 +1,123 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loa-blueprint"
+version = "1.0.0"
+description = "LOA Blueprint - Mainframe to GCP Migration Framework"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Data Engineering Team", email = "data-eng@company.com"}
+]
+keywords = [
+    "migration",
+    "mainframe",
+    "gcp",
+    "google-cloud",
+    "data-pipeline",
+    "etl",
+    "beam",
+    "bigquery"
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "apache-beam==2.49.0",
+    "google-cloud-storage==2.10.0",
+    "google-cloud-bigquery==3.12.0",
+    "google-cloud-pubsub==2.18.0",
+    "pandas==2.0.0",
+    "numpy==1.24.0",
+    "python-dotenv==1.0.0",
+    "pyyaml==6.0",
+    "requests==2.31.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.0",
+    "pytest-cov==4.1.0",
+    "black==23.10.0",
+    "flake8==6.1.0",
+    "mypy==1.5.0",
+    "ipython==8.15.0",
+    "jupyter==1.0.0",
+]
+
+ci = [
+    "pytest==7.4.0",
+    "pytest-cov==4.1.0",
+    "coverage==7.3.0",
+    "black==23.10.0",
+    "flake8==6.1.0",
+    "mypy==1.5.0",
+    "tensorflow==2.13.0",
+    "docker==6.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/company/loa-blueprint"
+Documentation = "https://github.com/company/loa-blueprint/blob/main/docs/"
+Repository = "https://github.com/company/loa-blueprint"
+Issues = "https://github.com/company/loa-blueprint/issues"
+
+[tool.setuptools]
+packages = {find = {where = ["."]}}
+
+[tool.black]
+line-length = 100
+target-version = ['py39']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 100
+skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["components/tests"]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+    "chaos: Chaos engineering tests",
+]
+

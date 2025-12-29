@@ -1,0 +1,17 @@
+# Production configuration (example only - focus on loa-dev.tfvars for testing)
+# Renamed to .example to avoid confusion
+# LOA Blueprint - Production Environment Configuration
+
+project_id   = "loa-migration-prod"
+region       = "europe-west2"  # London, UK
+environment  = "prod"
+
+# LOA-specific settings
+enable_composer  = true   # Enable Airflow orchestration in prod
+enable_scheduler = true   # Enable automated scheduling
+
+pipeline_schedule = "0 2 * * *"  # 2 AM daily
+
+dataflow_max_workers = 20  # Allow more workers in prod
+
+bigquery_location = "EU"  # European Union multi-region

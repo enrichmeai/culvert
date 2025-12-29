@@ -1,0 +1,132 @@
+# Docker Compose Override Configuration (for local development)
+# This file allows you to override default settings from docker-compose.yml
+# It's automatically loaded by docker-compose if it exists
+#
+# Usage:
+#   1. Copy this file to docker-compose.override.yml
+#   2. Customize settings as needed
+#   3. docker-compose up will automatically use both files
+#
+# NOTE: docker-compose.override.yml is in .gitignore - customize locally only
+
+version: '3.8'
+
+services:
+  # =========================================================================
+  # Development Overrides
+  # =========================================================================
+
+  airflow-db:
+    # Override port for local testing
+    ports:
+      - "15432:5432"
+    # Enable full logging for debugging
+    command: postgres -c log_statement=all
+
+  airflow-webserver:
+    # Set more verbose logging for debugging
+    environment:
+      LOG_LEVEL: DEBUG
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW__CORE__DAGS_FOLDER: /app/blueprint/components/orchestration/airflow/dags
+
+    # Mount code directories for live development
+    volumes:
+      - ./blueprint:/app/blueprint
+      - ./components:/app/components
+      - airflow_logs:/home/appuser/airflow/logs
+      - airflow_plugins:/home/appuser/airflow/plugins
+
+  airflow-scheduler:
+    # Set more verbose logging for debugging
+    environment:
+      LOG_LEVEL: DEBUG
+      AIRFLOW__CORE__DAGS_FOLDER: /app/blueprint/components/orchestration/airflow/dags
+
+    # Mount code directories for live development
+    volumes:
+      - ./blueprint:/app/blueprint
+      - ./components:/app/components
+      - airflow_logs:/home/appuser/airflow/logs
+      - airflow_plugins:/home/appuser/airflow/plugins
+
+  test-runner:
+    # More verbose test output
+    environment:
+      PYTEST_ARGS: -vv --cov=components/loa_common --cov-report=html --cov-report=term --tb=short -s
+
+    # Mount code for development
+    volumes:
+      - ./blueprint:/app/blueprint
+      - ./components:/app/components
+      - test_reports:/app/blueprint/test_reports
+      - test_htmlcov:/app/blueprint/htmlcov
+
+  # =========================================================================
+  # Optional: Enable only if needed for development
+  # =========================================================================
+
+  # Uncomment to enable PostgreSQL admin (pgAdmin)
+  # pgadmin:
+  #   image: dpage/pgadmin4:latest
+  #   container_name: loa-pgadmin
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: admin@example.com
+  #     PGADMIN_DEFAULT_PASSWORD: admin
+  #   ports:
+  #     - "5050:80"
+  #   networks:
+  #     - loa-network
+  #   depends_on:
+  #     - airflow-db
+  #   labels:
+  #     - "com.loa-blueprint.description=PostgreSQL admin UI (optional)"
+
+  # Uncomment to enable Redis admin (Redis Commander)
+  # redis-commander:
+  #   image: rediscommander/redis-commander:latest
+  #   container_name: loa-redis-commander
+  #   environment:
+  #     REDIS_HOSTS: local:redis:6379
+  #   ports:
+  #     - "8081:8081"
+  #   networks:
+  #     - loa-network
+  #   depends_on:
+  #     - redis
+  #   labels:
+  #     - "com.loa-blueprint.description=Redis admin UI (optional)"
+
+  # =========================================================================
+  # Development Services
+  # =========================================================================
+
+  loa-app:
+    # Enable interactive mode for debugging
+    stdin_open: true
+    tty: true
+
+    # Mount code for live development
+    volumes:
+      - ./blueprint:/app/blueprint
+      - ./components:/app/components
+      - ~/.config/gcloud:/app/.config/gcloud:ro
+
+    # Override command for interactive development
+    command: /bin/bash
+
+  jupyter:
+    # Make token optional for local dev
+    command: >
+      bash -c "
+      pip install -q jupyter jupyterlab &&
+      jupyter lab --ip=0.0.0.0 --allow-root --no-browser --NotebookApp.token='' --NotebookApp.password=''
+      "
+
+    volumes:
+      - ./blueprint:/app/blueprint
+      - ./components:/app/components
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - jupyter_data:/root/.jupyter
+

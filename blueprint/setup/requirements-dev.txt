@@ -1,0 +1,42 @@
+# LOA Blueprint - Development Dependencies
+# Usage: pip install -r requirements-dev.txt
+# Or: pip install -r requirements.txt -r requirements-dev.txt
+
+# All core requirements
+-r requirements.txt
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+pytest-mock==3.11.1               # Mocking for tests
+pytest-asyncio==0.21.1            # Async test support
+coverage==7.3.0                   # Code coverage metrics
+
+# Code Quality
+black==23.10.0                    # Code formatter
+flake8==6.1.0                     # Linter
+pylint==3.0.0                     # Code analyzer
+mypy==1.5.0                       # Type checker
+isort==5.12.0                     # Import sorter
+
+# Development Tools
+ipython==8.15.0                   # Interactive shell
+jupyter==1.0.0                    # Jupyter notebooks
+jupyterlab==4.0.6                 # JupyterLab IDE
+
+# Documentation
+sphinx==7.2.6                     # Documentation generator
+sphinx-rtd-theme==1.3.0           # ReadTheDocs theme
+sphinx-autodoc-typehints==1.25.2  # Type hints in docs
+
+# Debugging & Profiling
+ipdb==0.13.13                     # Debugger
+memory-profiler==0.61.0           # Memory profiling
+line-profiler==4.1.1              # Line profiling
+
+# Pre-commit Hooks
+pre-commit==3.4.0                 # Git pre-commit framework
+
+# Environment Management
+virtualenv==20.24.6               # Virtual environment management
+

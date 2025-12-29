@@ -1,0 +1,24 @@
+include README.md
+include LICENSE
+include CONTRIBUTING.md
+include pyproject.toml
+include setup.py
+include setup.cfg
+
+recursive-include blueprint *.py
+recursive-include docs *.md
+recursive-include tests *.py
+recursive-include examples *.py *.json *.yaml *.yml *.csv
+
+recursive-exclude blueprint __pycache__
+recursive-exclude blueprint *.pyc
+recursive-exclude blueprint *.pyo
+recursive-exclude tests __pycache__
+recursive-exclude tests *.pyc
+
+global-exclude .DS_Store
+global-exclude .git
+global-exclude .gitignore
+global-exclude .idea
+global-exclude *.egg-info
+

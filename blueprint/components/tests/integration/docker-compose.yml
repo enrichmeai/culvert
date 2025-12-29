@@ -1,0 +1,218 @@
+version: '3.8'
+
+# Local LOA Blueprint Development Environment
+# Provides emulators for GCS, BigQuery, and Pub/Sub
+#
+# Usage:
+#   docker-compose up      # Start services
+#   docker-compose down    # Stop services
+#
+
+services:
+  # ========================================================================
+  # BigQuery Emulator
+  # ========================================================================
+  bigquery-emulator:
+    image: ghcr.io/goccy/bigquery-emulator:latest
+    container_name: bq-emulator
+    ports:
+      - "9050:9050"
+    environment:
+      BIGQUERY_EMULATOR_DATASET: raw
+    volumes:
+      - bq_emulator_data:/workspace
+    command: >
+      --project=test-project
+      --dataset=raw
+      --port=9050
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9050/"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loa-local
+
+
+  # ========================================================================
+  # Pub/Sub Emulator
+  # ========================================================================
+  pubsub-emulator:
+    image: google/cloud-sdk:latest
+    container_name: pubsub-emulator
+    ports:
+      - "8085:8085"
+    environment:
+      PUBSUB_PROJECT_ID: test-project
+      PUBSUB_EMULATOR_HOST: 0.0.0.0:8085
+    entrypoint: >
+      bash -c "apt-get update &&
+      apt-get install -y google-cloud-sdk-pubsub-emulator &&
+      gcloud beta emulators pubsub start --host-port=0.0.0.0:8085"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/v1/projects/test-project"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loa-local
+
+
+  # ========================================================================
+  # Mock GCS (using MinIO)
+  # ========================================================================
+  minio:
+    image: minio/minio:latest
+    container_name: minio-gcs
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - minio_data:/minio_data
+    command: server /minio_data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loa-local
+
+
+  # ========================================================================
+  # PostgreSQL (for test metadata)
+  # ========================================================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres-test
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: loa_test
+      POSTGRES_USER: testuser
+      POSTGRES_PASSWORD: testpass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U testuser -d loa_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loa-local
+
+
+  # ========================================================================
+  # Redis (for caching)
+  # ========================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - loa-local
+
+
+networks:
+  loa-local:
+    driver: bridge
+
+
+volumes:
+  bq_emulator_data:
+    driver: local
+  minio_data:
+    driver: local
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+
+# ============================================================================
+# SERVICE ENDPOINTS
+# ============================================================================
+#
+# BigQuery Emulator:
+#   - Host: localhost:9050
+#   - Project: test-project
+#   - Dataset: raw
+#   - Connection: GRPC (port 9050)
+#
+# Pub/Sub Emulator:
+#   - Host: localhost:8085
+#   - Project: test-project
+#   - Topics: Can be created via API
+#
+# GCS Mock (MinIO):
+#   - S3 API: http://localhost:9000
+#   - Console: http://localhost:9001
+#   - Bucket: loa-input, loa-archive, loa-error (created on startup)
+#   - Access Key: minioadmin
+#   - Secret Key: minioadmin
+#
+# PostgreSQL:
+#   - Host: localhost:5432
+#   - Database: loa_test
+#   - User: testuser
+#   - Password: testpass
+#
+# Redis:
+#   - Host: localhost:6379
+#   - Default database: 0
+#
+# ============================================================================
+# ENVIRONMENT SETUP
+# ============================================================================
+#
+# In your Python tests, set these environment variables:
+#
+#   export BIGQUERY_EMULATOR_HOST=localhost:9050
+#   export PUBSUB_EMULATOR_HOST=localhost:8085
+#   export GOOGLE_CLOUD_PROJECT=test-project
+#   export AWS_ACCESS_KEY_ID=minioadmin
+#   export AWS_SECRET_ACCESS_KEY=minioadmin
+#   export MINIO_ENDPOINT=localhost:9000
+#
+# ============================================================================
+# USEFUL COMMANDS
+# ============================================================================
+#
+# Start services:
+#   docker-compose up -d
+#
+# View logs:
+#   docker-compose logs -f [service-name]
+#
+# Stop services:
+#   docker-compose down
+#
+# Remove volumes (reset data):
+#   docker-compose down -v
+#
+# Rebuild images:
+#   docker-compose build --no-cache
+#
+# Access MinIO console:
+#   Open browser: http://localhost:9001
+#   Username: minioadmin
+#   Password: minioadmin
+#
+# Create MinIO bucket:
+#   mc alias set minio http://localhost:9000 minioadmin minioadmin
+#   mc mb minio/loa-input
+#
+# ============================================================================
+

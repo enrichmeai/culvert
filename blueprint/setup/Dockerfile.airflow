@@ -1,0 +1,54 @@
+# LOA Blueprint - Airflow Docker Image
+# Includes: Apache Airflow with all providers, Cloud Composer compatibility
+# Build: docker build -f Dockerfile.airflow -t loa-blueprint-airflow:latest .
+# Run: docker-compose up -d airflow-webserver airflow-scheduler
+
+FROM apache/airflow:2.7.1-python3.11
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    AIRFLOW_HOME=/home/appuser/airflow
+
+# Switch to root to install dependencies
+USER root
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    curl \
+    postgresql-client \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to airflow user
+USER airflow
+
+# Install Python dependencies
+COPY setup/requirements.txt setup/requirements-dev.txt setup/requirements-ci.txt ./
+
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt && \
+    pip install \
+    apache-airflow-providers-google==10.10.1 \
+    apache-airflow-providers-slack==7.0.0 \
+    apache-airflow-providers-postgres==5.7.1 \
+    apache-beam[gcp]==2.49.0
+
+# Copy application code
+COPY . /app/blueprint
+COPY components /app/components
+
+# Create airflow directories
+RUN mkdir -p ${AIRFLOW_HOME}/{dags,plugins,logs} && \
+    chmod -R 755 ${AIRFLOW_HOME}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# Default command
+CMD ["airflow", "webserver"]
+

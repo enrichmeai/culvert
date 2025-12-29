@@ -1,0 +1,7 @@
+ccollateral_id,application_id,collateral_type,collateral_value,appraisal_date,appraiser_name,account_number,branch_code
+COL001,APP001,PROPERTY,350000,2025-01-10,ABC Appraisals Inc,12345678,NY1234
+COL002,APP002,VEHICLE,45000,2025-01-12,XYZ Auto Appraisers,23456789,CA5678
+COL003,APP003,PROPERTY,280000,2025-01-09,Smith Appraisal Co,34567890,TX9012
+COL004,APP001,SECURITIES,100000,2025-01-11,Investment Valuers,12345678,NY1234
+COL005,APP005,PROPERTY,500000,2025-01-08,Premium Appraisals,56789012,MI5678
+u

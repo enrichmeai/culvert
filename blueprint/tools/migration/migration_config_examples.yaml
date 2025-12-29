@@ -1,0 +1,138 @@
+# Bulk Migration Configuration Examples
+
+# Example 1: Migrate COBOL data files
+source_type: cobol
+source_dir: /path/to/legacy/cobol/data
+output_dir: /path/to/modern/csv_output
+parallel_workers: 8
+file_patterns:
+  - '*.dat'
+  - '*.txt'
+validation_enabled: true
+backup_enabled: true
+dry_run: false
+
+# Copybook mappings (optional)
+copybook_mappings:
+  CUSTMAST.dat: CUSTMAST.cpy
+  ORDMAST.dat: ORDMAST.cpy
+  PRODMAST.dat: PRODMAST.cpy
+
+# Validation rules
+validation_rules:
+  required_fields:
+    - customer_id
+    - customer_name
+  email_validation: true
+  date_format: '%Y-%m-%d'
+
+---
+
+# Example 2: Migrate JCL jobs to Airflow
+source_type: jcl
+source_dir: /path/to/legacy/jcl
+output_dir: /path/to/modern/airflow/dags
+parallel_workers: 4
+file_patterns:
+  - '*.jcl'
+  - '*.JCL'
+validation_enabled: true
+backup_enabled: true
+dry_run: false
+
+# JCL to Airflow mapping
+airflow_config:
+  dag_schedule: '@daily'
+  default_retries: 3
+  email_on_failure: true
+  email_list:
+    - team@example.com
+
+---
+
+# Example 3: Migrate Teradata tables to BigQuery
+source_type: teradata
+source_dir: /path/to/teradata/schemas
+output_dir: /path/to/modern/bigquery
+parallel_workers: 6
+validation_enabled: true
+backup_enabled: true
+dry_run: false
+
+# Teradata connection
+teradata_config:
+  host: teradata-prod.company.com
+  database: PROD_DB
+  user: ${TERADATA_USER}
+  password: ${TERADATA_PASSWORD}
+
+# BigQuery configuration
+bigquery_config:
+  project_id: my-gcp-project
+  dataset_id: migrated_data
+  location: US
+
+# Tables to migrate
+tables:
+  - CUSTOMER
+  - ORDERS
+  - PRODUCTS
+  - TRANSACTIONS
+  - EMPLOYEES
+  - DEPARTMENTS
+
+# Or migrate all tables in a schema
+migrate_all_tables: true
+exclude_tables:
+  - TEMP_TABLE
+  - BACKUP_TABLE
+
+---
+
+# Example 4: Full production migration configuration
+source_type: cobol
+source_dir: /data/mainframe/legacy
+output_dir: /data/cloud/migrated
+parallel_workers: 16
+file_patterns:
+  - '*.dat'
+  - '*.cbl'
+  - '*.cpy'
+validation_enabled: true
+backup_enabled: true
+dry_run: false
+
+# Performance tuning
+performance:
+  batch_size: 10000
+  memory_limit_mb: 4096
+  timeout_seconds: 3600
+  checkpoint_interval: 1000
+
+# Error handling
+error_handling:
+  max_errors_per_file: 100
+  continue_on_error: true
+  error_output_dir: /data/cloud/errors
+
+# Logging
+logging:
+  level: INFO
+  file: /var/log/migration.log
+  rotation: daily
+  retention_days: 30
+
+# Notifications
+notifications:
+  slack_webhook: ${SLACK_WEBHOOK_URL}
+  email_recipients:
+    - team@example.com
+    - migration-alerts@example.com
+
+# Post-migration actions
+post_migration:
+  generate_dbt_models: true
+  run_data_quality_checks: true
+  upload_to_bigquery: true
+  create_documentation: true
+

@@ -1,0 +1,51 @@
+[
+  {
+    "name": "run_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for this pipeline run"
+  },
+  {
+    "name": "processed_timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Timestamp when error was detected"
+  },
+  {
+    "name": "source_file",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Name of source file"
+  },
+  {
+    "name": "application_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Application identifier (if available)"
+  },
+  {
+    "name": "error_field",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Field that failed validation"
+  },
+  {
+    "name": "error_value",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Value that caused the error"
+  },
+  {
+    "name": "error_message",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Description of validation error"
+  },
+  {
+    "name": "raw_record",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Original raw record that failed validation"
+  }
+]
+
