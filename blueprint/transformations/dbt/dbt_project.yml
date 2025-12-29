@@ -1,0 +1,55 @@
+name: 'loa_transformations'
+version: '1.0.0'
+config-version: 2
+
+profile: 'loa_migration'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros", "../../gdw_data_core/transformations/dbt_shared/macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Documentation
+docs-paths: ["docs"]
+
+models:
+  loa_transformations:
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging", "loa"]
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ["marts", "loa"]
+      +partition_by:
+        field: application_date
+        data_type: date
+      +cluster_by: ["loan_type", "branch_code"]
+    analytics:
+      +materialized: table
+      +schema: analytics
+      +tags: ["analytics", "loa"]
+
+vars:
+  # LOA-specific variables
+  source_dataset: "loa_migration"
+  staging_dataset: "loa_staging"
+  marts_dataset: "loa_marts"
+  analytics_dataset: "loa_analytics"
+
+  # Date parameters
+  current_date: "CURRENT_DATE()"
+  lookback_days: 90
+
+  # Business rules
+  min_loan_amount: 1
+  max_loan_amount: 1000000
+  valid_loan_types: ['MORTGAGE', 'PERSONAL', 'AUTO', 'HOME_EQUITY']

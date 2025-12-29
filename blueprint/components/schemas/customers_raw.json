@@ -1,0 +1,75 @@
+[
+  {
+    "name": "run_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Unique pipeline run identifier"
+  },
+  {
+    "name": "processed_timestamp",
+    "type": "TIMESTAMP",
+    "mode": "NULLABLE",
+    "description": "When the record was processed by the pipeline"
+  },
+  {
+    "name": "source_file",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Original CSV file name from mainframe"
+  },
+  {
+    "name": "customer_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique customer identifier"
+  },
+  {
+    "name": "ssn",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Social Security Number (validated by loa_common)"
+  },
+  {
+    "name": "customer_name",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Customer full name"
+  },
+  {
+    "name": "account_number",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Bank account number (validated by loa_common)"
+  },
+  {
+    "name": "email",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Customer email address"
+  },
+  {
+    "name": "phone",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Customer phone number"
+  },
+  {
+    "name": "credit_score",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Credit score (300-850)"
+  },
+  {
+    "name": "customer_since",
+    "type": "DATE",
+    "mode": "NULLABLE",
+    "description": "Date customer joined"
+  },
+  {
+    "name": "branch_code",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Primary branch code (validated by loa_common)"
+  }
+]
+

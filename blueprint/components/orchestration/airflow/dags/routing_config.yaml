@@ -1,0 +1,14 @@
+# Routing configuration for LOA Blueprint Pipeline Selector
+default_pipeline: default_batch_pipeline
+
+routing_rules:
+  - pipeline_id: legacy_type_a_pipeline
+    file_pattern: "*/TYPE_A_*"
+    entity_type: applications
+
+  - pipeline_id: legacy_type_b_pipeline
+    file_pattern: "*/TYPE_B_*"
+    entity_type: customer_master
+
+  - pipeline_id: realtime_event_pipeline
+    entity_type: realtime_event

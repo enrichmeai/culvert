@@ -1,0 +1,63 @@
+[
+  {
+    "name": "run_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique identifier for this pipeline run"
+  },
+  {
+    "name": "processed_timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "Timestamp when record was processed"
+  },
+  {
+    "name": "source_file",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Name of source file"
+  },
+  {
+    "name": "application_id",
+    "type": "STRING",
+    "mode": "REQUIRED",
+    "description": "Unique application identifier"
+  },
+  {
+    "name": "ssn",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Social Security Number (masked)"
+  },
+  {
+    "name": "applicant_name",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Full name of applicant"
+  },
+  {
+    "name": "loan_amount",
+    "type": "INTEGER",
+    "mode": "NULLABLE",
+    "description": "Loan amount in dollars"
+  },
+  {
+    "name": "loan_type",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Type of loan (MORTGAGE, PERSONAL, AUTO, HOME_EQUITY)"
+  },
+  {
+    "name": "application_date",
+    "type": "DATE",
+    "mode": "NULLABLE",
+    "description": "Date application was submitted"
+  },
+  {
+    "name": "branch_code",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Branch code where application was processed"
+  }
+]
+

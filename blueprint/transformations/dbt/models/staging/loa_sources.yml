@@ -1,0 +1,303 @@
+version: 2
+
+sources:
+  - name: loa_raw
+    description: Raw loan application data from mainframe via Dataflow pipeline
+    database: loa-migration-staging  # GCP project
+    schema: loa_migration
+
+    tables:
+      - name: applications_raw
+        description: |
+          Valid loan application records after validation.
+          Source: Mainframe JCL job LOAJOB
+          Pipeline: Apache Beam/Dataflow
+          Partition: Daily by processed_timestamp
+
+        columns:
+          - name: run_id
+            description: Unique pipeline run identifier
+            tests:
+              - not_null
+
+          - name: processed_timestamp
+            description: When the record was processed by the pipeline
+            tests:
+              - not_null
+
+          - name: source_file
+            description: Original CSV file name from mainframe
+
+          - name: application_id
+            description: Unique application identifier
+            tests:
+              - not_null
+              - unique
+
+          - name: ssn
+            description: Social Security Number (masked in logs)
+
+          - name: applicant_name
+            description: Full name of applicant
+
+          - name: loan_amount
+            description: Loan amount in dollars
+            tests:
+              - not_null
+
+          - name: loan_type
+            description: Type of loan (MORTGAGE, PERSONAL, AUTO, HOME_EQUITY)
+            tests:
+              - not_null
+              - accepted_values:
+                  values: ['MORTGAGE', 'PERSONAL', 'AUTO', 'HOME_EQUITY']
+
+          - name: application_date
+            description: Date the application was submitted
+            tests:
+              - not_null
+
+          - name: branch_code
+            description: Processing branch code
+            tests:
+              - not_null
+
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
+
+        loaded_at_field: processed_timestamp
+
+      - name: customers_raw
+        description: |
+          Customer master data from mainframe.
+          Source: Mainframe JCL job CUSTNOJOB
+          Pipeline: Apache Beam/Dataflow (reuses loa_common validation)
+          Partition: Daily by processed_timestamp
+          
+          Demonstrates:
+          - Reuse of validation framework (validate_ssn, validate_account_number)
+          - Same audit trail pattern (run_id, processed_timestamp)
+          - Same error handling (customers_errors table)
+          - Consistent PII masking
+
+        columns:
+          - name: run_id
+            description: Unique pipeline run identifier (same pattern as applications)
+
+          - name: processed_timestamp
+            description: When processed (same pattern as applications)
+
+          - name: source_file
+            description: Source file name
+
+          - name: customer_id
+            description: Unique customer identifier
+            tests:
+              - not_null
+              - unique
+
+          - name: ssn
+            description: Social Security Number (validated by shared loa_common)
+
+          - name: customer_name
+            description: Customer full name
+
+          - name: account_number
+            description: Bank account number (validated by shared loa_common)
+
+          - name: email
+            description: Customer email
+
+          - name: phone
+            description: Customer phone
+
+          - name: credit_score
+            description: Credit score (300-850)
+
+          - name: customer_since
+            description: Date customer joined
+
+          - name: branch_code
+            description: Primary branch (validated by shared loa_common)
+
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 48, period: hour}
+
+        loaded_at_field: processed_timestamp
+
+      - name: applications_errors
+        description: |
+          Validation errors from loan application processing.
+          Used for data quality monitoring and error analysis.
+
+        columns:
+          - name: run_id
+            description: Pipeline run identifier
+
+          - name: processed_timestamp
+            description: When the error occurred
+
+          - name: source_file
+            description: Source file containing the error
+
+          - name: application_id
+            description: Application ID (if parseable)
+
+          - name: error_field
+            description: Field that failed validation
+
+          - name: error_message
+            description: Validation error message
+
+          - name: error_value
+            description: Value that caused the error
+
+          - name: raw_record
+            description: Complete raw record as JSON
+
+      - name: customers_errors
+        description: |
+          Validation errors from customer processing (CUSTNOJOB).
+          Same structure as applications_errors - demonstrates reusable pattern.
+
+        columns:
+          - name: run_id
+            description: Pipeline run identifier
+
+          - name: processed_timestamp
+            description: When the error occurred
+
+          - name: source_file
+            description: Source file containing the error
+
+          - name: customer_id
+            description: Customer ID (if parseable)
+
+          - name: error_field
+            description: Field that failed validation
+
+          - name: error_message
+            description: Validation error message
+
+          - name: error_value
+            description: Value that caused the error
+
+          - name: raw_record
+            description: Complete raw record as JSON
+
+      - name: branches_raw
+        description: |
+          Branch information from mainframe.
+          Source: Mainframe JCL job BRANCHJOB
+          Pipeline: Apache Beam/Dataflow (reuses loa_common validation)
+          
+          Demonstrates:
+          - Reuse of validation framework (validate_branch_code, validate_date)
+          - Same audit trail pattern
+          - Reference data for all other entities
+
+        columns:
+          - name: run_id
+            description: Unique pipeline run identifier
+
+          - name: processed_timestamp
+            description: When processed
+
+          - name: source_file
+            description: Source file name
+
+          - name: branch_code
+            description: Unique branch code (validated by loa_common)
+            tests:
+              - not_null
+              - unique
+
+          - name: branch_name
+            description: Branch name
+
+          - name: region
+            description: Geographic region
+
+          - name: state
+            description: State code
+
+          - name: city
+            description: City name
+
+          - name: zip_code
+            description: ZIP code
+
+          - name: manager_name
+            description: Branch manager name
+
+          - name: opened_date
+            description: Date branch opened
+
+          - name: employee_count
+            description: Number of employees
+
+        freshness:
+          warn_after: {count: 7, period: day}
+          error_after: {count: 30, period: day}
+
+        loaded_at_field: processed_timestamp
+
+      - name: collateral_raw
+        description: |
+          Collateral details from mainframe.
+          Source: Mainframe JCL job COLLATERAL
+          Pipeline: Apache Beam/Dataflow (reuses loa_common validation)
+          
+          Demonstrates:
+          - Reuse of validation framework (validate_amount, validate_account_number)
+          - Links to applications via application_id
+          - Same audit trail pattern
+
+        columns:
+          - name: run_id
+            description: Unique pipeline run identifier
+
+          - name: processed_timestamp
+            description: When processed
+
+          - name: source_file
+            description: Source file name
+
+          - name: collateral_id
+            description: Unique collateral identifier
+            tests:
+              - not_null
+              - unique
+
+          - name: application_id
+            description: Related application ID (foreign key)
+
+          - name: collateral_type
+            description: Type of collateral
+            tests:
+              - accepted_values:
+                  values: ['PROPERTY', 'VEHICLE', 'SECURITIES']
+
+          - name: collateral_value
+            description: Appraised value in dollars
+
+          - name: appraisal_date
+            description: Date of appraisal
+
+          - name: appraiser_name
+            description: Appraiser/company name
+
+          - name: account_number
+            description: Related account number
+
+          - name: branch_code
+            description: Processing branch code
+
+        freshness:
+          warn_after: {count: 6, period: hour}
+          error_after: {count: 24, period: hour}
+
+        loaded_at_field: processed_timestamp
+

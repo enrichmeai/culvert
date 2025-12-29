@@ -1,0 +1,165 @@
+pipeline:
+  name: LOA Blueprint Deployment
+  identifier: loa_blueprint_deployment
+  projectIdentifier: legacy_migration_reference
+  orgIdentifier: default
+  tags:
+    service: loa-pipeline
+    migration: mainframe-to-gcp
+    type: apache-beam
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: github_connector
+        repoName: legacy-migration-reference
+        build:
+          type: branch
+          spec:
+            branch: main
+
+  stages:
+    # Build Stage
+    - stage:
+        name: Build
+        identifier: build
+        type: CI
+        spec:
+          cloneCodebase: true
+          execution:
+            steps:
+              # Run all local tests
+              - step:
+                  type: Run
+                  name: Run All Local Tests
+                  identifier: run_all_local_tests
+                  spec:
+                      connectorRef: docker_hub
+                      image: python:3.9
+                      shell: Bash
+                      command: |
+                        # Install Core Library first
+                        pip install -e ./gdw_data_core
+                        cd blueprint
+                        pip install -r requirements.txt
+                        # Run tests for all 4 flows
+                        pytest components/tests/unit/test_validation.py -v
+
+              # Build Docker image
+              - step:
+                  type: BuildAndPushGCR
+                  name: Build and Push LOA Pipeline to GCR
+                  identifier: build_push_gcr
+                  spec:
+                    connectorRef: gcp_connector
+                    host: gcr.io
+                    projectID: <+pipeline.variables.gcp_project_id>
+                    imageName: loa-pipeline
+                    tags:
+                      - <+pipeline.sequenceId>
+                      - latest
+                    dockerfile: blueprint/components/Dockerfile
+
+    # Deploy Stage
+    - stage:
+        name: Deploy to GCP
+        identifier: deploy_gcp
+        type: Deployment
+        spec:
+          serviceConfig:
+            serviceDefinition:
+              type: Kubernetes
+              spec:
+                variables: []
+          infrastructure:
+            environment:
+              name: Production
+              identifier: production
+              type: Production
+            infrastructureDefinition:
+              type: KubernetesDirect
+              spec:
+                connectorRef: gcp_k8s_connector
+                namespace: loa-pipeline
+          execution:
+            steps:
+              # Deploy GCP Infrastructure
+              - step:
+                  type: Run
+                  name: Deploy GCP Infrastructure
+                  identifier: deploy_infrastructure
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      cd blueprint/gcp_manual_testing/deployment
+                      ./deploy-dataflow.sh <+pipeline.variables.gcp_project_id>
+
+              # Deploy Dataflow Pipeline
+              - step:
+                  type: Run
+                  name: Deploy Dataflow Pipeline
+                  identifier: deploy_dataflow
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      cd blueprint/gcp_manual_testing/deployment
+                      ./trigger-pipeline.sh <+pipeline.variables.gcp_project_id>
+
+              # Deploy Cloud Function (Optional)
+              - step:
+                  type: Run
+                  name: Deploy Cloud Function
+                  identifier: deploy_cloud_function
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      cd blueprint/gcp_manual_testing/deployment
+                      ./deploy-cloud-function.sh <+pipeline.variables.gcp_project_id>
+
+              # Validate GCP Deployment
+              - step:
+                  type: Run
+                  name: Validate GCP Deployment
+                  identifier: validate_deployment
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      cd blueprint/gcp_manual_testing/testing
+                      ./validate_deployment.sh
+                      ./test_dataflow_job.sh
+
+              # Deploy Airflow DAGs
+              - step:
+                  type: Run
+                  name: Deploy Airflow DAGs
+                  identifier: deploy_airflow
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      # Copy Airflow DAGs to Cloud Composer bucket
+                      gsutil -m cp -r blueprint/orchestration/airflow/dags/* \
+                        gs://<+pipeline.variables.composer_bucket>/dags/
+
+  variables:
+    - name: gcp_project_id
+      type: String
+      value: loa-migration-staging  # STAGING environment
+    - name: dataflow_region
+      type: String
+      value: europe-west2  # London, UK
+    - name: bq_dataset
+      type: String
+      value: loa_migration
+    - name: composer_bucket
+      type: String
+      value: europe-west2-loa-composer

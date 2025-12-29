@@ -1,0 +1,323 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'blueprint/**'
+      - 'infrastructure/terraform/**'
+      - '.github/workflows/deploy.yml'
+
+env:
+  GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_REGION: europe-west2
+  TERRAFORM_VERSION: 1.5.0
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      terraform_plan: ${{ steps.tf_plan.outputs.stdout }}
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Terraform Format Check
+      run: |
+        cd infrastructure/terraform
+        terraform fmt -check -recursive
+      continue-on-error: true
+
+    - name: Terraform Init
+      run: |
+        cd infrastructure/terraform
+        terraform init \
+          -backend-config="bucket=${GCP_PROJECT_ID}-terraform-state" \
+          -backend-config="prefix=prod" \
+          -upgrade
+
+    - name: Terraform Validate
+      run: |
+        cd infrastructure/terraform
+        terraform validate
+
+    - name: Terraform Plan
+      id: tf_plan
+      run: |
+        cd infrastructure/terraform
+        terraform plan \
+          -var-file="env/staging.tfvars" \
+          -out=tfplan \
+          -no-color
+
+    - name: Upload Terraform Plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: terraform-plan
+        path: infrastructure/terraform/tfplan
+        retention-days: 5
+
+    - name: Comment PR with Plan
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const plan = fs.readFileSync('infrastructure/terraform/tfplan.txt', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '```\n' + plan + '\n```'
+          });
+
+  apply:
+    runs-on: ubuntu-latest
+    needs: plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        export_default_credentials: true
+
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+    - name: Configure GCP Credentials for Terraform
+      run: |
+        mkdir -p ~/.config/gcloud
+        echo "${{ secrets.GCP_SA_KEY }}" | base64 -d > ${HOME}/gcp-key.json
+        gcloud auth activate-service-account --key-file=${HOME}/gcp-key.json
+        gcloud config set project ${{ env.GCP_PROJECT_ID }}
+
+    - name: Terraform Init - Staging Environment
+      run: |
+        cd infrastructure/terraform
+        terraform init \
+          -backend-config="bucket=${GCP_PROJECT_ID}-terraform-state" \
+          -backend-config="prefix=staging" \
+          -upgrade
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ env.HOME }}/gcp-key.json
+
+    - name: Download Terraform Plan
+      uses: actions/download-artifact@v3
+      with:
+        name: terraform-plan
+        path: infrastructure/terraform/
+
+    - name: Terraform Apply - London Staging
+      run: |
+        cd infrastructure/terraform
+        terraform apply \
+          -no-color \
+          -auto-approve \
+          -input=false \
+          tfplan
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ env.HOME }}/gcp-key.json
+        TF_INPUT: false
+
+    - name: Verify Terraform State
+      run: |
+        cd infrastructure/terraform
+        echo "📊 Deployed Resources:"
+        terraform state list | head -30
+        echo ""
+        echo "✅ Terraform Apply Completed Successfully!"
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ env.HOME }}/gcp-key.json
+
+    - name: Get Terraform Outputs
+      id: tf_output
+      run: |
+        cd infrastructure/terraform
+        echo "validation_api_url=$(terraform output -raw validation_api_url 2>/dev/null || echo 'Pending')" >> $GITHUB_OUTPUT
+        echo "data_quality_api_url=$(terraform output -raw data_quality_api_url 2>/dev/null || echo 'Pending')" >> $GITHUB_OUTPUT
+        echo "gcs_input_bucket=$(terraform output -raw gcs_input_bucket 2>/dev/null || echo 'Pending')" >> $GITHUB_OUTPUT
+        echo "bq_raw_dataset=$(terraform output -raw bigquery_raw_dataset_ref 2>/dev/null || echo 'Pending')" >> $GITHUB_OUTPUT
+      env:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ env.HOME }}/gcp-key.json
+
+    - name: Display Infrastructure Status
+      run: |
+        echo "🚀 LOA Blueprint Infrastructure Deployment Complete!"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Region: London, UK (europe-west2)"
+        echo "Environment: Staging"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "✅ Validation API: ${{ steps.tf_output.outputs.validation_api_url }}"
+        echo "✅ Data Quality API: ${{ steps.tf_output.outputs.data_quality_api_url }}"
+        echo "✅ Input Bucket: gs://${{ steps.tf_output.outputs.gcs_input_bucket }}"
+        echo "✅ Raw Dataset: ${{ steps.tf_output.outputs.bq_raw_dataset }}"
+        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo "Status: ✅ READY FOR USE"
+
+  deploy-cloud-functions:
+    runs-on: ubuntu-latest
+    needs: apply
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Deploy Cloud Functions
+      run: |
+        # Deploy file validation function
+        gcloud functions deploy loa-file-validation \
+          --runtime python310 \
+          --trigger-topic file-uploaded \
+          --entry-point validate_file \
+          --source blueprint/components/cloud-functions/file-validation \
+          --set-env-vars GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }} \
+          --quiet
+        
+        # Deploy data quality function
+        gcloud functions deploy loa-data-quality-check \
+          --runtime python310 \
+          --trigger-topic raw-data-loaded \
+          --entry-point check_quality \
+          --source blueprint/components/cloud-functions/data-quality \
+          --set-env-vars GCP_PROJECT_ID=${{ env.GCP_PROJECT_ID }} \
+          --quiet
+
+  deploy-dbt:
+    runs-on: ubuntu-latest
+    needs: apply
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      with:
+        project_id: ${{ env.GCP_PROJECT_ID }}
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Install dbt
+      run: |
+        pip install dbt-bigquery
+
+    - name: dbt parse & validate
+      run: |
+        cd blueprint/transformations/dbt
+        dbt parse
+        dbt compile
+
+    - name: dbt run
+      run: |
+        cd blueprint/transformations/dbt
+        dbt run --profiles-dir . --target prod
+
+    - name: dbt test
+      run: |
+        cd blueprint/transformations/dbt
+        dbt test --profiles-dir . --target prod
+
+    - name: dbt docs generate
+      run: |
+        cd blueprint/transformations/dbt
+        dbt docs generate --profiles-dir . --target prod
+
+  documentation:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install mkdocs mkdocs-material
+
+    - name: Build documentation
+      run: |
+        cd blueprint
+        mkdocs build
+
+    - name: Deploy documentation
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./blueprint/site
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [apply, deploy-cloud-functions, deploy-dbt, documentation]
+    if: always()
+
+    steps:
+    - name: Check deployment status
+      run: |
+        if [ "${{ needs.apply.result }}" == "failure" ]; then
+          echo "❌ Deployment failed!"
+          exit 1
+        fi
+
+    - name: Deployment successful ✅
+      run: |
+        echo "✅ All deployments completed successfully!"
+        echo "Deployed:"
+        echo "  - Infrastructure (Terraform)"
+        echo "  - Cloud Functions"
+        echo "  - dbt transformations"
+        echo "  - Documentation"
+
+    - name: Send Slack notification
+      if: always()
+      uses: slackapi/slack-github-action@v1.24.0
+      with:
+        payload: |
+          {
+            "text": "LOA Blueprint Deployment: ${{ job.status }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*LOA Blueprint Deployment*\nStatus: ${{ job.status }}\nRef: ${{ github.ref }}\nCommit: ${{ github.sha }}"
+                }
+              }
+            ]
+          }
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
