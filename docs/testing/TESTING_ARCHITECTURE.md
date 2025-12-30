@@ -29,9 +29,7 @@ legacy-migration-reference/
 │   │   ├── requirements-dev.txt                      (existing)
 │   │   └── requirements-test.txt                     ✨ NEW - Test dependencies
 │   │
-│   ├── GCP_DEPLOYMENT_TESTING_GUIDE.py               ✨ NEW - Python test runner
-│   ├── run_full_tests.sh                             ✨ NEW - Shell test runner
-│   └── run_tests.sh                                  (existing)
+│   ├── run_tests.sh                                  (existing)
 │
 ├── .github/
 │   └── workflows/
@@ -39,7 +37,6 @@ legacy-migration-reference/
 │
 ├── COMPLETE_TESTING_GUIDE.md                         ✨ NEW - Complete guide
 ├── QUICK_START_TESTING.md                            ✨ NEW - Quick start guide
-├── TESTING_IMPLEMENTATION_SUMMARY.md                 ✨ NEW - Implementation summary
 │
 └── gdw_data_core/
     └── tests/
@@ -277,14 +274,8 @@ QUICK_START_TESTING.md (Start here!)
     │   ├─ Troubleshooting
     │   └─ Best Practices
     │
-    ├─► blueprint/GCP_DEPLOYMENT_TESTING_GUIDE.py (Runnable)
-    │   └─ CLI interface for test phases
-    │
-    ├─► blueprint/run_full_tests.sh (Shell interface)
-    │   └─ Colored output, report generation
-    │
-    └─► TESTING_IMPLEMENTATION_SUMMARY.md (Overview)
-        └─ Files, statistics, usage examples
+    └─► COMPLETE_TESTING_GUIDE.md (Comprehensive)
+        └─ Detailed testing guide
 ```
 
 ---

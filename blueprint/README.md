@@ -160,21 +160,18 @@ results = pipeline.process()
 
 ```bash
 # 1. Review deployment guide
-cat FINAL_DEPLOYMENT_VALIDATION.md
+cat docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md
 
 # 2. Run validation
-python3 validate_deployment.py
+python3 ../validate_deployment.py
 
 # 3. Deploy infrastructure
 cd infrastructure/terraform
 terraform apply -var="gcp_project_id=YOUR_PROJECT"
-
-# 4. Monitor deployment
-gh run list -w gcp-deployment-tests.yml
 ```
 
 **Time Required:** 30-45 minutes  
-**Documentation:** See [FINAL_DEPLOYMENT_VALIDATION.md](../FINAL_DEPLOYMENT_VALIDATION.md)
+**Documentation:** See [GCP_DEPLOYMENT_GUIDE.md](./docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md)
 
 ### 🟡 Path 2: Local Testing First
 
@@ -185,7 +182,7 @@ gh run list -w gcp-deployment-tests.yml
 pip install -r setup/requirements-test.txt
 
 # 2. Run all tests (Unit, Integration, BDD)
-./run_full_tests.sh --full --coverage --report
+./run_tests.sh --full
 
 # 3. Run BDD tests specifically
 pytest components/tests/bdd/step_definitions/ -v
@@ -453,11 +450,8 @@ See [EPIC_STRUCTURE.md](./docs/02-architecture/EPIC_STRUCTURE.md) for complete i
 ### 🟢 Level 1: Quick Validation (5 minutes)
 
 ```bash
-# Validate Airflow DAG structure
-python blueprint/testing/test_airflow_locally.py --verbose
-
-# Or quick local pipeline test
-python3 components/LOCAL_INTEGRATION/test_loa_local.py
+# Quick local pipeline test
+python3 components/tests/integration/test_loa_local.py
 ```
 ✅ **Validates:** DAG structure, basic pipeline flow  
 **Cost:** FREE  
@@ -471,15 +465,15 @@ python3 components/LOCAL_INTEGRATION/test_loa_local.py
 
 ```bash
 # 1. Start local services
+cd setup
 docker-compose up -d                # Local BigQuery, Pub/Sub emulators
 
 # 2. Run complete test suite
-pytest components/tests/ -v --cov   # 350+ tests, 96%+ coverage
+cd ..
+./run_tests.sh --full
 
-# 3. View coverage report
-open htmlcov/index.html              # Coverage details
-
-# 4. Cleanup
+# 3. Cleanup
+cd setup
 docker-compose down                  # Stop services
 ```
 
@@ -604,7 +598,7 @@ git push origin main
 | Need | Documentation |
 |------|---|
 | **Understand the project** | [ARCHITECTURE.md](./docs/02-architecture/ARCHITECTURE.md) |
-| **See what's implemented** | [EPIC_STRUCTURE.md](./docs/02-architecture/EPIC_STRUCTURE.md) & [IMPLEMENTATION_PROGRESS.md](./docs/03-implementation/IMPLEMENTATION_PROGRESS.md) |
+| **See what's implemented** | [EPIC_STRUCTURE.md](./docs/02-architecture/EPIC_STRUCTURE.md) |
 | **Deploy to GCP** | [GCP_DEPLOYMENT_QUICKSTART.md](./docs/04-deployment/GCP_DEPLOYMENT_QUICKSTART.md) |
 | **Test locally** | [LOCAL_TESTING_GUIDE.md](./docs/04-deployment/LOCAL_TESTING_GUIDE.md) |
 | **Build a new job** | [EPIC_STRUCTURE.md](./docs/02-architecture/EPIC_STRUCTURE.md) (How to Use section) |
@@ -618,9 +612,9 @@ git push origin main
 
 ## 🎯 Getting Started (3 Simple Steps)
 
-1. **Understand** - Read [ARCHITECTURE.md](./docs/02-architecture/ARCHITECTURE.md) (15 min)
-2. **Test** - Run `./blueprint/testing/run_tests.sh` or use Docker (30 min)
-3. **Deploy** - Follow [GCP_DEPLOYMENT_QUICKSTART.md](./docs/04-deployment/GCP_DEPLOYMENT_QUICKSTART.md) (45 min)
+1. Understand - Read [ARCHITECTURE.md](./docs/02-architecture/ARCHITECTURE.md) (15 min)
+2. Test - Run `./run_tests.sh` or use Docker (30 min)
+3. Deploy - Follow [GCP_DEPLOYMENT_QUICKSTART.md](./docs/04-deployment/GCP_DEPLOYMENT_QUICKSTART.md) (45 min)
 
 ---
 

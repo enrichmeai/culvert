@@ -61,7 +61,7 @@ pip install -r setup/requirements-test.txt
 
 ```bash
 # Option A: Using the test runner script
-./run_full_tests.sh --unit --integration --coverage
+./run_tests.sh
 
 # Option B: Using pytest directly
 pytest components/tests/unit/ -v --cov=components
@@ -181,10 +181,10 @@ pytest blueprint/components/tests/chaos/ -v
    - Staging tests on main branch
    - Nightly performance tests
 
-8. **GCP_DEPLOYMENT_TESTING_GUIDE.py** - Python testing guide
-   - Runnable test phases
-   - Local, staging, and production testing
-   - Performance and chaos testing
+8. **TESTING_ARCHITECTURE.md** - Testing architecture
+   - Test directory structure
+   - Component relationships
+   - CI/CD integration
 
 9. **COMPLETE_TESTING_GUIDE.md** - Complete documentation
    - Testing strategy overview
@@ -228,7 +228,7 @@ pytest blueprint/components/tests/chaos/ -v
 
 ### Run All Tests
 ```bash
-./run_full_tests.sh --full --coverage --report
+./run_tests.sh
 ```
 
 ### Run Specific Test Type
