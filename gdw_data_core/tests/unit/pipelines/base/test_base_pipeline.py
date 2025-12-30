@@ -12,7 +12,7 @@ Tests the enhanced pipeline base class with:
 import pytest
 from unittest.mock import patch, MagicMock, Mock
 from gdw_data_core.pipelines.base import BasePipeline, GDWPipelineOptions, PipelineConfig, lifecycle
-from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 
 
 class TestBasePipeline:
@@ -373,4 +373,87 @@ class TestBasePipelineIntegration:
         assert metrics['counters']['pipeline_completed'] >= 1
         assert pipeline.custom_start_called
         assert pipeline.custom_success_called
+
+    def test_streaming_initialization(self):
+        """Test BasePipeline initialization with streaming enabled."""
+        config = {
+            'pipeline_name': 'streaming_pipeline',
+            'streaming': True
+        }
+
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        pipeline = TestPipeline(config=config)
+
+        assert pipeline.is_streaming is True
+        standard_options = pipeline.options.view_as(StandardOptions)
+        assert standard_options.streaming is True
+
+    @patch('apache_beam.io.ReadFromPubSub')
+    @patch('apache_beam.io.ReadFromText')
+    def test_read_source_gcs(self, mock_read_text, mock_read_pubsub):
+        """Test read_source with GCS."""
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        pipeline = TestPipeline(config={'pipeline_name': 'test'})
+        mock_beam_pipeline = MagicMock()
+
+        source_config = {'type': 'gcs', 'path': 'gs://bucket/file.csv'}
+        pipeline.read_source(mock_beam_pipeline, source_config)
+
+        mock_read_text.assert_called_once_with('gs://bucket/file.csv')
+
+    @patch('apache_beam.io.ReadFromPubSub')
+    def test_read_source_pubsub(self, mock_read_pubsub):
+        """Test read_source with Pub/Sub."""
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        pipeline = TestPipeline(config={'pipeline_name': 'test'})
+        mock_beam_pipeline = MagicMock()
+
+        source_config = {'type': 'pubsub', 'subscription': 'projects/p/subscriptions/s'}
+        pipeline.read_source(mock_beam_pipeline, source_config)
+
+        mock_read_pubsub.assert_called_once_with(subscription='projects/p/subscriptions/s')
+
+    @patch('apache_beam.io.WriteToBigQuery')
+    def test_write_to_bigquery_batch(self, mock_write_bq):
+        """Test write_to_bigquery in batch mode."""
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        pipeline = TestPipeline(config={'pipeline_name': 'test', 'streaming': False})
+        mock_pcoll = MagicMock()
+
+        pipeline.write_to_bigquery(mock_pcoll, 'project:dataset.table', {'fields': []})
+
+        mock_write_bq.assert_called_once()
+        args, kwargs = mock_write_bq.call_args
+        assert args[0] == 'project:dataset.table'
+        assert kwargs['schema'] == {'fields': []}
+        assert 'method' not in kwargs
+
+    @patch('apache_beam.io.WriteToBigQuery')
+    def test_write_to_bigquery_streaming(self, mock_write_bq):
+        """Test write_to_bigquery in streaming mode."""
+        import apache_beam as beam
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        pipeline = TestPipeline(config={'pipeline_name': 'test', 'streaming': True})
+        mock_pcoll = MagicMock()
+
+        pipeline.write_to_bigquery(mock_pcoll, 'project:dataset.table', {'fields': []})
+
+        mock_write_bq.assert_called_once()
+        args, kwargs = mock_write_bq.call_args
+        assert kwargs['method'] == beam.io.WriteToBigQuery.Method.STORAGE_WRITE_API
 

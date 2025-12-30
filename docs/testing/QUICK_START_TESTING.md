@@ -186,7 +186,7 @@ pytest blueprint/components/tests/chaos/ -v
    - Local, staging, and production testing
    - Performance and chaos testing
 
-9. **GCP_DEPLOYMENT_TESTING_GUIDE.md** - Complete documentation
+9. **COMPLETE_TESTING_GUIDE.md** - Complete documentation
    - Testing strategy overview
    - Setup instructions
    - Test execution guide
@@ -316,7 +316,7 @@ gcloud auth application-default print-access-token > /dev/null && \
 
 1. **Read the complete guide:**
    ```bash
-   cat GCP_DEPLOYMENT_TESTING_GUIDE.md
+   cat COMPLETE_TESTING_GUIDE.md
    ```
 
 2. **Set up staging deployment:**
@@ -331,7 +331,7 @@ gcloud auth application-default print-access-token > /dev/null && \
 ## Support
 
 For issues or questions:
-1. Check [GCP_DEPLOYMENT_TESTING_GUIDE.md](../GCP_DEPLOYMENT_TESTING_GUIDE.md) troubleshooting section
+1. Check [COMPLETE_TESTING_GUIDE.md](COMPLETE_TESTING_GUIDE.md) troubleshooting section
 2. Review test output and error messages
 3. Run tests with `-vv` flag for detailed output
 4. Check pytest documentation: https://docs.pytest.org/

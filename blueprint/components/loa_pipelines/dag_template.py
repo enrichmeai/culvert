@@ -16,7 +16,7 @@ Pattern:
 
 Usage:
   # Create DAG for specific job
-  from loa_pipelines.dag_template import create_loa_dag
+  from blueprint.components.loa_pipelines.dag_template import create_loa_dag
 
   dag = create_loa_dag(
       job_name="applications",
@@ -394,7 +394,7 @@ def create_loa_dag(
         )
 
         # In a separate file (e.g., dags/applications_dag.py):
-        from loa_pipelines.dag_template import create_loa_dag
+        from blueprint.components.loa_pipelines.dag_template import create_loa_dag
         applications_dag = create_loa_dag(
             job_name="applications",
             input_pattern="gs://bucket/applications_*",

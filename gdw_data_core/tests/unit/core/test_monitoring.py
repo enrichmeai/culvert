@@ -1,5 +1,5 @@
 import pytest
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from gdw_data_core.core.monitoring import (
     MetricsCollector,
     MetricValue,
@@ -599,11 +599,11 @@ class TestTimerContext:
             run_id="run-123"
         )
 
-        start = datetime.utcnow()
+        start = datetime.now(timezone.utc)
         with collector.start_timer() as timer:
             time.sleep(0.1)  # Sleep for 100ms
 
-        elapsed = (datetime.utcnow() - start).total_seconds()
+        elapsed = (datetime.now(timezone.utc) - start).total_seconds()
         assert elapsed >= 0.1
 
 

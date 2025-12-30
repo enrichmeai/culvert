@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 
 import apache_beam as beam
-from apache_beam.options.pipeline_options import PipelineOptions
+from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 
 from gdw_data_core.core.audit import AuditTrail, AuditPublisher
 from gdw_data_core.core.error_handling import ErrorHandler
@@ -93,6 +93,7 @@ class BasePipeline(ABC):
             >>> pipeline = BasePipeline(options, config)
         """
         self.options = options or GDWPipelineOptions()
+        self._config_dict = {}
 
         # Handle both dict and PipelineConfig inputs
         if isinstance(config, PipelineConfig):
@@ -104,6 +105,12 @@ class BasePipeline(ABC):
         else:
             self.config = None
             self._config_dict = {}
+
+        # Enable streaming if specified in config or options
+        self.is_streaming = self._config_dict.get('streaming', False)
+        standard_options = self.options.view_as(StandardOptions)
+        if self.is_streaming:
+            standard_options.streaming = True
 
         # Generate run ID if not provided
         pipeline_name = self._config_dict.get('pipeline_name', 'pipeline')
@@ -133,7 +140,7 @@ class BasePipeline(ABC):
         publisher = None
         project_id = self._config_dict.get('project_id') or self._config_dict.get('gcp_project_id')
         audit_topic = self._config_dict.get('audit_topic')
-        
+
         if project_id and audit_topic:
             try:
                 publisher = AuditPublisher(project_id=project_id, topic_name=audit_topic)
@@ -313,4 +320,73 @@ class BasePipeline(ABC):
             ...     print(f"Pipeline had {error_count} errors")
         """
         return len(self.error_handler.errors)
+
+    def read_source(self, pipeline: beam.Pipeline, source_config: Dict[str, Any]) -> beam.PCollection:
+        """
+        Helper to read from different sources (Pub/Sub or GCS).
+
+        Args:
+            pipeline: Apache Beam Pipeline instance
+            source_config: Dictionary with source configuration:
+                - type: 'pubsub' or 'gcs'
+                - path: GCS path (for GCS)
+                - subscription: Pub/Sub subscription (for Pub/Sub)
+                - topic: Pub/Sub topic (for Pub/Sub)
+
+        Returns:
+            PCollection of read elements
+        """
+        source_type = source_config.get('type')
+
+        if self.is_streaming or source_type == 'pubsub':
+            subscription = source_config.get('subscription')
+            topic = source_config.get('topic')
+            if subscription:
+                return pipeline | "ReadFromPubSubSub" >> beam.io.ReadFromPubSub(subscription=subscription)
+            elif topic:
+                return pipeline | "ReadFromPubSubTopic" >> beam.io.ReadFromPubSub(topic=topic)
+            else:
+                raise ValueError("Pub/Sub source requires 'subscription' or 'topic'")
+        else:
+            path = source_config.get('path')
+            if not path:
+                raise ValueError("GCS source requires 'path'")
+            return pipeline | "ReadFromGCS" >> beam.io.ReadFromText(path)
+
+    def write_to_bigquery(
+        self,
+        pcoll: beam.PCollection,
+        table_spec: str,
+        schema: Any,
+        write_disposition: beam.io.BigQueryDisposition = beam.io.BigQueryDisposition.WRITE_APPEND,
+        create_disposition: beam.io.BigQueryDisposition = beam.io.BigQueryDisposition.CREATE_IF_NEEDED
+    ) -> beam.io.WriteToBigQuery:
+        """
+        Helper to write to BigQuery, using Storage Write API for streaming.
+
+        Args:
+            pcoll: PCollection to write
+            table_spec: BigQuery table specification (project:dataset.table)
+            schema: Table schema
+            write_disposition: Write disposition
+            create_disposition: Create disposition
+
+        Returns:
+            WriteToBigQuery transform result
+        """
+        if self.is_streaming:
+            return pcoll | "WriteToBQStreaming" >> beam.io.WriteToBigQuery(
+                table_spec,
+                schema=schema,
+                write_disposition=write_disposition,
+                create_disposition=create_disposition,
+                method=beam.io.WriteToBigQuery.Method.STORAGE_WRITE_API
+            )
+        else:
+            return pcoll | "WriteToBQBatch" >> beam.io.WriteToBigQuery(
+                table_spec,
+                schema=schema,
+                write_disposition=write_disposition,
+                create_disposition=create_disposition
+            )
 

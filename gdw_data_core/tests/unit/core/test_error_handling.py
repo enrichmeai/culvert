@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from gdw_data_core.core.error_handling import (
     ErrorClassifier,
     ErrorConfig,
@@ -319,9 +319,9 @@ class TestRetryPolicy:
             retry_count=0
         )
 
-        before = datetime.utcnow()
+        before = datetime.now(timezone.utc)
         next_retry = policy.schedule_retry(error)
-        after = datetime.utcnow()
+        after = datetime.now(timezone.utc)
 
         assert next_retry is not None
         assert next_retry >= before + timedelta(seconds=5)

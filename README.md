@@ -115,6 +115,7 @@ All documents required for successful deployment are in this repository root:
 | **BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md** ⭐⭐⭐ | Step-by-step deployment | Teams deploying | 2.5 hours |
 | **BLUEPRINT_VALIDATION_COMPLETE_REPORT.md** | Detailed validation results | Technical leads | 15 min |
 | **BLUEPRINT_VALIDATION_DOCUMENTATION_INDEX.md** | Document index & navigation | Reference | As needed |
+| **docs/testing/** | Comprehensive testing guides | QA/Dev Teams | 30 min |
 
 **👉 START HERE:** Read `README_VALIDATION_STATUS.md` first (5 minutes)
 

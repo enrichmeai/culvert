@@ -5,7 +5,7 @@ Run with: python3 test_loa_local.py
 
 This test uses REAL validation functions from loa_common (no mocking)
 - Reads test data
-- Runs actual validation logic from loa_domain.validation
+- Runs actual validation logic from blueprint.components.loa_domain.validation
 - Generates output files
 - Shows complete data flow
 
@@ -21,7 +21,7 @@ from datetime import datetime
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # Import REAL validation functions (NOT mocked!)
-from loa_domain.validation import (
+from blueprint.components.loa_domain.validation import (
     validate_ssn,
     validate_loan_amount,
     validate_loan_type,
@@ -60,7 +60,7 @@ print(f"\nLoaded {len(test_data)} test records")
 
 print("\n⚙️ STEP 2: VALIDATION (REAL - NOT MOCKED)")
 print("-" * 70)
-print("Running actual validation functions from loa_domain.validation...")
+print("Running actual validation functions from blueprint.components.loa_domain.validation...")
 
 valid_records = []
 error_records = []

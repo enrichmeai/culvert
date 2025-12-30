@@ -192,7 +192,7 @@ pytest components/tests/bdd/step_definitions/ -v
 ```
 
 **Time Required:** 15-20 minutes  
-**Documentation:** See [QUICK_START_TESTING.md](../QUICK_START_TESTING.md)
+**Documentation:** See [QUICK_START_TESTING.md](../docs/testing/QUICK_START_TESTING.md)
 
 ---
 

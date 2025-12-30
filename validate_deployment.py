@@ -230,10 +230,10 @@ def validate_documentation(report):
     print("-" * 60)
 
     docs = [
-        ("INFRASTRUCTURE_VALIDATION_REPORT.md", "Infrastructure validation report"),
-        ("GCP_DEPLOYMENT_TESTING_GUIDE.md", "GCP deployment guide"),
-        ("QUICK_START_TESTING.md", "Quick start guide"),
-        ("MANUAL_TESTING_GUIDE.md", "Manual testing guide"),
+        ("docs/testing/INFRASTRUCTURE_VALIDATION_REPORT.md", "Infrastructure validation report"),
+        ("docs/testing/COMPLETE_TESTING_GUIDE.md", "GCP deployment guide"),
+        ("docs/testing/QUICK_START_TESTING.md", "Quick start guide"),
+        ("docs/testing/MANUAL_TESTING_GUIDE.md", "Manual testing guide"),
     ]
 
     for doc_file, doc_name in docs:

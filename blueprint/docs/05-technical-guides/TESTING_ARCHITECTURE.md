@@ -37,7 +37,7 @@ legacy-migration-reference/
 │   └── workflows/
 │       └── gcp-deployment-tests.yml                  ✨ NEW - CI/CD workflow
 │
-├── GCP_DEPLOYMENT_TESTING_GUIDE.md                   ✨ NEW - Complete guide
+├── COMPLETE_TESTING_GUIDE.md                         ✨ NEW - Complete guide
 ├── QUICK_START_TESTING.md                            ✨ NEW - Quick start guide
 ├── TESTING_IMPLEMENTATION_SUMMARY.md                 ✨ NEW - Implementation summary
 │
@@ -270,7 +270,7 @@ open htmlcov/index.html
 ```
 QUICK_START_TESTING.md (Start here!)
     │
-    ├─► GCP_DEPLOYMENT_TESTING_GUIDE.md (Comprehensive)
+    ├─► COMPLETE_TESTING_GUIDE.md (Comprehensive)
     │   ├─ Local Testing
     │   ├─ Staging Testing
     │   ├─ Production Validation

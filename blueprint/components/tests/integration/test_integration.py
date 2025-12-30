@@ -55,7 +55,7 @@ class TestValidationPipeline:
 
     def test_parse_and_validate_csv(self, temp_csv_file):
         """Test parsing and validating a complete CSV file."""
-        from loa_domain.validation import validate_application_record
+        from blueprint.components.loa_domain.validation import validate_application_record
 
         valid_records = []
         error_records = []
@@ -100,8 +100,8 @@ class TestValidationPipeline:
 
     def test_error_record_structure(self, temp_csv_file):
         """Test that error records have correct structure."""
-        from loa_domain.validation import validate_application_record
-        from loa_domain.schema import validation_error_to_bq_row
+        from blueprint.components.loa_domain.validation import validate_application_record
+        from blueprint.components.loa_domain.schema import validation_error_to_bq_row
 
         with open(temp_csv_file, 'r') as f:
             lines = f.readlines()[1:]
@@ -147,7 +147,7 @@ class TestSchemaDefinitions:
 
     def test_applications_raw_schema(self):
         """Test applications raw schema is valid."""
-        from loa_domain.schema import APPLICATIONS_RAW_SCHEMA, get_field_names
+        from blueprint.components.loa_domain.schema import APPLICATIONS_RAW_SCHEMA, get_field_names
 
         field_names = get_field_names(APPLICATIONS_RAW_SCHEMA)
 
@@ -158,7 +158,7 @@ class TestSchemaDefinitions:
 
     def test_applications_error_schema(self):
         """Test applications error schema is valid."""
-        from loa_domain.schema import (
+        from blueprint.components.loa_domain.schema import (
             APPLICATIONS_ERROR_SCHEMA,
             get_field_names,
             get_required_fields
@@ -173,7 +173,7 @@ class TestSchemaDefinitions:
 
     def test_ddl_generation(self):
         """Test DDL string generation."""
-        from loa_domain.schema import (
+        from blueprint.components.loa_domain.schema import (
             get_applications_raw_ddl,
             get_applications_error_ddl,
             get_applications_processed_ddl
@@ -197,7 +197,7 @@ class TestSchemaDefinitions:
 
     def test_record_to_bq_conversion(self):
         """Test record conversion to BigQuery format."""
-        from loa_domain.schema import record_to_bq_compatible
+        from blueprint.components.loa_domain.schema import record_to_bq_compatible
 
         record = {
             "application_id": "APP001",
@@ -303,7 +303,7 @@ class TestBeamPipelineStructure:
         sys.modules['airflow.models'] = mock_airflow.models
         sys.modules['airflow.exceptions'] = mock_airflow.exceptions
 
-        from loa_pipelines.loa_jcl_template import ParseCsvLine
+        from blueprint.components.loa_pipelines.loa_jcl_template import ParseCsvLine
 
         parser = ParseCsvLine(
             field_names=["id", "name", "amount"]
@@ -315,18 +315,16 @@ class TestBeamPipelineStructure:
         assert parser.delimiter == ","
 
     def test_validate_record_dofn(self):
-        """Test ValidateApplicationRecord DoFn."""
+        """Test ValidateRecordDoFn from gdw_data_core."""
         # Airflow already mocked in previous test (or will be)
-        from loa_pipelines.loa_jcl_template import ValidateApplicationRecord
+        from gdw_data_core.pipelines.beam.transforms.validators import ValidateRecordDoFn
+        from blueprint.components.loa_pipelines.loa_jcl_template import validate_application_fn
 
-        validator = ValidateApplicationRecord(
-            run_id="test_run",
-            source_file="gs://test/file.csv"
+        validator = ValidateRecordDoFn(
+            validation_fn=validate_application_fn
         )
 
-        assert validator.run_id == "test_run"
-        assert validator.source_file == "gs://test/file.csv"
-        assert validator.ERROR_TAG == "errors"
+        assert validator.validation_fn == validate_application_fn
 
 
 # ============================================================================
@@ -338,8 +336,8 @@ class TestEndToEndMigration:
 
     def test_full_validation_flow(self, temp_csv_file):
         """Test complete validation flow from CSV to error records."""
-        from loa_domain.validation import validate_application_record
-        from loa_domain.schema import validation_error_to_bq_row
+        from blueprint.components.loa_domain.validation import validate_application_record
+        from blueprint.components.loa_domain.schema import validation_error_to_bq_row
 
         valid_count = 0
         error_count = 0
