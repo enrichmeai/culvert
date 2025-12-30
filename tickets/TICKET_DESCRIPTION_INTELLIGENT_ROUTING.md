@@ -30,7 +30,41 @@ Develop a standardized, modular framework for event-driven data processing. This
 - **Standardized Context**: Use of Airflow XComs or specific variable injection to pass `routing_info` between tasks.
 - **Library Readiness**: Code must be written as modular Python classes (e.g., `BasePipelineRouter`, `PipelineConfig`) to facilitate future move to a core library.
 
-#### 4. Definition of Done
+#### 4. Workflow Diagram
+```mermaid
+graph TD
+    subgraph "External Events"
+        GCS[GCS Bucket] -->|Object Finalize| PubSub[Pub/Sub Topic]
+    end
+
+    subgraph "Airflow Orchestration"
+        Sensor[Pub/Sub Sensor] -->|Message| Extractor[Metadata Extractor]
+        
+        subgraph "Routing Engine"
+            Extractor -->|Metadata Context| Router[PipelineRouter]
+            Router -->|Lookup| Config[(Routing Config YAML)]
+            Router -->|Validate| FailFast{Fail-Fast Validation}
+            FailFast -->|Invalid| Sink[Dead Letter Queue / Error Log]
+            FailFast -->|Valid| Branch[BranchPythonOperator]
+        end
+        
+        Branch -->|Target Pipeline A| JobA[Dataflow Job - Pipeline A]
+        Branch -->|Target Pipeline B| JobB[Dataflow Job - Pipeline B]
+        Branch -->|Target Pipeline N| JobN[Dataflow Job - Pipeline N]
+    end
+
+    subgraph "Unified Processing Interface"
+        JobA --- Mode[Batch / Streaming Mode]
+        JobA --- Source[GCS / Pub/Sub Source]
+    end
+
+    style Extractor fill:#f9f,stroke:#333,stroke-width:2px
+    style Router fill:#bbf,stroke:#333,stroke-width:2px
+    style Config fill:#dfd,stroke:#333,stroke-width:2px
+    style FailFast fill:#fdb,stroke:#333,stroke-width:2px
+```
+
+#### 5. Definition of Done
 - [ ] `PipelineRouter` class implemented and unit-tested.
 - [ ] Reference implementation in a "Template DAG" showing the `Sensor -> Router -> Branch` flow.
 - [ ] Documentation of the "Routing Standard" for future legacy migrations.

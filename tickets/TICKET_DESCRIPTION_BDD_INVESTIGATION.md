@@ -43,7 +43,33 @@ The spike should evaluate the following frameworks:
 - [x] Create a "Proof of Concept" (PoC) directory: `blueprint/components/tests/bdd/`.
 - [x] Document the recommended framework and provide a transition guide for teams.
 
-#### 6. Definition of Done
+#### 6. Framework Comparison & Selection
+```mermaid
+graph TD
+    subgraph "Evaluation Candidates"
+        B[Behave] ---|Standalone Runner| PBDD[pytest-bdd]
+        PBDD ---|pytest Plugin| RF[Robot Framework]
+        RF ---|Keyword Driven| PBDD
+    end
+
+    subgraph "Selection: pytest-bdd"
+        PBDD -->|Integrates| Core[gdw_data_core.testing]
+        PBDD -->|Reuses| Fix[pytest Fixtures]
+        PBDD -->|Supports| Beam[Dataflow/Beam Testing]
+    end
+
+    subgraph "Workflow"
+        Gherkin[Business Req: Gherkin .feature] -->|Map| Steps[Technical Implementation: Python Steps]
+        Steps -->|Execute| Pytest[Pytest Runner]
+        Pytest -->|Report| HTML[Human-Readable Report]
+    end
+
+    style PBDD fill:#bbf,stroke:#333,stroke-width:2px
+    style Gherkin fill:#f9f,stroke:#333,stroke-width:2px
+    style Pytest fill:#dfd,stroke:#333,stroke-width:2px
+```
+
+#### 7. Definition of Done
 - [x] Comparative analysis document (`BDD_INVESTIGATION_REPORT.md`) completed.
 - [x] PoC BDD test case running successfully in the local environment.
 - [x] Recommendation approved (pytest-bdd selected).

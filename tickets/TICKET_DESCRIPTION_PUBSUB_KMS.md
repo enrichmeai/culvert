@@ -72,7 +72,37 @@ The following criteria must be met to satisfy the business and security requirem
 - **Validate `.ok` file landing produces Pub/Sub message.**
 - **Consumer:** Cloud Composer DAG triggers based on the Pub/Sub message via `PubSubPullSensor`.
 
-#### 3. Definition of Done
+#### 4. Infrastructure Diagram
+```mermaid
+graph LR
+    subgraph "Storage Layer"
+        GCS[GCS Landing Bucket] -->|Object Finalize| Notif[GCS Notification]
+    end
+
+    subgraph "Messaging Layer (Secure)"
+        Notif -->|Publish| Topic[Pub/Sub Topic: loa-processing-notifications]
+        Topic -->|Encrypted with| KMS[Cloud KMS: loa-messaging-key]
+        Topic -->|Message Delivery| Sub[Pub/Sub Subscription]
+        Topic -.->|Failure| DLQ[Dead Letter Topic]
+    end
+
+    subgraph "Orchestration Layer"
+        Sub -->|Pull Message| Sensor[PubSubPullSensor]
+        Sensor -->|Trigger| DAG[Cloud Composer DAG]
+    end
+
+    subgraph "Security & IAM"
+        IAM_GCS[GCS Service Agent] -->|roles/pubsub.publisher| Topic
+        IAM_KMS[Pub/Sub Service Agent] -->|roles/cloudkms.cryptoKeyEncrypterDecrypter| KMS
+        IAM_Comp[Composer Service Account] -->|roles/pubsub.subscriber| Sub
+    end
+
+    style KMS fill:#f96,stroke:#333,stroke-width:2px
+    style Topic fill:#bbf,stroke:#333,stroke-width:2px
+    style DAG fill:#dfd,stroke:#333,stroke-width:2px
+```
+
+#### 5. Definition of Done
 - [ ] Terraform plan shows successful creation of KMS keys, storage notifications, and IAM bindings.
 - [ ] Uploading an `.ok` file to `gs://{project}-loa-data/incoming/` generates a message in `loa-processing-notifications`.
 - [ ] The Pub/Sub message is encrypted with the specified KMS key.

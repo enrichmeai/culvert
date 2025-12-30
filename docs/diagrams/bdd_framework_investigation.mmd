@@ -1,0 +1,22 @@
+graph TD
+    subgraph "Evaluation Candidates"
+        B[Behave] ---|Standalone Runner| PBDD[pytest-bdd]
+        PBDD ---|pytest Plugin| RF[Robot Framework]
+        RF ---|Keyword Driven| PBDD
+    end
+
+    subgraph "Selection: pytest-bdd"
+        PBDD -->|Integrates| Core[gdw_data_core.testing]
+        PBDD -->|Reuses| Fix[pytest Fixtures]
+        PBDD -->|Supports| Beam[Dataflow/Beam Testing]
+    end
+
+    subgraph "Workflow"
+        Gherkin[Business Req: Gherkin .feature] -->|Map| Steps[Technical Implementation: Python Steps]
+        Steps -->|Execute| Pytest[Pytest Runner]
+        Pytest -->|Report| HTML[Human-Readable Report]
+    end
+
+    style PBDD fill:#bbf,stroke:#333,stroke-width:2px
+    style Gherkin fill:#f9f,stroke:#333,stroke-width:2px
+    style Pytest fill:#dfd,stroke:#333,stroke-width:2px

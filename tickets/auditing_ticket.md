@@ -44,6 +44,37 @@ The implementation must populate the following fields:
 
 ---
 
+### Auditing Workflow Diagram
+```mermaid
+graph TD
+    subgraph "Pipeline Lifecycle"
+        Start[Pipeline Start] -->|Hook: on_start| AT_Start[AuditTrail: Initialize]
+        AT_Start -->|Log| Pub[AuditPublisher: Start Event]
+        
+        subgraph "Data Processing"
+            Job[Dataflow/dbt Job] -->|Increment| AT_Count[AuditTrail: Update Record Count]
+        end
+        
+        Job -->|Hook: on_end| AT_End[AuditTrail: Finalize]
+        AT_End -->|Log| Pub_End[AuditPublisher: End Event]
+    end
+
+    subgraph "Audit Event Bus"
+        Pub -->|JSON| Topic[Pub/Sub: audit-events]
+        Pub_End -->|JSON| Topic
+    end
+
+    subgraph "Compliance & Storage"
+        Topic -->|BigQuery Subscription| BQ[(Audit BigQuery Tables)]
+        Topic -->|Traceability| Lineage[Data Lineage Tool]
+    end
+
+    style AT_Start fill:#f9f,stroke:#333,stroke-width:2px
+    style AT_End fill:#f9f,stroke:#333,stroke-width:2px
+    style Topic fill:#bbf,stroke:#333,stroke-width:2px
+    style BQ fill:#dfd,stroke:#333,stroke-width:2px
+```
+
 ## 📋 Sub-Tasks
 - [ ] Implement/Update `AuditTrail` logic in core data library.
 - [ ] Create `AuditPublisher` with resilient error handling and non-blocking logic.

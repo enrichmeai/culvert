@@ -1,0 +1,30 @@
+graph TD
+    subgraph "External Events"
+        GCS[GCS Bucket] -->|Object Finalize| PubSub[Pub/Sub Topic]
+    end
+
+    subgraph "Airflow Orchestration"
+        Sensor[Pub/Sub Sensor] -->|Message| Extractor[Metadata Extractor]
+
+        subgraph "Routing Engine"
+            Extractor -->|Metadata Context| Router[PipelineRouter]
+            Router -->|Lookup| Config[(Routing Config YAML)]
+            Router -->|Validate| FailFast{Fail-Fast Validation}
+            FailFast -->|Invalid| Sink[Dead Letter Queue / Error Log]
+            FailFast -->|Valid| Branch[BranchPythonOperator]
+        end
+
+        Branch -->|Target Pipeline A| JobA[Dataflow Job - Pipeline A]
+        Branch -->|Target Pipeline B| JobB[Dataflow Job - Pipeline B]
+        Branch -->|Target Pipeline N| JobN[Dataflow Job - Pipeline N]
+    end
+
+    subgraph "Unified Processing Interface"
+        JobA --- Mode[Batch / Streaming Mode]
+        JobA --- Source[GCS / Pub/Sub Source]
+    end
+
+    style Extractor fill:#f9f,stroke:#333,stroke-width:2px
+    style Router fill:#bbf,stroke:#333,stroke-width:2px
+    style Config fill:#dfd,stroke:#333,stroke-width:2px
+    style FailFast fill:#fdb,stroke:#333,stroke-width:2px

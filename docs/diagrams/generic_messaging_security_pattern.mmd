@@ -1,0 +1,21 @@
+graph TD
+    subgraph "Modular Infrastructure (Terraform)"
+        KMS_Mod[KMS Module] -->|Provision| Key[CMEK: 90-day Rotation]
+        PS_Mod[Pub/Sub Module] -->|Provision| Topic[Standardized Topic]
+        IAM_Mod[IAM Module] -->|Binding| Agents[Service Agents]
+    end
+
+    subgraph "Standardized Interaction Pattern"
+        Source[Data Source: GCS/BQ] -->|Trigger| Topic
+        Topic -->|Encrypted By| Key
+        Topic -->|Consume| Router[PipelineRouter]
+    end
+
+    subgraph "Least-Privilege Bindings"
+        SA_Pub[Service Agent Publisher] -->|roles/pubsub.publisher| Topic
+        SA_KMS[Service Agent KMS] -->|roles/cloudkms.cryptoKeyEncrypterDecrypter| Key
+    end
+
+    style Key fill:#f96,stroke:#333,stroke-width:2px
+    style Topic fill:#bbf,stroke:#333,stroke-width:2px
+    style Router fill:#dfd,stroke:#333,stroke-width:2px
