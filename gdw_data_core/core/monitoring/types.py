@@ -5,7 +5,7 @@ Monitoring types, enums, and data structures.
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class MetricType(Enum):
@@ -28,7 +28,7 @@ class MetricValue:
     """Single metric data point"""
     name: str
     value: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     labels: Dict[str, str] = field(default_factory=dict)
     unit: str = ""
 
@@ -53,7 +53,7 @@ class Alert:
     metric_name: Optional[str] = None
     threshold_value: Optional[float] = None
     actual_value: Optional[float] = None
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:

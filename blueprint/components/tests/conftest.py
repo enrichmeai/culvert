@@ -388,7 +388,7 @@ def sample_dag():
     # Import here to avoid circular dependencies and to only require DAG module
     # when this fixture is actually used
     try:
-        from loa_pipelines.dag_template import create_loa_dag
+        from blueprint.components.loa_pipelines.dag_template import create_loa_dag
 
         # Create sample DAG with test parameters
         dag = create_loa_dag(

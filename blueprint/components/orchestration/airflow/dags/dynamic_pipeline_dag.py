@@ -21,7 +21,7 @@ from airflow.models import Variable
 from airflow.exceptions import AirflowSkipException
 import logging
 
-from loa_pipelines.pipeline_router import PipelineRouter, FileType
+from blueprint.components.loa_pipelines.pipeline_router import PipelineRouter, FileType
 
 logger = logging.getLogger(__name__)
 

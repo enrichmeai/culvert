@@ -508,7 +508,7 @@ Before deploying to production:
 | Need | File |
 |------|------|
 | **Getting Started** | `QUICK_START_TESTING.md` |
-| **Complete Reference** | `GCP_DEPLOYMENT_TESTING_GUIDE.md` |
+| **Complete Reference** | `COMPLETE_TESTING_GUIDE.md` |
 | **Manual Testing Details** | `MANUAL_TESTING_GUIDE.md` |
 | **Architecture** | `TESTING_ARCHITECTURE.md` |
 | **Implementation** | `TESTING_IMPLEMENTATION_SUMMARY.md` |
@@ -520,7 +520,7 @@ Before deploying to production:
 ## Support
 
 - **Setup Issues**: See `MANUAL_TESTING_GUIDE.md` → Setup section
-- **Test Failures**: See `GCP_DEPLOYMENT_TESTING_GUIDE.md` → Troubleshooting
+- **Test Failures**: See `COMPLETE_TESTING_GUIDE.md` → Troubleshooting
 - **GCP Problems**: Check GCP documentation and IAM permissions
 - **Questions**: Review relevant guide, then contact data engineering team
 

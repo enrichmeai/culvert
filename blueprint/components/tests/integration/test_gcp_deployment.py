@@ -120,7 +120,9 @@ class TestGCSDeployment:
 
     def test_gcs_bucket_exists(self, mock_gcs_client, gcp_bucket):
         """Verify GCS bucket exists."""
-        mock_gcs_client.bucket.return_value = MagicMock(name=gcp_bucket)
+        mock_bucket = MagicMock()
+        mock_bucket.name = gcp_bucket
+        mock_gcs_client.bucket.return_value = mock_bucket
 
         # Test
         bucket = mock_gcs_client.bucket(gcp_bucket)

@@ -259,13 +259,13 @@ fi
 print_header "DOCUMENTATION VALIDATION"
 
 # Check key documentation exists
-if [ -f "INFRASTRUCTURE_VALIDATION_REPORT.md" ]; then
+if [ -f "docs/testing/INFRASTRUCTURE_VALIDATION_REPORT.md" ]; then
     print_check "Infrastructure validation report exists"
 else
     print_error "Infrastructure validation report not found"
 fi
 
-if [ -f "GCP_DEPLOYMENT_TESTING_GUIDE.md" ]; then
+if [ -f "docs/testing/COMPLETE_TESTING_GUIDE.md" ]; then
     print_check "GCP deployment guide exists"
 else
     print_error "GCP deployment guide not found"

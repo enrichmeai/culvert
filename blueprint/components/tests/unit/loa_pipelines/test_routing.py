@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import MagicMock
 import os
 import yaml
-from loa_blueprint.config.routing import PipelineSelector
+from blueprint.components.loa_pipelines.yaml_router import PipelineSelector
 
 class TestPipelineSelector(unittest.TestCase):
     def setUp(self):

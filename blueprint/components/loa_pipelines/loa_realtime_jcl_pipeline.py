@@ -4,7 +4,7 @@ Real-time JCL streaming pipeline demonstration.
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
-from loa_blueprint.pipelines.base import BasePipeline
+from gdw_data_core.pipelines.base import BasePipeline
 from typing import Dict, Any
 
 class LOARealtimeJCLPipeline(BasePipeline):

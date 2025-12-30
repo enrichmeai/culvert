@@ -49,7 +49,7 @@ sys.modules['google.cloud.pubsub_v1'] = mock_google.cloud.pubsub_v1
 from gdw_data_core.core.file_management import FileLifecycleManager
 from gdw_data_core.core.error_handling import ErrorHandler, ErrorCategory, ErrorSeverity
 from gdw_data_core.core.monitoring import ObservabilityManager
-from loa_domain.validation import validate_application_record as validate_record
+from blueprint.components.loa_domain.validation import validate_application_record as validate_record
 from gdw_data_core.core.audit import AuditTrail, ReconciliationEngine
 
 from tests.fixtures.test_data_factory import (

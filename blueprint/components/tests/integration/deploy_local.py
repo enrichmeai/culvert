@@ -26,8 +26,8 @@ from pathlib import Path
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from loa_domain.validation import validate_application_record, ValidationError
-from loa_domain.schema import (
+from blueprint.components.loa_domain.validation import validate_application_record, ValidationError
+from blueprint.components.loa_domain.schema import (
     APPLICATIONS_RAW_SCHEMA,
     get_field_names,
     get_required_fields,
