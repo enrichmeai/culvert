@@ -30,7 +30,32 @@ Establish a reusable, modular pattern for provisioning secure messaging infrastr
 - **Resource Naming Convention**: Use a consistent prefix/suffix pattern (e.g., `${prefix}-messaging-key`, `${prefix}-notifications-topic`) to allow for multi-tenant or multi-project reuse.
 - **Common Service Agent Registry**: Maintain a list of required service agents and their specific roles (Encrypter/Decrypter, Publisher) to ensure repeatable security setup.
 
-#### 4. Definition of Done
+#### 4. Design Pattern Diagram
+```mermaid
+graph TD
+    subgraph "Modular Infrastructure (Terraform)"
+        KMS_Mod[KMS Module] -->|Provision| Key[CMEK: 90-day Rotation]
+        PS_Mod[Pub/Sub Module] -->|Provision| Topic[Standardized Topic]
+        IAM_Mod[IAM Module] -->|Binding| Agents[Service Agents]
+    end
+
+    subgraph "Standardized Interaction Pattern"
+        Source[Data Source: GCS/BQ] -->|Trigger| Topic
+        Topic -->|Encrypted By| Key
+        Topic -->|Consume| Router[PipelineRouter]
+    end
+
+    subgraph "Least-Privilege Bindings"
+        SA_Pub[Service Agent Publisher] -->|roles/pubsub.publisher| Topic
+        SA_KMS[Service Agent KMS] -->|roles/cloudkms.cryptoKeyEncrypterDecrypter| Key
+    end
+
+    style Key fill:#f96,stroke:#333,stroke-width:2px
+    style Topic fill:#bbf,stroke:#333,stroke-width:2px
+    style Router fill:#dfd,stroke:#333,stroke-width:2px
+```
+
+#### 5. Definition of Done
 - [ ] Terraform modules for KMS and Pub/Sub are validated and "pluggable".
 - [ ] IAM bindings are proven to be least-privilege via audit logs.
 - [ ] The pattern is documented as a "Platform Standard" in the Architecture guide.
