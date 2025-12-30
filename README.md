@@ -94,10 +94,9 @@ pytest blueprint/components/tests/bdd/step_definitions/
 
 ```bash
 # Key documents:
-1. README_VALIDATION_STATUS.md          ⭐ Start here (5 min)
-2. BLUEPRINT_DEPLOYMENT_READINESS_SUMMARY.md  (10 min)
-3. blueprint/docs/03-implementation/TICKET_DETAILS.md (Secure Trigger & Real-time Ticket) (15 min)
-4. blueprint/docs/02-architecture/ARCHITECTURE.md  (detailed)
+1. blueprint/README.md                   ⭐ Start here (5 min)
+2. blueprint/docs/02-architecture/ARCHITECTURE.md  (10 min)
+3. blueprint/docs/03-implementation/TICKET_DETAILS.md (15 min)
 ```
 
 **Status:** ✅ **READY NOW** - 96+ documentation files available
@@ -106,18 +105,15 @@ pytest blueprint/components/tests/bdd/step_definitions/
 
 ## 📋 Key Validation & Deployment Documents
 
-All documents required for successful deployment are in this repository root:
+All documents required for successful deployment are in this repository:
 
 | Document | Purpose | Audience | Time |
 |----------|---------|----------|------|
-| **README_VALIDATION_STATUS.md** ⭐ | Complete validation summary | Everyone | 5 min |
-| **BLUEPRINT_DEPLOYMENT_READINESS_SUMMARY.md** | Executive summary | Decision makers | 10 min |
-| **BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md** ⭐⭐⭐ | Step-by-step deployment | Teams deploying | 2.5 hours |
-| **BLUEPRINT_VALIDATION_COMPLETE_REPORT.md** | Detailed validation results | Technical leads | 15 min |
-| **BLUEPRINT_VALIDATION_DOCUMENTATION_INDEX.md** | Document index & navigation | Reference | As needed |
+| **blueprint/README.md** ⭐ | Complete blueprint guide | Everyone | 5 min |
 | **docs/testing/** | Comprehensive testing guides | QA/Dev Teams | 30 min |
+| **blueprint/docs/04-deployment/** | Deployment guides | Teams deploying | 2 hours |
 
-**👉 START HERE:** Read `README_VALIDATION_STATUS.md` first (5 minutes)
+**👉 START HERE:** Read `blueprint/README.md` first (5 minutes)
 
 ---
 
@@ -126,13 +122,7 @@ All documents required for successful deployment are in this repository root:
 ```
 legacy-migration-reference/ (Root)
 │
-├── 📄 README_VALIDATION_STATUS.md              ⭐ START HERE
-├── 📄 BLUEPRINT_DEPLOYMENT_READINESS_SUMMARY.md ⭐ For approval
-├── 📄 BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md      ⭐⭐⭐ Deployment guide
-├── 📄 BLUEPRINT_VALIDATION_COMPLETE_REPORT.md  ⭐ Full validation
-├── 📄 BLUEPRINT_VALIDATION_DOCUMENTATION_INDEX.md
-├── 📄 LIBRARY_AUDIT_REPORT.md
-│
+├── 📄 README.md                                 ⭐ START HERE
 ├── 🔧 build.sh                                  ⭐ Use this first
 ├── build.ps1
 ├── Makefile
@@ -639,7 +629,7 @@ The LOA Blueprint is designed to scale efficiently to other platforms:
 
 ### 🚀 Deployment (2.5 hours)
 
-**Follow:** `BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md`
+**Follow:** `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md`
 
 **Phase 0: Setup** (30 min)
 ```bash
@@ -692,11 +682,11 @@ After deployment, verify:
 
 | Need | Document |
 |------|----------|
-| **Deployment help** | `BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md` |
+| **Deployment help** | `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md` |
 | **Architecture questions** | `blueprint/docs/02-architecture/ARCHITECTURE.md` |
 | **Troubleshooting** | `blueprint/docs/05-technical-guides/TROUBLESHOOTING.md` |
 | **Runbook (24/7 ops)** | `blueprint/docs/05-technical-guides/RUNBOOK.md` |
-| **All documentation** | `BLUEPRINT_VALIDATION_DOCUMENTATION_INDEX.md` |
+| **All documentation** | `blueprint/docs/08-reference/INDEX.md` |
 
 ### Key Resources
 
@@ -778,10 +768,10 @@ Confidence:               94/100
 
 ## 🎓 For New Team Members
 
-1. **First 15 minutes:** Read `blueprint/README.md` & `README_VALIDATION_STATUS.md`
+1. **First 15 minutes:** Read `blueprint/README.md`
 2. **Next 30 minutes:** Review architecture in `blueprint/docs/02-architecture/ARCHITECTURE.md`
 3. **Next 1 hour:** Run locally: `./build.sh setup && ./build.sh test`
-4. **Next 2 hours:** Deploy to staging following `BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md`
+4. **Next 2 hours:** Deploy to staging following `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md`
 
 ---
 
@@ -797,7 +787,7 @@ Confidence:               94/100
 → See `blueprint/docs/05-technical-guides/RUNBOOK.md`
 
 ### General Questions?
-→ Check `BLUEPRINT_VALIDATION_DOCUMENTATION_INDEX.md` for complete navigation
+→ Check `blueprint/docs/08-reference/INDEX.md` for complete navigation
 
 ---
 

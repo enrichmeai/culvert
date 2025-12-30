@@ -50,7 +50,7 @@ The LOA (Application B Application) Blueprint is a **production-ready reference 
 
 ---
 
-### 2. **Validation Framework** (`loa_common/validation.py`)
+### 2. **Validation Framework** (`loa_domain/validation.py`)
 
 **Purpose:** Centralized field-level and record-level validation
 
@@ -90,7 +90,7 @@ The LOA (Application B Application) Blueprint is a **production-ready reference 
 
 ---
 
-### 3. **Schema Management** (`loa_common/schema.py`)
+### 3. **Schema Management** (`loa_domain/schema.py`)
 
 **Purpose:** BigQuery schema definitions and DDL generation
 
@@ -120,9 +120,9 @@ The LOA (Application B Application) Blueprint is a **production-ready reference 
 
 ---
 
-### 4. **I/O Utilities** (`loa_common/io_utils.py`)
+### 4. **I/O Utilities** (Integrated in `gdw_data_core`)
 
-**Purpose:** Helper functions for GCS and Pub/Sub operations
+**Purpose:** Helper functions for GCS and Pub/Sub operations provided by the core library.
 
 **Features:**
 - GCS file listing and wildcard matching

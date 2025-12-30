@@ -511,9 +511,6 @@ Before deploying to production:
 | **Complete Reference** | `COMPLETE_TESTING_GUIDE.md` |
 | **Manual Testing Details** | `MANUAL_TESTING_GUIDE.md` |
 | **Architecture** | `TESTING_ARCHITECTURE.md` |
-| **Implementation** | `TESTING_IMPLEMENTATION_SUMMARY.md` |
-| **Checklist** | `TESTING_IMPLEMENTATION_CHECKLIST.md` |
-| **File Index** | `FILE_INDEX.md` |
 
 ---
 
