@@ -1,4 +1,4 @@
 run_id,app_id,ssn,name,amount,loan_type,date,branch,errors,processed_timestamp
-local-20251229-224312,APP003,000-00-0000,Bad SSN,25000,MORTGAGE,2025-01-13,TX9012,ssn: SSN cannot be all zeros or all same digit (value: ***-**-0000),2025-12-29T22:43:12.159892
-local-20251229-224312,APP004,345-67-8901,Bob,-5000,MORTGAGE,2025-01-12,FL3456,loan_amount: loan_amount must be >= 1 (value: -5000.0),2025-12-29T22:43:12.159906
-local-20251229-224312,APP005,456-78-9012,Alice,75000,INVALID_TYPE,2025-01-11,MI5678,"loan_type: Loan type must be one of: AUTO, HOME_EQUITY, MORTGAGE, PERSONAL (value: INVALID_TYPE)",2025-12-29T22:43:12.159919
+local-20251230-110337,APP003,000-00-0000,Bad SSN,25000,MORTGAGE,2025-01-13,TX9012,ssn: SSN cannot be all zeros or all same digit (value: ***-**-0000),2025-12-30T11:03:37.302543
+local-20251230-110337,APP004,345-67-8901,Bob,-5000,MORTGAGE,2025-01-12,FL3456,loan_amount: loan_amount must be >= 1 (value: -5000.0),2025-12-30T11:03:37.302563
+local-20251230-110337,APP005,456-78-9012,Alice,75000,INVALID_TYPE,2025-01-11,MI5678,"loan_type: Loan type must be one of: AUTO, HOME_EQUITY, MORTGAGE, PERSONAL (value: INVALID_TYPE)",2025-12-30T11:03:37.302583

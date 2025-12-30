@@ -4,8 +4,7 @@ cachedir: .pytest_cache
 rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/blueprint
 configfile: pytest.ini
 plugins: anyio-4.12.0, bdd-8.0.0, Faker-37.12.0, cov-7.0.0
-collecting ... collected 316 items
-
+collected 316 items
 blueprint/components/tests/unit/fixtures/test_data_factory.py::TestApplicationFactory::test_create_single_returns_dict PASSED [  0%]
 blueprint/components/tests/unit/fixtures/test_data_factory.py::TestApplicationFactory::test_create_single_has_required_fields PASSED [  0%]
 blueprint/components/tests/unit/fixtures/test_data_factory.py::TestApplicationFactory::test_application_id_format PASSED [  0%]
@@ -322,5 +321,4 @@ blueprint/components/tests/unit/orchestration/test_dag_template.py::test_validat
 blueprint/components/tests/unit/orchestration/test_dag_template.py::test_validate_input_files_format_failure PASSED [ 99%]
 blueprint/components/tests/unit/orchestration/test_dag_template.py::test_validate_input_files_no_files PASSED [ 99%]
 blueprint/components/tests/unit/orchestration/test_pubsub_sensor.py::TestLOAPubSubPullSensor::test_execute_metadata_extraction PASSED [100%]
-
-====================== 316 passed, 12 warnings in 48.75s =======================
+====================== 316 passed, 12 warnings in 48.16s =======================
