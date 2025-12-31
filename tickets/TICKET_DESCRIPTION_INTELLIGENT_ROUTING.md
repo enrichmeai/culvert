@@ -1,17 +1,18 @@
-### Ticket Description: Strategic Framework for Intelligent Routing & Orchestration
+### Ticket Description: Generic Intelligent Routing & Orchestration Component
 **Ticket ID:** LOA-PLAT-001 (Generic Platform Ticket)  
 **Status:** Defined  
 **Priority:** HIGH  
 **Epic:** Epic 4: Messaging & Integration (Platform Foundation)
 
 #### 1. Objective
-Develop a standardized, modular framework for event-driven data processing. This ticket focuses on the "Engine" that handles metadata extraction, intelligent routing, and unified processing patterns, ensuring that business logic is decoupled from orchestration. This framework will eventually be externalized into a shared library.
+Develop a standardized, reusable component for event-driven data processing. This ticket focuses on the "Routing Engine" that handles metadata extraction, intelligent routing, and unified processing patterns, ensuring that business logic is decoupled from orchestration. This component is designed for multi-pipeline re-use and portability.
 
 #### 2. Acceptance Criteria
-*   **AC 1: Modular Metadata Extraction**
+*   **AC 1: Modular Metadata Extraction (Pub/Sub Pull Strategy)**
     *   **Given** a Pub/Sub message from a GCS notification
-    *   **When** processed by the sensing module
+    *   **When** processed by the `LOAPubSubPullSensor` (Pull-based strategy)
     *   **Then** it must extract a consistent set of metadata (e.g., source, entity, file_type, processing_mode)
+    *   **And** ensure message acknowledgment is managed (e.g., `ack_messages=True` after extraction)
     *   **And** inject this metadata into the Airflow workflow context (`loa_metadata`).
 *   **AC 2: Config-Driven Routing Engine**
     *   **Given** the extracted metadata
@@ -25,10 +26,14 @@ Develop a standardized, modular framework for event-driven data processing. This
     *   **And** allow toggling between GCS and Pub/Sub sources without re-writing core transformation logic.
 
 #### 3. Technical Requirements
+- **LOAPubSubPullSensor**: Implementation of a pull-based sensor that inherits from `PubSubPullSensor`. It must support:
+    - Long-polling to minimize empty responses.
+    - Automatic XCom injection of `loa_metadata`.
+    - Idempotency (handling the same GCS notification message multiple times).
 - **PipelineSelector/Router**: Logic to map file patterns/metadata to specific Task IDs or DAG IDs.
 - **Config Layer**: A YAML-based or JSON-based registry of file types, target tables, and schema requirements.
 - **Standardized Context**: Use of Airflow XComs or specific variable injection to pass `routing_info` between tasks.
-- **Library Readiness**: Code must be written as modular Python classes (e.g., `BasePipelineRouter`, `PipelineConfig`) to facilitate future move to a core library.
+- **Library Readiness**: Code must be written as modular Python classes (e.g., `BasePipelineRouter`, `PipelineConfig`) to enable re-use across different data products.
 
 #### 4. Workflow Diagram
 ```mermaid
@@ -40,7 +45,7 @@ graph TD
     subgraph "Airflow Orchestration"
         Sensor[Pub/Sub Sensor] -->|Message| Extractor[Metadata Extractor]
         
-        subgraph "Routing Engine"
+        subgraph "Intelligent Routing Engine"
             Extractor -->|Metadata Context| Router[PipelineRouter]
             Router -->|Lookup| Config[(Routing Config YAML)]
             Router -->|Validate| FailFast{Fail-Fast Validation}
@@ -53,7 +58,7 @@ graph TD
         Branch -->|Target Pipeline N| JobN[Dataflow Job - Pipeline N]
     end
 
-    subgraph "Unified Processing Interface"
+    subgraph "Unified Interface"
         JobA --- Mode[Batch / Streaming Mode]
         JobA --- Source[GCS / Pub/Sub Source]
     end
@@ -65,6 +70,7 @@ graph TD
 ```
 
 #### 5. Definition of Done
+- [ ] `LOAPubSubPullSensor` verified for pull-based metadata extraction and XCom injection.
 - [ ] `PipelineRouter` class implemented and unit-tested.
 - [ ] Reference implementation in a "Template DAG" showing the `Sensor -> Router -> Branch` flow.
 - [ ] Documentation of the "Routing Standard" for future legacy migrations.
