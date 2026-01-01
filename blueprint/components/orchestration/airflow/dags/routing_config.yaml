@@ -1,14 +1,177 @@
 # Routing configuration for LOA Blueprint Pipeline Selector
-default_pipeline: default_batch_pipeline
+# Version: 1.0.0
+# Last Updated: 2026-01-01
 
+# Default settings for all pipelines
+default_settings:
+  default_pipeline: default_batch_pipeline
+  default_processing_mode: batch
+  dlq_topic: loa-notifications-dead-letter
+  quarantine_bucket: loa-quarantine
+  max_retries: 3
+  retry_delay_seconds: 300
+
+# Entity-specific routing rules
 routing_rules:
-  - pipeline_id: legacy_type_a_pipeline
-    file_pattern: "*/TYPE_A_*"
+  # Applications Pipeline
+  - pipeline_id: loa_applications_pipeline
     entity_type: applications
+    file_patterns:
+      - "*/applications_*"
+      - "*/app_*"
+      - "*/APP_*"
+      - "*/TYPE_A_*"
+    target_table: loa_raw.applications_raw
+    error_table: loa_raw.applications_errors
+    processing_mode: batch
+    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    validation:
+      required_columns:
+        - application_id
+        - ssn
+        - loan_amount
+        - loan_type
+        - application_date
+        - branch_code
+      rules:
+        ssn_format: "^\\d{3}-\\d{2}-\\d{4}$"
+        loan_amount_range: [10000, 1000000]
+        loan_types:
+          - MORTGAGE
+          - PERSONAL
+          - AUTO
+          - HOME_EQUITY
+      sample_size: 5
 
-  - pipeline_id: legacy_type_b_pipeline
-    file_pattern: "*/TYPE_B_*"
-    entity_type: customer_master
+  # Customers Pipeline
+  - pipeline_id: loa_customers_pipeline
+    entity_type: customers
+    file_patterns:
+      - "*/customers_*"
+      - "*/cust_*"
+      - "*/CUSTOMER_*"
+      - "*/TYPE_B_*"
+    target_table: loa_raw.customers_raw
+    error_table: loa_raw.customers_errors
+    processing_mode: batch
+    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    validation:
+      required_columns:
+        - customer_id
+        - ssn
+        - customer_name
+        - account_number
+        - email
+        - phone
+        - credit_score
+        - branch_code
+      rules:
+        ssn_format: "^\\d{3}-\\d{2}-\\d{4}$"
+        credit_score_range: [300, 850]
+        email_format: "^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$"
+        phone_format: "^\\+?1?\\d{10,14}$"
+      sample_size: 5
 
+  # Branches Pipeline
+  - pipeline_id: loa_branches_pipeline
+    entity_type: branches
+    file_patterns:
+      - "*/branches_*"
+      - "*/branch_*"
+      - "*/BRANCH_*"
+    target_table: loa_raw.branches_raw
+    error_table: loa_raw.branches_errors
+    processing_mode: batch
+    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    validation:
+      required_columns:
+        - branch_code
+        - branch_name
+        - region
+        - state
+        - city
+        - manager_name
+        - employee_count
+      rules:
+        state_code_length: 2
+        employee_count_range: [0, 1000]
+      sample_size: 3
+
+  # Collateral Pipeline
+  - pipeline_id: loa_collateral_pipeline
+    entity_type: collateral
+    file_patterns:
+      - "*/collateral_*"
+      - "*/coll_*"
+      - "*/COLL_*"
+    target_table: loa_raw.collateral_raw
+    error_table: loa_raw.collateral_errors
+    processing_mode: batch
+    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    validation:
+      required_columns:
+        - collateral_id
+        - application_id
+        - collateral_type
+        - collateral_value
+        - appraisal_date
+      rules:
+        collateral_types:
+          - VEHICLE
+          - PROPERTY
+          - SECURITIES
+          - EQUIPMENT
+        collateral_value_range: [1000, 10000000]
+      sample_size: 5
+
+  # Realtime Event Pipeline (Streaming)
   - pipeline_id: realtime_event_pipeline
     entity_type: realtime_event
+    file_patterns:
+      - "*/events_*"
+      - "*/EVENT_*"
+    processing_mode: streaming
+    input_subscription: projects/loa-project/subscriptions/loa-events-sub
+    target_table: loa_raw.events_stream
+    error_table: loa_raw.events_errors
+    dataflow_template: gs://loa-templates/dataflow/streaming_ingest_template
+    validation:
+      required_columns:
+        - event_id
+        - event_type
+        - event_timestamp
+        - payload
+
+# Error handling configuration
+error_handling:
+  validation_failure:
+    action: quarantine
+    notify: true
+    dlq_publish: true
+    dlq_topic: loa-notifications-dead-letter
+  routing_failure:
+    action: log_and_skip
+    notify: true
+    dlq_publish: true
+    dlq_topic: loa-notifications-dead-letter
+  processing_failure:
+    action: retry
+    max_retries: 3
+    retry_delay_seconds: 300
+    notify: true
+    dlq_publish: true
+    dlq_topic: loa-notifications-dead-letter
+  schema_mismatch:
+    action: quarantine
+    notify: true
+    dlq_publish: true
+    dlq_topic: loa-notifications-dead-letter
+
+# Monitoring and alerting configuration
+monitoring:
+  enable_metrics: true
+  metrics_namespace: loa/pipeline
+  alert_on_failure: true
+  alert_channels:
+    - email
+    - slack
