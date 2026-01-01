@@ -24,6 +24,7 @@ from .monitoring import *
 from .data_quality import *
 from .file_management import *
 from .data_deletion import *
+from .job_control import *
 
 __all__ = [
     'GCSClient',

@@ -2,7 +2,7 @@
 Data quality checker - main orchestrator.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 from .types import QualityCheckResult
 from .dimensions import (
@@ -87,4 +87,99 @@ class DataQualityChecker:
     def _get_grade(self, score: float) -> str:
         """Convert score to letter grade"""
         return ScoreCalculator.get_grade(score)
+
+
+def check_duplicate_keys(
+    records: List[Dict],
+    key_fields: List[str]
+) -> Tuple[bool, List[Dict]]:
+    """
+    Check for duplicate primary/composite keys.
+
+    Args:
+        records: List of record dictionaries
+        key_fields: Fields that form the key
+
+    Returns:
+        Tuple of (has_duplicates, duplicate_records)
+
+    Example:
+        >>> records = [
+        ...     {"id": "1", "name": "John"},
+        ...     {"id": "1", "name": "Jane"},  # Duplicate id
+        ...     {"id": "2", "name": "Bob"},
+        ... ]
+        >>> has_dups, dups = check_duplicate_keys(records, ["id"])
+        >>> has_dups
+        True
+        >>> dups[0]["key"]
+        {'id': '1'}
+    """
+    seen: Dict[tuple, int] = {}
+    duplicates: List[Dict] = []
+
+    for record in records:
+        key = tuple(record.get(f) for f in key_fields)
+
+        if key in seen:
+            seen[key] += 1
+            # Only add to duplicates list once (when we see it the second time)
+            if seen[key] == 2:
+                duplicates.append({
+                    'key': dict(zip(key_fields, key)),
+                    'count': seen[key]
+                })
+            else:
+                # Update count for existing duplicate
+                for dup in duplicates:
+                    if dup['key'] == dict(zip(key_fields, key)):
+                        dup['count'] = seen[key]
+                        break
+        else:
+            seen[key] = 1
+
+    return len(duplicates) > 0, duplicates
+
+
+def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
+    """
+    Validate row types (HDR first, TRL last, DATA in between).
+
+    Args:
+        file_lines: All lines from file
+
+    Returns:
+        Tuple of (is_valid, message)
+
+    Example:
+        >>> lines = [
+        ...     "HDR|EM|Customer|20260101",
+        ...     "id,name,ssn",
+        ...     "1001,John,123-45-6789",
+        ...     "TRL|RecordCount=1|Checksum=abc123"
+        ... ]
+        >>> is_valid, msg = validate_row_types(lines)
+        >>> is_valid
+        True
+    """
+    if not file_lines:
+        return False, "Empty file"
+
+    # Check HDR is first
+    if not file_lines[0].strip().startswith("HDR|"):
+        return False, "First line is not HDR record"
+
+    # Check TRL is last
+    if not file_lines[-1].strip().startswith("TRL|"):
+        return False, "Last line is not TRL record"
+
+    # Check no HDR/TRL in middle
+    for i, line in enumerate(file_lines[1:-1], start=1):
+        stripped = line.strip()
+        if stripped.startswith("HDR|"):
+            return False, f"Unexpected HDR at line {i}"
+        if stripped.startswith("TRL|"):
+            return False, f"Unexpected TRL at line {i}"
+
+    return True, "Row types valid"
 

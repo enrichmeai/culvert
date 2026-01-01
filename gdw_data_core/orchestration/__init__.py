@@ -80,6 +80,9 @@ from .callbacks import (
 # Import sensors
 from .sensors import BasePubSubPullSensor
 
+# Import dependency checker
+from .dependency import EntityDependencyChecker, SYSTEM_DEPENDENCIES
+
 __all__ = [
     # Factories
     'DAGFactory',
@@ -115,5 +118,8 @@ __all__ = [
     'create_error_handler',
     # Sensors
     'BasePubSubPullSensor',
+    # Dependency
+    'EntityDependencyChecker',
+    'SYSTEM_DEPENDENCIES',
 ]
 

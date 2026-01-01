@@ -24,6 +24,7 @@ class ParseCsvLine(beam.DoFn):
     Attributes:
         field_names: List of column names
         delimiter: CSV delimiter character (default: ',')
+        skip_hdr_trl: Skip HDR/TRL records (default: True)
 
     Outputs:
         Main: Dict[str, str] - Parsed record with field names as keys
@@ -32,34 +33,45 @@ class ParseCsvLine(beam.DoFn):
     Metrics:
         parse/errors: Counter of parse failures
         parse/success: Counter of successful parses
+        parse/skipped: Counter of skipped lines (HDR/TRL, empty, header row)
 
     Example:
         >>> pipeline | 'ReadText' >> beam.io.ReadFromText('input.csv')
         ...         | 'ParseCSV' >> beam.ParDo(ParseCsvLine(
         ...             field_names=['id', 'name', 'email'],
-        ...             delimiter=','
+        ...             delimiter=',',
+        ...             skip_hdr_trl=True
         ...         )).with_outputs('main', 'errors')
     """
 
-    def __init__(self, field_names: List[str], delimiter: str = ","):
+    def __init__(
+        self,
+        field_names: List[str],
+        delimiter: str = ",",
+        skip_hdr_trl: bool = True
+    ):
         """
         Initialize CSV parser.
 
         Args:
             field_names: List of column names for the CSV
             delimiter: CSV delimiter character (default: comma)
+            skip_hdr_trl: Skip HDR/TRL records (default: True)
 
         Example:
             >>> parser = ParseCsvLine(
             ...     field_names=['id', 'name', 'email'],
-            ...     delimiter=','
+            ...     delimiter=',',
+            ...     skip_hdr_trl=True
             ... )
         """
         super().__init__()
         self.field_names = field_names
         self.delimiter = delimiter
+        self.skip_hdr_trl = skip_hdr_trl
         self.parse_errors = beam.metrics.Metrics.counter("parse", "errors")
         self.parse_success = beam.metrics.Metrics.counter("parse", "success")
+        self.parse_skipped = beam.metrics.Metrics.counter("parse", "skipped")
 
     def process(self, line: str) -> Iterator[Any]:
         """
@@ -67,6 +79,7 @@ class ParseCsvLine(beam.DoFn):
 
         Handles CSV parsing with quoted fields, empty lines, and field
         count mismatches. Uses Python's csv module for robust parsing.
+        Optionally skips HDR/TRL records from mainframe extract files.
 
         Args:
             line: Raw CSV line from file
@@ -80,19 +93,36 @@ class ParseCsvLine(beam.DoFn):
             >>> list(parser.process('1,John'))
             [{'id': '1', 'name': 'John'}]
 
+            >>> list(parser.process('HDR|EM|Customer|20260101'))
+            []  # Skipped
+
             >>> list(parser.process('incomplete'))
             [TaggedOutput('errors', {...})]
         """
         try:
             # Skip empty lines
             if not line or line.strip() == "":
+                self.parse_skipped.inc()
                 return
+
+            stripped_line = line.strip()
+
+            # Skip HDR/TRL records if enabled
+            if self.skip_hdr_trl:
+                if stripped_line.startswith("HDR|") or stripped_line.startswith("TRL|"):
+                    self.parse_skipped.inc()
+                    return
 
             # Use csv module for robust parsing with quoted field support
             f = io.StringIO(line)
             reader = csv.reader(f, delimiter=self.delimiter)
 
             for row in reader:
+                # Skip if this looks like the header row
+                if row == self.field_names:
+                    self.parse_skipped.inc()
+                    return
+
                 if len(row) == len(self.field_names):
                     record = dict(zip(self.field_names, row))
                     self.parse_success.inc()
