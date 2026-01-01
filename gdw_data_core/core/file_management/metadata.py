@@ -64,7 +64,7 @@ class FileMetadataExtractor:
             blob = self._get_blob(gcs_path)
             blob.reload()  # Ensure metadata is loaded
             return blob.size if blob.size is not None else 0
-        except (GoogleCloudError, NotFound) as e:
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error getting file size for %s: %s", gcs_path, e)
             return 0
 
@@ -76,7 +76,7 @@ class FileMetadataExtractor:
             blob = self._get_blob(gcs_path)
             blob.reload()
             return blob.time_created
-        except (GoogleCloudError, NotFound) as e:
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error getting creation time for %s: %s", gcs_path, e)
             return None
 
@@ -88,7 +88,7 @@ class FileMetadataExtractor:
             blob = self._get_blob(gcs_path)
             blob.reload()
             return blob.updated
-        except (GoogleCloudError, NotFound) as e:
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error getting modification time for %s: %s", gcs_path, e)
             return None
 
@@ -102,7 +102,7 @@ class FileMetadataExtractor:
             lines = content.strip().split('\n')
             # Subtract 1 for header row, return 0 if only header or empty
             return max(0, len(lines) - 1)
-        except (GoogleCloudError, NotFound) as e:
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error counting rows for %s: %s", gcs_path, e)
             return 0
 
@@ -114,9 +114,13 @@ class FileMetadataExtractor:
             blob = self._get_blob(gcs_path)
             # Read only first line for efficiency
             content = blob.download_as_string(start=0, end=1024).decode('utf-8')
+            if not content.strip():
+                return []
             header = content.split('\n')[0]
-            return [col.strip() for col in header.split(',')]
-        except (GoogleCloudError, NotFound) as e:
+            columns = [col.strip() for col in header.split(',')]
+            # Filter out empty column names
+            return [col for col in columns if col]
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error getting CSV columns for %s: %s", gcs_path, e)
             return []
 
@@ -128,7 +132,7 @@ class FileMetadataExtractor:
             blob = self._get_blob(gcs_path)
             blob.reload()
             return blob.md5_hash
-        except (GoogleCloudError, NotFound) as e:
+        except (GoogleCloudError, NotFound, Exception) as e:
             logger.error("Error getting checksum for %s: %s", gcs_path, e)
             return None
 

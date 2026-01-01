@@ -164,7 +164,7 @@ resource "google_storage_bucket" "data" {
   }
 
   encryption {
-    default_kms_key_name = google_kms_crypto_key.loa_messaging_key.id
+    default_kms_key_name = google_kms_crypto_key.storage_key.id
   }
 
   lifecycle_rule {
@@ -178,7 +178,10 @@ resource "google_storage_bucket" "data" {
 
   labels = local.common_labels
 
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.gcs_storage_key
+  ]
 }
 
 # Archive bucket
@@ -191,7 +194,7 @@ resource "google_storage_bucket" "archive" {
   uniform_bucket_level_access = true
 
   encryption {
-    default_kms_key_name = google_kms_crypto_key.loa_messaging_key.id
+    default_kms_key_name = google_kms_crypto_key.storage_key.id
   }
 
   lifecycle_rule {
@@ -206,7 +209,10 @@ resource "google_storage_bucket" "archive" {
 
   labels = local.common_labels
 
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.gcs_storage_key
+  ]
 }
 
 # Temp bucket for Dataflow
@@ -244,7 +250,7 @@ resource "google_bigquery_dataset" "loa_migration" {
   description = "LOA migration dataset for ${var.environment}"
 
   default_encryption_configuration {
-    kms_key_name = google_kms_crypto_key.loa_messaging_key.id
+    kms_key_name = google_kms_crypto_key.warehouse_key.id
   }
 
   default_table_expiration_ms = var.environment == "dev" ? 2592000000 : null # 30 days for dev
@@ -380,29 +386,39 @@ resource "google_bigquery_table" "collateral_raw" {
 }
 
 #------------------------------------------------------------------------------
-# PUB/SUB
+# PUB/SUB (References resources defined in security.tf for CMEK compliance)
 #------------------------------------------------------------------------------
+# NOTE: Primary Pub/Sub topics (notifications, audit-events, dead-letter) are
+# defined in security.tf as part of the CMEK infrastructure module (PLAT-INF-001).
+# This section contains additional LOA-specific topics and subscriptions.
 
-# Topic for pipeline notifications with CMEK
+# Legacy notification topic (for backward compatibility)
+# New deployments should use google_pubsub_topic.notifications from security.tf
 resource "google_pubsub_topic" "loa_notifications" {
   name         = "loa-processing-notifications"
   project      = var.project_id
-  kms_key_name = google_kms_crypto_key.loa_messaging_key.id
+  kms_key_name = google_kms_crypto_key.messaging_key.id
 
   labels = local.common_labels
 
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.pubsub_messaging_key
+  ]
 }
 
-# Dead-letter topic
+# Dead-letter topic (uses messaging_key from security.tf)
 resource "google_pubsub_topic" "loa_notifications_dead_letter" {
   name         = "loa-notifications-dead-letter"
   project      = var.project_id
-  kms_key_name = google_kms_crypto_key.loa_messaging_key.id
+  kms_key_name = google_kms_crypto_key.messaging_key.id
 
   labels = local.common_labels
 
-  depends_on = [google_project_service.services]
+  depends_on = [
+    google_project_service.services,
+    google_kms_crypto_key_iam_member.pubsub_messaging_key
+  ]
 }
 
 # Subscription for notifications
@@ -426,7 +442,8 @@ resource "google_pubsub_subscription" "loa_notifications_sub" {
   labels = local.common_labels
 }
 
-# GCS Storage Notification for .ok files
+# GCS Storage Notification for incoming files
+# NOTE: Additional notifications defined in security.tf for standardized event-driven sensing
 resource "google_storage_notification" "loa_ok_notification" {
   bucket         = google_storage_bucket.data.name
   payload_format = "JSON_API_V1"
@@ -436,25 +453,19 @@ resource "google_storage_notification" "loa_ok_notification" {
 
   # Note: object_name_suffix is not directly supported in google_storage_notification
   # We will filter for .ok in the subscriber (Airflow)
+
+  depends_on = [google_pubsub_topic_iam_member.gcs_publisher_loa]
 }
 
 # IAM permissions for Dataflow to use KMS (CMEK)
 resource "google_kms_crypto_key_iam_member" "dataflow_kms" {
-  crypto_key_id = google_kms_crypto_key.loa_messaging_key.id
+  crypto_key_id = google_kms_crypto_key.messaging_key.id
   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
   member        = "serviceAccount:${google_service_account.dataflow.email}"
 }
 
-# IAM permissions for Pub/Sub to use KMS
-resource "google_pubsub_topic_iam_member" "pubsub_kms_binding" {
-  project = var.project_id
-  topic   = google_pubsub_topic.loa_notifications.name
-  role    = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member  = "serviceAccount:service-${var.project_number}@gcp-sa-pubsub.iam.gserviceaccount.com"
-}
-
-# IAM permissions for GCS to publish to Pub/Sub
-resource "google_pubsub_topic_iam_member" "gcs_publisher" {
+# IAM permissions for GCS to publish to LOA notifications topic
+resource "google_pubsub_topic_iam_member" "gcs_publisher_loa" {
   project = var.project_id
   topic   = google_pubsub_topic.loa_notifications.name
   role    = "roles/pubsub.publisher"

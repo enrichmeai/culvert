@@ -10,6 +10,7 @@ Reruns: Automatic retry with exponential backoff
 """
 
 from datetime import datetime, timedelta
+from typing import Dict, Any, List
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.dummy import DummyOperator
@@ -20,8 +21,19 @@ from airflow.utils.task_group import TaskGroup
 from airflow.models import Variable
 from airflow.exceptions import AirflowSkipException
 import logging
+import os
 
 from blueprint.components.loa_pipelines.pipeline_router import PipelineRouter, FileType
+
+# Import file management components from gdw_data_core library
+from gdw_data_core.core.file_management import (
+    FileArchiver,
+    ArchivePolicyEngine,
+    ArchiveResult,
+    ArchiveStatus,
+    BatchArchiveResult
+)
+from gdw_data_core.core.audit import AuditTrail, AuditPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +42,8 @@ PROJECT_ID = Variable.get("GCP_PROJECT_ID", "loa-project")
 INPUT_BUCKET = Variable.get("GCS_INPUT_BUCKET", "loa-input")
 ARCHIVE_BUCKET = Variable.get("GCS_ARCHIVE_BUCKET", "loa-archive")
 ERROR_BUCKET = Variable.get("GCS_ERROR_BUCKET", "loa-error")
+AUDIT_TOPIC = Variable.get("AUDIT_TOPIC", "loa-audit-events")
+ARCHIVE_CONFIG_PATH = Variable.get("ARCHIVE_CONFIG_PATH", "/home/airflow/gcs/dags/config/archive_config.yaml")
 
 # DAG defaults
 default_args = {
@@ -196,54 +210,174 @@ def trigger_entity_pipeline(file_path: str, file_type: str, **context) -> str:
     return dag_id
 
 
-def archive_processed_file(file_path: str, status: str, **context) -> str:
+def archive_processed_file(file_path: str, status: str, **context) -> Dict[str, Any]:
     """
-    Archive file after processing.
+    Archive file after processing using FileArchiver from gdw_data_core.
+
+    This function uses the gdw_data_core file management library to:
+    1. Initialize ArchivePolicyEngine with configuration
+    2. Create FileArchiver with audit trail integration
+    3. Archive files with policy-based paths
+    4. Push structured results to XCom
 
     Args:
         file_path: File to archive
         status: Processing status (success/error)
 
     Returns:
-        Archive path
+        Archive result dictionary with status and path
     """
-    from google.cloud import storage
-    from datetime import datetime
+    run_id = context.get('run_id', context['task_instance'].run_id)
 
-    client = storage.Client(project=PROJECT_ID)
-
-    # Determine archive bucket
-    if status == "success":
-        archive_bucket_name = ARCHIVE_BUCKET
-    else:
-        archive_bucket_name = ERROR_BUCKET
-
-    # Build archive path: YYYY/MM/DD/entity_type/filename
-    now = datetime.utcnow()
-    year = now.strftime("%Y")
-    month = now.strftime("%m")
-    day = now.strftime("%d")
-
-    # Detect entity type for path
-    router = PipelineRouter()
-    file_type = router.detect_file_type(file_path)
-
-    archive_path = f"{year}/{month}/{day}/{file_type.value}/{file_path}"
-
-    # Copy file
-    source_bucket = client.bucket(INPUT_BUCKET)
-    dest_bucket = client.bucket(archive_bucket_name)
-
-    source_blob = source_bucket.blob(file_path)
-    dest_blob = source_bucket.copy_blob(
-        source_blob,
-        dest_bucket,
-        archive_path
+    # Initialize audit trail for archive operations
+    publisher = AuditPublisher(project_id=PROJECT_ID, topic_name=AUDIT_TOPIC)
+    audit = AuditTrail(
+        run_id=run_id,
+        pipeline_name="loa_dynamic_archive",
+        entity_type="files",
+        publisher=publisher
     )
 
-    logger.info(f"Archived {file_path} to {archive_bucket_name}/{archive_path}")
+    # Initialize policy engine with config or defaults
+    try:
+        if os.path.exists(ARCHIVE_CONFIG_PATH):
+            policy_engine = ArchivePolicyEngine(config_path=ARCHIVE_CONFIG_PATH)
+            logger.info(f"Loaded archive policy from: {ARCHIVE_CONFIG_PATH}")
+        else:
+            # Use default configuration
+            default_config = {
+                'archive_policies': [
+                    {
+                        'name': 'standard_daily',
+                        'pattern': 'archive/{entity}/{year}/{month}/{day}/{filename}',
+                        'collision_strategy': 'timestamp',
+                        'retention_days': 365,
+                        'enabled': True,
+                        'description': 'Standard daily archiving'
+                    },
+                    {
+                        'name': 'error_files',
+                        'pattern': 'error/{entity}/{year}/{month}/{day}/{filename}',
+                        'collision_strategy': 'timestamp',
+                        'retention_days': 90,
+                        'enabled': True,
+                        'description': 'Error file archiving'
+                    }
+                ],
+                'default_policy': 'standard_daily'
+            }
+            policy_engine = ArchivePolicyEngine(config_dict=default_config)
+            logger.info("Using default archive policy configuration")
+    except Exception as e:
+        logger.warning(f"Failed to load policy engine: {e}. Using defaults.")
+        policy_engine = ArchivePolicyEngine()
 
-    return archive_path
+    # Determine target bucket and policy based on status
+    if status == "success":
+        archive_bucket = ARCHIVE_BUCKET
+        policy_name = "standard_daily"
+    else:
+        archive_bucket = ERROR_BUCKET
+        policy_name = "error_files"
+
+    # Detect entity type for archive path
+    router = PipelineRouter()
+    file_type = router.detect_file_type(file_path)
+    entity = file_type.value if file_type else "unknown"
+
+    # Initialize FileArchiver with policy engine and audit
+    archiver = FileArchiver(
+        source_bucket=INPUT_BUCKET,
+        archive_bucket=archive_bucket,
+        policy_engine=policy_engine,
+        audit_logger=audit
+    )
+
+    # Archive the file
+    result: ArchiveResult = archiver.archive_file(
+        source_path=file_path,
+        entity=entity,
+        policy_name=policy_name,
+        run_id=run_id
+    )
+
+    # Log result
+    if result.success:
+        logger.info(f"Archived {file_path} to {result.archive_path}")
+    else:
+        logger.error(f"Failed to archive {file_path}: {result.error}")
+
+    # Push structured result to XCom
+    xcom_data = result.to_xcom_dict()
+    context['task_instance'].xcom_push(key='archive_result', value=xcom_data)
+
+    return xcom_data
+
+
+def archive_batch_files(file_paths: List[str], status: str, **context) -> Dict[str, Any]:
+    """
+    Archive multiple files in batch using FileArchiver from gdw_data_core.
+
+    Args:
+        file_paths: List of files to archive
+        status: Processing status (success/error)
+
+    Returns:
+        Batch archive result with summary
+    """
+    run_id = context.get('run_id', context['task_instance'].run_id)
+
+    # Initialize audit trail
+    publisher = AuditPublisher(project_id=PROJECT_ID, topic_name=AUDIT_TOPIC)
+    audit = AuditTrail(
+        run_id=run_id,
+        pipeline_name="loa_dynamic_archive",
+        entity_type="files",
+        publisher=publisher
+    )
+
+    # Initialize policy engine
+    try:
+        if os.path.exists(ARCHIVE_CONFIG_PATH):
+            policy_engine = ArchivePolicyEngine(config_path=ARCHIVE_CONFIG_PATH)
+        else:
+            policy_engine = ArchivePolicyEngine()
+    except Exception as e:
+        logger.warning(f"Failed to load policy engine: {e}")
+        policy_engine = ArchivePolicyEngine()
+
+    # Determine target bucket based on status
+    archive_bucket = ARCHIVE_BUCKET if status == "success" else ERROR_BUCKET
+    policy_name = "standard_daily" if status == "success" else "error_files"
+
+    # Initialize FileArchiver
+    archiver = FileArchiver(
+        source_bucket=INPUT_BUCKET,
+        archive_bucket=archive_bucket,
+        policy_engine=policy_engine,
+        audit_logger=audit
+    )
+
+    # Archive batch with summary
+    batch_result: BatchArchiveResult = archiver.archive_batch_with_summary(
+        source_paths=file_paths,
+        entity="mixed",
+        policy_name=policy_name,
+        run_id=run_id
+    )
+
+    # Log results
+    logger.info(f"Batch archive completed: {batch_result.successful_count}/{batch_result.total_files} files archived")
+
+    if batch_result.failed_count > 0:
+        failed_paths = batch_result.get_failed_paths()
+        logger.error(f"Failed to archive {batch_result.failed_count} files: {failed_paths}")
+
+    # Push results to XCom
+    xcom_data = batch_result.to_xcom_dict()
+    context['task_instance'].xcom_push(key='batch_archive_result', value=xcom_data)
+
+    return xcom_data
 
 
 def generate_summary_report(**context) -> Dict[str, Any]:

@@ -136,6 +136,100 @@
 
 ### 3. Common Post-Processing (All Flows)
 
+```
+1. DATA QUALITY VALIDATION
+   └─ BigQuery data quality checks (row counts, nulls)
+   └─ Reconciliation against source counts
+   └─ Alert on threshold violations
+
+2. FILE ARCHIVING (FileArchiver - gdw_data_core)
+   └─ Load archive policy from YAML config
+   └─ Resolve path: archive/{entity}/{year}/{month}/{day}/{filename}
+   └─ Atomic move: GCS copy + delete source
+   └─ Record to Audit Trail (Pub/Sub)
+   └─ Push ArchiveResult to XCom
+
+3. ERROR HANDLING
+   └─ Failed files → Error bucket: error/{timestamp}/{filename}
+   └─ Error notification published to Pub/Sub
+   └─ Manual review queued
+
+4. NOTIFICATIONS & AUDIT
+   └─ Success/Failure notification to Pub/Sub
+   └─ Audit events published (AuditTrail)
+   └─ Metrics updated (files_processed, files_archived)
+```
+
+### 4. File Lifecycle Buckets
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                       GCS BUCKET ARCHITECTURE                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  ┌──────────────────┐                                                    │
+│  │  INPUT BUCKET    │  (loa-migration-data)                              │
+│  │  incoming/       │                                                    │
+│  │  ├─ *.csv        │──────────────────┐                                 │
+│  │  └─ *.ok         │                  │                                 │
+│  └──────────────────┘                  │                                 │
+│           │                            │                                 │
+│           ▼                            ▼                                 │
+│  ┌──────────────────┐        ┌──────────────────┐                        │
+│  │  TEMP BUCKET     │        │  BigQuery        │                        │
+│  │  (processing/)   │───────▶│  (loa_processed) │                        │
+│  │  └─ Dataflow     │        └──────────────────┘                        │
+│  └──────────────────┘                                                    │
+│           │                                                              │
+│           │ On Success              On Failure                           │
+│           ▼                              │                               │
+│  ┌──────────────────┐        ┌──────────────────┐                        │
+│  │  ARCHIVE BUCKET  │        │  ERROR BUCKET    │                        │
+│  │  (loa-archive)   │        │  (loa-error)     │                        │
+│  │  archive/        │        │  error/          │                        │
+│  │  ├─ entity/      │        │  ├─ timestamp/   │                        │
+│  │  │  └─ year/     │        │  │  └─ file.csv  │                        │
+│  │  │     └─ month/ │        │  └─ (7-day TTL)  │                        │
+│  │  │        └─ day/│        └──────────────────┘                        │
+│  │  │           └─ file.csv                                              │
+│  │  │                                                                    │
+│  │  ├─ Versioned (prod only)                                             │
+│  │  ├─ CMEK encrypted                                                    │
+│  │  └─ 7-year retention                                                  │
+│  └──────────────────┘                                                    │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### 5. Archive Policy Configuration
+
+The archive path resolution is config-driven via YAML:
+
+```yaml
+# archive_config.yaml
+archive_policies:
+  - name: "standard_daily"
+    pattern: "archive/{entity}/{year}/{month}/{day}/{filename}"
+    collision_strategy: "timestamp"  # or "uuid", "version"
+    retention_days: 365
+    enabled: true
+
+  - name: "applications"
+    pattern: "archive/applications/{year}/{month}/{day}/{filename}"
+    collision_strategy: "timestamp"
+    retention_days: 2555  # 7 years for compliance
+    enabled: true
+
+default_policy: "applications"
+```
+
+**Collision Strategies:**
+| Strategy | Example Output |
+|----------|----------------|
+| `timestamp` | `file_20260101_143022.csv` |
+| `uuid` | `file_a1b2c3d4.csv` |
+| `version` | `file_v2.csv` |
+
 ---
 
 ## 🗂️ Components & Technologies
@@ -177,19 +271,97 @@
 
 ## 🔐 Security Architecture
 
-### Network
+### Secure Messaging & CMEK Infrastructure (PLAT-INF-001)
+
+The platform implements a standardized, modular pattern for secure messaging and encryption using Terraform modules.
+
+```mermaid
+graph TD
+    subgraph "Modular Infrastructure - Terraform"
+        KMS_Mod["🔐 KMS Module<br/>(kms/)"] -->|Provision| Key["CMEK Key<br/>90-day Rotation"]
+        PS_Mod["📬 Pub/Sub Module<br/>(pubsub/)"] -->|Provision| Topic["Standardized Topic<br/>${prefix}-notifications"]
+        IAM_Mod["👤 IAM Module<br/>(iam/)"] -->|Binding| Agents["Service Agents"]
+    end
+
+    subgraph "Standardized Interaction Pattern"
+        GCS["📁 GCS Bucket<br/>(CMEK Encrypted)"] -->|OBJECT_FINALIZE| Topic
+        Topic -->|Encrypted By| Key
+        Topic -->|Consume| Router["🔀 PipelineRouter<br/>(gdw_data_core)"]
+        BQ["📊 BigQuery Dataset<br/>(CMEK Encrypted)"] -->|Protected By| Key
+    end
+
+    subgraph "Least-Privilege IAM Bindings"
+        SA_GCS["GCS Service Agent"] -->|roles/pubsub.publisher| Topic
+        SA_Pub["Pub/Sub Service Agent"] -->|roles/cloudkms.cryptoKeyEncrypterDecrypter| Key
+        SA_BQ["BigQuery Service Agent"] -->|roles/cloudkms.cryptoKeyEncrypterDecrypter| Key
+    end
+
+    style Key fill:#f96,stroke:#333,stroke-width:2px
+    style Topic fill:#bbf,stroke:#333,stroke-width:2px
+    style Router fill:#dfd,stroke:#333,stroke-width:2px
+    style GCS fill:#ffc,stroke:#333,stroke-width:2px
+    style BQ fill:#fcf,stroke:#333,stroke-width:2px
 ```
-┌─────────────────────────────────┐
+
+#### Key Security Patterns
+
+| Pattern | Implementation | Acceptance Criteria |
+|---------|---------------|---------------------|
+| **CMEK Encryption** | Cloud KMS with 90-day auto-rotation | AC 1: All storage/messaging uses CMEK |
+| **Modular Terraform** | Parameterized modules (variables.tf) | AC 2: Standalone, pluggable modules |
+| **Least-Privilege IAM** | Service agent bindings per resource | AC 3: Portable across GCP projects |
+| **Event-Driven Sensing** | GCS → Pub/Sub → PipelineRouter | AC 4: Standardized topic structure |
+
+#### Infrastructure Modules
+
+```
+infrastructure/terraform/
+├── modules/
+│   ├── kms/                          # CMEK Key Management
+│   │   ├── main.tf                   # Key ring + crypto key
+│   │   ├── variables.tf              # environment, project_id, region
+│   │   ├── outputs.tf                # key_id, key_ring_id
+│   │   └── rotation.tf               # 90-day rotation policy
+│   │
+│   ├── pubsub/                       # Secure Messaging
+│   │   ├── main.tf                   # Topic + subscriptions
+│   │   ├── variables.tf              # prefix, kms_key_id
+│   │   ├── outputs.tf                # topic_id, subscription_ids
+│   │   └── encryption.tf             # CMEK binding
+│   │
+│   ├── gcs/                          # Encrypted Storage
+│   │   ├── main.tf                   # Buckets with CMEK
+│   │   ├── notifications.tf          # Pub/Sub notifications
+│   │   └── lifecycle.tf              # Retention policies
+│   │
+│   └── iam/                          # Service Agent Registry
+│       ├── main.tf                   # Role bindings
+│       ├── service_agents.tf         # Agent definitions
+│       └── outputs.tf                # Service account emails
+```
+
+#### Service Agent Registry
+
+| Agent Type | Resource | Required Role |
+|------------|----------|---------------|
+| `service-${project_number}@gs-project-accounts.iam.gserviceaccount.com` | GCS | `roles/pubsub.publisher` |
+| `service-${project_number}@gcp-sa-pubsub.iam.gserviceaccount.com` | Pub/Sub | `roles/cloudkms.cryptoKeyEncrypterDecrypter` |
+| `bq-${project_number}@bigquery-encryption.iam.gserviceaccount.com` | BigQuery | `roles/cloudkms.cryptoKeyEncrypterDecrypter` |
+
+### Network
+
+```
+┌─────────────────────────────────────┐
 │ VPC (Virtual Private Cloud)     │
-├─────────────────────────────────┤
+├─────────────────────────────────────┤
 │ Subnet: 10.0.1.0/24             │
 │ ├─ Cloud Run (secure)           │
 │ ├─ Cloud Functions              │
 │ └─ Dataflow workers             │
-├─────────────────────────────────┤
+├─────────────────────────────────────┤
 │ Cloud NAT (outbound traffic)    │
 │ Cloud Router                    │
-└─────────────────────────────────┘
+└─────────────────────────────────────┘
 ```
 
 ### Identity & Access

@@ -1,0 +1,104 @@
+# Archive Configuration
+# Configuration for file archiving policies and collision strategies
+# Used by ArchivePolicyEngine for dynamic path resolution
+#
+# Version: 1.0.0
+# Last Updated: 2025-12-31
+
+# Archive policies define how files should be archived based on entity type
+# Each policy specifies:
+#   - name: Unique identifier for the policy
+#   - description: Human-readable description
+#   - pattern: Archive path template with placeholders
+#   - collision_strategy: How to handle duplicate file names
+#   - retention_days: How long to keep archived files
+#   - enabled: Whether the policy is active
+
+archive_policies:
+  # Standard daily archiving with date-based path structure
+  # Use for general data files that need daily organization
+  - name: "standard_daily"
+    description: "Standard daily archiving with date-based path structure"
+    pattern: "archive/{entity}/{year}/{month}/{day}/{filename}"
+    collision_strategy: "timestamp"
+    retention_days: 365
+    enabled: true
+
+  # Audit logs with extended retention
+  # Use for compliance and audit trail files
+  - name: "audit_logs"
+    description: "Audit logs with extended retention for compliance"
+    pattern: "archive/audit_logs/{source}/{year}/{month}/{filename}"
+    collision_strategy: "uuid"
+    retention_days: 2555  # ~7 years for compliance
+    enabled: true
+
+  # Processing cache with short retention
+  # Use for temporary processing files
+  - name: "processing_cache"
+    description: "Temporary processing files with short retention"
+    pattern: "archive/processing/{entity}/{run_id}/{filename}"
+    collision_strategy: "version"
+    retention_days: 30
+    enabled: true
+
+  # Real-time data files with hourly organization
+  # Use for high-frequency real-time data
+  - name: "realtime_data"
+    description: "Real-time data files with hourly organization"
+    pattern: "archive/realtime/{entity}/{year}/{month}/{day}/{run_id}/{filename}"
+    collision_strategy: "timestamp"
+    retention_days: 90
+    enabled: true
+
+  # Error files for failed processing
+  # Use for files that failed validation or processing
+  - name: "error_files"
+    description: "Error files for manual review"
+    pattern: "archive/errors/{entity}/{year}/{month}/{day}/{filename}"
+    collision_strategy: "timestamp"
+    retention_days: 180
+    enabled: true
+
+  # Long-term archival for historical data
+  # Use for data that needs long-term retention
+  - name: "long_term_archive"
+    description: "Long-term archival for historical data"
+    pattern: "archive/historical/{entity}/{year}/{filename}"
+    collision_strategy: "version"
+    retention_days: 3650  # 10 years
+    enabled: true
+
+# Default policy for unmapped file types
+# Used when no specific policy is specified
+default_policy: "standard_daily"
+
+# Collision strategies configuration
+# These define how duplicate filenames are handled
+collision_strategies:
+  timestamp:
+    description: "Append timestamp to avoid collisions"
+    format: "{basename}_{YYYYMMDD_HHMMSS}{ext}"
+    example: "users_20251231_143022.csv"
+
+  uuid:
+    description: "Append UUID to avoid collisions"
+    format: "{basename}_{uuid}{ext}"
+    example: "audit_a1b2c3d4.log"
+
+  version:
+    description: "Use version numbering for duplicates"
+    format: "{basename}_v{version}{ext}"
+    example: "report_v2.csv"
+
+# Template variables available for path patterns:
+# {entity}   - Entity/data domain identifier (e.g., 'users', 'orders')
+# {year}     - 4-digit year (e.g., '2025')
+# {month}    - 2-digit month (e.g., '12')
+# {day}      - 2-digit day (e.g., '31')
+# {filename} - Original filename with extension
+# {basename} - Filename without extension
+# {ext}      - File extension including dot (e.g., '.csv')
+# {run_id}   - Processing run identifier
+# {source}   - Source system identifier
+
