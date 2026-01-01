@@ -40,6 +40,13 @@ from .base import (
     BaseBeamTest,
 )
 
+# Import comparison utilities
+from .comparison import (
+    ComparisonResult,
+    ComparisonReport,
+    DualRunComparison,
+)
+
 # Note: Fixtures, mocks, builders, and assertions are available as submodules
 # Import them when needed:
 #   from gdw_data_core.testing.fixtures import sample_records
@@ -53,5 +60,9 @@ __all__ = [
     'BaseGDWTest',
     'BaseValidationTest',
     'BaseBeamTest',
+    # Comparison utilities
+    'ComparisonResult',
+    'ComparisonReport',
+    'DualRunComparison',
 ]
 

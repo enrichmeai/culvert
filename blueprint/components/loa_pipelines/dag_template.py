@@ -47,6 +47,11 @@ from airflow.models import Variable
 from airflow.exceptions import AirflowException
 
 from blueprint.components.loa_pipelines.pipeline_router import PipelineRouter, FileType
+from blueprint.components.orchestration.airflow.callbacks.error_handlers import (
+    on_failure_callback,
+    on_validation_failure,
+    on_routing_failure,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +158,15 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
         if not is_valid:
             error_msg = f"File format check failed for {files[0]}: {errors}"
             logger.error(error_msg)
+
+            # Publish to DLQ for observability
+            on_validation_failure(
+                context=context,
+                validation_errors=errors,
+                file_path=f"gs://{bucket}/{files[0]}",
+                quarantine=True,
+            )
+
             raise AirflowException(error_msg)
 
         # NEW: Sampled Field-Level Validation (Architectural Recommendation)
@@ -171,6 +185,15 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
         if not is_sample_valid:
             error_msg = f"Sample field validation failed for {files[0]}: {sample_errors}"
             logger.error(error_msg)
+
+            # Publish to DLQ for observability
+            on_validation_failure(
+                context=context,
+                validation_errors=sample_errors if isinstance(sample_errors, list) else [str(sample_errors)],
+                file_path=f"gs://{bucket}/{files[0]}",
+                quarantine=True,
+            )
+
             raise AirflowException(error_msg)
 
         logger.info(f"File format and sample validation passed for {file_type}")

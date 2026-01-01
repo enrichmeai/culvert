@@ -38,11 +38,13 @@ Example:
 
 from .router import DAGRouter
 from .config import PipelineConfig, FileType, ProcessingMode
+from .yaml_selector import YAMLPipelineSelector
 
 __all__ = [
     'DAGRouter',
     'PipelineConfig',
     'FileType',
     'ProcessingMode',
+    'YAMLPipelineSelector',
 ]
 

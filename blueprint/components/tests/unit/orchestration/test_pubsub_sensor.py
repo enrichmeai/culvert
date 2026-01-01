@@ -40,6 +40,10 @@ sys.modules['airflow.providers.google.cloud.sensors'] = mock_airflow.providers.g
 sys.modules['airflow.providers.google.cloud.sensors.pubsub'] = mock_airflow.providers.google.cloud.sensors.pubsub
 mock_airflow.providers.google.cloud.sensors.pubsub.PubSubPullSensor = DummyPubSubPullSensor
 
+# Mock gdw_data_core orchestration sensors to use our dummy
+from gdw_data_core.orchestration import sensors as gdw_sensors
+gdw_sensors.pubsub.PubSubPullSensor = DummyPubSubPullSensor
+
 from blueprint.components.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
 
 
@@ -586,7 +590,7 @@ class TestLOAPubSubPullSensorErrorHandling(unittest.TestCase):
 
 
 class TestLOAPubSubPullSensorFilterMethod(unittest.TestCase):
-    """Test the _filter_ok_files method directly."""
+    """Test the _filter_by_extension method directly."""
 
     def setUp(self):
         """Set up sensor for direct method testing."""
@@ -603,7 +607,7 @@ class TestLOAPubSubPullSensorFilterMethod(unittest.TestCase):
             {'message': {'attributes': {'objectId': 'test.csv'}}}
         ]
 
-        result = self.sensor._filter_ok_files(messages)
+        result = self.sensor._filter_by_extension(messages)
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]['message']['attributes']['objectId'], 'test.ok')
@@ -615,7 +619,7 @@ class TestLOAPubSubPullSensorFilterMethod(unittest.TestCase):
             {'message': {'attributes': {'gcs_path': 'gs://bucket/path/file.txt'}}}
         ]
 
-        result = self.sensor._filter_ok_files(messages)
+        result = self.sensor._filter_by_extension(messages)
 
         self.assertEqual(len(result), 1)
 
@@ -626,13 +630,13 @@ class TestLOAPubSubPullSensorFilterMethod(unittest.TestCase):
             {'message': {'attributes': {'name': 'data.parquet'}}}
         ]
 
-        result = self.sensor._filter_ok_files(messages)
+        result = self.sensor._filter_by_extension(messages)
 
         self.assertEqual(len(result), 1)
 
     def test_filter_empty_list(self):
         """Test filtering empty list."""
-        result = self.sensor._filter_ok_files([])
+        result = self.sensor._filter_by_extension([])
         self.assertEqual(result, [])
 
     def test_filter_no_matching_files(self):
@@ -642,7 +646,7 @@ class TestLOAPubSubPullSensorFilterMethod(unittest.TestCase):
             {'message': {'attributes': {'objectId': 'file.json'}}}
         ]
 
-        result = self.sensor._filter_ok_files(messages)
+        result = self.sensor._filter_by_extension(messages)
 
         self.assertEqual(result, [])
 
