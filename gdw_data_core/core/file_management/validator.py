@@ -191,3 +191,43 @@ class FileValidator:
 
         return errors
 
+
+def validate_record_count(
+    file_lines: List[str],
+    expected_count: int,
+    has_csv_header: bool = True
+) -> Tuple[bool, str]:
+    """
+    Validate record count matches trailer.
+
+    Args:
+        file_lines: All lines from file (including HDR/TRL)
+        expected_count: Record count from TRL
+        has_csv_header: Whether file has CSV column header row
+
+    Returns:
+        Tuple of (is_valid, message)
+
+    Example:
+        >>> lines = [
+        ...     "HDR|EM|Customer|20260101",
+        ...     "id,name,ssn",
+        ...     "1001,John,123-45-6789",
+        ...     "1002,Jane,987-65-4321",
+        ...     "TRL|RecordCount=2|Checksum=abc123"
+        ... ]
+        >>> is_valid, msg = validate_record_count(lines, 2, has_csv_header=True)
+        >>> is_valid
+        True
+    """
+    # Exclude HDR (line 0), TRL (last line), and optionally CSV header (line 1)
+    data_start = 2 if has_csv_header else 1
+    data_end = len(file_lines) - 1  # Exclude TRL
+
+    actual_count = data_end - data_start
+
+    if actual_count == expected_count:
+        return True, f"Record count valid: {actual_count}"
+    else:
+        return False, f"Record count mismatch: expected {expected_count}, got {actual_count}"
+

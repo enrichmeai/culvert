@@ -12,17 +12,24 @@ Components:
 - ArchiveResult: Structured archive operation result for Airflow XCom
 """
 
-from .validator import FileValidator
+from .validator import FileValidator, validate_record_count
 from .archiver import FileArchiver
 from .metadata import FileMetadata, FileMetadataExtractor
-from .integrity import IntegrityChecker, HashValidator
+from .integrity import IntegrityChecker, HashValidator, compute_checksum, validate_checksum
 from .lifecycle import FileLifecycleManager
 from .types import ArchiveResult, ArchiveStatus, BatchArchiveResult
 from .policy import ArchivePolicyEngine, ArchivePolicy, CollisionStrategy
+from .hdr_trl_parser import (
+    HeaderRecord,
+    TrailerRecord,
+    ParsedFileMetadata,
+    HDRTRLParser,
+)
 
 __all__ = [
     # Validators
     'FileValidator',
+    'validate_record_count',
     # Archiver
     'FileArchiver',
     # Metadata
@@ -31,6 +38,8 @@ __all__ = [
     # Integrity
     'IntegrityChecker',
     'HashValidator',
+    'compute_checksum',
+    'validate_checksum',
     # Lifecycle
     'FileLifecycleManager',
     # Types
@@ -41,5 +50,10 @@ __all__ = [
     'ArchivePolicyEngine',
     'ArchivePolicy',
     'CollisionStrategy',
+    # HDR/TRL Parser
+    'HeaderRecord',
+    'TrailerRecord',
+    'ParsedFileMetadata',
+    'HDRTRLParser',
 ]
 
