@@ -23,6 +23,16 @@ variable "environment" {
   }
 }
 
+variable "resource_prefix" {
+  description = "Prefix for resource naming convention (e.g., 'loa', 'gdw'). Used for multi-tenant/multi-project reuse."
+  type        = string
+  default     = "loa"
+  validation {
+    condition     = can(regex("^[a-z][a-z0-9-]{2,10}$", var.resource_prefix))
+    error_message = "Resource prefix must be 3-11 lowercase alphanumeric characters, starting with a letter."
+  }
+}
+
 # LOA-specific variables
 variable "enable_composer" {
   description = "Enable Cloud Composer for Airflow orchestration"
