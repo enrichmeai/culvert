@@ -1,4 +1,4 @@
-owart"""
+"""
 YAML-Based Pipeline Selector.
 
 Provides YAML configuration-driven pipeline routing.
