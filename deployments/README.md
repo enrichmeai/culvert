@@ -212,40 +212,75 @@ deployments/em/
 
 ### Running Tests
 
+**⚠️ Important:** To avoid Python module caching conflicts, run tests in **isolation** by component:
+
 ```bash
-# Full test suite (recommended)
 cd /path/to/legacy-migration-reference
-PYTHONPATH=.:./gdw_data_core:./deployments pytest gdw_data_core/tests deployments/em/tests deployments/loa/tests
 
-# Just library tests
-pytest gdw_data_core/tests -v
+# ============================================
+# RECOMMENDED: Run each component separately
+# ============================================
 
-# Just EM tests
-pytest deployments/em/tests -v
+# 1. Library tests (run first, in isolation)
+PYTHONPATH=.:./gdw_data_core pytest gdw_data_core/tests -v
+# Expected: 500+ tests pass
 
-# Just LOA tests  
-pytest deployments/loa/tests -v
+# 2. EM deployment tests (run separately)
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/em/tests -v
+# Expected: 400+ tests pass
 
-# Client tests (run separately due to module caching)
-pytest gdw_data_core/tests/unit/core/clients/ -v
+# 3. LOA deployment tests (run separately)
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/loa/tests -v
+# Expected: 60+ tests pass
+
+# ============================================
+# OR: Use the test runner script
+# ============================================
+./run_all_tests.sh
 ```
 
-### ⚠️ Important: Module Caching Note
+### Test Runner Script
 
-Some GCP client tests (`test_gcs_client.py`, `test_pubsub_client.py`) use late imports with mocking and may be **skipped** when running the full test suite due to Python module caching.
+Use `run_all_tests.sh` at the project root to run all tests in proper isolation:
 
-**These tests pass when run in isolation:**
 ```bash
-# Run client tests separately (23 tests pass)
-pytest gdw_data_core/tests/unit/core/clients/ -v
+#!/bin/bash
+# run_all_tests.sh - Runs library, EM, and LOA tests in isolation
+
+set -e
+cd "$(dirname "$0")"
+
+echo "=========================================="
+echo "Running Library Tests"
+echo "=========================================="
+PYTHONPATH=.:./gdw_data_core pytest gdw_data_core/tests -v --tb=short
+
+echo ""
+echo "=========================================="
+echo "Running EM Deployment Tests"
+echo "=========================================="
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/em/tests -v --tb=short
+
+echo ""
+echo "=========================================="
+echo "Running LOA Deployment Tests"  
+echo "=========================================="
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/loa/tests -v --tb=short
+
+echo ""
+echo "=========================================="
+echo "✅ All tests passed!"
+echo "=========================================="
 ```
 
-**When running full suite:**
-- 914+ tests pass
-- ~18 client tests skipped (module caching conflict)
-- 6 Airflow sensor tests skipped (requires full Airflow environment)
+### Why Run Tests Separately?
 
-This is expected behavior and does not indicate a problem with the tests.
+Python caches imported modules in `sys.modules`. When running all tests together:
+- Library tests import `GCSClient` with mocks
+- Deployment tests import `GCSClient` from source
+- The cached module can interfere with mocking
+
+**Solution:** Run each component's tests in a separate pytest invocation. This ensures clean module state for each test suite.
 
 ### Test Data
 
