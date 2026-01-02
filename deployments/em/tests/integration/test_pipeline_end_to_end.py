@@ -47,7 +47,7 @@ sys.modules['google.cloud.pubsub_v1'] = mock_google.cloud.pubsub_v1
 from gdw_data_core.core.error_handling import ErrorHandler
 from gdw_data_core.core.monitoring import ObservabilityManager
 
-from tests.fixtures.test_data_factory import (
+from deployments.em.tests.fixtures.test_data_factory import (
     ApplicationFactory,
     CustomerFactory,
     BranchFactory,
