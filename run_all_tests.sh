@@ -20,9 +20,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Counters
-TOTAL_PASSED=0
-TOTAL_FAILED=0
 
 run_library_tests() {
     echo ""
