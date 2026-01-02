@@ -95,9 +95,11 @@ deployments/
 
 ---
 
----
+## 🏛️ Architecture Diagrams
 
-## Creating a New Deployment
+The implementation is guided by architecture diagrams in [`docs/diagrams/`](../docs/diagrams/). These diagrams define the patterns used across both EM and LOA deployments:
+
+| Diagram | Purpose | Key Implementation |
 |---------|---------|-------------------|
 | [pubsub_kms_secure_trigger.mmd](../docs/diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS encryption | `infrastructure/terraform/security.tf` - CMEK with 90-day rotation |
 | [intelligent_routing_flow.mmd](../docs/diagrams/intelligent_routing_flow.mmd) | Dynamic pipeline routing | `PipelineRouter` in orchestration layer |
