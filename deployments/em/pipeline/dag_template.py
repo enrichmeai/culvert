@@ -87,7 +87,14 @@ def create_multi_flow_dag(
         tags=["em", "migration", entity_type, job_name]
     )
 
-def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[str, Any]:
+def validate_input_files(
+    job_name: str,
+    input_pattern: str,
+    gcs_client=None,
+    validator=None,
+    router=None,
+    **context
+) -> Dict[str, Any]:
     """
     Validate that input files exist, discover splits, and verify format.
 
@@ -98,6 +105,9 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
     Args:
         job_name: Name of the job (e.g., "customers", "accounts", "decision")
         input_pattern: GCS wildcard pattern
+        gcs_client: Optional GCSClient (for testing)
+        validator: Optional EMValidator (for testing)
+        router: Optional PipelineRouter (for testing)
         **context: Airflow context
 
     Returns:
@@ -107,14 +117,23 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
           - status: "ready" or raises exception
     """
     # Library imports
-    from gdw_data_core.core import GCSClient, discover_split_files
-    from gdw_data_core.core.file_management import FileValidator
+    from gdw_data_core.core import discover_split_files
     from gdw_data_core.orchestration.callbacks import on_validation_failure
 
     # EM-specific imports
-    from deployments.em.pipeline.pipeline_router import PipelineRouter
-    from deployments.em.validation import EMValidator
     from deployments.em.schema import EM_SCHEMAS
+
+    if gcs_client is None:
+        from gdw_data_core.core import GCSClient
+        gcs_client = GCSClient(project=DEFAULT_PROJECT_ID)
+
+    if validator is None:
+        from deployments.em.validation import EMValidator
+        validator = EMValidator()
+
+    if router is None:
+        from deployments.em.pipeline.pipeline_router import PipelineRouter
+        router = PipelineRouter()
 
     try:
         # Parse GCS path
@@ -123,11 +142,9 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
         bucket = parts[0]
         prefix = "/".join(parts[1:]).rstrip("*").rstrip("/")
 
-        gcs = GCSClient(project=DEFAULT_PROJECT_ID)
-
         # Discover files
-        files = gcs.list_files(bucket, prefix=prefix)
-        split_files = discover_split_files(gcs, bucket, prefix)
+        files = gcs_client.list_files(bucket, prefix=prefix)
+        split_files = discover_split_files(gcs_client, bucket, prefix)
 
         logger.info(f"Found {len(files)} files, {len(split_files)} file groups")
 
@@ -137,11 +154,10 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
             )
 
         # Performance File Format Check
-        router = PipelineRouter()
         file_type = router.detect_file_type(files[0])
 
         # Read header from first file
-        header_content = gcs.read_file(bucket, files[0])
+        header_content = gcs_client.read_file(bucket, files[0])
         header = header_content.split(",")[0:10] if header_content else []
 
         # If header is empty in stub, we use default for the detected type
@@ -167,9 +183,8 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
         # Sampled Field-Level Validation
         # Validate file lines using EMValidator
         file_lines = header_content.split('\n') if header_content else []
-        em_validator = EMValidator()
 
-        validation_result = em_validator.validate_file(file_lines, entity_name=job_name)
+        validation_result = validator.validate_file(file_lines, entity_name=job_name)
 
         if not validation_result.is_valid:
             error_msg = f"File validation failed for {files[0]}: {validation_result.errors}"

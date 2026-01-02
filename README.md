@@ -426,6 +426,60 @@ Library handles: errors, retry, Pub/Sub, audit, job control, archival, DLQ
 
 ---
 
+## 🏛️ Architecture Diagrams
+
+The architecture is documented through Mermaid diagrams in `docs/diagrams/`. These diagrams drive the implementation:
+
+### Core Architecture Patterns
+
+| Diagram | Purpose | Implementation Impact |
+|---------|---------|----------------------|
+| [`pubsub_kms_secure_trigger.mmd`](docs/diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS encryption | Drives `infrastructure/terraform/security.tf` - CMEK with 90-day rotation |
+| [`intelligent_routing_flow.mmd`](docs/diagrams/intelligent_routing_flow.mmd) | Dynamic pipeline routing | Drives `PipelineRouter` in orchestration layer |
+| [`generic_messaging_security_pattern.mmd`](docs/diagrams/generic_messaging_security_pattern.mmd) | Standardized security infrastructure | Drives modular Terraform with KMS, Pub/Sub, IAM modules |
+| [`audit_framework_flow.mmd`](docs/diagrams/audit_framework_flow.mmd) | Audit trail and lineage | Drives `AuditTrail` and `AuditPublisher` components |
+
+### Pub/Sub KMS Secure Trigger Pattern
+
+```
+GCS Landing → GCS Notification → Pub/Sub Topic (🔐 KMS Encrypted)
+                                        ↓
+                                 Subscription → PubSubPullSensor → Airflow DAG
+                                        ↓ (failure)
+                                 Dead Letter Topic
+```
+
+**Key Implementation Points:**
+- Topics encrypted with Cloud KMS (`loa-messaging-key`)
+- 90-day automatic key rotation
+- Dead letter queue after 5 failed delivery attempts
+- Service agents require `roles/cloudkms.cryptoKeyEncrypterDecrypter`
+
+### Intelligent Routing Pattern
+
+```
+Pub/Sub Message → Metadata Extractor → PipelineRouter → Fail-Fast Validation
+                                              ↓                    ↓
+                                       Routing Config         Dead Letter
+                                              ↓
+                                    BranchPythonOperator → Target Pipeline
+```
+
+**Key Implementation Points:**
+- YAML-based routing configuration
+- Fail-fast validation before processing
+- Supports batch and streaming modes
+- Dynamic pipeline selection based on metadata
+
+### Viewing Diagrams
+
+Mermaid diagrams can be viewed:
+1. **GitHub**: Renders automatically in markdown
+2. **VS Code**: Install "Mermaid Preview" extension
+3. **Online**: Use [mermaid.live](https://mermaid.live)
+
+---
+
 <div align="center">
 
 **Version 2.0** | **Last Updated: January 2, 2026**

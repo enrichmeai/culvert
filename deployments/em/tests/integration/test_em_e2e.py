@@ -29,10 +29,10 @@ class TestEMIntegrationFlow:
         from deployments.em.config import REQUIRED_ENTITIES
 
         # EM has 3 required entities
-        self.assertEqual(len(REQUIRED_ENTITIES), 3)
-        self.assertIn("customers", REQUIRED_ENTITIES)
-        self.assertIn("accounts", REQUIRED_ENTITIES)
-        self.assertIn("decision", REQUIRED_ENTITIES)
+        assert len(REQUIRED_ENTITIES) == 3
+        assert "customers" in REQUIRED_ENTITIES
+        assert "accounts" in REQUIRED_ENTITIES
+        assert "decision" in REQUIRED_ENTITIES
 
     def test_join_transformation_flow(self):
         """Test JOIN transformation creates 1 FDP table."""
@@ -47,8 +47,8 @@ class TestEMIntegrationFlow:
         ]
         target_tables = ["fdp_em.em_attributes"]
 
-        self.assertEqual(len(source_tables), 3)
-        self.assertEqual(len(target_tables), 1)
+        assert len(source_tables) == 3
+        assert len(target_tables) == 1
 
 
 class TestEMDataFlow:
@@ -61,10 +61,10 @@ class TestEMDataFlow:
         )
 
         # EM has 3 ODP tables + 1 FDP table
-        self.assertIn("customers", EM_SCHEMAS)
-        self.assertIn("accounts", EM_SCHEMAS)
-        self.assertIn("decision", EM_SCHEMAS)
-        self.assertIn("em_attributes", EM_SCHEMAS)
+        assert "customers" in EM_SCHEMAS
+        assert "accounts" in EM_SCHEMAS
+        assert "decision" in EM_SCHEMAS
+        assert "em_attributes" in EM_SCHEMAS
 
     def test_audit_columns_preserved(self):
         """Test audit columns flow through correctly."""
@@ -74,8 +74,8 @@ class TestEMDataFlow:
         for entity in ["customers", "accounts", "decision", "em_attributes"]:
             schema = get_schema(entity)
             field_names = [f["name"] for f in schema]
-            self.assertIn("_run_id", field_names)
-            self.assertIn("_extract_date", field_names)
+            assert "_run_id" in field_names
+            assert "_extract_date" in field_names
 
 
 class TestEMVsLOA:
@@ -86,8 +86,8 @@ class TestEMVsLOA:
         from deployments.em.config import REQUIRED_ENTITIES as EM_ENTITIES
         from deployments.loa.config import REQUIRED_ENTITIES as LOA_ENTITIES
 
-        self.assertEqual(len(EM_ENTITIES), 3)
-        self.assertEqual(len(LOA_ENTITIES), 1)
+        assert len(EM_ENTITIES) == 3
+        assert len(LOA_ENTITIES) == 1
 
     def test_em_uses_dependency_checker(self):
         """Test EM uses EntityDependencyChecker (LOA doesn't need it)."""
@@ -96,8 +96,8 @@ class TestEMVsLOA:
         em_needs_dependency_checker = True
         loa_needs_dependency_checker = False
 
-        self.assertTrue(em_needs_dependency_checker)
-        self.assertFalse(loa_needs_dependency_checker)
+        assert em_needs_dependency_checker
+        assert not loa_needs_dependency_checker
 
     def test_em_join_vs_loa_split(self):
         """Test EM uses JOIN (3→1) vs LOA uses SPLIT (1→2)."""
@@ -109,8 +109,8 @@ class TestEMVsLOA:
         loa_odp_count = 1
         loa_fdp_count = 2
 
-        self.assertEqual(em_odp_count, 3)
-        self.assertEqual(em_fdp_count, 1)
-        self.assertEqual(loa_odp_count, 1)
-        self.assertEqual(loa_fdp_count, 2)
+        assert em_odp_count == 3
+        assert em_fdp_count == 1
+        assert loa_odp_count == 1
+        assert loa_fdp_count == 2
 

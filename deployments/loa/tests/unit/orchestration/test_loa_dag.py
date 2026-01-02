@@ -11,8 +11,7 @@ from unittest.mock import patch, MagicMock
 class TestLOADailyLoadDAG(unittest.TestCase):
     """Test LOA daily load DAG."""
 
-    @patch('airflow.models.DAG')
-    def test_dag_id(self, mock_dag):
+    def test_dag_id(self):
         """Test DAG ID is correct."""
         # The DAG should have ID 'loa_daily_load'
         expected_dag_id = "loa_daily_load"

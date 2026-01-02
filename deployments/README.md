@@ -95,6 +95,44 @@ deployments/
 
 ---
 
+---
+
+## Creating a New Deployment
+|---------|---------|-------------------|
+| [pubsub_kms_secure_trigger.mmd](../docs/diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS encryption | `infrastructure/terraform/security.tf` - CMEK with 90-day rotation |
+| [intelligent_routing_flow.mmd](../docs/diagrams/intelligent_routing_flow.mmd) | Dynamic pipeline routing | `PipelineRouter` in orchestration layer |
+| [generic_messaging_security_pattern.mmd](../docs/diagrams/generic_messaging_security_pattern.mmd) | Standardized security infrastructure | Modular Terraform with KMS, Pub/Sub, IAM |
+| [audit_framework_flow.mmd](../docs/diagrams/audit_framework_flow.mmd) | Audit trail and lineage tracking | `AuditTrail` and `AuditPublisher` components |
+
+### Pub/Sub KMS Secure Trigger Pattern
+
+```
+GCS Landing → GCS Notification → Pub/Sub Topic (🔐 KMS Encrypted)
+                                        ↓
+                                 Subscription → PubSubPullSensor → Airflow DAG
+                                        ↓ (on failure)
+                                 Dead Letter Topic (5 retries)
+```
+
+### Intelligent Routing Pattern
+
+```
+Pub/Sub Message → Metadata Extractor → PipelineRouter → Fail-Fast Validation
+                                              ↓                    ↓
+                                       Routing Config         Dead Letter
+                                              ↓
+                                    BranchPythonOperator → Target Pipeline
+```
+
+### Viewing Diagrams
+
+Mermaid diagrams can be viewed:
+1. **GitHub**: Renders automatically in markdown files
+2. **VS Code**: Install "Mermaid Preview" extension
+3. **Online**: Use [mermaid.live](https://mermaid.live)
+
+---
+
 ## Creating a New Deployment
 
 1. **Copy LOA** as a template (it's the cleanest implementation):
@@ -140,6 +178,106 @@ from deployments.em.config import SYSTEM_ID as EM_ID
 from deployments.loa.config import SYSTEM_ID as LOA_ID
 print(f'EM: {EM_ID}, LOA: {LOA_ID}')
 "
+```
+
+---
+
+## 🧪 Testing
+
+### Test Structure
+
+Tests **mirror source structure exactly** per coding standards:
+
+```
+deployments/em/
+├── config/                          →  tests/unit/config/test_*.py
+├── schema/                          →  tests/unit/schema/test_*.py
+├── domain/                          →  tests/unit/domain/test_*.py
+├── validation/                      →  tests/unit/validation/test_*.py
+├── pipeline/                        →  tests/unit/pipeline/test_*.py
+└── orchestration/                   →  tests/unit/orchestration/test_*.py
+```
+
+### Test Categories
+
+| Category | Location | Purpose | When to Run |
+|----------|----------|---------|-------------|
+| **Unit** | `tests/unit/` | Test individual components in isolation | Always (CI) |
+| **Integration** | `tests/integration/` | Test component interactions with mocked GCP | Always (CI) |
+| **BDD** | `tests/bdd/` | Gherkin scenarios for E2E behavior | After GCP deployment |
+| **Chaos** | `tests/chaos/` | Failure recovery testing | Staging environment |
+| **Infrastructure** | `tests/unit/infrastructure/` | Terraform configuration validation | Before deployment |
+
+### Running Tests
+
+```bash
+# Full test suite (recommended)
+cd /path/to/legacy-migration-reference
+PYTHONPATH=.:./gdw_data_core:./deployments pytest gdw_data_core/tests deployments/em/tests deployments/loa/tests
+
+# Just library tests
+pytest gdw_data_core/tests -v
+
+# Just EM tests
+pytest deployments/em/tests -v
+
+# Just LOA tests  
+pytest deployments/loa/tests -v
+
+# Client tests (run separately due to module caching)
+pytest gdw_data_core/tests/unit/core/clients/ -v
+```
+
+### ⚠️ Important: Module Caching Note
+
+Some GCP client tests (`test_gcs_client.py`, `test_pubsub_client.py`) use late imports with mocking and may be **skipped** when running the full test suite due to Python module caching.
+
+**These tests pass when run in isolation:**
+```bash
+# Run client tests separately (23 tests pass)
+pytest gdw_data_core/tests/unit/core/clients/ -v
+```
+
+**When running full suite:**
+- 914+ tests pass
+- ~18 client tests skipped (module caching conflict)
+- 6 Airflow sensor tests skipped (requires full Airflow environment)
+
+This is expected behavior and does not indicate a problem with the tests.
+
+### Test Data
+
+Sample test data files are in `tests/data/`:
+
+| File | Purpose |
+|------|---------|
+| `em_customers_sample.csv` | Valid EM customers with HDR/TRL |
+| `em_accounts_sample.csv` | Valid EM accounts with HDR/TRL |
+| `em_decision_sample.csv` | Valid EM decision with HDR/TRL |
+| `loa_applications_sample.csv` | Valid LOA applications with HDR/TRL |
+
+### BDD Testing (Post-Deployment)
+
+After deploying to GCP, run BDD tests to validate end-to-end behavior:
+
+```bash
+# Run BDD tests (requires GCP deployment)
+pytest deployments/em/tests/bdd/ --bdd
+
+# Example: Push a file and verify processing
+gsutil cp tests/data/applications.csv gs://$BUCKET/incoming/
+gsutil cp tests/data/applications.csv.ok gs://$BUCKET/incoming/
+# BDD test verifies: file processed → archived → data in BigQuery
+```
+
+BDD feature files use Gherkin syntax:
+```gherkin
+Feature: End-to-End LOA Migration Pipeline
+  Scenario: Process a valid application file
+    Given a valid application file "applications_20260101.csv" in GCS
+    When the pipeline is triggered
+    Then records should be in BigQuery table "loa_processed.applications"
+    And the file should be archived
 ```
 
 ---
