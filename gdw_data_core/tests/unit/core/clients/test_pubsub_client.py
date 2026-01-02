@@ -3,8 +3,7 @@ Unit tests for PubSubClient.
 
 Tests mirror source: gdw_data_core/core/clients/pubsub_client.py
 
-NOTE: These tests pass when run in isolation but may fail when run with the
-full test suite due to module caching. Run separately with:
+Run tests in isolation to avoid module caching issues:
     pytest gdw_data_core/tests/unit/core/clients/test_pubsub_client.py -v
 """
 
@@ -12,11 +11,6 @@ import pytest
 import sys
 from unittest.mock import patch, MagicMock
 
-# Skip entire module when running in full suite - module caching issue
-pytestmark = pytest.mark.skipif(
-    'deployments' in sys.modules or 'gdw_data_core.core.audit' in sys.modules,
-    reason="Module caching conflict - run client tests separately: pytest gdw_data_core/tests/unit/core/clients/"
-)
 
 
 def _reload_pubsub_client():
