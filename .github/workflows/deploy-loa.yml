@@ -6,10 +6,10 @@ on:
       - main
       - develop
     paths:
-      - 'blueprint/components/loa_common/**'
-      - 'blueprint/components/loa_pipelines/**'
-      - 'blueprint/components/schemas/**'
-      - 'blueprint/components/requirements.txt'
+      - '../../blueprint/em/components/loa_common/**'
+      - '../../blueprint/em/components/loa_pipelines/**'
+      - '../../blueprint/em/components/schemas/**'
+      - '../../blueprint/em/components/requirements.txt'
       - '.github/workflows/deploy-loa.yml'
   workflow_dispatch:
 

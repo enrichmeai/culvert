@@ -745,7 +745,7 @@ def on_validation_failure(
 ```python
 # In validate_input_files function, add:
 
-from blueprint.components.orchestration.airflow.callbacks.error_handlers import (
+from blueprint.em.components.orchestration.airflow.callbacks.error_handlers import (
     on_validation_failure
 )
 
@@ -753,10 +753,10 @@ from blueprint.components.orchestration.airflow.callbacks.error_handlers import 
 if not is_valid:
     error_msg = f"File format check failed for {files[0]}: {errors}"
     logger.error(error_msg)
-    
+
     # Publish to DLQ
     on_validation_failure(context, errors, files[0])
-    
+
     raise AirflowException(error_msg)
 ```
 

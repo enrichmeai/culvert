@@ -2,7 +2,7 @@
 
 A production-grade Python framework providing reusable components for data migration pipelines. Decouples core infrastructure (validation, error handling, audit, monitoring) from specific business implementations.
 
-**Status**: ✅ 124/124 tests passing | 65% code coverage | Production ready
+**Status**: ✅ 513/513 tests passing | Production ready
 
 ---
 
@@ -1780,8 +1780,16 @@ gdw_data_core/
 │   ├── utilities/                 # Common utilities
 │   ├── data_quality/              # Quality checks
 │   ├── file_management/           # File operations
+│   │   └── hdr_trl/               # HDR/TRL parser submodule
 │   ├── data_deletion/             # Data deletion framework
+│   ├── job_control/               # Pipeline job tracking
 │   └── clients/                   # GCS/BigQuery clients
+├── orchestration/                 # Airflow orchestration
+│   ├── callbacks/                 # Error handlers, DLQ
+│   ├── factories/                 # DAG factories
+│   ├── routing/                   # Task routing
+│   ├── sensors/                   # Custom sensors
+│   └── operators/                 # Custom operators
 ├── pipelines/                     # Pipeline framework
 │   ├── base/                      # Base pipeline classes
 │   ├── beam/                      # Apache Beam integration
@@ -1797,13 +1805,51 @@ gdw_data_core/
 │   ├── builders/                  # Test builders
 │   └── assertions/                # Custom assertions
 ├── tests/                         # Test suite
-│   ├── unit/                      # Unit tests
+│   ├── unit/                      # Unit tests (mirrors source structure)
 │   └── integration/               # Integration tests
 ├── transformations/               # dbt transformations
 │   └── dbt_shared/                # Shared dbt macros
 ├── README.md                      # This file
 ├── setup.py                       # Package setup
 └── pyproject.toml                 # Project config
+```
+
+### Module Structure Rules
+
+The library follows strict module organization rules:
+
+#### When to Create a Submodule (Directory)
+
+Create a submodule when:
+- Module has **more than 1 class**
+- Module has **more than 3 related functions**
+- File would exceed **200 lines**
+
+#### File Naming Conventions
+
+| File Type | Naming Pattern | Example |
+|-----------|---------------|---------|
+| Types/Enums | `types.py` | `error_handling/types.py` |
+| Constants | `constants.py` | `hdr_trl/constants.py` |
+| Models/Dataclasses | `models.py` | `job_control/models.py` |
+| Main Implementation | Descriptive name | `handler.py`, `parser.py` |
+
+#### Test Structure
+
+Tests MUST mirror source structure exactly:
+
+```
+# Source
+core/file_management/hdr_trl/
+├── types.py
+├── constants.py
+└── parser.py
+
+# Tests (1:1 mapping)
+tests/unit/core/file_management/hdr_trl/
+├── test_types.py
+├── test_constants.py
+└── test_parser.py
 ```
 
 ---
@@ -1864,6 +1910,167 @@ class CustomPipeline(BasePipeline):
     def build(self, pipeline: beam.Pipeline):
         # Your custom pipeline logic
         pass
+```
+
+---
+
+## Pipeline Components (For Implementing New Pipelines)
+
+The library provides **generic, configurable** components that pipelines use. Pipelines provide their own configuration.
+
+### HDR/TRL File Parsing
+
+Parse header and trailer records from mainframe extract files:
+
+```python
+from gdw_data_core.core.file_management import (
+    HDRTRLParser,
+    validate_record_count,
+    validate_checksum,
+)
+
+# Default patterns (for CSV extracts)
+# HDR|{SYSTEM}|{ENTITY}|{YYYYMMDD}
+# TRL|RecordCount={n}|Checksum={hash}
+
+parser = HDRTRLParser()  # Uses defaults
+
+# Parse file
+metadata = parser.parse_file_lines(lines)
+print(f"System: {metadata.header.system_id}")
+print(f"Entity: {metadata.header.entity_type}")
+print(f"Records: {metadata.trailer.record_count}")
+
+# Custom patterns for different file formats
+parser = HDRTRLParser(
+    hdr_pattern=r'^HEADER:(.+):(.+):(\d{8})$',
+    trl_pattern=r'^FOOTER:COUNT=(\d+):HASH=(.+)$',
+    hdr_prefix="HEADER:",
+    trl_prefix="FOOTER:"
+)
+```
+
+### File Validation
+
+```python
+from gdw_data_core.core.file_management import validate_record_count, validate_checksum
+from gdw_data_core.core.data_quality import validate_row_types
+
+# Validate row types (HDR first, TRL last)
+is_valid, msg = validate_row_types(file_lines)  # Default prefixes
+is_valid, msg = validate_row_types(file_lines, hdr_prefix="HEADER:", trl_prefix="FOOTER:")
+
+# Validate record count
+is_valid, msg = validate_record_count(lines, expected_count=5000, has_csv_header=True)
+
+# Validate checksum
+is_valid, msg = validate_checksum(data_lines, expected_checksum="a1b2c3d4")
+```
+
+### Entity Dependency Checking
+
+For multi-entity pipelines that need to wait for all entities before transformation:
+
+```python
+from gdw_data_core.orchestration import EntityDependencyChecker
+
+# Pipeline provides configuration - library is GENERIC
+checker = EntityDependencyChecker(
+    project_id="my-project",
+    system_id="em",  # Pipeline provides
+    required_entities=["customers", "accounts", "decision"]  # Pipeline provides
+)
+
+# Check if all entities are loaded for an extract date
+if checker.all_entities_loaded(extract_date):
+    trigger_transformation()
+
+# Get missing entities
+missing = checker.get_missing_entities(extract_date)
+print(f"Waiting for: {missing}")
+```
+
+### Duplicate Key Detection
+
+```python
+from gdw_data_core.core.data_quality import check_duplicate_keys
+
+records = [
+    {"id": "1", "name": "John"},
+    {"id": "1", "name": "Jane"},  # Duplicate
+    {"id": "2", "name": "Bob"},
+]
+
+has_duplicates, duplicates = check_duplicate_keys(records, ["id"])
+# has_duplicates = True
+# duplicates = [{"key": {"id": "1"}, "count": 2}]
+```
+
+### Job Control
+
+Track pipeline job status:
+
+```python
+from gdw_data_core.core.job_control import JobControlRepository, JobStatus, PipelineJob
+from datetime import date
+
+repo = JobControlRepository(project_id="my-project")
+
+# Create job record
+job = PipelineJob(
+    run_id="run_20260101_001",
+    system_id="em",
+    entity_type="customers",
+    extract_date=date(2026, 1, 1),
+    source_files=["customers.csv"]
+)
+repo.create_job(job)
+
+# Update status
+repo.update_status(run_id, JobStatus.SUCCESS, total_records=5000)
+
+# Mark failed
+repo.mark_failed(
+    run_id,
+    error_code="HDR_INVALID",
+    error_message="Header record missing",
+    failure_stage=FailureStage.FILE_VALIDATION
+)
+```
+
+### Common Import Patterns for Pipelines
+
+```python
+# File Management
+from gdw_data_core.core.file_management import (
+    HDRTRLParser,
+    validate_record_count,
+    validate_checksum,
+)
+
+# Data Quality
+from gdw_data_core.core.data_quality import (
+    validate_row_types,
+    check_duplicate_keys,
+)
+
+# Job Control
+from gdw_data_core.core.job_control import (
+    JobControlRepository,
+    JobStatus,
+    PipelineJob,
+)
+
+# Entity Dependencies
+from gdw_data_core.orchestration import EntityDependencyChecker
+
+# Validators
+from gdw_data_core.core.validators import (
+    validate_ssn,
+    validate_required,
+    validate_length,
+    ValidationError,
+)
 ```
 
 ---

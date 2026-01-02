@@ -21,10 +21,19 @@ class ParseCsvLine(beam.DoFn):
     This is typically the first transform after reading files from GCS.
     Converts raw text lines to structured records with proper error handling.
 
+    Library provides the mechanism. Pipeline can configure:
+    - field_names: Column names
+    - delimiter: Field delimiter
+    - skip_hdr_trl: Whether to skip header/trailer records
+    - hdr_prefix: Header line prefix (default: "HDR|")
+    - trl_prefix: Trailer line prefix (default: "TRL|")
+
     Attributes:
         field_names: List of column names
         delimiter: CSV delimiter character (default: ',')
         skip_hdr_trl: Skip HDR/TRL records (default: True)
+        hdr_prefix: Header record prefix (default: "HDR|")
+        trl_prefix: Trailer record prefix (default: "TRL|")
 
     Outputs:
         Main: Dict[str, str] - Parsed record with field names as keys
@@ -48,7 +57,9 @@ class ParseCsvLine(beam.DoFn):
         self,
         field_names: List[str],
         delimiter: str = ",",
-        skip_hdr_trl: bool = True
+        skip_hdr_trl: bool = True,
+        hdr_prefix: str = "HDR|",
+        trl_prefix: str = "TRL|"
     ):
         """
         Initialize CSV parser.
@@ -57,6 +68,8 @@ class ParseCsvLine(beam.DoFn):
             field_names: List of column names for the CSV
             delimiter: CSV delimiter character (default: comma)
             skip_hdr_trl: Skip HDR/TRL records (default: True)
+            hdr_prefix: Header record prefix (default: "HDR|")
+            trl_prefix: Trailer record prefix (default: "TRL|")
 
         Example:
             >>> parser = ParseCsvLine(
@@ -64,11 +77,20 @@ class ParseCsvLine(beam.DoFn):
             ...     delimiter=',',
             ...     skip_hdr_trl=True
             ... )
+
+            # With custom prefixes:
+            >>> parser = ParseCsvLine(
+            ...     field_names=['id', 'name'],
+            ...     hdr_prefix="HEADER:",
+            ...     trl_prefix="FOOTER:"
+            ... )
         """
         super().__init__()
         self.field_names = field_names
         self.delimiter = delimiter
         self.skip_hdr_trl = skip_hdr_trl
+        self.hdr_prefix = hdr_prefix
+        self.trl_prefix = trl_prefix
         self.parse_errors = beam.metrics.Metrics.counter("parse", "errors")
         self.parse_success = beam.metrics.Metrics.counter("parse", "success")
         self.parse_skipped = beam.metrics.Metrics.counter("parse", "skipped")
@@ -109,7 +131,7 @@ class ParseCsvLine(beam.DoFn):
 
             # Skip HDR/TRL records if enabled
             if self.skip_hdr_trl:
-                if stripped_line.startswith("HDR|") or stripped_line.startswith("TRL|"):
+                if stripped_line.startswith(self.hdr_prefix) or stripped_line.startswith(self.trl_prefix):
                     self.parse_skipped.inc()
                     return
 

@@ -1649,20 +1649,33 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 #### Entity Dependency Configuration
 
 ```python
-# Entity dependencies per system
+# LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
+# PIPELINE provides the configuration (entities, counts, triggers)
 
-SYSTEM_ENTITY_DEPENDENCIES = {
-    "em": {
-        "entities": ["customers", "accounts", "decision"],
-        "required_count": 3,
-        "trigger_next_stage": "transformation"
-    },
-    "loa": {
-        "entities": ["applications", ...],  # To be defined
-        "required_count": ...,
-        "trigger_next_stage": "transformation"
-    }
+# Example: Blueprint pipeline configuration (blueprint/components/em/config.py)
+EM_ENTITY_DEPENDENCIES = {
+    "entities": ["customers", "accounts", "decision"],
+    "required_count": 3,
+    "trigger_next_stage": "transformation"
 }
+
+# Example: Blueprint pipeline configuration (blueprint/components/loa/config.py)
+LOA_ENTITY_DEPENDENCIES = {
+    "entities": ["applications"],
+    "required_count": 1,  # Single entity - immediate trigger
+    "trigger_next_stage": "transformation"
+}
+
+# Usage in DAG (pipeline code, not library)
+from gdw_data_core.orchestration import EntityDependencyChecker
+
+checker = EntityDependencyChecker(
+    project_id="my-project",
+    dependencies=EM_ENTITY_DEPENDENCIES  # Pipeline provides config
+)
+
+if checker.all_entities_loaded("em", extract_date):
+    trigger_transformation_dag()
 ```
 
 #### Dependency Check Table
@@ -1670,7 +1683,7 @@ SYSTEM_ENTITY_DEPENDENCIES = {
 | System | Required Entities | All Required? | Trigger Condition |
 |--------|-------------------|---------------|-------------------|
 | **EM** | Customers, Accounts, Decision | Yes, all 3 | All 3 SUCCESS for same extract_date |
-| **LOA** | *(To be defined)* | *(TBD)* | *(TBD)* |
+| **LOA** | Applications | No (single entity) | Immediate after ODP load SUCCESS |
 
 #### Dependency Check Query
 

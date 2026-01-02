@@ -81,7 +81,7 @@ from .callbacks import (
 from .sensors import BasePubSubPullSensor
 
 # Import dependency checker
-from .dependency import EntityDependencyChecker, SYSTEM_DEPENDENCIES
+from .dependency import EntityDependencyChecker
 
 __all__ = [
     # Factories
@@ -120,6 +120,5 @@ __all__ = [
     'BasePubSubPullSensor',
     # Dependency
     'EntityDependencyChecker',
-    'SYSTEM_DEPENDENCIES',
 ]
 

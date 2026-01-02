@@ -135,7 +135,7 @@ class TestValidateRowTypes(unittest.TestCase):
         is_valid, msg = validate_row_types(lines)
 
         self.assertFalse(is_valid)
-        self.assertIn("not HDR", msg)
+        self.assertIn("not header record", msg)
 
     def test_missing_trl(self):
         """Test file missing TRL record."""
@@ -148,7 +148,7 @@ class TestValidateRowTypes(unittest.TestCase):
         is_valid, msg = validate_row_types(lines)
 
         self.assertFalse(is_valid)
-        self.assertIn("not TRL", msg)
+        self.assertIn("not trailer record", msg)
 
     def test_hdr_in_middle(self):
         """Test file with HDR in middle."""
@@ -163,7 +163,7 @@ class TestValidateRowTypes(unittest.TestCase):
         is_valid, msg = validate_row_types(lines)
 
         self.assertFalse(is_valid)
-        self.assertIn("Unexpected HDR", msg)
+        self.assertIn("Unexpected header", msg)
 
     def test_trl_in_middle(self):
         """Test file with TRL in middle."""
@@ -178,7 +178,7 @@ class TestValidateRowTypes(unittest.TestCase):
         is_valid, msg = validate_row_types(lines)
 
         self.assertFalse(is_valid)
-        self.assertIn("Unexpected TRL", msg)
+        self.assertIn("Unexpected trailer", msg)
 
     def test_empty_file(self):
         """Test empty file."""

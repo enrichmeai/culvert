@@ -1,0 +1,21 @@
+[
+  {"name": "attribute_key", "type": "STRING", "mode": "REQUIRED", "description": "Composite primary key"},
+  {"name": "customer_id", "type": "STRING", "mode": "REQUIRED", "description": "Customer ID"},
+  {"name": "ssn_masked", "type": "STRING", "mode": "NULLABLE", "description": "Masked SSN (PII)"},
+  {"name": "first_name", "type": "STRING", "mode": "NULLABLE", "description": "First name"},
+  {"name": "last_name", "type": "STRING", "mode": "NULLABLE", "description": "Last name"},
+  {"name": "date_of_birth", "type": "DATE", "mode": "NULLABLE", "description": "Date of birth"},
+  {"name": "customer_status", "type": "STRING", "mode": "NULLABLE", "description": "Customer status"},
+  {"name": "account_id", "type": "STRING", "mode": "NULLABLE", "description": "Account ID"},
+  {"name": "account_type_desc", "type": "STRING", "mode": "NULLABLE", "description": "Account type description"},
+  {"name": "current_balance", "type": "NUMERIC", "mode": "NULLABLE", "description": "Current balance"},
+  {"name": "account_open_date", "type": "DATE", "mode": "NULLABLE", "description": "Account open date"},
+  {"name": "decision_id", "type": "STRING", "mode": "NULLABLE", "description": "Decision ID"},
+  {"name": "decision_outcome", "type": "STRING", "mode": "NULLABLE", "description": "Decision outcome"},
+  {"name": "decision_date", "type": "DATE", "mode": "NULLABLE", "description": "Decision date"},
+  {"name": "decision_reason", "type": "STRING", "mode": "NULLABLE", "description": "Decision reason"},
+  {"name": "_run_id", "type": "STRING", "mode": "REQUIRED", "description": "Pipeline run identifier"},
+  {"name": "_extract_date", "type": "DATE", "mode": "REQUIRED", "description": "Extract date"},
+  {"name": "_transformed_at", "type": "TIMESTAMP", "mode": "NULLABLE", "description": "Transformation timestamp"}
+]
+

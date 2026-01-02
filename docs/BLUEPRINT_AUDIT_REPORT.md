@@ -69,7 +69,7 @@
 - **Migration:**
   ```python
   # Old (blueprint)
-  from blueprint.components.loa_pipelines.yaml_router import PipelineSelector
+  from blueprint.em.components import PipelineSelector
   
   # New (library)
   from gdw_data_core.orchestration.routing import YAMLPipelineSelector
