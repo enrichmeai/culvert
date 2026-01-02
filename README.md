@@ -1,813 +1,433 @@
-# 🚀 LOA Blueprint - Mainframe to GCP Migration
+# Legacy Mainframe to GCP Data Migration Framework
 
-**Version:** 1.0  
-**Status:** ✅ **FULLY VALIDATED & PRODUCTION READY FOR GCP DEPLOYMENT**  
-**Last Updated:** December 25, 2025  
-**Validation Score:** 94/100 (Excellent)  
-**Region:** London, UK (europe-west2)
+A **library-first framework** for migrating legacy mainframe batch systems to Google Cloud Platform. Build new pipelines with minimal effort - just configure your entities, the library handles the rest.
 
 ---
 
-## 🎯 Executive Summary
+## 📋 Table of Contents
 
-The **LOA Blueprint** is a **battle-tested, production-ready reference implementation** for migrating legacy LOA (Application B Application) systems from mainframe JCL jobs to Google Cloud Platform (GCP).
+| Section | For Who | What You'll Learn |
+|---------|---------|-------------------|
+| [Objectives](#-objectives) | Everyone | What we're building and why |
+| [How It Works](#-how-it-works) | Product Owners | High-level data flow |
+| [Technology Choices](#-technology-choices) | Architects | Design decisions and rationale |
+| [The Library](#-the-library-gdw_data_core) | Developers | What components are available |
+| [Reference Implementations](#-reference-implementations) | Everyone | See [deployments/README.md](deployments/README.md) for E2E flow and library usage |
+| [Project Structure](#-project-structure) | Developers | Where to find things |
+| [Quick Start](#-quick-start-new-pipeline) | Developers | How to create a new pipeline |
 
-### ✅ Validation Complete - Ready to Deploy
+---
 
-| Component | Status | Score |
-|-----------|--------|-------|
-| **GDW Data Core Library** | ✅ PASS | 100/100 |
-| **Blueprint Code** | ✅ PASS | 96/100 |
-| **Testing** | ✅ PASS | 99.5% pass rate |
-| **Infrastructure** | ✅ PASS | 100% ready |
-| **CI/CD Pipeline** | ✅ PASS | 100% active |
-| **Documentation** | ✅ PASS | 98% complete |
-| **Security** | ✅ PASS | All controls in place |
+## 🎯 Objectives
 
-### 🎯 By The Numbers
+### The Problem We're Solving
+
+Organizations running legacy mainframe systems face:
+- **High costs** - Mainframe MIPS are expensive
+- **Limited talent** - Fewer engineers with mainframe skills
+- **Integration barriers** - Hard to connect with modern systems
+- **Compliance risks** - Older security models
+
+### Our Solution
+
+**Build once, deploy many.** A reusable library that handles all infrastructure concerns.
 
 ```
-✅ 14/14 BDD Scenarios Passing (100%)
-✅ 124/124 GDW Core Tests Passing (100%)
-✅ 110+ Blueprint Tests Passing (95%+)
-✅ 40+ Production Python Files
-✅ 96+ Documentation Files
-✅ 4 GCP Environments (dev, staging, prod, e2e)
-✅ 5 GitHub Actions Workflows
-✅ 11 GCP Services Configured
-✅ 65% Code Coverage (core library)
-✅ 92%+ Coverage (blueprint modules)
-✅ 0 Critical Issues
-```  
-
----
-
-## 🚀 Quick Start - Choose Your Path
-
-### 🟢 Path 1: Deploy to GCP Production (2.5 hours)
-**For teams ready to deploy to Google Cloud Platform**
-
-```bash
-# 1. Pre-deployment setup (30 min)
-cd /path/to/project
-./build.sh setup
-./build.sh start
-
-# 2. Local validation (30 min)
-./build.sh test
-
-# 3. GCP Staging deployment (45 min)
-export GCP_PROJECT_ID="your-gcp-project"
-./blueprint/tools/gcp/setupanddeployongcp.sh $GCP_PROJECT_ID staging
-
-# 4. Production deployment (1 hour)
-# Follow: BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md (Phase 3)
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   NEW PIPELINE = Configuration + Library                                    │
+│                                                                             │
+│   ┌─────────────────────────┐     ┌─────────────────────────────────────┐  │
+│   │  YOU CONFIGURE          │     │  LIBRARY PROVIDES                    │  │
+│   │                         │     │                                      │  │
+│   │  • System ID            │  +  │  • Error handling & retry            │  │
+│   │  • Entity schemas       │     │  • Pub/Sub integration               │  │
+│   │  • Bucket paths         │     │  • Audit trail                       │  │
+│   │  • dbt SQL              │     │  • File validation                   │  │
+│   │                         │     │  • Job control                       │  │
+│   └─────────────────────────┘     └─────────────────────────────────────┘  │
+│                                                                             │
+│                                    ▼                                        │
+│                                                                             │
+│                        PRODUCTION-READY PIPELINE                            │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Status:** ✅ **READY NOW** - All infrastructure configured, tested, and documented
+### What the Library Provides
+
+| Capability | What You Get |
+|------------|--------------|
+| **Error Handling** | Classification, retry with exponential backoff, dead letter queues |
+| **Pub/Sub Integration** | Pull-based sensors, .ok file filtering, message acknowledgement |
+| **Audit Trail** | Automatic `_run_id`, `_source_file`, `_extract_date`, `_processed_at` columns |
+| **File Validation** | HDR/TRL parsing, record count verification, checksum validation |
+| **Job Control** | Status tracking (PENDING→RUNNING→SUCCESS/FAILED), metrics, timestamps |
+| **Dead Letter Queues** | Failed message capture, 7-day retention, alerting integration |
+| **Security Patterns** | CMEK encryption with KMS, IAM templates, 90-day key rotation |
 
 ---
 
-### 🟡 Path 2: Validate Locally First (1 hour)
-**For teams wanting offline validation before GCP deployment**
+## 🔄 How It Works
 
-```bash
-# 1. Setup environment
-./build.sh setup
-
-# 2. Start local services (Docker)
-./build.sh start
-
-# 3. Run full test suite (Unit + Integration)
-./build.sh test
-
-# 4. Run BDD tests (Gherkin Scenarios)
-pytest blueprint/components/tests/bdd/step_definitions/
-```
-
-**Status:** ✅ **READY NOW** - No GCP credentials needed
-
----
-
-### 🔵 Path 3: Review Documentation (30 minutes)
-**For teams wanting to understand the architecture first**
-
-```bash
-# Key documents:
-1. blueprint/README.md                   ⭐ Start here (5 min)
-2. blueprint/docs/02-architecture/ARCHITECTURE.md  (10 min)
-3. blueprint/docs/03-implementation/TICKET_DETAILS.md (15 min)
-```
-
-**Status:** ✅ **READY NOW** - 96+ documentation files available
-
----
-
-## 📋 Key Validation & Deployment Documents
-
-All documents required for successful deployment are in this repository:
-
-| Document | Purpose | Audience | Time |
-|----------|---------|----------|------|
-| **blueprint/README.md** ⭐ | Complete blueprint guide | Everyone | 5 min |
-| **docs/testing/** | Comprehensive testing guides | QA/Dev Teams | 30 min |
-| **blueprint/docs/04-deployment/** | Deployment guides | Teams deploying | 2 hours |
-
-**👉 START HERE:** Read `blueprint/README.md` first (5 minutes)
-
----
-
-## 🏗️ Repository Structure
+### The Data Journey (For Product Owners)
 
 ```
-legacy-migration-reference/ (Root)
+  MAINFRAME                    GOOGLE CLOUD PLATFORM
+  ─────────                    ─────────────────────
+                               
+  ┌─────────┐    Extract      ┌─────────┐    Load       ┌─────────┐   Transform   ┌─────────┐
+  │         │    (Daily)      │   GCS   │   (Beam)      │   ODP   │    (dbt)      │   FDP   │
+  │ Legacy  │ ──────────────► │ Landing │ ───────────►  │  (Raw)  │ ────────────► │ (Ready) │
+  │ System  │   CSV files     │  Zone   │  Validated    │  Copy   │   Business    │  Data   │
+  │         │                 │         │               │         │   Rules       │         │
+  └─────────┘                 └─────────┘               └─────────┘               └─────────┘
+                                   │                         │                         │
+                                   ▼                         ▼                         ▼
+                              .ok file                  Audit columns            Available for
+                              triggers                  added to every           reporting &
+                              pipeline                  record                   analytics
+```
+
+### Key Concepts
+
+| Term | What It Means | Example |
+|------|---------------|---------|
+| **ODP** | Original Data Product - exact copy of mainframe data | `odp_em.customers` |
+| **FDP** | Foundation Data Product - transformed, business-ready | `fdp_em.em_attributes` |
+| **HDR/TRL** | Header/Trailer records in files for validation | `HDR\|EM\|Customers\|20260101` |
+| **.ok file** | Signal that file transfer is complete | `customers.csv.ok` |
+
+---
+
+## 🔧 Technology Choices
+
+### Architecture Decisions (For Architects)
+
+| Decision | Choice | Why |
+|----------|--------|-----|
+| **Event Trigger** | Pub/Sub Pull (not Push) | Consumer controls pace, better backpressure |
+| **Encryption** | CMEK with Cloud KMS | Customer-managed keys, 90-day rotation |
+| **Processing** | Apache Beam on Dataflow | Scalable, exactly-once, managed |
+| **Orchestration** | Airflow on Cloud Composer | Industry standard, rich ecosystem |
+| **Transformation** | dbt | SQL-based, version controlled, testable |
+| **Storage** | BigQuery | Serverless, columnar, cost-effective |
+
+### Pub/Sub Pull Strategy with KMS
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EVENT-DRIVEN ARCHITECTURE                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. FILE LANDS                    2. NOTIFICATION                           │
+│  ┌─────────────────┐              ┌─────────────────┐                       │
+│  │ GCS Bucket      │ ──────────►  │ Pub/Sub Topic   │                       │
+│  │ data.csv        │   Object     │ 🔐 KMS Encrypted│                       │
+│  │ data.csv.ok     │   Created    │ 7-day retention │                       │
+│  └─────────────────┘              └────────┬────────┘                       │
+│                                            │                                 │
+│  3. PULL SUBSCRIPTION                      ▼                                │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ Airflow Sensor (Library)                                             │   │
+│  │ • Pulls messages (consumer controls pace)                            │   │
+│  │ • Filters for .ok files only                                         │   │
+│  │ • Acknowledges after successful processing                           │   │
+│  │ • Failed messages → Dead Letter Queue (5 retries)                    │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Error Handling Strategy
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           ERROR HANDLING FLOW                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ERROR OCCURS                                                               │
+│       │                                                                     │
+│       ▼                                                                     │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ CLASSIFICATION (Library)                                             │   │
+│  │                                                                       │   │
+│  │ VALIDATION_FAILURE ──► Quarantine file, alert team                   │   │
+│  │ SCHEMA_MISMATCH ──────► Stop pipeline, require intervention          │   │
+│  │ DATA_QUALITY ─────────► Log to error table, continue processing      │   │
+│  │ TRANSIENT ────────────► Retry with exponential backoff               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                    │                                        │
+│                                    ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │ RETRY POLICY                                                         │   │
+│  │ • Attempt 1: Wait 1 minute                                           │   │
+│  │ • Attempt 2: Wait 2 minutes                                          │   │
+│  │ • Attempt 3: Wait 4 minutes                                          │   │
+│  │ • After 3 failures → Dead Letter Queue                               │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 The Library (gdw_data_core)
+
+### Library Structure
+
+```
+gdw_data_core/                           # 513 tests passing ✅
 │
-├── 📄 README.md                                 ⭐ START HERE
-├── 🔧 build.sh                                  ⭐ Use this first
-├── build.ps1
-├── Makefile
-├── pytest.ini
+├── core/                                # Foundation components
+│   ├── file_management/                 # HDR/TRL parsing, archival
+│   │   ├── HDRTRLParser                 # Parse header/trailer records
+│   │   ├── validate_record_count        # Verify counts match
+│   │   └── validate_checksum            # Verify data integrity
+│   │
+│   ├── error_handling/                  # Error classification & retry
+│   │   ├── ErrorHandler                 # Classify and route errors
+│   │   ├── RetryPolicy                  # Exponential backoff
+│   │   └── ErrorContext                 # Context manager for errors
+│   │
+│   ├── job_control/                     # Pipeline status tracking
+│   │   ├── JobControlRepository         # CRUD for job records
+│   │   └── JobStatus                    # PENDING, RUNNING, SUCCESS, FAILED
+│   │
+│   ├── audit/                           # Lineage tracking
+│   │   └── AuditTrail                   # Add audit columns
+│   │
+│   └── validators/                      # Data validation
+│       ├── validate_ssn                 # SSN format validation
+│       └── ValidationError              # Structured errors
 │
-├── 📦 gdw_data_core/                            ✅ Core library (124/124 tests pass)
-│   ├── core/
-│   │   ├── validators.py                        ✅ Platform-agnostic validation
-│   │   ├── error_handling.py                    ✅ Error classification & retry logic
-│   │   ├── audit.py                             ✅ Audit trail & reconciliation
-│   │   ├── monitoring.py                        ✅ Metrics collection & alerts
-│   │   └── io_utils.py                          ✅ GCS/BigQuery/PubSub I/O
-│   ├── orchestration/
-│   │   ├── dag_factory.py                       ✅ DAG creation
-│   │   └── router.py                            ✅ Task routing
-│   ├── pipelines/
-│   │   ├── base_pipeline.py                     ✅ Base pipeline with lifecycle hooks
-│   │   └── beam_helpers.py                      ✅ Apache Beam utilities
-│   ├── testing/                                 ✅ Test base classes
-│   └── tests/                                   ✅ 124 passing tests
+├── orchestration/                       # Airflow components
+│   ├── sensors/
+│   │   └── BasePubSubPullSensor         # Pull-based with .ok filtering
+│   ├── callbacks/
+│   │   └── on_failure_callback          # Error handlers for DAGs
+│   ├── dependency/
+│   │   └── EntityDependencyChecker      # Wait for multi-entity loads
+│   └── factories/
+│       └── DAGFactory                   # Create DAGs from config
 │
-├── 📖 blueprint/                                ✅ Complete LOA Blueprint
-│   ├── README.md                                ✅ Blueprint README
-│   ├── setup.py                                 ✅ Package setup
-│   ├── pyproject.toml
-│   │
-│   ├── 📋 docs/ (96+ markdown files)            ✅ Complete documentation
-│   │   ├── 00-config/                           Configuration examples
-│   │   ├── 01-getting-started/                  Quick start guides
-│   │   ├── 02-architecture/                     System design & architecture
-│   │   ├── 03-implementation/                   Implementation progress
-│   │   ├── 04-deployment/                       GCP & local deployment
-│   │   ├── 05-technical-guides/                 Runbooks & troubleshooting
-│   │   ├── 06-workflow/                         CI/CD & GitHub flow
-│   │   ├── 07-learning/                         Learning resources
-│   │   └── 08-reference/                        API reference
-│   │
-│   ├── 📦 components/ (40+ Python files)        ✅ Production code
-│   │   ├── loa_domain/                          Domain models
-│   │   ├── loa_pipelines/                       Pipeline components
-│   │   ├── cloud-functions/                     GCP Cloud Functions
-│   │   ├── validation_extras/                   Custom validators
-│   │   ├── schemas/                             Data schemas
-│   │   ├── tests/ (110+ tests)                  ✅ Comprehensive tests
-│   │   │   ├── unit/                            Unit tests
-│   │   │   └── integration/                     E2E tests
-│   │   └── ...
-│   │
-│   ├── 🏗️ infrastructure/ (Terraform IaC)      ✅ Infrastructure as Code
-│   │   ├── terraform/
-│   │   │   ├── main.tf                          ✅ Root module
-│   │   │   ├── loa-infrastructure.tf            ✅ GCP services
-│   │   │   ├── variables.tf                     ✅ Input variables
-│   │   │   └── environments/
-│   │   │       ├── dev.tfvars                   ✅ Dev config
-│   │   │       ├── loa-staging.tfvars           ✅ Staging config
-│   │   │       └── prod.tfvars                  ✅ Production template
-│   │   ├── kubernetes/                          K8s configs
-│   │   └── README.md
-│   │
-│   ├── 🔄 cicd/                                 ✅ CI/CD configurations
-│   │   ├── harness/                             Harness CD configs
-│   │   └── README.md
-│   │
-│   ├── 🔧 tools/                                ✅ Deployment tools
-│   │   ├── gcp/
-│   │   │   ├── setupanddeployongcp.sh           ⭐ One-command deployment
-│   │   │   ├── testpipeline.sh                  ✅ E2E testing
-│   │   │   └── ... (more tools)
-│   │   └── README.md
-│   │
-│   ├── 🎼 orchestration/                        ✅ Airflow DAGs
-│   │   └── ... (DAG templates)
-│   │
-│   ├── 🔄 transformations/                      ✅ dbt transformations
-│   │   ├── dbt/
-│   │   │   ├── dbt_project.yml
-│   │   │   ├── models/
-│   │   │   └── macros/
-│   │   │       ├── audit_columns.sql            ✅ Generic audit columns
-│   │   │       ├── data_quality_check.sql       ✅ Generic quality checks
-│   │   │       └── pii_masking.sql              ✅ Generic PII masking
-│   │   └── README.md
-│   │
-│   ├── 🧪 testing/                              ✅ Testing framework
-│   │   ├── run_tests.sh                         ✅ Test runner script
-│   │   └── ... (test configs)
-│   │
-│   ├── 🏗️ setup/                                ✅ Build & deployment setup
-│   │   ├── requirements.txt                     ✅ Python dependencies
-│   │   ├── requirements-dev.txt
-│   │   ├── docker-compose.yml
-│   │   └── README.md
-│   │
-│   └── .env.staging                             ✅ Staging configuration
+├── pipelines/                           # Beam components
+│   ├── BeamPipelineBuilder              # Fluent pipeline API
+│   └── transforms/                      # Reusable DoFns
 │
-├── 🔄 .github/workflows/                        ✅ GitHub Actions CI/CD
-│   ├── ci.yml                                   ✅ Tests & linting
-│   ├── test.yml                                 ✅ Full test suite
-│   ├── deploy.yml                               ✅⭐ GCP deployment
-│   ├── deploy-loa.yml                           ✅ LOA-specific deploy
-│   ├── qodana_code_quality.yml                  ✅ Code quality
-│   └── README.md
+└── testing/                             # Test utilities
+    ├── BaseGDWTest                      # Base test class
+    └── mocks/                           # GCS, BigQuery, Pub/Sub mocks
+```
+
+### Key Components
+
+| Component | What It Does | Used By |
+|-----------|--------------|---------|
+| `HDRTRLParser` | Parses file headers and trailers | All pipelines |
+| `ErrorHandler` | Classifies, routes, retries errors | All pipelines |
+| `JobControlRepository` | Tracks job status and metrics | All pipelines |
+| `EntityDependencyChecker` | Waits for multi-entity loads | EM (multi-entity) |
+| `BasePubSubPullSensor` | Triggers on .ok file arrival | All pipelines |
+| `AuditTrail` | Adds lineage columns to records | All pipelines |
+
+---
+
+## 🔄 Reference Implementations
+
+> **📖 For complete E2E flow and detailed library usage, see [deployments/README.md](deployments/README.md)**
+
+### Two Patterns, Same Library
+
+| Pattern | Implementation | Entities | Transformation |
+|---------|----------------|----------|----------------|
+| **Multi-Entity JOIN** | EM | 3 → 1 | Wait for all, then JOIN |
+| **Single-Entity SPLIT** | LOA | 1 → 2 | Immediate trigger, SPLIT |
+
+### EM (Application A)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           EM: MULTI-ENTITY JOIN                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ODP LAYER                    WAIT                     FDP LAYER            │
+│                                                                             │
+│  ┌─────────────┐                                                            │
+│  │ customers   │──┐                                                         │
+│  └─────────────┘  │         ┌──────────────────┐      ┌─────────────────┐  │
+│                   │         │                  │      │                 │  │
+│  ┌─────────────┐  ├────────►│ EntityDependency │─────►│  em_attributes  │  │
+│  │ accounts    │──┤         │ Checker (Library)│      │  (JOIN 3 → 1)   │  │
+│  └─────────────┘  │         │                  │      │                 │  │
+│                   │         │ Waits for all 3  │      └─────────────────┘  │
+│  ┌─────────────┐  │         └──────────────────┘                           │
+│  │ decision    │──┘                                                         │
+│  └─────────────┘                                                            │
+│                                                                             │
+│  3 entities arrive           Library component          1 FDP table         │
+│  at different times          handles coordination       combines all        │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### LOA (Application B Application)
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          LOA: SINGLE-ENTITY SPLIT                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ODP LAYER                 IMMEDIATE                   FDP LAYER            │
+│                                                                             │
+│                          ┌──────────────────┐      ┌─────────────────────┐ │
+│                          │                  │      │ event_transaction_  │ │
+│  ┌─────────────────┐     │ BasePubSubPull   │─────►│ excess              │ │
+│  │                 │     │ Sensor (Library) │      └─────────────────────┘ │
+│  │  applications   │────►│                  │                               │
+│  │                 │     │ Triggers on .ok  │      ┌─────────────────────┐ │
+│  └─────────────────┘     │ file arrival     │─────►│ portfolio_account_  │ │
+│                          │                  │      │ excess              │ │
+│                          └──────────────────┘      └─────────────────────┘ │
+│                                                                             │
+│  1 entity                 No waiting needed         2 FDP tables            │
+│                           (single entity)           (different views)       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Test Status
+
+| Implementation | Tests | Status |
+|----------------|-------|--------|
+| **EM** | 152 passing | ⚠️ Partial |
+| **LOA** | 63/63 passing | ✅ Complete |
+
+---
+
+## 📁 Project Structure
+
+```
+legacy-migration-reference/
 │
-└── 📚 audit/                                    ✅ Audit documentation
-    └── IMPLEMENTATION_TRACKING.md
-```
-
----
-
-## ✅ Validation Status
-
-### Infrastructure (Terraform)
-✅ **Security Controls ([REDACTED])**
-- **Customer-Managed Encryption Keys (CMEK)** via Cloud KMS
-- Automated **90-day key rotation** policy
-- Least-privilege **IAM bindings** for GCS, Pub/Sub, and KMS
-- Secure event-driven trigger using GCS Notifications and encrypted Pub/Sub topics
-- [Detailed Ticket ([REDACTED])](blueprint/docs/03-implementation/TICKET_DETAILS.md)
-
-✅ **4 GCP Environments Configured**
-- `dev.tfvars` - Development environment
-- `loa-staging.tfvars` - Staging (active)
-- `prod.tfvars` - Production template
-- Backend configured for remote state in GCS
-
-✅ **11 GCP Services Ready**
-- BigQuery, Cloud Storage, Cloud Pub/Sub
-- Cloud Composer, Cloud Functions, Cloud Scheduler
-- Cloud Build, Dataflow, KMS, IAM, Logging, Monitoring
-
-✅ **Terraform Features**
-- Infrastructure as Code (IaC) fully defined
-- Service accounts with least privilege
-- VPC isolation & security configured
-- Monitoring & logging enabled
-- Auto-scaling & backup policies defined
-
-### GitHub Actions (CI/CD)
-✅ **5 Workflows Configured**
-- `ci.yml` - Tests & validation on every commit
-- `test.yml` - Full test suite on pull requests
-- `deploy.yml` - ⭐ **Automatic deployment to GCP**
-- `deploy-loa.yml` - LOA pipeline deployment
-- `qodana_code_quality.yml` - Code quality gates
-
-✅ **Deployment Automation**
-- Terraform plan/apply automated
-- Docker image build & push to Artifact Registry
-- Cloud Functions deployment
-- dbt transformations deployment
-- E2E test execution after deployment
-- Automatic rollback on failure
-
-### Testing
-✅ **BDD Tests Added (8/8 scenarios passing)**
-- SSN Validation: 7 scenarios covering valid/invalid formats
-- E2E Pipeline: full lifecycle validation from GCS to BigQuery
-
-✅ **124/124 GDW Core Tests Passing**
-- 100% pass rate
-- 65% code coverage
-
-✅ **110+ Blueprint Tests Passing**
-- 95%+ pass rate
-- 92%+ core module coverage
-
-### Documentation
-✅ **96+ Documentation Files**
-- Complete architecture guides
-- Deployment instructions
-- Troubleshooting guides
-- API reference
-- Learning resources
-│   │   ├── data/                           Sample data (CSV)
-│   │   ├── scripts/                        Helper scripts
-│   │   └── ... (more components)
-│   │
-│   ├── 🎼 orchestration/                   Workflow orchestration
-│   │   └── airflow/dags/                   Airflow DAGs
-│   │       ├── loa_daily_pipeline_dag.py
-│   │       ├── loa_ondemand_pipeline_dag.py
-│   │       └── dynamic_pipeline_dag.py
-│   │
-│   ├── 🔄 transformations/                 Data transformations
-│   │   └── dbt/                            dbt models & macros
-│   │       ├── models/
-│   │       ├── macros/
-│   │       └── tests/
-│   │
-│   ├── 🏗️ examples/                        Example implementations
-│   │   ├── notebooks/                      Jupyter notebooks
-│   │   └── local_migration/                Local examples
-│   │
-│   ├── 🗂️ audit/                           Tracking & records
-│   │   ├── IMPLEMENTATION_TRACKING.md      ⭐ Status tracker
-│   │   ├── WORK_COMPLETED.md
-│   │   └── sessions/
-│   │
-│   └── 📋 cicd/                            CI/CD configurations
-│       └── harness/                        Harness configs
+├── 📚 gdw_data_core/                    # THE LIBRARY
+│   │                                    # 513 tests ✅
+│   ├── core/                            # Foundation (validators, errors, audit)
+│   ├── orchestration/                   # Airflow (sensors, callbacks, DAGs)
+│   ├── pipelines/                       # Beam (transforms, I/O)
+│   ├── testing/                         # Test utilities (mocks, fixtures)
+│   ├── tests/                           # Library tests
+│   └── README.md                        # Library documentation
 │
-├── 🏗️ infrastructure/                      Infrastructure as Code
-│   └── terraform/                          Terraform configs
-│       ├── main.tf                         Core resources
-│       ├── cloud_run.tf                    API services
-│       ├── dataflow.tf                     Processing jobs
-│       ├── variables.tf                    Configuration
-│       ├── outputs.tf                      Export values
-│       └── env/staging.tfvars              Staging environment
+├── 🚀 deployments/                      # REFERENCE IMPLEMENTATIONS
+│   │
+│   ├── em/                              # EM Pipeline (3 → 1 JOIN)
+│   │   ├── config/                      # SYSTEM_ID, constants
+│   │   ├── schema/                      # Entity schemas
+│   │   ├── validation/                  # EMValidator (uses library)
+│   │   ├── pipeline/                    # Beam pipeline, DAG template
+│   │   ├── orchestration/               # Airflow DAGs
+│   │   ├── transformations/dbt/         # dbt models (JOIN)
+│   │   └── tests/                       # EM tests
+│   │
+│   ├── loa/                             # LOA Pipeline (1 → 2 SPLIT)
+│   │   ├── config/                      # SYSTEM_ID, constants
+│   │   ├── schema/                      # Entity schemas
+│   │   ├── validation/                  # LOAValidator (uses library)
+│   │   ├── pipeline/                    # Beam pipeline, transforms
+│   │   ├── orchestration/               # Airflow DAGs
+│   │   ├── transformations/dbt/         # dbt models (SPLIT)
+│   │   └── tests/                       # LOA tests (63 ✅)
+│   │
+│   └── README.md                        # Deployments overview
 │
-├── .github/                                 GitHub workflows
-│   └── workflows/
-│       ├── test.yml                        Automated testing
-│       └── deploy.yml                      CI/CD deployment
+├── 🏗️ infrastructure/                   # TERRAFORM IaC
+│   └── terraform/                       # GCP resources
 │
-├── README.md                                This file (root overview)
-└── qodana.yaml                              Code quality config
-
+├── 📖 docs/                             # DOCUMENTATION
+│   ├── E2E_FUNCTIONAL_FLOW.md           # Complete requirements
+│   ├── GCP_DEPLOYMENT_GUIDE.md          # Deployment guide
+│   └── diagrams/                        # Architecture diagrams
+│
+└── README.md                            # THIS FILE
 ```
 
 ---
 
-## 📊 Status Overview
+## 🚀 Quick Start: New Pipeline
 
-### Completed (53/53 components - 100%)
-
-| Phase | Components | Status | What You Get |
-|-------|-----------|--------|-------------|
-| **Phase 1-2** | 9 | ✅ | Error handling, testing, validation |
-| **Phase 3-6** | 14 | ✅ | File management, orchestration, dbt |
-| **Phase 7-8** | 30 | ✅ | Local testing, Terraform, CI/CD, Reusable Library |
-| **Total Completed** | **53** | **✅** | **Full production stack** |
-
-### Next Steps
-
-- White paper (Epic 7f)
-- Ongoing research spikes (Epic 7)
-- Continuous library enhancements (Epic 8)
-
----
-
-## 🎓 How to Use
-
-### For Teams Building New JCL Jobs
-
-1. **Copy the pattern**
-   ```bash
-   cp blueprint/components/loa_pipelines/loa_jcl_template.py my_job.py
-   ```
-
-2. **Reuse components**
-   ```python
-   from gdw_data_core.core.validators import validate_ssn
-   from gdw_data_core.core.audit import AuditTrail
-   from gdw_data_core.core.monitoring import MetricsCollector
-   ```
-
-3. **Customize business logic only** (10% custom, 90% reuse)
-
-**Result:** Deploy new job in 2-3 days vs 2-4 weeks!
-
----
-
-## 📚 Key Documentation
-
-### ⭐ Start Here
-- **[blueprint/README.md](blueprint/README.md)** - Comprehensive blueprint guide
-- **[blueprint/docs/START-HERE.md](blueprint/docs/START-HERE.md)** - 5-minute overview
-- **[blueprint/docs/GETTING_STARTED.md](blueprint/docs/GETTING_STARTED.md)** - Complete walkthrough
-
-### 🏗️ Architecture & Design
-- **[blueprint/docs/ARCHITECTURE.md](blueprint/docs/ARCHITECTURE.md)** - System design
-- **[blueprint/docs/DEPLOYMENT_ARCHITECTURE.md](blueprint/docs/DEPLOYMENT_ARCHITECTURE.md)** - Infrastructure diagram
-- **[blueprint/docs/EPIC_STRUCTURE.md](blueprint/docs/EPIC_STRUCTURE.md)** - What's implemented (epics 1-7)
-
-### 🚀 Deployment Guides
-- **[blueprint/tools/README.md](blueprint/tools/README.md)** - Deployment scripts
-- **[blueprint/docs/TERRAFORM_DEPLOYMENT_GUIDE.md](blueprint/docs/TERRAFORM_DEPLOYMENT_GUIDE.md)** - Terraform guide
-- **[blueprint/docs/LOCAL_TESTING_GUIDE.md](blueprint/docs/LOCAL_TESTING_GUIDE.md)** - Local development
-- **[blueprint/docs/GITHUB_TERRAFORM_DEPLOYMENT.md](blueprint/docs/GITHUB_TERRAFORM_DEPLOYMENT.md)** - CI/CD automation
-
-### 📖 Reference Guides
-- **[blueprint/docs/DATA_QUALITY_GUIDE.md](blueprint/docs/DATA_QUALITY_GUIDE.md)** - Quality framework
-- **[blueprint/docs/ERROR_HANDLING_GUIDE.md](blueprint/docs/ERROR_HANDLING_GUIDE.md)** - Error patterns
-- **[blueprint/docs/FILE_FORMATS.md](blueprint/docs/FILE_FORMATS.md)** - Data formats
-- **[blueprint/docs/GITHUB_FLOW.md](blueprint/docs/GITHUB_FLOW.md)** - Contribution workflow
-- **[blueprint/docs/TESTING_STRATEGY.md](blueprint/docs/TESTING_STRATEGY.md)** - Testing framework
-
-### 📊 Progress Tracking
-- **[blueprint/docs/IMPLEMENTATION_PROGRESS.md](blueprint/docs/IMPLEMENTATION_PROGRESS.md)** - Current status (45/53, 85%)
-- **[blueprint/audit/IMPLEMENTATION_TRACKING.md](audit/IMPLEMENTATION_TRACKING.md)** - Detailed tracking
-
-### 📋 Additional Resources
-- **[blueprint/BLUEPRINT_STRUCTURE.md](blueprint/BLUEPRINT_STRUCTURE.md)** - Structure documentation
-- **[blueprint/docs/](blueprint/docs/)** - 95+ additional guides
-- **[blueprint/audit/](audit/)** - Work completion records
-
----
-
-## 🚀 Quick Commands
-
-### Deploy to GCP (One Command)
+### Step 1: Copy Template
 ```bash
-cd blueprint/tools
-chmod +x *.sh
-./setupanddeployongcp.sh your-gcp-project-id
+cp -r deployments/loa deployments/your_system
 ```
 
-### Test Locally (No GCP Needed)
-```bash
-cd blueprint/components
-docker-compose up -d
-pytest tests/ -v
-docker-compose down
+### Step 2: Configure
+```python
+# config/settings.py
+SYSTEM_ID = "YOUR_SYSTEM"
+REQUIRED_ENTITIES = ["entity1"]
+ODP_DATASET = "odp_your_system"
+FDP_DATASET = "fdp_your_system"
 ```
 
-### Run E2E Test
-```bash
-cd blueprint/tools
-./testpipeline.sh your-gcp-project-id
+### Step 3: Define Schema
+```python
+# schema/entity1.py
+Entity1Schema = EntitySchema(
+    name="entity1",
+    system_id="YOUR_SYSTEM",
+    fields=[
+        SchemaField(name="id", field_type="STRING", required=True),
+        # ... your fields
+    ]
+)
 ```
 
-### Clean Up GCP Resources
-```bash
-cd blueprint/tools
-./teardowngcpproject.sh your-gcp-project-id [--delete-project]
+### Step 4: Create Validator
+```python
+# validation/validator.py
+from gdw_data_core.core.file_management import HDRTRLParser  # Library!
+
+class YourValidator:
+    def __init__(self):
+        self.parser = HDRTRLParser()  # Library does the work
 ```
+
+### Step 5: Write dbt Models
+```sql
+-- transformations/dbt/models/fdp/your_fdp.sql
+SELECT *, CURRENT_TIMESTAMP() AS _transformed_at
+FROM {{ ref('stg_your_entity') }}
+```
+
+### Step 6: Done! ✅
+Library handles: errors, retry, Pub/Sub, audit, job control, archival, DLQ
 
 ---
 
-## 📊 Project Statistics
+## 📊 Current Status
 
-- **Total Components:** 53 (All complete)
-- **Code:** 65,000+ lines (Python, SQL, Terraform, Bash)
-- **Tests:** 350+ tests with 96%+ coverage
-- **Documentation:** 95+ comprehensive guides (50,000+ lines)
-- **Infrastructure:** 25+ GCP resources via Terraform
-- **Deployment Time:** 30-40 minutes to production
-- **Cost:** ~£45-75/month (GCP staging)
+| Component | Tests | Status |
+|-----------|-------|--------|
+| **gdw_data_core** (Library) | 513/513 | ✅ Production Ready |
+| **deployments/loa** (Proof) | 63/63 | ✅ Complete |
+| **deployments/em** (Proof) | 152 | ⚠️ Partial |
 
 ---
 
-## ✅ What's Implemented
+## 📚 Documentation
 
-### Production-Ready Components
-✅ Apache Beam pipelines (data processing)  
-✅ Validation framework (5+ validators)  
-✅ Data quality checks  
-✅ Error handling & retry logic  
-✅ File management & archival  
-✅ Audit trail tracking  
-✅ Airflow orchestration (3 DAGs)  
-✅ dbt transformations  
-✅ Cloud Functions (auto-trigger)  
-✅ Terraform infrastructure  
-✅ GitHub Actions CI/CD  
-✅ Local testing (docker-compose)  
-✅ Performance benchmarks  
-✅ Chaos engineering tests  
-✅ Deployment automation scripts  
-✅ Reusable Python Library (Epic 8)  
-
-### Comprehensive Documentation
-✅ Architecture guides  
-✅ Deployment guides  
-✅ Setup & configuration  
-✅ Testing strategies  
-✅ Data quality guides  
-✅ Error handling patterns  
-✅ Best practices  
-✅ Troubleshooting  
-✅ Quick reference cards  
+| Document | Audience | Description |
+|----------|----------|-------------|
+| [E2E Functional Flow](docs/E2E_FUNCTIONAL_FLOW.md) | Architects | Complete data flow requirements |
+| [GCP Deployment Guide](docs/GCP_DEPLOYMENT_GUIDE.md) | DevOps | Infrastructure and deployment |
+| [Library README](gdw_data_core/README.md) | Developers | API documentation |
+| [Deployments README](deployments/README.md) | Developers | Implementation details |
 
 ---
 
-## 🎯 Technology Stack
+<div align="center">
 
-- **Cloud:** Google Cloud Platform (GCP)
-- **Region:** London (europe-west2)
-- **Data Processing:** Apache Beam
-- **Data Warehouse:** BigQuery
-- **Storage:** Cloud Storage
-- **Messaging:** Pub/Sub
-- **Orchestration:** Cloud Composer / Cloud Functions
-- **Transformation:** dbt
-- **Infrastructure:** Terraform
-- **CI/CD:** GitHub Actions
-- **Language:** Python 3.9+
+**Version 2.0** | **Last Updated: January 2, 2026**
 
----
-
-## 🆘 Getting Help
-
-### By Use Case
-
-**I'm new to the project**
-→ Read [blueprint/README.md](blueprint/README.md)
-
-**I want to understand architecture**
-→ Read [blueprint/docs/ARCHITECTURE.md](blueprint/docs/ARCHITECTURE.md)
-
-**I want to deploy to GCP**
-→ Read [blueprint/tools/README.md](blueprint/tools/README.md)
-
-**I want to test locally**
-→ Read [blueprint/docs/LOCAL_TESTING_GUIDE.md](blueprint/docs/LOCAL_TESTING_GUIDE.md)
-
-**I want to build a new job**
-→ Copy [blueprint/components/loa_pipelines/loa_jcl_template.py](blueprint/em/components/loa_pipelines/loa_jcl_template.py)
-
-**I want to contribute**
-→ Read [blueprint/docs/GITHUB_FLOW.md](blueprint/docs/GITHUB_FLOW.md)
-
-**I need current status**
-→ Check [blueprint/docs/IMPLEMENTATION_PROGRESS.md](blueprint/docs/IMPLEMENTATION_PROGRESS.md)
-
----
-
-## 📋 Next Steps
-
-### 1. Read the Blueprint Guide (5 min)
-```bash
-cat blueprint/README.md
-```
-
-### 2. Review Architecture (10 min)
-```bash
-cat blueprint/docs/ARCHITECTURE.md
-```
-
-### 3. Run Locally (10 min)
-```bash
-cd blueprint/components
-docker-compose up -d
-pytest tests/ -v
-```
-
-### 4. Deploy to GCP (40 min)
-```bash
-cd blueprint/tools
-./setupanddeployongcp.sh your-project-id
-```
-
-### 5. Start Building (1-2 days)
-```bash
-cp blueprint/components/loa_pipelines/loa_jcl_template.py my_job.py
-# Customize and deploy!
-```
-
----
-
-## 📦 What's Ready
-
-**For Local Development:** ✅ Ready  
-**For GCP Deployment:** ✅ Ready  
-**For Team Use:** ✅ Ready  
-**Documentation:** ✅ 96+ guides  
-**Tests:** ✅ 350+ tests  
-**Infrastructure:** ✅ 25+ resources  
-
----
-
-## 🚀 Scaling to Other Platforms (Risk & Commercial)
-
-The LOA Blueprint is designed to scale efficiently to other platforms:
-
-### Current Scope (Phase 1)
-- ✅ **Credit/GDW (LOA)** - Complete and production-ready
-
-### Future Scope (Phase 2-3)
-- 📅 **Risk Platform** - Exposures, ratings, limits
-- 📅 **Commercial Platform** - Deals, contracts, pricing
-
-### Multi-Platform Architecture
-- ✅ **90% shared core** - Validation, testing, error handling
-- ✅ **10% platform-specific** - Entity configurations & business logic
-- ✅ **Reusable templates** - Copy & customize for new platforms
----
-
-## 🎯 Next Steps - Deploy Today
-
-### ✅ Pre-Deployment Checklist (30 minutes)
-
-- [ ] **Read** `README_VALIDATION_STATUS.md` (5 min)
-  - Understand validation status
-  - Review key metrics
-
-- [ ] **Get Approval** from stakeholders (varies)
-  - Share `BLUEPRINT_DEPLOYMENT_READINESS_SUMMARY.md`
-  - Get sign-off from technical & business leads
-
-- [ ] **Prepare GCP** (10 min)
-  - Create GCP project (or use existing)
-  - Set up service account with deployment permissions
-  - Authenticate: `gcloud auth login`
-
-- [ ] **Update Configuration** (10 min)
-  ```bash
-  # Edit: blueprint/infrastructure/terraform/environments/prod.tfvars
-  gcp_project_id = "YOUR-GCP-PROJECT-ID"
-  region         = "europe-west2"  # or your region
-  ```
-
-### 🚀 Deployment (2.5 hours)
-
-**Follow:** `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md`
-
-**Phase 0: Setup** (30 min)
-```bash
-./build.sh setup
-./build.sh start
-```
-
-**Phase 1: Local Validation** (30 min)
-```bash
-./build.sh test
-# Expected: 124 tests pass, 0 failures
-```
-
-**Phase 2: GCP Staging** (45 min)
-```bash
-export GCP_PROJECT_ID="your-project"
-./blueprint/tools/gcp/setupanddeployongcp.sh $GCP_PROJECT_ID staging
-./blueprint/tools/gcp/testpipeline.sh $GCP_PROJECT_ID staging
-```
-
-**Phase 3: Production** (1 hour)
-```bash
-# Option A: Via Terraform
-cd blueprint/infrastructure/terraform
-terraform apply -var-file="environments/prod.tfvars"
-
-# Option B: Via GitHub Actions (Recommended)
-git tag v1.0.0
-git push --tags origin main
-# GitHub automatically deploys to production
-```
-
-### 📊 Success Metrics
-
-After deployment, verify:
-
-- [ ] ✅ All Terraform resources created in GCP
-- [ ] ✅ E2E test pipeline runs successfully
-- [ ] ✅ Monitoring dashboards show data
-- [ ] ✅ Logs aggregated in Cloud Logging
-- [ ] ✅ Alerts configured and working
-- [ ] ✅ Error rate < 0.1%
-- [ ] ✅ Performance within SLA
-
----
-
-## 🆘 Support & Documentation
-
-### Quick Links
-
-| Need | Document |
-|------|----------|
-| **Deployment help** | `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md` |
-| **Architecture questions** | `blueprint/docs/02-architecture/ARCHITECTURE.md` |
-| **Troubleshooting** | `blueprint/docs/05-technical-guides/TROUBLESHOOTING.md` |
-| **Runbook (24/7 ops)** | `blueprint/docs/05-technical-guides/RUNBOOK.md` |
-| **All documentation** | `blueprint/docs/08-reference/INDEX.md` |
-
-### Key Resources
-
-- **96+ Documentation Files** - Architecture, deployment, troubleshooting
-- **Complete Test Suite** - 124+ tests with 99.5% pass rate
-- **Infrastructure as Code** - Terraform for all GCP services
-- **CI/CD Pipeline** - 5 GitHub Actions workflows
-- **Runbooks** - 24/7 operations documentation
-
----
-
-## 📈 Performance & Metrics
-
-### Deployment Metrics
-
-```
-Local Validation:         ~5 minutes
-GCP Staging Deployment:   ~15 minutes (Terraform)
-Infrastructure Setup:     ~10 minutes (11 services)
-E2E Test Suite:           ~8 minutes
-Expected Uptime:          99.95% (GCP SLA)
-```
-
-### Code Metrics
-
-```
-Total Tests:              124 (gdw_data_core) + 110+ (blueprint)
-Pass Rate:                99.5%
-Code Coverage:            65% (core), 92%+ (modules)
-Test Execution:           < 5 minutes
-```
-
-### Production Readiness
-
-```
-Critical Issues:          0 ✅
-Medium Issues:            0 ✅
-Low Issues:               0 ✅
-Risk Level:               🟢 LOW
-Confidence:               94/100
-```
-
----
-
-## ✅ What's Included
-
-### 🔧 Development Tools
-- ✅ Docker Compose for local development
-- ✅ pytest for comprehensive testing
-- ✅ Build scripts for all platforms (Linux, Mac, Windows)
-- ✅ Pre-configured linting & code quality tools
-
-### 📦 Production Infrastructure
-- ✅ Terraform IaC for GCP (4 environments)
-- ✅ BigQuery datasets & tables pre-configured
-- ✅ Cloud Storage buckets with lifecycle policies
-- ✅ Cloud Pub/Sub topics & subscriptions
-- ✅ Cloud Composer (Airflow) DAGs
-- ✅ Cloud Functions (event-driven)
-- ✅ Cloud Monitoring & Logging
-
-### 🔄 CI/CD Pipeline
-- ✅ GitHub Actions (5 workflows)
-- ✅ Automated testing on every commit
-- ✅ Automatic GCP deployment
-- ✅ Terraform plan/apply automation
-- ✅ Code quality gates (Qodana)
-- ✅ Rollback procedures
-
-### 📚 Documentation
-- ✅ 96+ markdown files
-- ✅ Architecture & design decisions
-- ✅ Deployment guides (local, staging, prod)
-- ✅ Troubleshooting & runbooks
-- ✅ Learning resources & examples
-- ✅ API reference
-
----
-
-## 🎓 For New Team Members
-
-1. **First 15 minutes:** Read `blueprint/README.md`
-2. **Next 30 minutes:** Review architecture in `blueprint/docs/02-architecture/ARCHITECTURE.md`
-3. **Next 1 hour:** Run locally: `./build.sh setup && ./build.sh test`
-4. **Next 2 hours:** Deploy to staging following `blueprint/docs/04-deployment/GCP_DEPLOYMENT_GUIDE.md`
-
----
-
-## 📞 Getting Help
-
-### Issues During Deployment?
-→ See `blueprint/docs/05-technical-guides/TROUBLESHOOTING.md`
-
-### Questions About Architecture?
-→ See `blueprint/docs/02-architecture/ARCHITECTURE.md`
-
-### Production Emergency?
-→ See `blueprint/docs/05-technical-guides/RUNBOOK.md`
-
-### General Questions?
-→ Check `blueprint/docs/08-reference/INDEX.md` for complete navigation
-
----
-
-## 🎉 Summary
-
-**The LOA Blueprint is fully validated and production-ready for immediate deployment to Google Cloud Platform.**
-
-- ✅ All components implemented and tested
-- ✅ Infrastructure configured via Terraform
-- ✅ CI/CD pipeline automated
-- ✅ Documentation complete (96+ files)
-- ✅ Support & runbooks available
-
-**Start deployment now:** Follow `BLUEPRINT_DEPLOYMENT_ACTION_PLAN.md`
-
----
-
-**Status:** ✅ **APPROVED FOR PRODUCTION DEPLOYMENT**  
-**Last Updated:** December 25, 2025  
-**Validation Score:** 94/100 (Excellent)  
-
-For complete validation details, see: `BLUEPRINT_VALIDATION_COMPLETE_REPORT.md`
-
+</div>
