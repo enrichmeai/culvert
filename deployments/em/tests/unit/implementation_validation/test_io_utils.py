@@ -152,9 +152,11 @@ class TestFileArchiver:
         # Mock copy_blob to avoid real network calls
         archiver.storage_client.bucket.return_value.copy_blob.return_value = Mock()
 
-        archive_path = archiver.archive_file("test.csv")
+        result = archiver.archive_file("test.csv")
 
-        assert archive_path is not None
+        assert result is not None
+        # Handle ArchiveResult object if returned
+        archive_path = result.archive_path if hasattr(result, 'archive_path') else result
         assert "archive" in archive_path
         assert "test.csv" in archive_path
 
@@ -165,8 +167,10 @@ class TestFileArchiver:
         archiver.storage_client.bucket.return_value.blob.return_value = source_blob
         archiver.storage_client.bucket.return_value.copy_blob.return_value = Mock()
 
-        archive_path = archiver.archive_file("test.csv", archive_path=custom_path)
+        result = archiver.archive_file("test.csv", archive_path=custom_path)
 
+        # Handle ArchiveResult object if returned
+        archive_path = result.archive_path if hasattr(result, 'archive_path') else result
         assert custom_path == archive_path
 
     def test_archive_batch_success(self, archiver):
@@ -187,8 +191,10 @@ class TestFileArchiver:
         archiver.storage_client.bucket.return_value.blob.return_value = source_blob
         archiver.storage_client.bucket.return_value.copy_blob.return_value = Mock()
 
-        archive_path = archiver.archive_file("test.csv")
+        result = archiver.archive_file("test.csv")
 
+        # Handle ArchiveResult object if returned
+        archive_path = result.archive_path if hasattr(result, 'archive_path') else result
         # Should contain date/time structure (YYYYMMDD)
         assert "/" in archive_path
         assert "test.csv" in archive_path
@@ -310,7 +316,7 @@ class TestFileMetadataExtractor:
         blob.updated = datetime(2025, 1, 15, 11, 0, 0)
         blob.md5_hash = "hash"
         blob.download_as_string.return_value = b"col1,col2\nval1,val2"
-        
+
         extractor.storage_client.bucket.return_value.blob.return_value = blob
 
         metadata = extractor.extract_all_metadata("test.csv")

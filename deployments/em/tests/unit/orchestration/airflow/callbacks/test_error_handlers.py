@@ -16,18 +16,77 @@ Test file mirrors source structure:
 import unittest
 from unittest.mock import MagicMock, patch
 import sys
+import types
 from datetime import datetime
 from typing import Dict, Any
 
 
-# Create mock for Airflow and GCS dependencies
-mock_airflow = MagicMock()
-mock_airflow.models.Variable.get.return_value = "test-project"
-sys.modules["airflow"] = mock_airflow
-sys.modules["airflow.models"] = mock_airflow.models
+# =============================================================================
+# Mock all Airflow and GCP dependencies BEFORE any imports
+# =============================================================================
+
+class MockModule(MagicMock):
+    """Mock module that can act as a package."""
+    @property
+    def __path__(self):
+        return []
+
+    def __getattr__(self, name):
+        if name == "__version__":
+            return "4.25.1"
+        return MagicMock()
 
 
-# Now import the error handlers
+# Mock Airflow
+mock_airflow = types.ModuleType('airflow')
+mock_airflow.DAG = MagicMock()
+mock_airflow.Dataset = MagicMock()
+mock_airflow.AirflowException = Exception
+sys.modules['airflow'] = mock_airflow
+sys.modules['airflow.models'] = MagicMock()
+sys.modules['airflow.models'].Variable = MagicMock()
+sys.modules['airflow.models'].Variable.get = MagicMock(return_value="test-project")
+sys.modules['airflow.exceptions'] = MagicMock()
+sys.modules['airflow.exceptions'].AirflowException = Exception
+sys.modules['airflow.providers'] = MockModule()
+sys.modules['airflow.providers.google'] = MockModule()
+sys.modules['airflow.providers.google.cloud'] = MockModule()
+sys.modules['airflow.providers.google.cloud.sensors'] = MockModule()
+sys.modules['airflow.providers.google.cloud.sensors.pubsub'] = MockModule()
+sys.modules['airflow.providers.google.cloud.sensors.pubsub'].PubSubPullSensor = MagicMock()
+sys.modules['airflow.providers.google.cloud.operators'] = MockModule()
+sys.modules['airflow.providers.google.cloud.operators.dataflow'] = MockModule()
+sys.modules['airflow.providers.google.cloud.operators.bigquery'] = MockModule()
+sys.modules['airflow.operators'] = MockModule()
+sys.modules['airflow.operators.python'] = MockModule()
+sys.modules['airflow.operators.bash'] = MockModule()
+sys.modules['airflow.utils'] = MockModule()
+sys.modules['airflow.utils.dates'] = MockModule()
+sys.modules['airflow.utils.context'] = MockModule()
+sys.modules['airflow.utils.context'].Context = MagicMock()
+
+# Mock Google Cloud
+sys.modules['google'] = MockModule()
+sys.modules['google.cloud'] = MockModule()
+sys.modules['google.cloud.exceptions'] = MockModule()
+sys.modules['google.cloud.storage'] = MockModule()
+sys.modules['google.cloud.pubsub_v1'] = MockModule()
+sys.modules['google.api_core'] = MockModule()
+sys.modules['google.api_core.exceptions'] = MockModule()
+mock_proto = MockModule()
+mock_proto.__version__ = "4.25.1"
+sys.modules['google.protobuf'] = mock_proto
+sys.modules['google.protobuf.wrappers_pb2'] = MockModule()
+sys.modules['google.protobuf.message'] = MockModule()
+sys.modules['google.protobuf.json_format'] = MockModule()
+sys.modules['google.protobuf.internal'] = MockModule()
+sys.modules['google.protobuf.internal.containers'] = MockModule()
+sys.modules['google.protobuf.internal.enum_type_wrapper'] = MockModule()
+
+# =============================================================================
+# Now import the error handlers (after mocks are in place)
+# =============================================================================
+
 from deployments.em.orchestration.airflow.callbacks.error_handlers import (
     ErrorType,
     publish_to_dlq,
@@ -172,7 +231,8 @@ class TestOnFailureCallback(unittest.TestCase):
 
         mock_base_callback.assert_called_once()
         call_args = mock_base_callback.call_args
-        self.assertEqual(call_args.kwargs["context"], context)
+        # Check positional arg (context is first positional arg)
+        self.assertEqual(call_args.args[0], context)
         self.assertIn("config", call_args.kwargs)
 
 
