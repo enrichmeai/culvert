@@ -4,6 +4,13 @@ A production-grade Python framework providing reusable components for data migra
 
 **Status**: ✅ 513/513 tests passing | Production ready
 
+> **📖 Part of the Legacy Mainframe to GCP Migration Framework**  
+> This library is the foundation for all migration pipelines. See the [Root README](../README.md) for framework objectives, architecture decisions, and how EM/LOA deployments use this library.
+>
+> **Reference Implementations:**
+> - [EM Deployment](../deployments/em/) - Multi-entity JOIN pattern (3 → 1)
+> - [LOA Deployment](../deployments/loa/) - Single-entity SPLIT pattern (1 → 2)
+
 ---
 
 ## Quick Start
@@ -2070,6 +2077,211 @@ from gdw_data_core.core.validators import (
     validate_required,
     validate_length,
     ValidationError,
+)
+```
+
+---
+
+## Pub/Sub Integration (Event-Driven Triggers)
+
+The library provides components for event-driven pipeline triggering using Google Cloud Pub/Sub with a **pull-based strategy**.
+
+### Why Pull Strategy?
+
+| Aspect | Pull (Library Choice) | Push |
+|--------|----------------------|------|
+| **Backpressure** | ✅ Consumer controls pace | ❌ Can overwhelm consumer |
+| **Retry Control** | ✅ Consumer decides when | ❌ Limited control |
+| **Ordering** | ✅ Guaranteed in subscription | ❌ Harder to maintain |
+| **Reliability** | ✅ Retained until acknowledged | ❌ Fire and forget |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         EVENT-DRIVEN PIPELINE TRIGGER                        │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  1. FILE LANDS IN GCS                                                       │
+│  ┌───────────────────┐                                                      │
+│  │ gs://bucket/      │                                                      │
+│  │   data.csv        │                                                      │
+│  │   data.csv.ok ◄───┼── Signal file triggers notification                 │
+│  └───────────────────┘                                                      │
+│           │                                                                 │
+│           ▼                                                                 │
+│  2. GCS OBJECT NOTIFICATION                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ Pub/Sub Topic                                                          │ │
+│  │ • CMEK encrypted with Cloud KMS (infrastructure provides key)          │ │
+│  │ • 90-day automatic key rotation                                        │ │
+│  │ • 7-day message retention                                              │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│           │                                                                 │
+│           ▼                                                                 │
+│  3. PULL SUBSCRIPTION                                                       │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ • Consumer (Airflow sensor) pulls messages                             │ │
+│  │ • Acknowledges only after successful processing                        │ │
+│  │ • Unacknowledged messages remain for retry                             │ │
+│  │ • After max retries → Dead Letter Queue                                │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│           │                                                                 │
+│           ▼                                                                 │
+│  4. LIBRARY SENSOR (BasePubSubPullSensor)                                   │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ from gdw_data_core.orchestration.sensors import BasePubSubPullSensor   │ │
+│  │                                                                         │ │
+│  │ • Filters for .ok files only (configurable)                            │ │
+│  │ • Extracts metadata (system, entity, date) to XCom                     │ │
+│  │ • Triggers DAG execution on successful pull                            │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Using BasePubSubPullSensor
+
+```python
+from gdw_data_core.orchestration.sensors import BasePubSubPullSensor
+
+# In your Airflow DAG
+class MySystemPubSubSensor(BasePubSubPullSensor):
+    """System-specific sensor extending library base."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args,
+            filter_extension='.ok',        # Filter for .ok files
+            metadata_xcom_key='file_info',  # Store metadata in XCom
+            **kwargs
+        )
+
+# Usage in DAG
+sensor = MySystemPubSubSensor(
+    task_id='wait_for_file',
+    project_id='my-project',
+    subscription='my-subscription',
+)
+```
+
+### KMS Encryption Integration
+
+The library is designed to work with CMEK-encrypted Pub/Sub topics:
+
+```python
+# Infrastructure (Terraform) provides the encrypted topic
+# Library components work transparently with encrypted messages
+
+# No special code needed - KMS decryption happens automatically
+# when the service account has roles/cloudkms.cryptoKeyDecrypter
+```
+
+**Infrastructure Requirements (Terraform):**
+- Create KMS keyring and crypto key
+- Grant Pub/Sub service agent `roles/cloudkms.cryptoKeyEncrypterDecrypter`
+- Configure topic with `kms_key_name`
+
+See [GCP Deployment Guide](../docs/GCP_DEPLOYMENT_GUIDE.md) for Terraform examples.
+
+---
+
+## Dead Letter Queue (DLQ) Management
+
+The library provides integrated dead letter queue support for handling failed messages.
+
+### DLQ Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           DEAD LETTER QUEUE FLOW                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  MESSAGE PROCESSING                                                         │
+│  ┌───────────────────┐                                                      │
+│  │ Pull message      │                                                      │
+│  │ from subscription │                                                      │
+│  └─────────┬─────────┘                                                      │
+│            │                                                                 │
+│            ▼                                                                 │
+│  ┌───────────────────┐     SUCCESS     ┌───────────────────┐               │
+│  │ Process message   │ ───────────────► │ Acknowledge       │               │
+│  │                   │                  │ Message removed   │               │
+│  └─────────┬─────────┘                  └───────────────────┘               │
+│            │                                                                 │
+│            │ FAILURE                                                         │
+│            ▼                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ RETRY POLICY (Library ErrorHandler)                                    │ │
+│  │                                                                         │ │
+│  │ Attempt 1: Process → Fail → Wait 1 min                                 │ │
+│  │ Attempt 2: Process → Fail → Wait 2 min (exponential backoff)           │ │
+│  │ Attempt 3: Process → Fail → Wait 4 min                                 │ │
+│  │ Attempt 4: Process → Fail → Wait 8 min                                 │ │
+│  │ Attempt 5: Process → Fail → GIVE UP                                    │ │
+│  └─────────────────────────────────────────────────────────────────────────┘ │
+│            │                                                                 │
+│            │ AFTER MAX RETRIES                                              │
+│            ▼                                                                 │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │ DEAD LETTER QUEUE                                                       │ │
+│  │                                                                         │ │
+│  │ • Separate Pub/Sub topic for failed messages                           │ │
+│  │ • 7-day retention for investigation                                    │ │
+│  │ • Alerting integration (optional)                                      │ │
+│  │ • Manual replay capability                                             │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Using DLQ with Error Callbacks
+
+```python
+from gdw_data_core.orchestration.callbacks import (
+    on_failure_callback,
+    publish_to_dlq,
+    ErrorType,
+)
+
+# Configure DLQ in your DAG
+default_args = {
+    'on_failure_callback': on_failure_callback,  # Library callback
+}
+
+# Or manually publish to DLQ
+def handle_permanent_failure(context, error_message, file_path):
+    publish_to_dlq(
+        project_id='my-project',
+        topic='my-system-dead-letter',
+        error_type=ErrorType.VALIDATION_FAILURE,
+        error_message=error_message,
+        file_path=file_path,
+        context=context,
+    )
+```
+
+### DLQ Error Types
+
+| Error Type | Description | Typical Cause |
+|------------|-------------|---------------|
+| `VALIDATION_FAILURE` | File validation failed | Bad HDR/TRL, checksum mismatch |
+| `SCHEMA_MISMATCH` | Schema doesn't match expected | Column changes, type errors |
+| `DATA_QUALITY` | Data quality checks failed | Invalid values, duplicates |
+| `PROCESSING_ERROR` | Pipeline processing failed | Dataflow errors, timeouts |
+| `ROUTING_FAILURE` | Could not route to correct handler | Unknown entity, bad metadata |
+
+### Monitoring DLQ
+
+```python
+from gdw_data_core.orchestration.callbacks import create_dlq_alert
+
+# Create alert for DLQ messages (integrates with Cloud Monitoring)
+create_dlq_alert(
+    project_id='my-project',
+    topic='my-system-dead-letter',
+    notification_channel='my-slack-channel',
+    threshold=1,  # Alert on any message
 )
 ```
 

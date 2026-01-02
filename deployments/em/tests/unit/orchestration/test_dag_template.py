@@ -96,8 +96,6 @@ def test_validate_input_files_success(mock_router, mock_discover, mock_gcs_class
     mock_router_instance.validate_file_structure.assert_called_once()
     mock_file_validator.validate_sample_records.assert_called_once()
 
-@patch('blueprint.components.loa_pipelines.dag_template.AirflowException', MockAirflowException)
-@patch('gdw_data_core.core.file_management.FileValidator')
 @patch('deployments.em.pipeline.dag_template.AirflowException', MockAirflowException)
 @patch('gdw_data_core.core.file_management.FileValidator')
 @patch('gdw_data_core.core.GCSClient')
