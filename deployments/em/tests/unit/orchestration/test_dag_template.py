@@ -65,13 +65,13 @@ class MockAirflowException(Exception):
 sys.modules['airflow.exceptions'].AirflowException = MockAirflowException
 sys.modules['airflow'].AirflowException = MockAirflowException
 
-from blueprint.em.components.loa_pipelines.dag_template import validate_input_files
+from deployments.em.pipeline.dag_template import validate_input_files
 
-@patch('blueprint.components.loa_pipelines.dag_template.AirflowException', MockAirflowException)
+@patch('deployments.em.pipeline.dag_template.AirflowException', MockAirflowException)
 @patch('gdw_data_core.core.file_management.FileValidator')
 @patch('gdw_data_core.core.GCSClient')
 @patch('gdw_data_core.core.discover_split_files')
-@patch('blueprint.components.loa_pipelines.pipeline_router.PipelineRouter')
+@patch('deployments.em.pipeline.pipeline_router.PipelineRouter')
 def test_validate_input_files_success(mock_router, mock_discover, mock_gcs_class, mock_file_validator_class):
     # Setup mocks
     mock_gcs = mock_gcs_class.return_value
@@ -98,9 +98,11 @@ def test_validate_input_files_success(mock_router, mock_discover, mock_gcs_class
 
 @patch('blueprint.components.loa_pipelines.dag_template.AirflowException', MockAirflowException)
 @patch('gdw_data_core.core.file_management.FileValidator')
+@patch('deployments.em.pipeline.dag_template.AirflowException', MockAirflowException)
+@patch('gdw_data_core.core.file_management.FileValidator')
 @patch('gdw_data_core.core.GCSClient')
 @patch('gdw_data_core.core.discover_split_files')
-@patch('blueprint.components.loa_pipelines.pipeline_router.PipelineRouter')
+@patch('deployments.em.pipeline.pipeline_router.PipelineRouter')
 def test_validate_input_files_format_failure(mock_router, mock_discover, mock_gcs_class, mock_file_validator_class):
     # Setup mocks
     mock_gcs = mock_gcs_class.return_value
@@ -118,11 +120,11 @@ def test_validate_input_files_format_failure(mock_router, mock_discover, mock_gc
     assert "File format check failed" in str(excinfo.value)
     assert "Missing column: ssn" in str(excinfo.value)
 
-@patch('blueprint.components.loa_pipelines.dag_template.AirflowException', MockAirflowException)
+@patch('deployments.em.pipeline.dag_template.AirflowException', MockAirflowException)
 @patch('gdw_data_core.core.file_management.FileValidator')
 @patch('gdw_data_core.core.GCSClient')
 @patch('gdw_data_core.core.discover_split_files')
-@patch('blueprint.components.loa_pipelines.pipeline_router.PipelineRouter')
+@patch('deployments.em.pipeline.pipeline_router.PipelineRouter')
 def test_validate_input_files_no_files(mock_router, mock_discover, mock_gcs_class, mock_file_validator_class):
     # Setup mocks
     mock_gcs = mock_gcs_class.return_value

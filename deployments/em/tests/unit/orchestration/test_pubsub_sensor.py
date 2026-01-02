@@ -44,7 +44,7 @@ mock_airflow.providers.google.cloud.sensors.pubsub.PubSubPullSensor = DummyPubSu
 from gdw_data_core.orchestration import sensors as gdw_sensors
 gdw_sensors.pubsub.PubSubPullSensor = DummyPubSubPullSensor
 
-from blueprint.em.components.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
+from deployments.em.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
 
 
 class TestLOAPubSubPullSensorInit(unittest.TestCase):

@@ -1,11 +1,11 @@
 """
-Validation Module - LOA Blueprint
+Validation Module - EM Deployment
 
 Demonstrates proper usage of GDW Data Core validators.
 
 Example:
     from gdw_data_core.core.validators import ValidationError
-    from blueprint.components.loa_domain.validation import validate_application_record
+    from deployments.em.domain.validation import validate_application_record
 
     record = {'ssn': '123-45-6789', 'loan_amount': '50000', ...}
     validated, errors = validate_application_record(record)

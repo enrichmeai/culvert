@@ -1,24 +1,12 @@
 """
-LOA Airflow Operators.
+EM Airflow Operators.
 
-Provides unified operators for LOA pipeline orchestration.
+Provides operators for EM pipeline orchestration.
+Note: Dataflow operators are handled via standard Airflow providers.
 """
 
-from blueprint.em.components.orchestration.airflow.operators.dataflow import (
-    LOADataflowOperator,
-    LOABatchDataflowOperator,
-    LOAStreamingDataflowOperator,
-    SourceType,
-    ProcessingMode,
-    DataflowJobConfig,
-)
+# Operators are imported from standard Airflow providers
+# This module provides EM-specific configuration if needed
 
-__all__ = [
-    "LOADataflowOperator",
-    "LOABatchDataflowOperator",
-    "LOAStreamingDataflowOperator",
-    "SourceType",
-    "ProcessingMode",
-    "DataflowJobConfig",
-]
+__all__ = []
 

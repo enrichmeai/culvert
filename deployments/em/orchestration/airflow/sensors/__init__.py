@@ -1,8 +1,8 @@
 """
-LOA Airflow Sensors.
+EM Airflow Sensors.
 """
 
-from blueprint.em.components.orchestration.airflow.sensors.pubsub import (
+from .pubsub import (
     LOAPubSubPullSensor,
 )
 

@@ -1,10 +1,10 @@
 """
-LOA Dual-Run Comparison Utility
+EM Dual-Run Comparison Utility
 
-LOA-specific wrapper around the base DualRunComparison from gdw_data_core.
+EM-specific wrapper around the base DualRunComparison from gdw_data_core.
 
 Usage:
-    from blueprint.components.validation_extras.compare_outputs import LOADualRunComparison
+    from deployments.em.validation_extras.compare_outputs import LOADualRunComparison
 
     comparison = LOADualRunComparison(
         project_id="my-project",

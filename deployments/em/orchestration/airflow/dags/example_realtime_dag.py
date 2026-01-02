@@ -8,8 +8,8 @@ from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJ
 from datetime import datetime, timedelta
 import os
 
-from blueprint.em.components.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
-from blueprint.em.components import PipelineSelector
+from deployments.em.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
+from deployments.em.pipeline.pipeline_router import PipelineRouter as PipelineSelector
 
 # Configuration
 PROJECT_ID = "loa-migration-staging"
