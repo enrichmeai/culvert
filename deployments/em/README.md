@@ -236,5 +236,5 @@ LEFT JOIN {{ ref('stg_em_decision') }} d
 2. **Some validation tests have API mismatches** - Need method updates
 3. **Infrastructure tests reference old paths** - Need path updates
 
-See [Project Status Analysis](../../docs/PROJECT_STATUS_ANALYSIS.md) for full details.
+See [Project Status Analysis](../../docs/PROJECT_STATUS.md) for full details.
 

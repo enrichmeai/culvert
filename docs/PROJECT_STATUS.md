@@ -10,11 +10,11 @@
 
 | Component | Status | Tests | Notes |
 |-----------|--------|-------|-------|
-| **gdw_data_core (Library)** | ✅ Complete | 513/513 passing | Production ready |
+| **gdw_data_core (Library)** | ✅ Complete | 513/513 passing | Production ready, README updated |
 | **deployments/loa** | ✅ Complete | 63/63 passing | Fully implemented |
-| **deployments/em** | ⚠️ Partial | 6 errors | Legacy imports need fixing |
-| **Documentation** | ⚠️ Pending | N/A | READMEs need updates |
-| **GCP Deployment Guide** | ❌ Missing | N/A | Needs creation |
+| **deployments/em** | ⚠️ Partial | 152 passing | Some orchestration tests need Airflow |
+| **Documentation** | ✅ Complete | N/A | All READMEs updated |
+| **GCP Deployment Guide** | ✅ Complete | N/A | Created |
 
 ---
 
@@ -40,7 +40,7 @@
 | `pipelines/beam` | ✅ | Transforms, I/O operations |
 | `testing` | ✅ | Base classes, mocks, fixtures |
 
-**README Status:** Exists but may need updates to reflect both EM and LOA usage.
+**README Status:** ✅ Updated with framework context, Pub/Sub Pull Strategy, and Dead Letter Queue sections.
 
 ---
 
@@ -112,12 +112,12 @@
 
 | Document | Location | Status | Action |
 |----------|----------|--------|--------|
-| Library README | `gdw_data_core/README.md` | ⚠️ Exists | Update for EM + LOA |
-| Deployments README | `deployments/README.md` | ⚠️ Outdated | Complete rewrite |
-| EM README | `deployments/em/README.md` | ⚠️ Minimal | Needs full documentation |
+| Library README | `gdw_data_core/README.md` | ✅ Complete | Updated with Pub/Sub, DLQ, framework links |
+| Deployments README | `deployments/README.md` | ✅ Complete | Rewritten |
+| EM README | `deployments/em/README.md` | ✅ Complete | Full documentation |
 | LOA README | `deployments/loa/README.md` | ✅ Complete | Done |
-| GCP Deployment Guide | N/A | ❌ Missing | CREATE |
-| White Paper | N/A | ❌ Missing | CREATE (future) |
+| Root README | `README.md` | ✅ Complete | Rewritten with objectives, architecture |
+| GCP Deployment Guide | `docs/GCP_DEPLOYMENT_GUIDE.md` | ✅ Complete | Created |
 
 ---
 
