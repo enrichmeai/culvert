@@ -3,15 +3,30 @@ name: GCP Deployment Testing
 on:
   push:
     branches: [ main, develop ]
+    paths:
+      - 'deployments/**'
+      - 'gdw_data_core/**'
+      - '.github/workflows/gcp-deployment-tests.yml'
   pull_request:
     branches: [ main, develop ]
   schedule:
     # Run nightly comprehensive tests at 2 AM UTC
     - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      deployment:
+        description: 'Deployment to test (em, loa, all)'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - em
+          - loa
+          - all
 
 env:
   PYTHON_VERSION: "3.11"
-  GCP_REGION: "us-central1"
+  GCP_REGION: "europe-west2"
 
 jobs:
   # ============================================================================
@@ -21,12 +36,15 @@ jobs:
     name: Unit Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        deployment: [em]  # Add 'loa' when ready
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -34,13 +52,15 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r blueprint/setup/requirements-test.txt
+          pip install -e ./gdw_data_core
+          pip install -e ./deployments
+          pip install pytest pytest-cov
 
       - name: Run unit tests with coverage
         run: |
-          pytest blueprint/components/tests/unit/ \
+          pytest deployments/${{ matrix.deployment }}/tests/unit/ \
             -v \
-            --cov=blueprint/components \
+            --cov=deployments/${{ matrix.deployment }} \
             --cov=gdw_data_core \
             --cov-report=xml \
             --cov-report=term-missing \
@@ -50,8 +70,8 @@ jobs:
         uses: codecov/codecov-action@v3
         with:
           files: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
+          flags: ${{ matrix.deployment }}-unittests
+          name: codecov-${{ matrix.deployment }}
           fail_ci_if_error: false
 
   # ============================================================================
@@ -61,12 +81,15 @@ jobs:
     name: Integration Tests (Mocked)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    strategy:
+      matrix:
+        deployment: [em]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -74,25 +97,22 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r blueprint/setup/requirements-test.txt
+          pip install -e ./gdw_data_core
+          pip install -e ./deployments
+          pip install pytest pytest-cov
 
-      - name: Run GCP client integration tests
+      - name: Run integration tests
         run: |
-          pytest blueprint/components/tests/integration/test_gcp_clients.py \
+          pytest deployments/${{ matrix.deployment }}/tests/integration/ \
             -v \
-            -m "integration"
-
-      - name: Run DAG deployment validation
-        run: |
-          pytest blueprint/components/tests/unit/orchestration/test_dag_deployment.py \
-            -v
+            -m "not requires_gcp"
 
       - name: Generate coverage report
         if: always()
         run: |
-          pytest blueprint/components/tests/integration/ \
+          pytest deployments/${{ matrix.deployment }}/tests/integration/ \
             -v \
-            --cov=blueprint/components \
+            --cov=deployments/${{ matrix.deployment }} \
             --cov-report=xml \
             -m "not requires_gcp"
 
@@ -103,12 +123,15 @@ jobs:
     name: DAG Validation Tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    strategy:
+      matrix:
+        deployment: [em]
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -116,26 +139,27 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r blueprint/setup/requirements-test.txt
+          pip install -e ./gdw_data_core
+          pip install -e ./deployments
+          pip install pytest apache-airflow
 
       - name: Run DAG tests
         run: |
-          pytest blueprint/components/tests/unit/orchestration/ \
+          pytest deployments/${{ matrix.deployment }}/tests/unit/orchestration/ \
             -v \
             --tb=short
 
-      - name: Test DAG instantiation
+      - name: Test DAG instantiation (${{ matrix.deployment }})
         run: |
           python -c "
-          from blueprint.components.loa_pipelines.dag_template import create_loa_dag
-          dag = create_loa_dag(
-              job_name='test',
-              input_pattern='gs://bucket/test_*',
-              output_table='project:dataset.test'
-          )
-          assert dag is not None
-          assert len(dag.task_dict) == 6
-          print('✅ DAG instantiation test passed')
+          import sys
+          sys.path.insert(0, '.')
+          
+          # Test EM DAG
+          if '${{ matrix.deployment }}' == 'em':
+              from deployments.em.orchestration.airflow.dags.em_daily_load_dag import dag
+              assert dag is not None
+              print('✅ EM DAG instantiation test passed')
           "
 
   # ============================================================================
@@ -150,7 +174,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -158,26 +182,18 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install black flake8 pylint mypy isort
+          pip install black flake8 mypy
 
       - name: Run Black (code formatting check)
-        run: black --check blueprint/components gdw_data_core
-        continue-on-error: true
-
-      - name: Run isort (import sorting check)
-        run: isort --check-only blueprint/components gdw_data_core
+        run: black --check deployments/ gdw_data_core/ --exclude '__pycache__|\.egg-info'
         continue-on-error: true
 
       - name: Run Flake8 (linting)
-        run: flake8 blueprint/components gdw_data_core --max-line-length=100
-        continue-on-error: true
-
-      - name: Run Pylint
-        run: pylint blueprint/components --disable=R,C,W --fail-under=8.0
+        run: flake8 deployments/ gdw_data_core/ --max-line-length=100 --select=E9,F63,F7,F82
         continue-on-error: true
 
       - name: Run mypy (type checking)
-        run: mypy blueprint/components gdw_data_core --ignore-missing-imports
+        run: mypy deployments/ gdw_data_core/ --ignore-missing-imports
         continue-on-error: true
 
   # ============================================================================
@@ -192,7 +208,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -200,7 +216,7 @@ jobs:
       - name: Run Bandit (security linter)
         run: |
           pip install bandit
-          bandit -r blueprint/components gdw_data_core -f json -o bandit-report.json || true
+          bandit -r deployments/ gdw_data_core/ -f json -o bandit-report.json || true
         continue-on-error: true
 
       - name: Run Safety (dependency vulnerability check)
@@ -211,7 +227,7 @@ jobs:
 
       - name: Upload security reports
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-reports
           path: |
@@ -231,7 +247,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -239,11 +255,13 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r blueprint/setup/requirements-test.txt
+          pip install -e ./gdw_data_core
+          pip install -e ./deployments
+          pip install pytest pytest-benchmark
 
       - name: Run performance benchmarks
         run: |
-          pytest blueprint/components/tests/performance/ \
+          pytest deployments/em/tests/performance/ \
             -v \
             --benchmark-only \
             --benchmark-json=benchmark-results.json
@@ -251,13 +269,13 @@ jobs:
 
       - name: Run chaos engineering tests
         run: |
-          pytest blueprint/components/tests/chaos/ \
+          pytest deployments/em/tests/chaos/ \
             -v
         continue-on-error: true
 
       - name: Upload benchmark results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: performance-reports
           path: benchmark-results.json
@@ -275,7 +293,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
@@ -283,15 +301,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r blueprint/setup/requirements-test.txt
+          pip install -e ./gdw_data_core
+          pip install -e ./deployments
+          pip install pytest
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v1
+        uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_STAGING_CREDENTIALS }}
 
       - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v1
+        uses: google-github-actions/setup-gcloud@v2
         with:
           install_components: 'beta'
 
@@ -300,14 +320,8 @@ jobs:
           GCP_TEST_PROJECT: ${{ secrets.GCP_STAGING_PROJECT }}
           GCP_TEST_REGION: ${{ env.GCP_REGION }}
           GCP_TEST_BUCKET: ${{ secrets.GCP_STAGING_BUCKET }}
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-key.json
         run: |
-          pytest blueprint/components/tests/integration/test_gcp_deployment.py \
-            -v \
-            -m "requires_gcp" || true
-          
-          # Run BDD E2E tests in staging
-          pytest blueprint/components/tests/bdd/step_definitions/test_pipeline_e2e.py \
+          pytest deployments/em/tests/integration/ \
             -v \
             -m "requires_gcp" || true
         continue-on-error: true

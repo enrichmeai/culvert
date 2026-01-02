@@ -1,9 +1,11 @@
 # GDW Data Core Library - Fix Implementation Prompt
 
 **Ticket ID:** LIBRARY-FIX-001  
-**Status:** Ready for Implementation  
+**Status:** ✅ IMPLEMENTED & VERIFIED  
 **Priority:** P1 - Critical (Blocker for Deployments)  
-**Last Updated:** January 1, 2026
+**Last Updated:** January 2, 2026  
+**Implemented:** January 2, 2026  
+**Verified:** January 2, 2026
 
 ---
 
@@ -11,68 +13,168 @@
 
 This prompt details the implementation steps to fix gaps in the `gdw_data_core` library before creating EM and LOA deployments. All gaps must be addressed to support the E2E functional flow.
 
-### Gap Summary
+**Library Design Principle:** The library must be GENERIC. No system-specific configurations (EM, LOA, etc.). Pipelines provide all configuration.
 
-| # | Gap | Module | Priority | Effort |
-|---|-----|--------|----------|--------|
-| 1 | HDR/TRL Record Parser | `core/file_management/` | P1 | 2 hrs |
-| 2 | Record Count Validator | `core/file_management/` | P1 | 1 hr |
-| 3 | Checksum Validator | `core/file_management/` | P1 | 2 hrs |
-| 4 | Job Control Operations | `core/job_control/` | P1 | 3 hrs |
-| 5 | Entity Dependency Check | `orchestration/` | P1 | 2 hrs |
-| 6 | HDR/TRL Skip in CSV Parser | `pipelines/beam/transforms/` | P1 | 1 hr |
-| 7 | Duplicate Key Validator | `core/data_quality/` | P2 | 2 hrs |
-| 8 | Row Type Validator | `core/data_quality/` | P2 | 1 hr |
+### Gap Summary - VERIFIED ✅
 
-**Total Effort: ~14 hours**
+| # | Gap | Module | Status | Verified |
+|---|-----|--------|--------|----------|
+| 1 | HDR/TRL Record Parser | `core/file_management/hdr_trl/` | ✅ Configurable | ✅ |
+| 2 | Record Count Validator | `core/file_management/validator.py` | ✅ Complete | ✅ |
+| 3 | Checksum Validator | `core/file_management/integrity.py` | ✅ Complete | ✅ |
+| 4 | Job Control Operations | `core/job_control/` | ✅ Complete | ✅ |
+| 5 | Entity Dependency Check | `orchestration/dependency.py` | ✅ Generic (no hardcoded) | ✅ |
+| 6 | HDR/TRL Skip in CSV Parser | `pipelines/beam/transforms/` | ✅ Complete | ✅ |
+| 7 | Duplicate Key Validator | `core/data_quality/checker.py` | ✅ Complete | ✅ |
+| 8 | Row Type Validator | `core/data_quality/checker.py` | ✅ Configurable prefixes | ✅ |
+
+**All Changes Verified:**
+1. ✅ No hardcoded `SYSTEM_DEPENDENCIES` in `orchestration/dependency.py`
+2. ✅ `HDRTRLParser` patterns configurable via constructor
+3. ✅ `validate_row_types` has `hdr_prefix` and `trl_prefix` parameters
+4. ✅ All components accept configuration from pipeline
+
+### Verification Evidence
+
+**EntityDependencyChecker (Generic):**
+```python
+# Constructor requires pipeline to provide configuration
+def __init__(
+    self,
+    project_id: str,
+    system_id: str,           # Pipeline provides
+    required_entities: List[str],  # Pipeline provides
+    ...
+)
+```
+
+**HDRTRLParser (Configurable):**
+```python
+# Constructor allows custom patterns with sensible defaults
+def __init__(
+    self,
+    hdr_pattern: str = DEFAULT_HDR_PATTERN,  # Can override
+    trl_pattern: str = DEFAULT_TRL_PATTERN,  # Can override
+    hdr_prefix: str = DEFAULT_HDR_PREFIX,    # Can override
+    trl_prefix: str = DEFAULT_TRL_PREFIX,    # Can override
+    ...
+)
+```
+
+**Blueprint Usage (Correct Pattern):**
+```python
+# From blueprint/components/em/validation.py
+from gdw_data_core.core.file_management import HDRTRLParser, validate_record_count
+from gdw_data_core.core.data_quality import validate_row_types
+
+class EMValidator:
+    SYSTEM_ID = "EM"  # Pipeline provides config
+    def __init__(self):
+        self.hdr_trl_parser = HDRTRLParser()  # Uses library component
+```
 
 ---
 
-## 🎯 GAP 1: HDR/TRL Record Parser
+## 📊 ORIGINAL REQUIREMENTS (Reference)
+
+**Key Changes That Were Required:**
+1. Remove hardcoded `SYSTEM_DEPENDENCIES` from `orchestration/dependency.py`
+2. Make `HDRTRLParser` patterns configurable (keep defaults for CSV extracts)
+3. Make `validate_row_types` prefixes configurable
+4. Ensure all components accept configuration from pipeline
+
+---
+
+## 📊 CURRENT STATE ANALYSIS
+
+### What Already Exists ✅
+
+| File | Functions/Classes | Status |
+|------|-------------------|--------|
+| `core/file_management/hdr_trl_parser.py` | `HDRTRLParser`, `HeaderRecord`, `TrailerRecord` | Works, needs configurable patterns |
+| `core/file_management/validator.py` | `validate_record_count()` | ✅ Complete |
+| `core/file_management/integrity.py` | `compute_checksum()`, `validate_checksum()` | ✅ Complete |
+| `core/job_control/` | `JobControlRepository`, `JobStatus`, `PipelineJob` | ✅ Complete |
+| `core/data_quality/checker.py` | `check_duplicate_keys()`, `validate_row_types()` | Works, `validate_row_types` needs configurable prefixes |
+| `orchestration/dependency.py` | `EntityDependencyChecker` | ⚠️ Has hardcoded SYSTEM_DEPENDENCIES |
+
+### What Needs to Change ⚠️
+
+| Component | Current Issue | Required Change |
+|-----------|---------------|-----------------|
+| `EntityDependencyChecker` | Hardcoded `SYSTEM_DEPENDENCIES = {"em": {...}, "loa": {...}}` | Remove hardcoded config, require pipeline to provide `system_id` and `required_entities` |
+| `HDRTRLParser` | Hardcoded `HDR_PATTERN`, `TRL_PATTERN` as class variables | Make patterns configurable via constructor with defaults |
+| `validate_row_types()` | Hardcoded `"HDR|"` and `"TRL|"` prefixes | Add `hdr_prefix` and `trl_prefix` parameters with defaults |
+| `is_header_line()`, `is_trailer_line()` | Hardcoded prefixes | Use configurable prefixes |
+
+---
+
+## 🎯 GAP 1: HDR/TRL Record Parser (UPDATE)
 
 ### Location
-`gdw_data_core/core/file_management/`
+`gdw_data_core/core/file_management/hdr_trl_parser.py`
 
-### Requirement
-Parse header (HDR) and trailer (TRL) records from CSV files to extract metadata.
+### Current State
+File EXISTS with hardcoded patterns:
+- `HDR_PATTERN = re.compile(r'^HDR\|([^|]+)\|([^|]+)\|(\d{8})$')` (class variable)
+- `TRL_PATTERN = re.compile(r'^TRL\|RecordCount=(\d+)\|Checksum=([^|]+)$')` (class variable)
+- `is_header_line()` and `is_trailer_line()` use hardcoded `"HDR|"` and `"TRL|"`
+
+### Required Change
+Make patterns CONFIGURABLE via constructor while keeping defaults for CSV extracts.
 
 ### File Structure Reference
 ```
-HDR|EM|Customer|20260101        ← Header (pipe-delimited)
+HDR|EM|Customer|20260101        ← Header (pipe-delimited) - DEFAULT FORMAT
 id,name,ssn,status              ← CSV header row
 1001,John Doe,123-45-6789,A     ← Data rows
 1002,Jane Doe,987-65-4321,A
-TRL|RecordCount=5000|Checksum=a1b2c3d4  ← Trailer (pipe-delimited)
+TRL|RecordCount=5000|Checksum=a1b2c3d4  ← Trailer (pipe-delimited) - DEFAULT FORMAT
 ```
 
 ### Implementation
 
-#### Create: `gdw_data_core/core/file_management/hdr_trl_parser.py`
+#### UPDATE: `gdw_data_core/core/file_management/hdr_trl_parser.py`
 
 ```python
 """
 Header/Trailer Record Parser.
 
-Parses HDR and TRL records from mainframe extract files.
+Library provides the MECHANISM for parsing header/trailer records.
+Pipelines can configure their own patterns or use the defaults.
+
+Default patterns (for CSV extracts):
+    Header: HDR|{SYSTEM}|{ENTITY}|{YYYYMMDD}
+    Trailer: TRL|RecordCount={count}|Checksum={value}
+
+Pipelines can override patterns for different file formats.
 """
 
 import re
 import logging
-from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from dataclasses import dataclass, field
+from typing import Optional, Tuple, List, Pattern
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 
+# Default patterns for CSV extracts (can be overridden by pipelines)
+DEFAULT_HDR_PATTERN = r'^HDR\|([^|]+)\|([^|]+)\|(\d{8})$'
+DEFAULT_TRL_PATTERN = r'^TRL\|RecordCount=(\d+)\|Checksum=([^|]+)$'
+DEFAULT_HDR_PREFIX = "HDR|"
+DEFAULT_TRL_PREFIX = "TRL|"
+
+
 @dataclass
 class HeaderRecord:
     """Parsed header record."""
-    record_type: str  # Always "HDR"
-    system_id: str    # EM, LOA
-    entity_type: str  # Customer, Account, etc.
+    record_type: str  # e.g., "HDR"
+    system_id: str    # e.g., EM, LOA (or any system identifier)
+    entity_type: str  # e.g., Customer, Account (or any entity)
     extract_date: str # YYYYMMDD format
     raw_line: str     # Original line
+    extra_fields: dict = field(default_factory=dict)  # For custom fields
     
     @property
     def extract_date_parsed(self) -> datetime:
@@ -83,10 +185,11 @@ class HeaderRecord:
 @dataclass
 class TrailerRecord:
     """Parsed trailer record."""
-    record_type: str   # Always "TRL"
+    record_type: str   # e.g., "TRL"
     record_count: int  # Expected data record count
     checksum: str      # File checksum value
     raw_line: str      # Original line
+    extra_fields: dict = field(default_factory=dict)  # For custom fields
 
 
 @dataclass 
@@ -100,23 +203,54 @@ class FileMetadata:
 
 class HDRTRLParser:
     """
-    Parser for Header/Trailer records in mainframe extract files.
+    Configurable parser for Header/Trailer records in extract files.
     
-    Supports format:
+    Library provides the mechanism. Pipelines can configure:
+    - Header pattern (regex)
+    - Trailer pattern (regex)
+    - Header/Trailer prefixes
+    - Custom field extraction
+    
+    Default format (CSV extracts):
         HDR|{SYSTEM}|{ENTITY}|{YYYYMMDD}
         TRL|RecordCount={count}|Checksum={value}
     
-    Example:
+    Example with defaults:
         >>> parser = HDRTRLParser()
         >>> metadata = parser.parse_file("gs://bucket/file.csv")
         >>> print(metadata.header.system_id)  # "EM"
-        >>> print(metadata.trailer.record_count)  # 5000
+    
+    Example with custom patterns:
+        >>> parser = HDRTRLParser(
+        ...     hdr_pattern=r'^HEADER:(.+):(.+):(\d{8})$',
+        ...     trl_pattern=r'^FOOTER:COUNT=(\d+):HASH=(.+)$',
+        ...     hdr_prefix="HEADER:",
+        ...     trl_prefix="FOOTER:"
+        ... )
     """
     
-    HDR_PATTERN = re.compile(r'^HDR\|([^|]+)\|([^|]+)\|(\d{8})$')
-    TRL_PATTERN = re.compile(r'^TRL\|RecordCount=(\d+)\|Checksum=([^|]+)$')
-    
-    def __init__(self, delimiter: str = "|"):
+    def __init__(
+        self,
+        hdr_pattern: str = DEFAULT_HDR_PATTERN,
+        trl_pattern: str = DEFAULT_TRL_PATTERN,
+        hdr_prefix: str = DEFAULT_HDR_PREFIX,
+        trl_prefix: str = DEFAULT_TRL_PREFIX,
+        delimiter: str = "|"
+    ):
+        """
+        Initialize parser with configurable patterns.
+        
+        Args:
+            hdr_pattern: Regex pattern for header (must have 3 groups: system, entity, date)
+            trl_pattern: Regex pattern for trailer (must have 2 groups: count, checksum)
+            hdr_prefix: String prefix to identify header lines
+            trl_prefix: String prefix to identify trailer lines
+            delimiter: Field delimiter within HDR/TRL records
+        """
+        self.hdr_pattern = re.compile(hdr_pattern)
+        self.trl_pattern = re.compile(trl_pattern)
+        self.hdr_prefix = hdr_prefix
+        self.trl_prefix = trl_prefix
         self.delimiter = delimiter
     
     def parse_header(self, line: str) -> Optional[HeaderRecord]:
@@ -130,13 +264,13 @@ class HDRTRLParser:
             HeaderRecord if valid, None otherwise
         """
         line = line.strip()
-        match = self.HDR_PATTERN.match(line)
+        match = self.hdr_pattern.match(line)
         
         if not match:
             return None
             
         return HeaderRecord(
-            record_type="HDR",
+            record_type=self.hdr_prefix.rstrip(self.delimiter),
             system_id=match.group(1),
             entity_type=match.group(2),
             extract_date=match.group(3),
@@ -154,13 +288,13 @@ class HDRTRLParser:
             TrailerRecord if valid, None otherwise
         """
         line = line.strip()
-        match = self.TRL_PATTERN.match(line)
+        match = self.trl_pattern.match(line)
         
         if not match:
             return None
             
         return TrailerRecord(
-            record_type="TRL",
+            record_type=self.trl_prefix.rstrip(self.delimiter),
             record_count=int(match.group(1)),
             checksum=match.group(2),
             raw_line=line
@@ -226,11 +360,20 @@ class HDRTRLParser:
     
     def is_header_line(self, line: str) -> bool:
         """Check if line is a header record."""
-        return line.strip().startswith("HDR|")
+        return line.strip().startswith(self.hdr_prefix)
     
     def is_trailer_line(self, line: str) -> bool:
         """Check if line is a trailer record."""
-        return line.strip().startswith("TRL|")
+        return line.strip().startswith(self.trl_prefix)
+
+
+# Convenience constants for default patterns
+DEFAULT_PARSER_CONFIG = {
+    "hdr_pattern": DEFAULT_HDR_PATTERN,
+    "trl_pattern": DEFAULT_TRL_PATTERN,
+    "hdr_prefix": DEFAULT_HDR_PREFIX,
+    "trl_prefix": DEFAULT_TRL_PREFIX,
+}
 
 
 __all__ = [
@@ -238,6 +381,11 @@ __all__ = [
     'TrailerRecord',
     'FileMetadata',
     'HDRTRLParser',
+    'DEFAULT_HDR_PATTERN',
+    'DEFAULT_TRL_PATTERN',
+    'DEFAULT_HDR_PREFIX',
+    'DEFAULT_TRL_PREFIX',
+    'DEFAULT_PARSER_CONFIG',
 ]
 ```
 
@@ -740,36 +888,16 @@ __all__ = [
 
 ---
 
-## 🎯 GAP 5: Entity Dependency Check
+## 🎯 GAP 5: Entity Dependency Check (UPDATE - CRITICAL)
 
 ### Location
-`gdw_data_core/orchestration/`
+`gdw_data_core/orchestration/dependency.py`
 
-### Requirement
-Check if all required entities are loaded before triggering transformation.
-
-### Implementation
-
-#### Create: `gdw_data_core/orchestration/dependency.py`
-
+### Current State
+File EXISTS with hardcoded system-specific configuration:
 ```python
-"""
-Entity Dependency Checker.
-
-Validates all required entities are loaded before transformation.
-"""
-
-import logging
-from datetime import date
-from typing import List, Dict
-
-from gdw_data_core.core.job_control import JobControlRepository, JobStatus
-
-logger = logging.getLogger(__name__)
-
-
-# Entity dependencies per system
-SYSTEM_DEPENDENCIES = {
+# THIS IS THE PROBLEM - Library has business-specific config
+SYSTEM_DEPENDENCIES: Dict[str, Dict] = {
     "em": {
         "entities": ["customers", "accounts", "decision"],
         "required_count": 3,
@@ -779,36 +907,115 @@ SYSTEM_DEPENDENCIES = {
         "required_count": 1,
     },
 }
+```
+
+### Required Change
+1. REMOVE `SYSTEM_DEPENDENCIES` constant entirely
+2. Require pipeline to provide `system_id` and `required_entities` in constructor
+3. Library provides mechanism only, not configuration
+
+### Implementation
+
+#### UPDATE: `gdw_data_core/orchestration/dependency.py`
+
+```python
+"""
+Entity Dependency Checker.
+
+Library provides the MECHANISM for checking entity dependencies.
+Pipelines provide their own CONFIGURATION.
+
+The library is GENERIC - no system-specific configuration.
+Each pipeline defines its own entity dependencies.
+
+Usage:
+    # In pipeline DAG (e.g., blueprint/components/em/dags/em_daily_load.py)
+    from gdw_data_core.orchestration import EntityDependencyChecker
+    
+    # Pipeline defines its configuration
+    checker = EntityDependencyChecker(
+        project_id="my-project",
+        system_id="em",
+        required_entities=["customers", "accounts", "decision"]
+    )
+    
+    if checker.all_entities_loaded(extract_date):
+        trigger_transformation()
+"""
+
+import logging
+from datetime import date
+from typing import List, Optional
+
+from gdw_data_core.core.job_control import JobControlRepository, JobStatus
+
+logger = logging.getLogger(__name__)
 
 
 class EntityDependencyChecker:
     """
-    Check if all required entities are loaded for a system.
+    Generic entity dependency checker.
+    
+    Library provides the mechanism only. Pipeline provides:
+    - project_id: GCP project
+    - system_id: System identifier (e.g., "em", "loa", "any_system")
+    - required_entities: List of entity names that must all be loaded
+    
+    No hardcoded system configurations in the library.
     
     Example:
-        >>> checker = EntityDependencyChecker(project_id="my-project")
-        >>> if checker.all_entities_loaded("em", date(2026, 1, 1)):
+        >>> checker = EntityDependencyChecker(
+        ...     project_id="my-project",
+        ...     system_id="em",
+        ...     required_entities=["customers", "accounts", "decision"]
+        ... )
+        >>> if checker.all_entities_loaded(date(2026, 1, 1)):
         ...     trigger_transformation()
     """
     
-    def __init__(self, project_id: str, custom_dependencies: Dict = None):
-        self.project_id = project_id
-        self.job_repo = JobControlRepository(project_id)
-        self.dependencies = custom_dependencies or SYSTEM_DEPENDENCIES
-    
-    def get_required_entities(self, system_id: str) -> List[str]:
-        """Get list of required entities for a system."""
-        if system_id not in self.dependencies:
-            raise ValueError(f"Unknown system: {system_id}")
-        return self.dependencies[system_id]["entities"]
-    
-    def get_loaded_entities(
+    def __init__(
         self,
+        project_id: str,
         system_id: str,
-        extract_date: date
-    ) -> List[str]:
-        """Get list of successfully loaded entities."""
-        statuses = self.job_repo.get_entity_status(system_id, extract_date)
+        required_entities: List[str],
+        job_control_dataset: str = "job_control",
+        job_control_table: str = "pipeline_jobs"
+    ):
+        """
+        Initialize dependency checker.
+        
+        Args:
+            project_id: GCP project ID
+            system_id: System identifier (pipeline provides this)
+            required_entities: List of entity types that must all be loaded
+            job_control_dataset: Dataset for job control table
+            job_control_table: Table name for job control
+        """
+        self.project_id = project_id
+        self.system_id = system_id
+        self.required_entities = required_entities
+        self.job_repo = JobControlRepository(
+            project_id, 
+            dataset=job_control_dataset, 
+            table=job_control_table
+        )
+    
+    @property
+    def required_count(self) -> int:
+        """Number of entities required."""
+        return len(self.required_entities)
+    
+    def get_loaded_entities(self, extract_date: date) -> List[str]:
+        """
+        Get list of successfully loaded entities for the extract date.
+        
+        Args:
+            extract_date: Date to check
+            
+        Returns:
+            List of entity types with SUCCESS status
+        """
+        statuses = self.job_repo.get_entity_status(self.system_id, extract_date)
         
         return [
             s["entity_type"]
@@ -816,38 +1023,89 @@ class EntityDependencyChecker:
             if s["status"] == JobStatus.SUCCESS.value
         ]
     
-    def all_entities_loaded(
-        self,
-        system_id: str,
-        extract_date: date
-    ) -> bool:
-        """Check if all required entities are loaded."""
-        required = set(self.get_required_entities(system_id))
-        loaded = set(self.get_loaded_entities(system_id, extract_date))
+    def all_entities_loaded(self, extract_date: date) -> bool:
+        """
+        Check if all required entities are loaded.
+        
+        Args:
+            extract_date: Date to check
+            
+        Returns:
+            True if all required entities have SUCCESS status
+        """
+        required = set(self.required_entities)
+        loaded = set(self.get_loaded_entities(extract_date))
         
         all_loaded = required.issubset(loaded)
         
         if all_loaded:
-            logger.info(f"All entities loaded for {system_id}/{extract_date}")
+            logger.info(
+                f"All entities loaded for {self.system_id}/{extract_date}: "
+                f"{list(required)}"
+            )
         else:
             missing = required - loaded
-            logger.info(f"Waiting for entities: {missing}")
+            logger.info(
+                f"Waiting for {self.system_id}/{extract_date} entities: "
+                f"{list(missing)}"
+            )
         
         return all_loaded
     
-    def get_missing_entities(
-        self,
-        system_id: str,
-        extract_date: date
-    ) -> List[str]:
-        """Get list of entities not yet loaded."""
-        required = set(self.get_required_entities(system_id))
-        loaded = set(self.get_loaded_entities(system_id, extract_date))
+    def get_missing_entities(self, extract_date: date) -> List[str]:
+        """
+        Get list of entities not yet loaded.
+        
+        Args:
+            extract_date: Date to check
+            
+        Returns:
+            List of entity types still pending
+        """
+        required = set(self.required_entities)
+        loaded = set(self.get_loaded_entities(extract_date))
         return list(required - loaded)
+    
+    def get_loaded_count(self, extract_date: date) -> int:
+        """
+        Get count of loaded entities.
+        
+        Args:
+            extract_date: Date to check
+            
+        Returns:
+            Number of successfully loaded entities
+        """
+        loaded = self.get_loaded_entities(extract_date)
+        # Only count entities that are in our required list
+        return len([e for e in loaded if e in self.required_entities])
+    
+    def get_status_summary(self, extract_date: date) -> dict:
+        """
+        Get summary of entity load status.
+        
+        Args:
+            extract_date: Date to check
+            
+        Returns:
+            Dict with status summary
+        """
+        loaded = self.get_loaded_entities(extract_date)
+        missing = self.get_missing_entities(extract_date)
+        
+        return {
+            "system_id": self.system_id,
+            "extract_date": str(extract_date),
+            "required_entities": self.required_entities,
+            "required_count": self.required_count,
+            "loaded_entities": loaded,
+            "loaded_count": len([e for e in loaded if e in self.required_entities]),
+            "missing_entities": missing,
+            "all_loaded": len(missing) == 0
+        }
 
 
 __all__ = [
-    'SYSTEM_DEPENDENCIES',
     'EntityDependencyChecker',
 ]
 ```
@@ -856,7 +1114,7 @@ __all__ = [
 
 Add to exports:
 ```python
-from .dependency import EntityDependencyChecker, SYSTEM_DEPENDENCIES
+from .dependency import EntityDependencyChecker
 ```
 
 ---
@@ -880,22 +1138,40 @@ class ParseCsvLine(beam.DoFn):
     """
     Parse CSV lines into record dictionaries.
     
-    Attributes:
-        headers: List of column names
-        delimiter: Field delimiter (default: comma)
-        skip_hdr_trl: Skip HDR/TRL records (default: True)
+    Library provides the mechanism. Pipeline can configure:
+    - headers: Column names
+    - delimiter: Field delimiter
+    - skip_hdr_trl: Whether to skip header/trailer records
+    - hdr_prefix: Header line prefix (default: "HDR|")
+    - trl_prefix: Trailer line prefix (default: "TRL|")
+    
+    Default prefixes are for CSV extracts.
     """
     
     def __init__(
         self,
         headers: List[str],
         delimiter: str = ",",
-        skip_hdr_trl: bool = True
+        skip_hdr_trl: bool = True,
+        hdr_prefix: str = "HDR|",
+        trl_prefix: str = "TRL|"
     ):
+        """
+        Initialize CSV parser.
+        
+        Args:
+            headers: List of column names
+            delimiter: Field delimiter (default: comma)
+            skip_hdr_trl: Skip HDR/TRL records (default: True)
+            hdr_prefix: Header record prefix (default: "HDR|")
+            trl_prefix: Trailer record prefix (default: "TRL|")
+        """
         super().__init__()
         self.headers = headers
         self.delimiter = delimiter
         self.skip_hdr_trl = skip_hdr_trl
+        self.hdr_prefix = hdr_prefix
+        self.trl_prefix = trl_prefix
         self.success = beam.metrics.Metrics.counter("parse", "success")
         self.skipped = beam.metrics.Metrics.counter("parse", "skipped")
         self.errors = beam.metrics.Metrics.counter("parse", "errors")
@@ -905,7 +1181,7 @@ class ParseCsvLine(beam.DoFn):
         
         # Skip HDR/TRL records
         if self.skip_hdr_trl:
-            if line.startswith("HDR|") or line.startswith("TRL|"):
+            if line.startswith(self.hdr_prefix) or line.startswith(self.trl_prefix):
                 self.skipped.inc()
                 return
         
@@ -980,22 +1256,42 @@ def check_duplicate_keys(
 
 ---
 
-## 🎯 GAP 8: Row Type Validator
+## 🎯 GAP 8: Row Type Validator (UPDATE)
 
 ### Location
-`gdw_data_core/core/data_quality/`
+`gdw_data_core/core/data_quality/checker.py`
+
+### Current State
+Function EXISTS with hardcoded prefixes:
+```python
+# Current - hardcoded "HDR|" and "TRL|"
+if not file_lines[0].strip().startswith("HDR|"):
+    return False, "First line is not HDR record"
+```
+
+### Required Change
+Add `hdr_prefix` and `trl_prefix` parameters with defaults.
 
 ### Implementation
 
-#### Add to: `gdw_data_core/core/data_quality/checker.py`
+#### UPDATE: `gdw_data_core/core/data_quality/checker.py`
 
 ```python
-def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
+def validate_row_types(
+    file_lines: List[str],
+    hdr_prefix: str = "HDR|",
+    trl_prefix: str = "TRL|"
+) -> Tuple[bool, str]:
     """
     Validate row types (HDR first, TRL last, DATA in between).
     
+    Library provides the mechanism. Pipeline can configure prefixes.
+    Default prefixes are for CSV extracts: HDR| and TRL|
+    
     Args:
         file_lines: All lines from file
+        hdr_prefix: Header line prefix (default: "HDR|")
+        trl_prefix: Trailer line prefix (default: "TRL|")
         
     Returns:
         Tuple of (is_valid, message)
@@ -1004,19 +1300,19 @@ def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
         return False, "Empty file"
     
     # Check HDR is first
-    if not file_lines[0].strip().startswith("HDR|"):
-        return False, "First line is not HDR record"
+    if not file_lines[0].strip().startswith(hdr_prefix):
+        return False, f"First line is not header record (expected prefix: {hdr_prefix})"
     
     # Check TRL is last
-    if not file_lines[-1].strip().startswith("TRL|"):
-        return False, "Last line is not TRL record"
+    if not file_lines[-1].strip().startswith(trl_prefix):
+        return False, f"Last line is not trailer record (expected prefix: {trl_prefix})"
     
     # Check no HDR/TRL in middle
     for i, line in enumerate(file_lines[1:-1], start=1):
-        if line.strip().startswith("HDR|"):
-            return False, f"Unexpected HDR at line {i}"
-        if line.strip().startswith("TRL|"):
-            return False, f"Unexpected TRL at line {i}"
+        if line.strip().startswith(hdr_prefix):
+            return False, f"Unexpected header at line {i}"
+        if line.strip().startswith(trl_prefix):
+            return False, f"Unexpected trailer at line {i}"
     
     return True, "Row types valid"
 ```
@@ -1025,44 +1321,47 @@ def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
 
 ## ✅ IMPLEMENTATION CHECKLIST
 
-### Gap 1: HDR/TRL Parser
-- [ ] Create `core/file_management/hdr_trl_parser.py`
-- [ ] Update `core/file_management/__init__.py`
-- [ ] Create unit tests
-- [ ] Verify imports work
+### Gap 1: HDR/TRL Parser (UPDATE) ✅ COMPLETED
+- [x] Update `core/file_management/hdr_trl_parser.py` - make patterns configurable
+- [x] Add `DEFAULT_HDR_PATTERN`, `DEFAULT_TRL_PATTERN` constants
+- [x] Add `hdr_prefix`, `trl_prefix` to constructor
+- [x] Update `is_header_line()`, `is_trailer_line()` to use configurable prefixes
+- [x] Update `core/file_management/__init__.py` exports
+- [x] Update existing unit tests
 
-### Gap 2: Record Count Validator
-- [ ] Add `validate_record_count()` to validator.py
-- [ ] Create unit tests
+### Gap 2: Record Count Validator (VERIFY) ✅ VERIFIED
+- [x] `validate_record_count()` EXISTS in validator.py ✅
+- [x] Works correctly - no changes needed
 
-### Gap 3: Checksum Validator
-- [ ] Update `core/file_management/integrity.py`
-- [ ] Create unit tests
+### Gap 3: Checksum Validator (VERIFY) ✅ VERIFIED
+- [x] `compute_checksum()` EXISTS in integrity.py ✅
+- [x] `validate_checksum()` EXISTS in integrity.py ✅
+- [x] Works correctly - no changes needed
 
-### Gap 4: Job Control Operations
-- [ ] Create `core/job_control/` directory
-- [ ] Create types.py, models.py, repository.py
-- [ ] Create `__init__.py` with exports
-- [ ] Update `core/__init__.py`
-- [ ] Create unit tests
+### Gap 4: Job Control Operations (VERIFY) ✅ VERIFIED
+- [x] `core/job_control/` directory EXISTS ✅
+- [x] `types.py`, `models.py`, `repository.py` EXIST ✅
+- [x] Works correctly - no changes needed
 
-### Gap 5: Entity Dependency Check
-- [ ] Create `orchestration/dependency.py`
-- [ ] Update `orchestration/__init__.py`
-- [ ] Create unit tests
+### Gap 5: Entity Dependency Check (UPDATE - CRITICAL) ✅ COMPLETED
+- [x] REMOVED `SYSTEM_DEPENDENCIES` constant from `orchestration/dependency.py`
+- [x] Updated `EntityDependencyChecker.__init__()` to require `system_id`, `required_entities`
+- [x] Removed all methods that take `system_id` as parameter (now instance variable)
+- [x] Updated `orchestration/__init__.py` exports
+- [x] Updated existing unit tests
 
-### Gap 6: HDR/TRL Skip in Parser
-- [ ] Update `pipelines/beam/transforms/parsers.py`
-- [ ] Add `skip_hdr_trl` parameter
-- [ ] Update unit tests
+### Gap 6: HDR/TRL Skip in Parser (UPDATE) ✅ COMPLETED
+- [x] Updated `pipelines/beam/transforms/parsers.py`
+- [x] Added `hdr_prefix`, `trl_prefix` parameters
+- [x] Using configurable prefixes in process method
 
-### Gap 7: Duplicate Key Validator
-- [ ] Add `check_duplicate_keys()` to checker.py
-- [ ] Create unit tests
+### Gap 7: Duplicate Key Validator (VERIFY) ✅ VERIFIED
+- [x] `check_duplicate_keys()` EXISTS in checker.py ✅
+- [x] Works correctly - no changes needed
 
-### Gap 8: Row Type Validator
-- [ ] Add `validate_row_types()` to checker.py
-- [ ] Create unit tests
+### Gap 8: Row Type Validator (UPDATE) ✅ COMPLETED
+- [x] Updated `validate_row_types()` in checker.py - added prefix parameters
+- [x] Using configurable prefixes with defaults
 
 ---
 
@@ -1074,7 +1373,7 @@ pytest gdw_data_core/tests/ -v
 
 # Verify imports
 python -c "
-from gdw_data_core.core.file_management import HDRTRLParser
+from gdw_data_core.core.file_management import HDRTRLParser, DEFAULT_HDR_PATTERN
 from gdw_data_core.core.job_control import JobControlRepository, JobStatus
 from gdw_data_core.orchestration import EntityDependencyChecker
 print('All imports OK')
@@ -1083,5 +1382,73 @@ print('All imports OK')
 
 ---
 
-**Ready for implementation. Start with Gap 1: HDR/TRL Parser.**
+## 📋 LIBRARY DESIGN PRINCIPLES
+
+### Generic Library, Configurable by Pipelines
+
+| Component | Library Provides | Pipeline Provides |
+|-----------|------------------|-------------------|
+| `HDRTRLParser` | Parsing mechanism | Patterns, prefixes (or use defaults) |
+| `EntityDependencyChecker` | Dependency checking | system_id, required_entities |
+| `ParseCsvLine` | CSV parsing DoFn | headers, hdr/trl prefixes |
+| `validate_row_types` | Validation logic | hdr_prefix, trl_prefix |
+| `JobControlRepository` | CRUD operations | project_id, dataset, table |
+
+### Default Patterns (for CSV extracts)
+
+```python
+# These are defaults that work out-of-the-box for our CSV extracts
+# Pipelines can override for different file formats
+
+DEFAULT_HDR_PATTERN = r'^HDR\|([^|]+)\|([^|]+)\|(\d{8})$'
+DEFAULT_TRL_PATTERN = r'^TRL\|RecordCount=(\d+)\|Checksum=([^|]+)$'
+DEFAULT_HDR_PREFIX = "HDR|"
+DEFAULT_TRL_PREFIX = "TRL|"
+```
+
+### Example: Using Defaults (CSV extracts)
+
+```python
+# For standard CSV extracts, just use defaults
+from gdw_data_core.core.file_management import HDRTRLParser
+
+parser = HDRTRLParser()  # Uses default patterns
+metadata = parser.parse_file("gs://bucket/em_customers_20260101.csv")
+```
+
+### Example: Custom Patterns (other formats)
+
+```python
+# For different file formats, provide custom patterns
+from gdw_data_core.core.file_management import HDRTRLParser
+
+parser = HDRTRLParser(
+    hdr_pattern=r'^HEADER:(.+):(.+):(\d{8})$',
+    trl_pattern=r'^FOOTER:COUNT=(\d+):HASH=(.+)$',
+    hdr_prefix="HEADER:",
+    trl_prefix="FOOTER:"
+)
+```
+
+---
+
+## ✅ IMPLEMENTATION COMPLETE
+
+**Final Verification (January 2, 2026):**
+
+```
+pytest gdw_data_core/tests/ -v --tb=short
+======================= 513 passed, 10 warnings in 7.80s =======================
+```
+
+**All Imports Verified:**
+- ✅ `HDRTRLParser` with configurable patterns
+- ✅ `validate_record_count`, `validate_checksum`, `compute_checksum`
+- ✅ `JobControlRepository`, `JobStatus`, `PipelineJob`, `FailureStage`
+- ✅ `EntityDependencyChecker` (generic, no hardcoded config)
+- ✅ `ParseCsvLine` with HDR/TRL skip support
+- ✅ `check_duplicate_keys`, `validate_row_types` with configurable prefixes
+
+**Library is COMPLETE and ready for blueprint implementation.**
+
 

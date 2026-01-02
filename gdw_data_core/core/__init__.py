@@ -14,6 +14,9 @@ from .utilities import (
     build_gcs_path,
 )
 
+# Schema types
+from .schema import SchemaField, EntitySchema
+
 # Audit package imports
 from .audit import *
 
@@ -35,5 +38,7 @@ __all__ = [
     'discover_split_files',
     'discover_files_by_date',
     'build_gcs_path',
+    'SchemaField',
+    'EntitySchema',
 ]
 

@@ -41,8 +41,9 @@ grep -r "PipelineSelector" blueprint/ --include="*.py"
 If any files import from `yaml_router.py`, update them:
 
 **Old Import:**
+
 ```python
-from blueprint.components.loa_pipelines.yaml_router import PipelineSelector
+from blueprint.em.components import PipelineSelector
 ```
 
 **New Import:**
@@ -688,7 +689,7 @@ __all__ = ['LOAPubSubPullSensor']
 LOA Airflow Sensors.
 """
 
-from blueprint.components.orchestration.airflow.sensors.pubsub import (
+from blueprint.em.components.orchestration import (
     LOAPubSubPullSensor,
 )
 

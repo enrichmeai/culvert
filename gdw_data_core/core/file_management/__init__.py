@@ -19,11 +19,16 @@ from .integrity import IntegrityChecker, HashValidator, compute_checksum, valida
 from .lifecycle import FileLifecycleManager
 from .types import ArchiveResult, ArchiveStatus, BatchArchiveResult
 from .policy import ArchivePolicyEngine, ArchivePolicy, CollisionStrategy
-from .hdr_trl_parser import (
+from .hdr_trl import (
     HeaderRecord,
     TrailerRecord,
     ParsedFileMetadata,
     HDRTRLParser,
+    DEFAULT_HDR_PATTERN,
+    DEFAULT_TRL_PATTERN,
+    DEFAULT_HDR_PREFIX,
+    DEFAULT_TRL_PREFIX,
+    DEFAULT_PARSER_CONFIG,
 )
 
 __all__ = [
@@ -54,6 +59,12 @@ __all__ = [
     'HeaderRecord',
     'TrailerRecord',
     'ParsedFileMetadata',
+    'FileMetadata',
     'HDRTRLParser',
+    'DEFAULT_HDR_PATTERN',
+    'DEFAULT_TRL_PATTERN',
+    'DEFAULT_HDR_PREFIX',
+    'DEFAULT_TRL_PREFIX',
+    'DEFAULT_PARSER_CONFIG',
 ]
 

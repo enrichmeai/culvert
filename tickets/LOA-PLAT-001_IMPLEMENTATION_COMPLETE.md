@@ -143,8 +143,9 @@ These **extend library components** with LOA-specific defaults:
 - Validation before execution
 
 **Usage:**
+
 ```python
-from blueprint.components.orchestration.airflow.operators import (
+from blueprint.em.components.orchestration.airflow.operators import (
     LOADataflowOperator,
     LOABatchDataflowOperator,
     LOAStreamingDataflowOperator,
@@ -181,8 +182,9 @@ stream_op = LOAStreamingDataflowOperator(
 - `on_data_quality_failure()` - Data quality check failure handler
 
 **Usage:**
+
 ```python
-from blueprint.components.orchestration.airflow.callbacks import (
+from blueprint.em.components.orchestration.airflow.callbacks import (
     on_failure_callback,
     on_validation_failure,
 )

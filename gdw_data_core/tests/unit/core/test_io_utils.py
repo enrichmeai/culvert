@@ -234,11 +234,15 @@ class TestPubSubClient:
 
     @patch('gdw_data_core.core.clients.pubsub_client.pubsub_v1.PublisherClient')
     def test_init_failure(self, mock_publisher_class):
-        """Test error handling on failed initialization."""
+        """Test error handling on failed publisher initialization (lazy loaded)."""
         mock_publisher_class.side_effect = Exception("Pub/Sub init error")
 
-        with pytest.raises(Exception):
-            PubSubClient(project="test-project")
+        # Client init succeeds (lazy loading)
+        client = PubSubClient(project="test-project")
+
+        # Exception raised when publisher property is accessed
+        with pytest.raises(Exception, match="Pub/Sub init error"):
+            _ = client.publisher
 
     @patch('gdw_data_core.core.clients.pubsub_client.pubsub_v1.PublisherClient')
     def test_publish_event_success(self, mock_publisher_class):

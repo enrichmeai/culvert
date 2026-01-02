@@ -532,7 +532,7 @@ cd blueprint/tools
 → Read [blueprint/docs/LOCAL_TESTING_GUIDE.md](blueprint/docs/LOCAL_TESTING_GUIDE.md)
 
 **I want to build a new job**
-→ Copy [blueprint/components/loa_pipelines/loa_jcl_template.py](blueprint/components/loa_pipelines/loa_jcl_template.py)
+→ Copy [blueprint/components/loa_pipelines/loa_jcl_template.py](blueprint/em/components/loa_pipelines/loa_jcl_template.py)
 
 **I want to contribute**
 → Read [blueprint/docs/GITHUB_FLOW.md](blueprint/docs/GITHUB_FLOW.md)

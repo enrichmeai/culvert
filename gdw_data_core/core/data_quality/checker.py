@@ -141,12 +141,21 @@ def check_duplicate_keys(
     return len(duplicates) > 0, duplicates
 
 
-def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
+def validate_row_types(
+    file_lines: List[str],
+    hdr_prefix: str = "HDR|",
+    trl_prefix: str = "TRL|"
+) -> Tuple[bool, str]:
     """
     Validate row types (HDR first, TRL last, DATA in between).
 
+    Library provides the mechanism. Pipeline can configure prefixes.
+    Default prefixes are for CSV extracts: HDR| and TRL|
+
     Args:
         file_lines: All lines from file
+        hdr_prefix: Header line prefix (default: "HDR|")
+        trl_prefix: Trailer line prefix (default: "TRL|")
 
     Returns:
         Tuple of (is_valid, message)
@@ -161,25 +170,28 @@ def validate_row_types(file_lines: List[str]) -> Tuple[bool, str]:
         >>> is_valid, msg = validate_row_types(lines)
         >>> is_valid
         True
+
+    Example with custom prefixes:
+        >>> is_valid, msg = validate_row_types(lines, hdr_prefix="HEADER:", trl_prefix="FOOTER:")
     """
     if not file_lines:
         return False, "Empty file"
 
     # Check HDR is first
-    if not file_lines[0].strip().startswith("HDR|"):
-        return False, "First line is not HDR record"
+    if not file_lines[0].strip().startswith(hdr_prefix):
+        return False, f"First line is not header record (expected prefix: {hdr_prefix})"
 
     # Check TRL is last
-    if not file_lines[-1].strip().startswith("TRL|"):
-        return False, "Last line is not TRL record"
+    if not file_lines[-1].strip().startswith(trl_prefix):
+        return False, f"Last line is not trailer record (expected prefix: {trl_prefix})"
 
     # Check no HDR/TRL in middle
     for i, line in enumerate(file_lines[1:-1], start=1):
         stripped = line.strip()
-        if stripped.startswith("HDR|"):
-            return False, f"Unexpected HDR at line {i}"
-        if stripped.startswith("TRL|"):
-            return False, f"Unexpected TRL at line {i}"
+        if stripped.startswith(hdr_prefix):
+            return False, f"Unexpected header at line {i}"
+        if stripped.startswith(trl_prefix):
+            return False, f"Unexpected trailer at line {i}"
 
     return True, "Row types valid"
 
