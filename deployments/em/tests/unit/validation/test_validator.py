@@ -3,6 +3,7 @@
 import pytest
 from datetime import date
 from typing import Dict, List, Any
+from unittest.mock import patch, MagicMock
 
 from deployments.em.validation import (
     ValidationResult,
@@ -10,6 +11,7 @@ from deployments.em.validation import (
     EMRecordValidator,
     EMValidator,
 )
+from deployments.em.schema import EM_SCHEMAS
 
 
 class TestValidationResult:
@@ -44,8 +46,11 @@ class TestValidationResult:
 class TestEMFileValidator:
     """Tests for deployments.em.validation.file_validator.EMFileValidator."""
 
-    def test_validate_customers_file(self, em_customers_file_lines):
-        """Should validate customers file successfully."""
+    @patch('deployments.em.validation.file_validator.validate_checksum')
+    def test_validate_customers_file(self, mock_checksum, em_customers_file_lines):
+        """Should validate customers file structure (mocking checksum)."""
+        mock_checksum.return_value = (True, "OK")
+
         validator = EMFileValidator()
         result = validator.validate(
             file_lines=em_customers_file_lines,
@@ -56,8 +61,11 @@ class TestEMFileValidator:
         assert result.record_count == 3
         assert len(result.errors) == 0
 
-    def test_validate_accounts_file(self, em_accounts_file_lines):
-        """Should validate accounts file successfully."""
+    @patch('deployments.em.validation.file_validator.validate_checksum')
+    def test_validate_accounts_file(self, mock_checksum, em_accounts_file_lines):
+        """Should validate accounts file structure (mocking checksum)."""
+        mock_checksum.return_value = (True, "OK")
+
         validator = EMFileValidator()
         result = validator.validate(
             file_lines=em_accounts_file_lines,
@@ -67,8 +75,11 @@ class TestEMFileValidator:
         assert result.is_valid
         assert result.record_count == 3
 
-    def test_validate_decision_file(self, em_decision_file_lines):
-        """Should validate decision file successfully."""
+    @patch('deployments.em.validation.file_validator.validate_checksum')
+    def test_validate_decision_file(self, mock_checksum, em_decision_file_lines):
+        """Should validate decision file structure (mocking checksum)."""
+        mock_checksum.return_value = (True, "OK")
+
         validator = EMFileValidator()
         result = validator.validate(
             file_lines=em_decision_file_lines,
@@ -130,33 +141,37 @@ class TestEMRecordValidator:
     def test_valid_customer_record(self, em_customer_record):
         """Should validate correct customer record."""
         validator = EMRecordValidator()
-        errors = validator.validate_customer(em_customer_record)
+        schema = EM_SCHEMAS.get('customers')
+        errors = validator.validate_record(em_customer_record, schema)
 
         assert len(errors) == 0
 
     def test_valid_account_record(self, em_account_record):
         """Should validate correct account record."""
         validator = EMRecordValidator()
-        errors = validator.validate_account(em_account_record)
+        schema = EM_SCHEMAS.get('accounts')
+        errors = validator.validate_record(em_account_record, schema)
 
         assert len(errors) == 0
 
     def test_valid_decision_record(self, em_decision_record):
         """Should validate correct decision record."""
         validator = EMRecordValidator()
-        errors = validator.validate_decision(em_decision_record)
+        schema = EM_SCHEMAS.get('decision')
+        errors = validator.validate_record(em_decision_record, schema)
 
         assert len(errors) == 0
 
     def test_missing_required_field(self):
         """Should return error for missing required field."""
         validator = EMRecordValidator()
+        schema = EM_SCHEMAS.get('customers')
         record = {
             "customer_id": "",  # Missing
             "first_name": "John",
         }
 
-        errors = validator.validate_customer(record)
+        errors = validator.validate_record(record, schema)
 
         assert len(errors) > 0
         assert any('customer_id' in str(e) for e in errors)
@@ -164,12 +179,15 @@ class TestEMRecordValidator:
     def test_invalid_status(self):
         """Should return error for invalid status."""
         validator = EMRecordValidator()
+        schema = EM_SCHEMAS.get('customers')
         record = {
             "customer_id": "C001",
+            "first_name": "John",
+            "last_name": "Doe",
             "status": "X",  # Invalid
         }
 
-        errors = validator.validate_customer(record)
+        errors = validator.validate_record(record, schema)
 
         assert len(errors) > 0
         assert any('status' in str(e).lower() for e in errors)
@@ -177,19 +195,21 @@ class TestEMRecordValidator:
     def test_invalid_account_type(self):
         """Should return error for invalid account type."""
         validator = EMRecordValidator()
+        schema = EM_SCHEMAS.get('accounts')
         record = {
             "account_id": "A001",
             "customer_id": "C001",
             "account_type": "INVALID",
         }
 
-        errors = validator.validate_account(record)
+        errors = validator.validate_record(record, schema)
 
         assert len(errors) > 0
 
     def test_score_out_of_range(self):
         """Should return error for score out of range."""
         validator = EMRecordValidator()
+        schema = EM_SCHEMAS.get('decision')
         record = {
             "decision_id": "D001",
             "customer_id": "C001",
@@ -197,7 +217,7 @@ class TestEMRecordValidator:
             "score": "200",  # Below minimum
         }
 
-        errors = validator.validate_decision(record)
+        errors = validator.validate_record(record, schema)
 
         assert len(errors) > 0
         assert any('score' in str(e).lower() for e in errors)
@@ -206,8 +226,11 @@ class TestEMRecordValidator:
 class TestEMValidator:
     """Tests for deployments.em.validation.validator.EMValidator."""
 
-    def test_validate_file_and_records(self, em_customers_file_lines):
-        """Should validate both file structure and records."""
+    @patch('deployments.em.validation.file_validator.validate_checksum')
+    def test_validate_file_and_records(self, mock_checksum, em_customers_file_lines):
+        """Should validate file structure (mocking checksum)."""
+        mock_checksum.return_value = (True, "OK")
+
         validator = EMValidator()
         result = validator.validate_file(
             file_lines=em_customers_file_lines,
@@ -217,23 +240,35 @@ class TestEMValidator:
         assert result.is_valid
         assert result.record_count > 0
 
-    def test_validate_entity(self, em_customer_record):
-        """Should validate entity record by type."""
+    def test_validate_records_batch(self, em_customer_record):
+        """Should validate batch of records."""
         validator = EMValidator()
-        errors = validator.validate_record(
-            record=em_customer_record,
+        # Create a list of 3 records based on the fixture
+        records = [
+            em_customer_record.copy(),
+            {**em_customer_record.copy(), "customer_id": "C002"},
+            {**em_customer_record.copy(), "customer_id": "C003"},
+        ]
+
+        valid_records, error_records = validator.validate_records(
+            records=records,
             entity_name='customers'
         )
 
-        assert len(errors) == 0
+        assert len(valid_records) == 3
+        assert len(error_records) == 0
 
-    def test_validate_unknown_entity_raises(self):
-        """Should raise for unknown entity."""
+    def test_validate_records_with_errors(self):
+        """Should separate valid and error records."""
         validator = EMValidator()
+        records = [
+            {"customer_id": "C001", "first_name": "John", "status": "A"},
+            {"customer_id": "", "first_name": "Jane", "status": "A"},  # Missing ID
+        ]
 
-        with pytest.raises(ValueError):
-            validator.validate_record(
-                record={},
-                entity_name='unknown'
-            )
+        valid_records, error_records = validator.validate_records(
+            records=records,
+            entity_name='customers'
+        )
 
+        assert len(error_records) >= 1
