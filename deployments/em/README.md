@@ -2,6 +2,10 @@
 
 **Application A (EM)** data migration pipeline.
 
+**Status:** ⚠️ Partially Complete | 152 tests passing
+
+---
+
 ## Overview
 
 | Attribute | Value |
@@ -11,112 +15,226 @@
 | **ODP Tables** | 3 (`odp_em.customers`, `odp_em.accounts`, `odp_em.decision`) |
 | **FDP Tables** | 1 (`fdp_em.em_attributes`) |
 | **Transformation** | JOIN 3 sources → 1 target |
-| **Dependency** | Wait for all 3 entities before FDP transformation |
+| **Dependency** | Wait for all 3 entities before FDP |
+
+---
 
 ## File Format
 
 ```
-HDR|EM|{ENTITY}|{YYYYMMDD}
+HDR|EM|{Entity}|{YYYYMMDD}
 {csv_header_row}
 {data_rows...}
 TRL|RecordCount={n}|Checksum={hash}
 ```
 
-## Structure
+**Example (Customers):**
+```
+HDR|EM|Customers|20260101
+customer_id,name,email,status,created_date
+CUST001,John Doe,john@example.com,ACTIVE,2025-01-15
+CUST002,Jane Smith,jane@example.com,ACTIVE,2025-01-14
+TRL|RecordCount=2|Checksum=abc123
+```
+
+---
+
+## Data Flow
 
 ```
-em/
-├── config/           # System configuration
-│   ├── settings.py   # SYSTEM_ID, datasets, paths
-│   └── constants.py  # Headers, allowed values
+                         ┌─────────────────────┐
+                         │ EntityDependency    │
+                         │ Checker (Wait)      │
+                         └──────────┬──────────┘
+                                    │
+    ┌───────────────────────────────┼───────────────────────────────┐
+    │                               │                               │
+    ▼                               ▼                               ▼
+┌─────────┐                   ┌─────────┐                   ┌─────────┐
+│Customers│                   │Accounts │                   │Decision │
+│  (ODP)  │                   │  (ODP)  │                   │  (ODP)  │
+└────┬────┘                   └────┬────┘                   └────┬────┘
+     │                              │                              │
+     └──────────────────────────────┼──────────────────────────────┘
+                                    │
+                                    ▼
+                            ┌───────────────┐
+                            │  dbt JOIN     │
+                            │ Transformation│
+                            └───────┬───────┘
+                                    │
+                                    ▼
+                            ┌───────────────┐
+                            │ em_attributes │
+                            │    (FDP)      │
+                            └───────────────┘
+```
+
+---
+
+## Directory Structure
+
+```
+deployments/em/
+├── config/
+│   ├── __init__.py
+│   ├── settings.py          # SYSTEM_ID="EM", datasets
+│   └── constants.py         # Headers, allowed values
 │
-├── schema/           # Entity schemas
-│   ├── customers.py  # Customer entity
-│   ├── accounts.py   # Account entity
-│   ├── decision.py   # Decision entity
-│   └── registry.py   # Schema lookup
+├── schema/
+│   ├── __init__.py
+│   ├── customers.py         # CustomerSchema
+│   ├── accounts.py          # AccountSchema
+│   ├── decision.py          # DecisionSchema
+│   └── registry.py          # EM_SCHEMAS
 │
-├── validation/       # Validation logic
-│   ├── types.py          # ValidationResult
-│   ├── file_validator.py # HDR/TRL, checksum
-│   ├── record_validator.py # Field validation
-│   └── validator.py      # Unified EMValidator
+├── domain/
+│   ├── __init__.py
+│   └── schema.py            # BigQuery schemas
 │
-├── pipeline/         # Dataflow pipeline
-│   ├── options.py    # Pipeline options
-│   ├── transforms.py # Beam DoFn classes
-│   └── runner.py     # Main entry point
+├── validation/
+│   ├── __init__.py
+│   ├── types.py             # ValidationResult
+│   ├── file_validator.py    # HDR/TRL validation
+│   ├── record_validator.py  # Field validation
+│   └── validator.py         # EMValidator
 │
-├── orchestration/    # Airflow DAGs
+├── pipeline/
+│   ├── __init__.py
+│   ├── em_pipeline.py       # Main Beam pipeline
+│   ├── dag_template.py      # create_em_dag()
+│   └── transforms.py        # Beam DoFns
+│
+├── orchestration/
 │   └── airflow/
-│       └── dags/
-│           ├── em_daily_load_dag.py
-│           └── em_transformation_dag.py
+│       ├── dags/            # Airflow DAGs
+│       ├── sensors/         # PubSub sensors
+│       └── callbacks/       # Error handlers
 │
-├── transformations/  # dbt models
+├── transformations/
 │   └── dbt/
 │       └── models/
-│           ├── staging/em/
-│           │   ├── stg_em_customers.sql
-│           │   ├── stg_em_accounts.sql
-│           │   └── stg_em_decision.sql
-│           └── fdp/
-│               └── em_attributes.sql
+│           ├── staging/em/  # stg_em_customers, etc.
+│           └── fdp/         # em_attributes (JOIN)
 │
-├── infrastructure/   # Terraform, Kubernetes
-│   └── terraform/
+├── schemas/                 # BigQuery JSON schemas
+│   ├── odp_em_customers.json
+│   ├── odp_em_accounts.json
+│   ├── odp_em_decision.json
+│   └── fdp_em_attributes.json
 │
-└── tests/           # Unit and integration tests
+└── tests/
+    ├── unit/
+    └── integration/
 ```
 
-## Usage
+---
 
-### Python
+## Quick Start
+
+```bash
+# Run unit tests (excluding orchestration which needs Airflow)
+PYTHONPATH=. pytest deployments/em/tests/unit/ -v --ignore=deployments/em/tests/unit/orchestration/
+
+# Validate imports
+python -c "
+from deployments.em.config import SYSTEM_ID, REQUIRED_ENTITIES
+from deployments.em.validation import EMValidator
+print(f'SYSTEM_ID: {SYSTEM_ID}')
+print(f'ENTITIES: {REQUIRED_ENTITIES}')
+"
+```
+
+---
+
+## Key Components
+
+### Configuration
 
 ```python
-from deployments.em import EMValidator, EM_SCHEMAS
+from deployments.em.config import (
+    SYSTEM_ID,           # "EM"
+    REQUIRED_ENTITIES,   # ["customers", "accounts", "decision"]
+    ODP_DATASET,         # "odp_em"
+    FDP_DATASET,         # "fdp_em"
+)
+```
 
-# Validate a file
+### Validation
+
+```python
+from deployments.em.validation import EMValidator
+
 validator = EMValidator()
+
+# Validate file structure
 result = validator.validate_file(file_lines, "customers")
 
-if result.is_valid:
-    print(f"Valid! Record count: {result.record_count}")
-else:
-    print(f"Errors: {result.errors}")
+# Validate records
+valid, errors = validator.validate_records(records, "customers")
 ```
 
-### Pipeline
+### Entity Dependency
 
-```bash
-python -m deployments.em.pipeline.runner \
-    --entity=customers \
-    --input_file=gs://bucket/em_customers_20260101.csv \
-    --output_table=project:odp_em.customers \
-    --error_table=project:odp_em.customers_errors \
-    --run_id=run_20260101_001 \
-    --extract_date=20260101
+EM uses `EntityDependencyChecker` to wait for all 3 entities:
+
+```python
+from gdw_data_core.orchestration.dependency import EntityDependencyChecker
+
+checker = EntityDependencyChecker(
+    project_id="my-project",
+    system_id="EM",
+    required_entities=["customers", "accounts", "decision"],
+)
+
+if checker.all_entities_loaded(extract_date):
+    # Trigger FDP transformation
+    run_dbt_transformation()
 ```
 
-### dbt
+---
 
-```bash
-cd deployments/em/transformations/dbt
+## dbt Transformation
 
-# Run staging models
-dbt run --select staging.em
+EM uses a **JOIN** transformation to combine 3 ODP tables into 1 FDP table:
 
-# Run FDP model
-dbt run --select fdp.em_attributes
-
-# Run tests
-dbt test --select fdp.em_attributes
+```sql
+-- models/fdp/em_attributes.sql
+SELECT
+    c.customer_id,
+    c.name,
+    c.status,
+    a.account_id,
+    a.account_type,
+    a.balance,
+    d.decision_id,
+    d.decision_code,
+    d.score
+FROM {{ ref('stg_em_customers') }} c
+LEFT JOIN {{ ref('stg_em_accounts') }} a
+    ON c.customer_id = a.customer_id
+LEFT JOIN {{ ref('stg_em_decision') }} d
+    ON c.customer_id = d.customer_id
 ```
 
-## Flow
+---
 
-1. **File Arrival**: `.ok` file arrives in GCS, triggers Pub/Sub
-2. **ODP Load**: Dataflow pipeline loads each entity to ODP
-3. **Dependency Check**: Check if all 3 entities loaded
-4. **FDP Transform**: When all ready, run dbt to create em_attributes
+## Key Difference from LOA
+
+| Aspect | EM | LOA |
+|--------|-----|-----|
+| Entities | 3 | 1 |
+| Dependency | Wait for all | Immediate |
+| FDP Transformation | JOIN (3→1) | SPLIT (1→2) |
+| EntityDependencyChecker | Required | Not needed |
+
+---
+
+## Known Issues
+
+1. **Orchestration tests require Airflow** - Skip with `--ignore=tests/unit/orchestration/`
+2. **Some validation tests have API mismatches** - Need method updates
+3. **Infrastructure tests reference old paths** - Need path updates
+
+See [Project Status Analysis](../../docs/PROJECT_STATUS_ANALYSIS.md) for full details.
 

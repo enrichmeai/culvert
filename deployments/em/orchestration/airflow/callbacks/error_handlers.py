@@ -1,17 +1,17 @@
 """
-LOA Error Handlers - Project-Specific Extensions.
+EM Error Handlers - Project-Specific Extensions.
 
-Extends the base error handlers from gdw_data_core with LOA-specific defaults:
-- LOA DLQ topic ('loa-notifications-dead-letter')
-- LOA quarantine bucket ('loa-quarantine')
-- LOA routing metadata key ('loa_metadata')
+Extends the base error handlers from gdw_data_core with EM-specific defaults:
+- EM DLQ topic ('em-notifications-dead-letter')
+- EM quarantine bucket ('em-quarantine')
+- EM routing metadata key ('em_metadata')
 
 For the base reusable implementation, see:
     gdw_data_core.orchestration.callbacks.error_handlers
 
 Usage:
-    # Use LOA-specific handlers directly
-    from blueprint.components.orchestration.airflow.callbacks import (
+    # Use EM-specific handlers directly
+    from deployments.em.orchestration.airflow.callbacks import (
         on_failure_callback,
         on_validation_failure,
     )
@@ -22,8 +22,8 @@ Usage:
         on_failure_callback=on_failure_callback,
     )
 
-    # Or use the LOA error handler instance
-    from blueprint.components.orchestration.airflow.callbacks import loa_error_handler
+    # Or use the EM error handler instance
+    from deployments.em.orchestration.airflow.callbacks import loa_error_handler
 
     loa_error_handler.on_validation_failure(context, errors, file_path)
 """

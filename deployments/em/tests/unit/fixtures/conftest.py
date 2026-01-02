@@ -1,5 +1,5 @@
 import pytest
-from blueprint.em.components.tests.fixtures.test_data_factory import (
+from deployments.em.tests.fixtures.test_data_factory import (
     ApplicationFactory,
     CustomerFactory,
     BranchFactory,

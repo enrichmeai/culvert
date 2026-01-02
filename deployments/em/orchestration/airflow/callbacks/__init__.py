@@ -1,15 +1,15 @@
 """
-LOA Airflow Callbacks.
+EM Airflow Callbacks.
 
-Provides LOA-specific error handlers and callbacks for LOA DAGs.
-These extend the base handlers from gdw_data_core with LOA defaults.
+Provides EM-specific error handlers and callbacks for EM DAGs.
+These extend the base handlers from gdw_data_core with EM defaults.
 """
 
-from blueprint.em.components.orchestration.airflow.callbacks.error_handlers import (
-    # LOA-specific
+from .error_handlers import (
+    # EM-specific (currently using LOA naming for backward compat)
     LOA_ERROR_CONFIG,
     loa_error_handler,
-    # Wrapped functions with LOA defaults
+    # Wrapped functions with EM defaults
     publish_to_dlq,
     on_failure_callback,
     on_validation_failure,

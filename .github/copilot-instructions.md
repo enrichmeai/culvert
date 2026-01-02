@@ -1123,38 +1123,12 @@ class EMValidator:
 
 ## EM Implementation Completion Checklist
 
-**Status: In Progress**  
+**Status: ✅ COMPLETE**  
 **Last Updated: January 2, 2026**
 
-### 📋 FILES TO DELETE (LOA remnants in EM deployment)
+### 📋 FILES TO DELETE (LOA remnants in EM deployment) - ✅ DONE
 
-#### Pipeline LOA Files
-| File | Path |
-|------|------|
-| `loa_jcl_template.py` | `deployments/em/pipeline/` |
-| `loa_realtime_jcl_pipeline.py` | `deployments/em/pipeline/` |
-
-#### DAG LOA Files
-| File | Path |
-|------|------|
-| `loa_daily_pipeline_dag.py` | `deployments/em/orchestration/airflow/dags/` |
-| `loa_ondemand_pipeline_dag.py` | `deployments/em/orchestration/airflow/dags/` |
-
-#### dbt LOA Staging Files
-| File | Path |
-|------|------|
-| `loa_sources.yml` | `deployments/em/transformations/dbt/models/staging/` |
-| `stg_applications.sql` | `deployments/em/transformations/dbt/models/staging/` |
-| `stg_branches.sql` | `deployments/em/transformations/dbt/models/staging/` |
-| `stg_collateral.sql` | `deployments/em/transformations/dbt/models/staging/` |
-| `stg_customers.sql` | `deployments/em/transformations/dbt/models/staging/` |
-
-#### Old Test Directories
-| Directory | Path |
-|-----------|------|
-| `em/` | `deployments/em/tests/unit/em/` (replaced by mirrored structure) |
-| `loa_domain/` | `deployments/em/tests/unit/loa_domain/` |
-| `loa_pipelines/` | `deployments/em/tests/unit/loa_pipelines/` |
+All LOA files have been removed from the EM deployment.
 
 ### ✅ COMPLETED Components
 
@@ -1191,30 +1165,6 @@ class EMValidator:
 - [x] `.github/workflows/gcp-deployment-tests.yml` - Updated for deployments/ paths
 - [x] `.github/workflows/deploy.yml` - Updated for EM
 
-### 🚀 Quick Delete Commands
-
-```bash
-# Pipeline LOA files
-rm deployments/em/pipeline/loa_jcl_template.py
-rm deployments/em/pipeline/loa_realtime_jcl_pipeline.py
-
-# DAG LOA files
-rm deployments/em/orchestration/airflow/dags/loa_daily_pipeline_dag.py
-rm deployments/em/orchestration/airflow/dags/loa_ondemand_pipeline_dag.py
-
-# dbt LOA staging files
-rm deployments/em/transformations/dbt/models/staging/loa_sources.yml
-rm deployments/em/transformations/dbt/models/staging/stg_applications.sql
-rm deployments/em/transformations/dbt/models/staging/stg_branches.sql
-rm deployments/em/transformations/dbt/models/staging/stg_collateral.sql
-rm deployments/em/transformations/dbt/models/staging/stg_customers.sql
-
-# Old test directories
-rm -rf deployments/em/tests/unit/em
-rm -rf deployments/em/tests/unit/loa_domain
-rm -rf deployments/em/tests/unit/loa_pipelines
-```
-
 ### 🧪 Verification Commands
 
 ```bash
@@ -1230,7 +1180,61 @@ from deployments.em.pipeline.em_pipeline import EM_ENTITY_CONFIG
 from deployments.em.validation import EMValidator
 print('✅ All EM imports OK')
 "
-
-# Check no LOA references remain
-grep -r 'LOA\|loa' deployments/em --include='*.py' | grep -v __pycache__ | grep -v '.pyc'
 ```
+
+---
+
+## LOA Implementation Checklist
+
+**Status: Ready for Implementation**  
+**Prompt:** `docs/LOA_IMPLEMENTATION_PROMPT.md`  
+**Last Updated: January 2, 2026**
+
+### 📊 LOA Overview
+
+| Attribute | Value |
+|-----------|-------|
+| **System ID** | `LOA` |
+| **Source Entities** | 1 (Applications) |
+| **ODP Tables** | 1 (`odp_loa.applications`) |
+| **FDP Tables** | 2 (`fdp_loa.event_transaction_excess`, `fdp_loa.portfolio_account_excess`) |
+| **Transformation** | SPLIT 1 source → 2 targets |
+| **Dependency** | No wait - immediate trigger after ODP load |
+
+### Key Difference from EM
+
+| Aspect | EM | LOA |
+|--------|-----|-----|
+| Entities | 3 (Customers, Accounts, Decision) | 1 (Applications) |
+| FDP Transformation | JOIN (3→1) | SPLIT (1→2) |
+| Dependency Wait | Yes (all 3 entities) | No (immediate) |
+| FDP Tables | 1 | 2 |
+
+### 📁 Directory Structure
+
+```
+deployments/loa/
+├── config/           # SYSTEM_ID="LOA", constants
+├── schema/           # LOAApplicationsSchema
+├── domain/           # BigQuery schemas (1 ODP + 2 FDP)
+├── validation/       # LOAValidator
+├── pipeline/         # loa_pipeline.py, dag_template.py
+├── orchestration/    # Airflow DAGs
+├── transformations/  # dbt models (SPLIT to 2 FDP)
+└── tests/            # Unit tests (mirror structure)
+```
+
+### ✅ Implementation Tasks
+
+See `docs/LOA_IMPLEMENTATION_PROMPT.md` for complete implementation details.
+
+- [ ] Config module (SYSTEM_ID, constants)
+- [ ] Schema module (LOAApplicationsSchema)
+- [ ] Domain module (BigQuery schemas)
+- [ ] Validation module (LOAValidator)
+- [ ] Pipeline module (loa_pipeline.py)
+- [ ] Orchestration (Airflow DAGs)
+- [ ] dbt transformations (staging + 2 FDP)
+- [ ] Tests (unit + integration)
+- [ ] Root files (__init__.py, README.md)
+

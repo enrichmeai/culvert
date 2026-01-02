@@ -21,7 +21,7 @@ from airflow.exceptions import AirflowSkipException
 import logging
 import os
 
-from blueprint.em.components.loa_pipelines.pipeline_router import PipelineRouter
+from deployments.em.pipeline.pipeline_router import PipelineRouter
 
 # Import file management components from gdw_data_core library
 from gdw_data_core.core.file_management import (

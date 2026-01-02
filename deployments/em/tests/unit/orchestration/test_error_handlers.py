@@ -25,10 +25,8 @@ sys.modules["airflow.models"] = mock_airflow.models
 
 
 # Now import the error handlers
-from blueprint.em.components.orchestration.airflow.callbacks.error_handlers import (
+from deployments.em.orchestration.airflow.callbacks.error_handlers import (
     ErrorType,
-    _build_error_payload,
-    _get_project_id,
     publish_to_dlq,
     on_failure_callback,
     on_validation_failure,
@@ -36,9 +34,12 @@ from blueprint.em.components.orchestration.airflow.callbacks.error_handlers impo
     quarantine_file,
     on_schema_mismatch,
     on_data_quality_failure,
-    DEFAULT_DLQ_TOPIC,
-    DEFAULT_QUARANTINE_BUCKET,
 )
+
+
+# Constants from the EM error handler config
+DEFAULT_DLQ_TOPIC = "loa-notifications-dead-letter"
+DEFAULT_QUARANTINE_BUCKET = "loa-quarantine"
 
 
 class TestErrorTypeConstants(unittest.TestCase):

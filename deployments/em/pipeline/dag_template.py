@@ -1,10 +1,10 @@
 """
-LOA Cloud Composer / Airflow DAG Template
+EM Cloud Composer / Airflow DAG Template
 ==========================================
 
 Purpose:
-  Template for orchestrating JCL-to-Airflow migrations using Cloud Composer.
-  Creates parameterized DAGs that can be instantiated for multiple JCL jobs.
+  Template for orchestrating EM data migration using Cloud Composer.
+  Creates parameterized DAGs that can be instantiated for multiple entities.
 
 Pattern:
   1. Wait for input files in GCS
@@ -15,24 +15,23 @@ Pattern:
   6. Send completion notification
 
 Usage:
-  # Create DAG for specific job
-  from blueprint.components.loa_pipelines.dag_template import create_loa_dag
+  # Create DAG for specific entity
+  from deployments.em.pipeline.dag_template import create_em_dag
 
-  dag = create_loa_dag(
-      job_name="applications",
-      input_pattern="gs://bucket/data/applications_*",
-      output_table="project:dataset.applications"
+  dag = create_em_dag(
+      job_name="customers",
+      input_pattern="gs://bucket/data/em_customers_*",
+      output_table="project:odp_em.customers"
   )
 
 Design Notes:
-  - Each JCL job gets its own DAG instance
+  - Each entity gets its own DAG instance
   - Parameterized templates reduce copy-paste errors
   - Handles split file discovery automatically
   - Includes data quality validation
   - Built for Cloud Composer (managed Airflow)
 """
 
-from gdw_data_core.orchestration.factories.dag_factory import DAGFactory
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional
 import logging
@@ -43,9 +42,8 @@ from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJ
 from airflow.operators.python import PythonOperator
 from airflow.exceptions import AirflowException
 
-from blueprint.em.components.orchestration.airflow.callbacks.error_handlers import (
-    on_validation_failure,
-)
+# Library imports
+from gdw_data_core.orchestration.factories.dag_factory import DAGFactory
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +55,9 @@ logger = logging.getLogger(__name__)
 # These should be set in Airflow Variables or environment
 DEFAULT_PROJECT_ID = "{{ var.value.gcp_project_id }}"
 DEFAULT_REGION = "{{ var.value.gcp_region }}"
-DEFAULT_DATAFLOW_TEMPLATE = "{{ var.value.loa_dataflow_template }}"
+DEFAULT_DATAFLOW_TEMPLATE = "{{ var.value.em_dataflow_template }}"
 DEFAULT_TEMP_LOCATION = "{{ var.value.gcp_temp_location }}"
-DEFAULT_PUBSUB_TOPIC = "{{ var.value.loa_events_topic }}"
+DEFAULT_PUBSUB_TOPIC = "{{ var.value.em_events_topic }}"
 
 
 # ============================================================================
@@ -74,22 +72,19 @@ def create_multi_flow_dag(
     schedule: str = "@daily"
 ) -> DAG:
     """
-    Creates a DAG for a specific data flow.
+    Creates a DAG for a specific data flow using DAGFactory.
+
+    Note: This is a simplified factory wrapper. For full control,
+    use create_em_dag() instead.
     """
-    factory = DAGFactory(
-        project_id=DEFAULT_PROJECT_ID,
-        region=DEFAULT_REGION
-    )
+    factory = DAGFactory()
 
-    dag_id = f"loa_{entity_type}_migration"
+    dag_id = f"em_{entity_type}_migration"
 
-    return factory.create_migration_dag(
+    return factory.create_dag(
         dag_id=dag_id,
-        job_name=job_name,
-        input_pattern=input_pattern,
-        output_table=output_table,
-        schedule=schedule,
-        entity_type=entity_type
+        schedule_interval=schedule,
+        tags=["em", "migration", entity_type, job_name]
     )
 
 def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[str, Any]:
@@ -101,7 +96,7 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
     Also performs a header format check to ensure schema alignment.
 
     Args:
-        job_name: Name of the job (e.g., "applications")
+        job_name: Name of the job (e.g., "customers", "accounts", "decision")
         input_pattern: GCS wildcard pattern
         **context: Airflow context
 
@@ -111,8 +106,15 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
           - file_groups: List of file groups (for split files)
           - status: "ready" or raises exception
     """
+    # Library imports
     from gdw_data_core.core import GCSClient, discover_split_files
-    from blueprint.em.components.loa_pipelines.pipeline_router import PipelineRouter
+    from gdw_data_core.core.file_management import FileValidator
+    from gdw_data_core.orchestration.callbacks import on_validation_failure
+
+    # EM-specific imports
+    from deployments.em.pipeline.pipeline_router import PipelineRouter
+    from deployments.em.validation import EMValidator
+    from deployments.em.schema import EM_SCHEMAS
 
     try:
         # Parse GCS path
@@ -138,12 +140,11 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
         router = PipelineRouter()
         file_type = router.detect_file_type(files[0])
 
-        # Read header from first file (stub/mock implementation for blueprint)
-        # In production, this would use gcs.read_file(bucket, files[0]).split('\n')[0]
+        # Read header from first file
         header_content = gcs.read_file(bucket, files[0])
         header = header_content.split(",")[0:10] if header_content else []
 
-        # If header is empty in stub, we use default for the detected type to simulate success
+        # If header is empty in stub, we use default for the detected type
         if not header:
             config = router.get_pipeline_config(file_type)
             header = config.required_columns if config else []
@@ -163,34 +164,27 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
 
             raise AirflowException(error_msg)
 
-        # NEW: Sampled Field-Level Validation (Architectural Recommendation)
-        # Catch bad data types early without processing the whole file
-        from gdw_data_core.core.file_management import FileValidator
-        from blueprint.em.components.loa_domain.validation import validate_application_record
+        # Sampled Field-Level Validation
+        # Validate file lines using EMValidator
+        file_lines = header_content.split('\n') if header_content else []
+        em_validator = EMValidator()
 
-        validator = FileValidator(bucket)
-        # Mock/Inject the storage client if needed, or rely on Default
-        is_sample_valid, sample_errors = validator.validate_sample_records(
-            files[0],
-            validator_fn=validate_application_record,
-            sample_size=5
-        )
+        validation_result = em_validator.validate_file(file_lines, entity_name=job_name)
 
-        if not is_sample_valid:
-            error_msg = f"Sample field validation failed for {files[0]}: {sample_errors}"
+        if not validation_result.is_valid:
+            error_msg = f"File validation failed for {files[0]}: {validation_result.errors}"
             logger.error(error_msg)
 
-            # Publish to DLQ for observability
             on_validation_failure(
                 context=context,
-                validation_errors=sample_errors if isinstance(sample_errors, list) else [str(sample_errors)],
+                validation_errors=validation_result.errors,
                 file_path=f"gs://{bucket}/{files[0]}",
                 quarantine=True,
             )
 
             raise AirflowException(error_msg)
 
-        logger.info(f"File format and sample validation passed for {file_type}")
+        logger.info(f"File format and validation passed for {file_type}")
 
         return {
             "file_count": len(files),
@@ -289,14 +283,18 @@ def archive_processed_files(
         # Get list of files
         files = gcs.list_files(bucket, prefix=prefix)
 
-        # Archive files
-        archived = gcs.archive_files(bucket, files, dest_prefix=archive_prefix)
+        # Archive files one by one (using library's archive_file method)
+        archived_count = 0
+        for file_path in files:
+            archive_path = f"{archive_prefix}{file_path.split('/')[-1]}"
+            gcs.archive_file(bucket, file_path, archive_path)
+            archived_count += 1
 
-        logger.info(f"Archived {len(archived)} files")
+        logger.info(f"Archived {archived_count} files")
 
         return {
             "status": "archived",
-            "count": len(archived),
+            "count": archived_count,
             "location": f"gs://{bucket}/{archive_prefix}"
         }
 
@@ -332,19 +330,21 @@ def send_completion_notification(
 
         event_type = "PROCESSING_COMPLETE" if success else "PROCESSING_FAILED"
 
+        # Build message payload
+        message = {
+            "event_type": event_type,
+            "job_name": job_name,
+            "output_table": output_table,
+            "dag_run_id": context.get("run_id", "unknown"),
+            "execution_date": context.get("execution_date", "").isoformat() if context.get("execution_date") else "",
+        }
+
+        # Publish using library's publish_event method
         message_id = pubsub.publish_event(
-            topic_name=DEFAULT_PUBSUB_TOPIC,
-            event_type=event_type,
-            event_data={
-                "job_name": job_name,
-                "output_table": output_table,
-                "dag_run_id": context["run_id"],
-                "execution_date": context["execution_date"].isoformat(),
-            },
-            attributes={
-                "job_name": job_name,
-                "status": "success" if success else "failure"
-            }
+            topic=DEFAULT_PUBSUB_TOPIC,
+            message=message,
+            job_name=job_name,
+            status="success" if success else "failure"
         )
 
         logger.info(f"Sent completion notification (message_id: {message_id})")
@@ -359,7 +359,7 @@ def send_completion_notification(
 # DAG Factory
 # ============================================================================
 
-def create_loa_dag(
+def create_em_dag(
     job_name: str,
     input_pattern: str,
     output_table: str,
@@ -373,9 +373,9 @@ def create_loa_dag(
     temp_location: str = DEFAULT_TEMP_LOCATION,
 ) -> DAG:
     """
-    Factory function to create LOA DAGs.
+    Factory function to create EM DAGs.
 
-    Creates a parameterized DAG for a specific JCL job migration.
+    Creates a parameterized DAG for a specific EM entity migration.
 
     Pattern:
       1. Wait for input files
@@ -386,9 +386,9 @@ def create_loa_dag(
       6. Send notification
 
     Args:
-        job_name: Job name (e.g., "applications", "customers", "accounts")
-        input_pattern: GCS wildcard pattern (e.g., gs://bucket/data/applications_*)
-        output_table: BigQuery output table (project:dataset.table)
+        job_name: Job name (e.g., "customers", "accounts", "decision")
+        input_pattern: GCS wildcard pattern (e.g., gs://bucket/data/em_customers_*)
+        output_table: BigQuery output table (project:odp_em.table)
         error_table: BigQuery error table (optional)
         input_bucket: Input GCS bucket (optional, parsed from input_pattern if not provided)
         input_prefix: Input GCS prefix (optional, parsed from input_pattern if not provided)
@@ -402,40 +402,40 @@ def create_loa_dag(
         Configured Airflow DAG
 
     Usage:
-        # Instantiate DAG for applications job
-        applications_dag = create_loa_dag(
-            job_name="applications",
-            input_pattern="gs://loa-bucket/raw/applications_*",
-            output_table="loa-project:loa_processed.applications",
-            error_table="loa-project:loa_raw.applications_errors"
+        # Instantiate DAG for customers entity
+        customers_dag = create_em_dag(
+            job_name="customers",
+            input_pattern="gs://em-bucket/raw/em_customers_*",
+            output_table="em-project:odp_em.customers",
+            error_table="em-project:odp_em.customers_errors"
         )
 
-        # In a separate file (e.g., dags/applications_dag.py):
-        from blueprint.components.loa_pipelines.dag_template import create_loa_dag
-        applications_dag = create_loa_dag(
-            job_name="applications",
-            input_pattern="gs://bucket/applications_*",
-            output_table="project:dataset.applications"
+        # In a separate file (e.g., dags/em_customers_dag.py):
+        from deployments.em.pipeline.dag_template import create_em_dag
+        customers_dag = create_em_dag(
+            job_name="customers",
+            input_pattern="gs://bucket/em_customers_*",
+            output_table="project:odp_em.customers"
         )
 
         # Create multiple DAGs by calling factory multiple times
-        customers_dag = create_loa_dag(
-            job_name="customers",
-            input_pattern="gs://bucket/customers_*",
-            output_table="project:dataset.customers"
+        accounts_dag = create_em_dag(
+            job_name="accounts",
+            input_pattern="gs://bucket/em_accounts_*",
+            output_table="project:odp_em.accounts"
         )
     """
 
-    # Parse input pattern if needed
+    # Parse input pattern if needed (values stored for potential future use)
     if not input_bucket or not input_prefix:
         parts = input_pattern.replace("gs://", "").split("/")
         parsed_bucket = parts[0]
         parsed_prefix = "/".join(parts[1:]).rstrip("*").rstrip("/")
 
         if not input_bucket:
-            input_bucket = parsed_bucket
+            _ = parsed_bucket  # Reserved for future use
         if not input_prefix:
-            input_prefix = parsed_prefix
+            _ = parsed_prefix  # Reserved for future use
 
     # Set default error table if not provided
     if not error_table:
@@ -443,12 +443,12 @@ def create_loa_dag(
         if len(table_parts) == 2:
             project_dataset = table_parts[0]
             table_name = table_parts[1].split(".")[-1]
-            error_table = f"{project_dataset}:loa_raw.{table_name}_errors"
+            error_table = f"{project_dataset}:odp_em.{table_name}_errors"
         else:
             error_table = f"{output_table}_errors"
 
     # DAG definition
-    dag_id = f"loa_{job_name}_migration"
+    dag_id = f"em_{job_name}_migration"
 
     default_args = {
         "owner": "data-engineering",
@@ -464,10 +464,10 @@ def create_loa_dag(
     dag = DAG(
         dag_id,
         default_args=default_args,
-        description=f"LOA migration pipeline for {job_name}",
+        description=f"EM migration pipeline for {job_name}",
         schedule=schedule_interval,
         catchup=False,
-        tags=["loa", "migration", job_name],
+        tags=["em", "migration", job_name],
     )
 
     # ========================================================================
@@ -477,7 +477,7 @@ def create_loa_dag(
     wait_for_files = PubSubPullSensor(
         task_id="wait_for_input_files",
         project_id=project_id,
-        subscription="loa-processing-notifications-sub",
+        subscription="em-processing-notifications-sub",
         max_messages=1,
         ack_messages=True,
         dag=dag,
@@ -583,37 +583,37 @@ def create_loa_dag(
 # DAG Instantiation
 # ============================================================================
 
-# Example: Instantiate DAGs for multiple JCL jobs
+# Example: Instantiate DAGs for EM entities
 # Copy this pattern to create your specific DAGs
 
-# applications_dag = create_loa_dag(
-#     job_name="applications",
-#     input_pattern="gs://loa-bucket/raw/applications_*",
-#     output_table="loa-project:loa_processed.applications",
-#     schedule_interval="0 6 * * *"
-# )
-
-# customers_dag = create_loa_dag(
+# customers_dag = create_em_dag(
 #     job_name="customers",
-#     input_pattern="gs://loa-bucket/raw/customers_*",
-#     output_table="loa-project:loa_processed.customers",
+#     input_pattern="gs://em-bucket/raw/em_customers_*",
+#     output_table="em-project:odp_em.customers",
 #     schedule_interval="0 6 * * *"
 # )
 
-# accounts_dag = create_loa_dag(
+# accounts_dag = create_em_dag(
 #     job_name="accounts",
-#     input_pattern="gs://loa-bucket/raw/accounts_*",
-#     output_table="loa-project:loa_processed.accounts",
+#     input_pattern="gs://em-bucket/raw/em_accounts_*",
+#     output_table="em-project:odp_em.accounts",
+#     schedule_interval="0 6 * * *"
+# )
+
+# decision_dag = create_em_dag(
+#     job_name="decision",
+#     input_pattern="gs://em-bucket/raw/em_decision_*",
+#     output_table="em-project:odp_em.decision",
 #     schedule_interval="0 6 * * *"
 # )
 
 
 if __name__ == "__main__":
     # Quick test of DAG creation
-    dag = create_loa_dag(
-        job_name="test_job",
-        input_pattern="gs://test-bucket/data/test_*",
-        output_table="test-project:test_dataset.test_table"
+    dag = create_em_dag(
+        job_name="customers",
+        input_pattern="gs://em-bucket/data/em_customers_*",
+        output_table="em-project:odp_em.customers"
     )
 
     print(f"Created DAG: {dag.dag_id}")
