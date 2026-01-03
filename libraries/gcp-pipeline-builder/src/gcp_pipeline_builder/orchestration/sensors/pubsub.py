@@ -18,26 +18,21 @@ Usage:
     )
 """
 
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Any, List
 import logging
 
 logger = logging.getLogger(__name__)
 
-
-def _get_pubsub_sensor_base():
-    """Lazy import of Airflow PubSubPullSensor."""
-    try:
-        from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
-        return PubSubPullSensor
-    except ImportError:
-        raise ImportError(
-            "apache-airflow-providers-google is required for PubSub sensors. "
-            "Install with: pip install apache-airflow-providers-google"
-        )
+# Try to import Airflow - if not available, create a stub class
+try:
+    from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+    AIRFLOW_AVAILABLE = True
+except ImportError:
+    AIRFLOW_AVAILABLE = False
+    PubSubPullSensor = object  # Stub for type hints
 
 
-# Create base class dynamically to avoid import at module level
-class BasePubSubPullSensor:
+class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
     """
     Enhanced PubSubPullSensor with file filtering and metadata extraction.
 
@@ -64,16 +59,6 @@ class BasePubSubPullSensor:
         ... )
     """
 
-    _base_class = None
-
-    def __new__(cls, *args, **kwargs):
-        """Dynamically inherit from PubSubPullSensor on first instantiation."""
-        if cls._base_class is None:
-            cls._base_class = _get_pubsub_sensor_base()
-            # Rebuild class with proper inheritance
-            cls.__bases__ = (cls._base_class,)
-        return super().__new__(cls)
-
     def __init__(
         self,
         *args,
@@ -83,6 +68,11 @@ class BasePubSubPullSensor:
         extract_metadata: bool = True,
         **kwargs
     ):
+        if not AIRFLOW_AVAILABLE:
+            raise ImportError(
+                "apache-airflow-providers-google is required for PubSub sensors. "
+                "Install with: pip install apache-airflow-providers-google"
+            )
         super().__init__(*args, ack_messages=ack_messages, **kwargs)
         self.filter_extension = filter_extension
         self.metadata_xcom_key = metadata_xcom_key
@@ -195,5 +185,5 @@ class BasePubSubPullSensor:
         }
 
 
-__all__ = ['BasePubSubPullSensor']
+__all__ = ['BasePubSubPullSensor', 'AIRFLOW_AVAILABLE']
 

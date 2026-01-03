@@ -33,14 +33,31 @@ Design Notes:
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 import logging
 
-from airflow import DAG
-from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
-from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
-from airflow.operators.python import PythonOperator
-from airflow.exceptions import AirflowException
+if TYPE_CHECKING:
+    from airflow import DAG
+    from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+    from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
+    from airflow.operators.python import PythonOperator
+
+
+def _get_airflow_components():
+    """Lazy import of Airflow components."""
+    try:
+        from airflow import DAG
+        from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+        from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
+        from airflow.operators.python import PythonOperator
+        from airflow.exceptions import AirflowException
+        return DAG, PubSubPullSensor, DataflowTemplatedJobStartOperator, PythonOperator, AirflowException
+    except ImportError as e:
+        raise ImportError(
+            "apache-airflow-providers-google is required for DAG templates. "
+            "Install with: pip install apache-airflow-providers-google"
+        ) from e
+
 
 # Library imports
 from gcp_pipeline_builder.orchestration.factories.dag_factory import DAGFactory
@@ -70,7 +87,7 @@ def create_multi_flow_dag(
     input_pattern: str,
     output_table: str,
     schedule: str = "@daily"
-) -> DAG:
+) -> 'DAG':
     """
     Creates a DAG for a specific data flow using DAGFactory.
 
@@ -119,6 +136,9 @@ def validate_input_files(
     # Library imports
     from gcp_pipeline_builder import discover_split_files
     from gcp_pipeline_builder.orchestration.callbacks import on_validation_failure
+
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
 
     # EM-specific imports
     from em.schema import EM_SCHEMAS
@@ -228,6 +248,9 @@ def run_quality_checks(output_table: str, expected_min_rows: int = 100, **contex
     """
     from google.cloud import bigquery
 
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
+
     try:
         client = bigquery.Client(project=DEFAULT_PROJECT_ID)
 
@@ -286,6 +309,9 @@ def archive_processed_files(
         Dict with archiving results
     """
     from gcp_pipeline_builder import GCSClient
+
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
 
     try:
         # Parse GCS path
@@ -386,7 +412,7 @@ def create_em_dag(
     region: str = DEFAULT_REGION,
     dataflow_template: str = DEFAULT_DATAFLOW_TEMPLATE,
     temp_location: str = DEFAULT_TEMP_LOCATION,
-) -> DAG:
+) -> 'DAG':
     """
     Factory function to create EM DAGs.
 
@@ -461,6 +487,9 @@ def create_em_dag(
             error_table = f"{project_dataset}:odp_em.{table_name}_errors"
         else:
             error_table = f"{output_table}_errors"
+
+    # Get Airflow components (lazy import)
+    DAG, PubSubPullSensor, DataflowTemplatedJobStartOperator, PythonOperator, _ = _get_airflow_components()
 
     # DAG definition
     dag_id = f"em_{job_name}_migration"

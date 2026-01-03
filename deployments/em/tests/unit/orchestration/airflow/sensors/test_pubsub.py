@@ -5,10 +5,22 @@ Tests verify sensor configuration using standard mocks from gcp_pipeline_tester.
 
 Test file mirrors source structure:
     deployments/em/orchestration/airflow/sensors/pubsub.py
+t
+Note: These tests are skipped in CI when Airflow is not available.
 """
 
 import unittest
 from unittest.mock import MagicMock, patch
+import pytest
+
+# Skip all tests in this module if airflow is not available
+try:
+    import airflow
+    HAS_AIRFLOW = True
+except ImportError:
+    HAS_AIRFLOW = False
+
+pytestmark = pytest.mark.skipif(not HAS_AIRFLOW, reason="Airflow not available")
 
 
 class TestLOAPubSubPullSensorConfiguration(unittest.TestCase):

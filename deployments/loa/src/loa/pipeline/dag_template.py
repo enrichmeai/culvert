@@ -31,14 +31,31 @@ Usage:
 """
 
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 import logging
 
-from airflow import DAG
-from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
-from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
-from airflow.operators.python import PythonOperator
-from airflow.exceptions import AirflowException
+if TYPE_CHECKING:
+    from airflow import DAG
+    from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+    from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
+    from airflow.operators.python import PythonOperator
+
+
+def _get_airflow_components():
+    """Lazy import of Airflow components."""
+    try:
+        from airflow import DAG
+        from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+        from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
+        from airflow.operators.python import PythonOperator
+        from airflow.exceptions import AirflowException
+        return DAG, PubSubPullSensor, DataflowTemplatedJobStartOperator, PythonOperator, AirflowException
+    except ImportError as e:
+        raise ImportError(
+            "apache-airflow-providers-google is required for DAG templates. "
+            "Install with: pip install apache-airflow-providers-google"
+        ) from e
+
 
 # Library imports
 from gcp_pipeline_builder.orchestration.factories.dag_factory import DAGFactory
@@ -68,7 +85,7 @@ def create_loa_dag(
     output_table: str,
     schedule: str = "@daily",
     **kwargs
-) -> DAG:
+) -> 'DAG':
     """
     Creates a DAG for LOA data migration using DAGFactory.
 
@@ -96,7 +113,7 @@ def create_loa_dag(
 def create_loa_transformation_dag(
     schedule: str = None,
     **kwargs
-) -> DAG:
+) -> 'DAG':
     """
     Creates a DAG for LOA dbt transformation.
 
@@ -142,6 +159,9 @@ def validate_input_files(job_name: str, input_pattern: str, **context) -> Dict[s
 
     from loa.pipeline.pipeline_router import PipelineRouter
     from loa.validation import LOAValidator
+
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
 
     try:
         # Parse GCS path
@@ -230,6 +250,9 @@ def run_quality_checks(output_table: str, expected_min_rows: int = 100, **contex
     """
     from gcp_pipeline_builder import BigQueryClient
 
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
+
     try:
         bq = BigQueryClient(project=DEFAULT_PROJECT_ID)
 
@@ -294,6 +317,9 @@ def archive_processed_files(input_pattern: str, **context) -> Dict[str, Any]:
     """
     from gcp_pipeline_builder import GCSClient
     from gcp_pipeline_builder.file_management import archive_files
+
+    # Get AirflowException (lazy import)
+    _, _, _, _, AirflowException = _get_airflow_components()
 
     try:
         # Parse GCS path
