@@ -2,7 +2,8 @@
 
 Production-ready implementations of data migration pipelines using the `gdw_data_core` library.
 
-**Status:** LOA ✅ Complete | EM ⚠️ Partially Complete
+**Status:** LOA ✅ Complete | EM ✅ Complete  
+**Reference:** [E2E Functional Flow](../docs/E2E_FUNCTIONAL_FLOW.md) - Complete architecture and requirements
 
 ---
 
@@ -10,8 +11,8 @@ Production-ready implementations of data migration pipelines using the `gdw_data
 
 | Deployment | System ID | Entities | ODP Tables | FDP Tables | Transformation | Tests |
 |------------|-----------|----------|------------|------------|----------------|-------|
-| **EM** | EM | 3 | 3 | 1 | JOIN (3→1) | 152 passing |
-| **LOA** | LOA | 1 | 1 | 2 | SPLIT (1→2) | 63 passing |
+| **EM** | EM | 3 | 3 | 1 | JOIN (3→1) | 400+ passing |
+| **LOA** | LOA | 1 | 1 | 2 | SPLIT (1→2) | 60+ passing |
 
 ---
 
@@ -20,7 +21,7 @@ Production-ready implementations of data migration pipelines using the `gdw_data
 ### EM (Application A)
 
 **Location:** `deployments/em/`  
-**Status:** ⚠️ Partially Complete (some tests need fixes)
+**Status:** ✅ Complete
 
 Migrates EM mainframe data with 3 entities:
 - Customers → `odp_em.customers`
