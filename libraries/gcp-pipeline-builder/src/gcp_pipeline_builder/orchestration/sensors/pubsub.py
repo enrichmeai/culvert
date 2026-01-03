@@ -18,14 +18,26 @@ Usage:
     )
 """
 
-from typing import Optional, Dict, Any, List
-from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-class BasePubSubPullSensor(PubSubPullSensor):
+def _get_pubsub_sensor_base():
+    """Lazy import of Airflow PubSubPullSensor."""
+    try:
+        from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+        return PubSubPullSensor
+    except ImportError:
+        raise ImportError(
+            "apache-airflow-providers-google is required for PubSub sensors. "
+            "Install with: pip install apache-airflow-providers-google"
+        )
+
+
+# Create base class dynamically to avoid import at module level
+class BasePubSubPullSensor:
     """
     Enhanced PubSubPullSensor with file filtering and metadata extraction.
 
@@ -51,6 +63,16 @@ class BasePubSubPullSensor(PubSubPullSensor):
         ...     metadata_xcom_key='file_metadata',
         ... )
     """
+
+    _base_class = None
+
+    def __new__(cls, *args, **kwargs):
+        """Dynamically inherit from PubSubPullSensor on first instantiation."""
+        if cls._base_class is None:
+            cls._base_class = _get_pubsub_sensor_base()
+            # Rebuild class with proper inheritance
+            cls.__bases__ = (cls._base_class,)
+        return super().__new__(cls)
 
     def __init__(
         self,
