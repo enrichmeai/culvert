@@ -130,16 +130,33 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
 ## 📊 Why This Approach
 
-### Time & Effort Savings
+### Time & Effort Savings (Approximate)
 
-| Aspect | Without Library | With Library | Savings |
-|--------|-----------------|--------------|---------|
-| **Error Handling** | 2-3 weeks per team | Configure once | 80% |
-| **Pub/Sub Integration** | 1-2 weeks per team | Pre-built sensors | 90% |
-| **File Validation** | 1 week per team | HDRTRLParser ready | 95% |
-| **Audit Trail** | 1 week per team | Automatic columns | 100% |
-| **Testing Framework** | 2 weeks per team | Mocks & fixtures ready | 85% |
-| **Total for 5 teams** | ~35 weeks duplicated | ~5 weeks total | **85%** |
+Each team building a mainframe migration pipeline would need to implement these components. 
+With the library, they configure once instead of building from scratch:
+
+| Component | Without Library (per team) | With Library | Time Saved |
+|-----------|---------------------------|--------------|------------|
+| **Error Handling** | ~2-3 weeks to build | Configure in ~2 days | ~85% |
+| **Pub/Sub Integration** | ~1-2 weeks to build | Pre-built sensors | ~90% |
+| **File Validation (HDR/TRL)** | ~1 week to build | HDRTRLParser ready | ~95% |
+| **Audit Trail** | ~1 week to build | Automatic columns | ~100% |
+| **Testing Framework** | ~2 weeks to build | Mocks & fixtures ready | ~85% |
+
+> **Note:** All estimates are approximate and may vary based on team experience and requirements.
+
+#### Example: 5 Teams Migrating Different Mainframe Systems
+
+| Scenario | Without Library | With Library |
+|----------|-----------------|--------------|
+| Team A (EM) | ~8 weeks building infra | ~1 week configuring |
+| Team B (LOA) | ~8 weeks building infra | ~1 week configuring |
+| Team C (System X) | ~8 weeks building infra | ~1 week configuring |
+| Team D (System Y) | ~8 weeks building infra | ~1 week configuring |
+| Team E (System Z) | ~8 weeks building infra | ~1 week configuring |
+| **Total** | **~40 weeks** (duplicated effort) | **~5 weeks** + library |
+| **Savings** | - | **~85% reduction** |
+
 
 ### Consistency Benefits
 
