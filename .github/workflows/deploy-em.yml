@@ -1,356 +1,189 @@
-name: Deploy EM to GCP
+name: Deploy EM
 
 on:
-  push:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'deployments/em/**'
-      - 'infrastructure/terraform/em/**'
-      - 'gdw_data_core/**'
-      - '.github/workflows/deploy-em.yml'
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to deploy to'
-        required: true
-        default: 'dev'
-        type: choice
-        options:
-          - dev
-          - staging
-          - prod
-      run_terraform:
-        description: 'Run Terraform infrastructure deployment'
-        required: false
-        default: false
-        type: boolean
 
 env:
-  PYTHON_VERSION: '3.10'
-  REGION: 'europe-west2'
-  SYSTEM_ID: 'em'
+  PYTHON_VERSION: '3.11'
+  GCP_REGION: 'europe-west2'
+  ENVIRONMENT: 'dev'
 
 jobs:
-  # ============================================================================
-  # VALIDATE CODE
-  # ============================================================================
-  validate:
-    name: Validate Code
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ./gdw_data_core
-          pip install -e ./deployments
-          pip install pytest flake8 black mypy
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e libraries/gcp-pipeline-builder[dev]
+        pip install -e libraries/gcp-pipeline-tester
 
-      - name: Lint code
-        run: |
-          black --check deployments/em/ --exclude '__pycache__|\.egg-info' || true
-          flake8 deployments/em/ --count --select=E9,F63,F7,F82 --show-source --statistics
+    - name: Run EM tests
+      run: |
+        cd deployments/em
+        pip install -e .
+        PYTHONPATH=src pytest tests/unit -v --tb=short
 
-      - name: Type check
-        run: |
-          mypy deployments/em/ --ignore-missing-imports || true
-
-      - name: Run unit tests
-        run: |
-          pytest deployments/em/tests/ -v --tb=short -x || echo "Tests completed"
-
-  # ============================================================================
-  # VALIDATE TERRAFORM
-  # ============================================================================
-  terraform-validate:
-    name: Validate Terraform
+  deploy-infrastructure:
+    name: Deploy Infrastructure
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
-
-      - name: Terraform Format Check
-        run: |
-          cd infrastructure/terraform/em
-          terraform fmt -check -recursive
-
-      - name: Terraform Init
-        run: |
-          cd infrastructure/terraform/em
-          terraform init -backend=false
-
-      - name: Terraform Validate
-        run: |
-          cd infrastructure/terraform/em
-          terraform validate
-
-  # ============================================================================
-  # DEPLOY TO DEV
-  # ============================================================================
-  deploy-dev:
-    name: Deploy to Dev
-    runs-on: ubuntu-latest
-    needs: [validate, terraform-validate]
-    if: github.ref == 'refs/heads/develop' || github.event.inputs.environment == 'dev'
+    needs: test
     environment: dev
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ./gdw_data_core
-          pip install -e ./deployments
-          pip install google-cloud-bigquery google-cloud-storage apache-beam[gcp]
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_DEV }}
+    - name: Terraform Init
+      run: |
+        cd infrastructure/terraform/em
+        terraform init
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID_DEV }}
+    - name: Terraform Plan
+      run: |
+        cd infrastructure/terraform/em
+        terraform plan \
+          -var-file="env/dev.tfvars" \
+          -out=tfplan
 
-      # Terraform deployment (optional)
-      - name: Setup Terraform
-        if: github.event.inputs.run_terraform == 'true'
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: 1.6.0
+    - name: Terraform Apply
+      run: |
+        cd infrastructure/terraform/em
+        terraform apply -auto-approve tfplan
 
-      - name: Terraform Apply
-        if: github.event.inputs.run_terraform == 'true'
-        run: |
-          cd infrastructure/terraform/em
-          terraform init
-          terraform apply -auto-approve -var-file=env/dev.tfvars \
-            -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID_DEV }}"
-
-      # BigQuery datasets (fallback if not using Terraform)
-      - name: Create BigQuery datasets
-        if: github.event.inputs.run_terraform != 'true'
-        run: |
-          # ODP dataset
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em || echo "Dataset odp_em exists"
-          
-          # FDP dataset
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:fdp_em || echo "Dataset fdp_em exists"
-          
-          # Job control dataset
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:job_control || echo "Dataset job_control exists"
-
-      - name: Create/Update BigQuery ODP tables
-        run: |
-          # EM Customers
-          bq mk --table \
-            --schema=deployments/em/schemas/odp_customers.json \
-            --time_partitioning_field=_extract_date \
-            --clustering_fields=customer_id,_run_id \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.customers || \
-          bq update \
-            --schema=deployments/em/schemas/odp_customers.json \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.customers
-
-          # EM Accounts
-          bq mk --table \
-            --schema=deployments/em/schemas/odp_accounts.json \
-            --time_partitioning_field=_extract_date \
-            --clustering_fields=account_id,customer_id,_run_id \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.accounts || \
-          bq update \
-            --schema=deployments/em/schemas/odp_accounts.json \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.accounts
-
-          # EM Decision
-          bq mk --table \
-            --schema=deployments/em/schemas/odp_decision.json \
-            --time_partitioning_field=_extract_date \
-            --clustering_fields=decision_id,customer_id,_run_id \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.decision || \
-          bq update \
-            --schema=deployments/em/schemas/odp_decision.json \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:odp_em.decision
-
-      - name: Create/Update BigQuery FDP tables
-        run: |
-          # FDP em_attributes (JOIN of 3 sources)
-          bq mk --table \
-            --schema=deployments/em/schemas/fdp_em_attributes.json \
-            --time_partitioning_field=_extract_date \
-            --clustering_fields=customer_id,account_id \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:fdp_em.em_attributes || \
-          bq update \
-            --schema=deployments/em/schemas/fdp_em_attributes.json \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:fdp_em.em_attributes
-
-      - name: Create/Update Job Control table
-        run: |
-          bq mk --table \
-            --schema=deployments/em/schemas/pipeline_jobs.json \
-            --time_partitioning_field=created_at \
-            --clustering_fields=system_id,entity_type,status \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:job_control.pipeline_jobs || \
-          bq update \
-            --schema=deployments/em/schemas/pipeline_jobs.json \
-            ${{ secrets.GCP_PROJECT_ID_DEV }}:job_control.pipeline_jobs
-
-      - name: Deploy Dataflow template
-        run: |
-          python deployments/em/pipeline/runner.py \
-            --project=${{ secrets.GCP_PROJECT_ID_DEV }} \
-            --region=${{ env.REGION }} \
-            --runner=DataflowRunner \
-            --staging_location=gs://${{ secrets.GCS_BUCKET_DEV }}/staging \
-            --temp_location=gs://${{ secrets.GCS_BUCKET_DEV }}/temp \
-            --template_location=gs://${{ secrets.GCS_BUCKET_DEV }}/templates/em_pipeline_template \
-            --setup_file=./deployments/setup.py \
-            --save_main_session
-
-      - name: Deployment summary
-        run: |
-          echo "✅ EM deployed to DEV environment"
-          echo "Project: ${{ secrets.GCP_PROJECT_ID_DEV }}"
-          echo "Region: ${{ env.REGION }}"
-          echo "Datasets: odp_em, fdp_em, job_control"
-          echo "Tables: customers, accounts, decision, em_attributes, pipeline_jobs"
-
-  # ============================================================================
-  # DEPLOY TO STAGING
-  # ============================================================================
-  deploy-staging:
-    name: Deploy to Staging
+  deploy-dataflow:
+    name: Deploy Dataflow Template
     runs-on: ubuntu-latest
-    needs: [deploy-dev]
-    if: github.ref == 'refs/heads/main' || github.event.inputs.environment == 'staging'
-    environment: staging
+    needs: deploy-infrastructure
+    environment: dev
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ env.PYTHON_VERSION }}
-          cache: 'pip'
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ./gdw_data_core
-          pip install -e ./deployments
-          pip install google-cloud-bigquery google-cloud-storage apache-beam[gcp]
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY_STAGING }}
+    - name: Build and Push Docker Image
+      run: |
+        gcloud builds submit \
+          --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/em-pipeline:latest \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          .
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID_STAGING }}
+    - name: Create Flex Template
+      run: |
+        gcloud dataflow flex-template build \
+          gs://${{ secrets.GCP_PROJECT_ID }}-dataflow-templates/em/em_pipeline.json \
+          --image-gcr-path gcr.io/${{ secrets.GCP_PROJECT_ID }}/em-pipeline:latest \
+          --sdk-language PYTHON \
+          --flex-template-base-image PYTHON3 \
+          --project ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Create BigQuery datasets
-        run: |
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_STAGING }}:odp_em || echo "Dataset exists"
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_STAGING }}:fdp_em || echo "Dataset exists"
-          bq mk --dataset --location=${{ env.REGION }} \
-            ${{ secrets.GCP_PROJECT_ID_STAGING }}:job_control || echo "Dataset exists"
-
-      - name: Create/Update BigQuery tables
-        run: |
-          # ODP tables
-          for entity in customers accounts decision; do
-            bq mk --table \
-              --schema=deployments/em/schemas/odp_${entity}.json \
-              --time_partitioning_field=_extract_date \
-              ${{ secrets.GCP_PROJECT_ID_STAGING }}:odp_em.${entity} || \
-            bq update \
-              --schema=deployments/em/schemas/odp_${entity}.json \
-              ${{ secrets.GCP_PROJECT_ID_STAGING }}:odp_em.${entity}
-          done
-          
-          # FDP table
-          bq mk --table \
-            --schema=deployments/em/schemas/fdp_em_attributes.json \
-            --time_partitioning_field=_extract_date \
-            ${{ secrets.GCP_PROJECT_ID_STAGING }}:fdp_em.em_attributes || \
-          bq update \
-            --schema=deployments/em/schemas/fdp_em_attributes.json \
-            ${{ secrets.GCP_PROJECT_ID_STAGING }}:fdp_em.em_attributes
-
-      - name: Deploy Dataflow template
-        run: |
-          python deployments/em/pipeline/runner.py \
-            --project=${{ secrets.GCP_PROJECT_ID_STAGING }} \
-            --region=${{ env.REGION }} \
-            --runner=DataflowRunner \
-            --staging_location=gs://${{ secrets.GCS_BUCKET_STAGING }}/staging \
-            --temp_location=gs://${{ secrets.GCS_BUCKET_STAGING }}/temp \
-            --template_location=gs://${{ secrets.GCS_BUCKET_STAGING }}/templates/em_pipeline_template \
-            --setup_file=./deployments/setup.py \
-            --save_main_session
-
-      - name: Deployment summary
-        run: |
-          echo "✅ EM deployed to STAGING environment"
-          echo "Project: ${{ secrets.GCP_PROJECT_ID_STAGING }}"
-
-  # ============================================================================
-  # NOTIFICATIONS
-  # ============================================================================
-  notify:
-    name: Send Notifications
+  deploy-dbt:
+    name: Deploy dbt Models
     runs-on: ubuntu-latest
-    needs: [deploy-dev]
-    if: always()
+    needs: deploy-infrastructure
+    environment: dev
+
     steps:
-      - name: Slack notification
-        if: ${{ vars.SLACK_WEBHOOK_URL != '' }}
-        uses: slackapi/slack-github-action@v1
-        with:
-          payload: |
-            {
-              "text": "EM Pipeline Deployment",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "*EM Pipeline Deployment*\n• Status: ${{ needs.deploy-dev.result }}\n• Branch: ${{ github.ref_name }}\n• Commit: `${{ github.sha }}`"
-                  }
-                }
-              ]
-            }
-        env:
-          SLACK_WEBHOOK_URL: ${{ vars.SLACK_WEBHOOK_URL }}
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Install dbt
+      run: |
+        pip install dbt-bigquery
+
+    - name: Run dbt
+      run: |
+        cd deployments/em/transformations/dbt
+        dbt deps
+        dbt run --target dev
+        dbt test --target dev
+
+  deploy-airflow:
+    name: Deploy Airflow DAGs
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Upload DAGs to Composer
+      run: |
+        gsutil -m cp -r deployments/em/src/em/orchestration/airflow/dags/* \
+          gs://${{ secrets.COMPOSER_BUCKET }}/dags/em/
+
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-dataflow, deploy-dbt, deploy-airflow]
+    environment: dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Validate Resources
+      run: |
+        echo "=== Validating EM Deployment ==="
+        
+        # Check BigQuery datasets
+        bq ls --project_id=${{ secrets.GCP_PROJECT_ID }} | grep -E "odp_em|fdp_em"
+        
+        # Check GCS buckets
+        gsutil ls gs://${{ secrets.GCP_PROJECT_ID }}-em-landing
+        
+        # Check Pub/Sub topics
+        gcloud pubsub topics list --project=${{ secrets.GCP_PROJECT_ID }} | grep em-notifications
+        
+        echo "✅ EM Deployment validated successfully"
 
