@@ -253,7 +253,7 @@ class BaseDataflowOperator:
         if errors:
             raise ValueError(f"Configuration validation failed: {'; '.join(errors)}")
 
-    def _build_parameters(self, context: Context) -> Dict[str, str]:
+    def _build_parameters(self, context: 'Context') -> Dict[str, str]:
         """
         Build Dataflow job parameters based on configuration.
 
@@ -309,7 +309,7 @@ class BaseDataflowOperator:
 
         return params
 
-    def _get_job_name(self, context: Context) -> str:
+    def _get_job_name(self, context: 'Context') -> str:
         """
         Generate unique job name.
 
@@ -346,7 +346,7 @@ class BaseDataflowOperator:
 
         return env_config
 
-    def execute(self, context: Context) -> str:
+    def execute(self, context: 'Context') -> str:
         """
         Execute the Dataflow job.
 
@@ -382,9 +382,10 @@ class BaseDataflowOperator:
         return result
 
     def _execute_classic_template(
-        self, context: Context, job_name: str, parameters: Dict[str, str]
+        self, context: 'Context', job_name: str, parameters: Dict[str, str]
     ) -> str:
         """Execute using classic Dataflow template."""
+        _, DataflowTemplatedJobStartOperator, _, _ = _get_airflow_classes()
         operator = DataflowTemplatedJobStartOperator(
             task_id=f"{self.task_id}_inner",
             project_id=self.project_id,
@@ -396,9 +397,10 @@ class BaseDataflowOperator:
         return operator.execute(context)
 
     def _execute_flex_template(
-        self, context: Context, job_name: str, parameters: Dict[str, str]
+        self, context: 'Context', job_name: str, parameters: Dict[str, str]
     ) -> str:
         """Execute using Flex Template."""
+        _, _, DataflowStartFlexTemplateOperator, _ = _get_airflow_classes()
         body = {
             "launchParameter": {
                 "jobName": job_name,
