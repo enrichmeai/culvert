@@ -91,19 +91,19 @@ cd loa && bash run_tests.sh
 
 ## Guides
 
-Implementation guides for specific topics:
+Implementation guides are in the [docs/](../docs/) folder:
 
 | Guide | Description |
 |-------|-------------|
-| [Audit Integration](guides/AUDIT_INTEGRATION_GUIDE.md) | How audit trails work |
-| [BDD Testing](guides/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
-| [Data Quality](guides/DATA_QUALITY_GUIDE.md) | Data quality checks |
-| [Docker Compose](guides/DOCKER_COMPOSE_GUIDE.md) | Local development setup |
-| [Error Handling](guides/ERROR_HANDLING_GUIDE.md) | Error classification and retry |
-| [GCP Deployment](guides/GCP_DEPLOYMENT_GUIDE.md) | Deploying to GCP |
-| [GitHub Flow](guides/GITHUB_FLOW.md) | Git workflow |
-| [Pub/Sub + KMS](guides/PUBSUB_KMS_GUIDE.md) | Secure messaging setup |
-| [Deployment Testing](guides/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing in GCP |
+| [Audit Integration](../docs/AUDIT_INTEGRATION_GUIDE.md) | How audit trails work |
+| [BDD Testing](../docs/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
+| [Data Quality](../docs/DATA_QUALITY_GUIDE.md) | Data quality checks |
+| [Docker Compose](../docs/DOCKER_COMPOSE_GUIDE.md) | Local development setup |
+| [Error Handling](../docs/ERROR_HANDLING_GUIDE.md) | Error classification and retry |
+| [GCP Deployment](../docs/GCP_DEPLOYMENT_GUIDE.md) | Deploying to GCP |
+| [GitHub Flow](../docs/GITHUB_FLOW.md) | Git workflow |
+| [Pub/Sub + KMS](../docs/PUBSUB_KMS_GUIDE.md) | Secure messaging setup |
+| [Deployment Testing](../docs/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing in GCP |
 
 ---
 
