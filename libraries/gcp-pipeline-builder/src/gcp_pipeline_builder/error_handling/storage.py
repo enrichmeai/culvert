@@ -3,8 +3,11 @@ Error storage backends for persisting error records.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict
+from typing import List, Dict, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from .models import PipelineError
 
 logger = logging.getLogger(__name__)
 

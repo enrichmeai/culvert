@@ -2,8 +2,11 @@
 Context manager for error handling in pipelines.
 """
 
-from typing import Callable
+from typing import Callable, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from .handler import ErrorHandler
 
 logger = logging.getLogger(__name__)
 

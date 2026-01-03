@@ -1,4 +1,4 @@
-.y# EM (Application A) - Terraform Outputs
+# EM (Application A) - Terraform Outputs
 
 # ============================================================================
 # GCS BUCKETS
