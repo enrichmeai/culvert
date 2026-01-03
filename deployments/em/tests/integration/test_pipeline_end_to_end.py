@@ -44,10 +44,10 @@ sys.modules['google.cloud.bigquery'] = mock_google.cloud.bigquery
 sys.modules['google.cloud.storage'] = mock_google.cloud.storage
 sys.modules['google.cloud.pubsub_v1'] = mock_google.cloud.pubsub_v1
 
-from gdw_data_core.core.error_handling import ErrorHandler
-from gdw_data_core.core.monitoring import ObservabilityManager
+from gcp_pipeline_builder.error_handling import ErrorHandler
+from gcp_pipeline_builder.monitoring import ObservabilityManager
 
-from deployments.em.tests.fixtures.test_data_factory import (
+from em.tests.fixtures.test_data_factory import (
     ApplicationFactory,
     CustomerFactory,
     BranchFactory,

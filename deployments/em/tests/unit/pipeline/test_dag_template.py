@@ -81,14 +81,14 @@ def teardown_module(module):
         else:
             sys.modules[name] = original
 
-from deployments.em.pipeline.dag_template import validate_input_files
+from em.pipeline.dag_template import validate_input_files
 
 # Use a common catch-all exception for assertions since we are mocking AirflowException
 # which might be wrapped or re-raised.
 EXPECTED_EXCEPTION = (MockAirflowException, Exception)
 
 
-@patch('gdw_data_core.orchestration.callbacks.on_validation_failure')
+@patch('gcp_pipeline_builder.orchestration.callbacks.on_validation_failure')
 def test_validate_input_files_success(mock_on_failure):
     """Test successful file validation."""
     mock_gcs = MagicMock()
@@ -104,7 +104,7 @@ def test_validate_input_files_success(mock_on_failure):
 
     # We also need to mock discover_split_files as it is a local import in dag_template.py
     # and called within validate_input_files
-    with patch('gdw_data_core.core.discover_split_files') as mock_discover:
+    with patch('gcp_pipeline_builder.discover_split_files') as mock_discover:
         mock_discover.return_value = ["group1"]
 
         result = validate_input_files(
@@ -121,7 +121,7 @@ def test_validate_input_files_success(mock_on_failure):
     mock_on_failure.assert_not_called()
 
 
-@patch('gdw_data_core.orchestration.callbacks.on_validation_failure')
+@patch('gcp_pipeline_builder.orchestration.callbacks.on_validation_failure')
 def test_validate_input_files_format_failure(mock_on_failure):
     """Test file format validation failure."""
     mock_gcs = MagicMock()
@@ -134,7 +134,7 @@ def test_validate_input_files_format_failure(mock_on_failure):
     mock_router.detect_file_type.return_value = "customers"
     mock_router.validate_file_structure.return_value = (False, ["Invalid header format"])
 
-    with patch('gdw_data_core.core.discover_split_files') as mock_discover:
+    with patch('gcp_pipeline_builder.discover_split_files') as mock_discover:
         mock_discover.return_value = ["group1"]
 
         with pytest.raises(EXPECTED_EXCEPTION) as excinfo:
@@ -150,7 +150,7 @@ def test_validate_input_files_format_failure(mock_on_failure):
     mock_on_failure.assert_called_once()
 
 
-@patch('gdw_data_core.orchestration.callbacks.on_validation_failure')
+@patch('gcp_pipeline_builder.orchestration.callbacks.on_validation_failure')
 def test_validate_input_files_validation_failure(mock_on_failure):
     """Test EMValidator returns errors."""
     mock_gcs = MagicMock()
@@ -164,7 +164,7 @@ def test_validate_input_files_validation_failure(mock_on_failure):
     mock_router.detect_file_type.return_value = "customers"
     mock_router.validate_file_structure.return_value = (True, [])
 
-    with patch('gdw_data_core.core.discover_split_files') as mock_discover:
+    with patch('gcp_pipeline_builder.discover_split_files') as mock_discover:
         mock_discover.return_value = ["group1"]
 
         with pytest.raises(EXPECTED_EXCEPTION) as excinfo:
@@ -180,7 +180,7 @@ def test_validate_input_files_validation_failure(mock_on_failure):
     mock_on_failure.assert_called_once()
 
 
-@patch('gdw_data_core.core.discover_split_files')
+@patch('gcp_pipeline_builder.discover_split_files')
 def test_validate_input_files_no_files(mock_discover):
     """Test no files found handling."""
     mock_gcs = MagicMock()

@@ -286,7 +286,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-          pip install -e ./gdw_data_core
+          pip install -e ./gcp_pipeline_builder
       
       - name: Run tests
         run: |

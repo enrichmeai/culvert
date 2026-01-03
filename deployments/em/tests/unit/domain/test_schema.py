@@ -3,7 +3,7 @@
 import pytest
 from typing import Dict, List, Any
 
-from deployments.em.domain.schema import (
+from em.domain.schema import (
     ODP_CUSTOMERS_SCHEMA,
     ODP_ACCOUNTS_SCHEMA,
     ODP_DECISION_SCHEMA,

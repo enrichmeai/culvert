@@ -13,7 +13,7 @@ class TestValidationResult(unittest.TestCase):
 
     def test_create_valid_result(self):
         """Test creating a valid result."""
-        from deployments.loa.validation import ValidationResult
+        from loa.validation import ValidationResult
 
         result = ValidationResult(
             is_valid=True,
@@ -28,7 +28,7 @@ class TestValidationResult(unittest.TestCase):
 
     def test_create_invalid_result(self):
         """Test creating an invalid result."""
-        from deployments.loa.validation import ValidationResult
+        from loa.validation import ValidationResult
 
         result = ValidationResult(
             is_valid=False,
@@ -42,7 +42,7 @@ class TestValidationResult(unittest.TestCase):
 
     def test_add_error(self):
         """Test adding error to result."""
-        from deployments.loa.validation import ValidationResult
+        from loa.validation import ValidationResult
 
         result = ValidationResult(is_valid=True, errors=[], warnings=[])
         result.add_error("Test error")
@@ -52,7 +52,7 @@ class TestValidationResult(unittest.TestCase):
 
     def test_merge_results(self):
         """Test merging two results."""
-        from deployments.loa.validation import ValidationResult
+        from loa.validation import ValidationResult
 
         result1 = ValidationResult(is_valid=True, errors=[], warnings=["warning1"], record_count=10)
         result2 = ValidationResult(is_valid=True, errors=[], warnings=["warning2"], record_count=20)
@@ -69,7 +69,7 @@ class TestLOAFileValidator(unittest.TestCase):
 
     def test_validate_valid_file(self):
         """Test validating a valid file structure."""
-        from deployments.loa.validation import LOAFileValidator
+        from loa.validation import LOAFileValidator
 
         validator = LOAFileValidator()
 
@@ -88,7 +88,7 @@ class TestLOAFileValidator(unittest.TestCase):
 
     def test_validate_empty_file(self):
         """Test validating an empty file."""
-        from deployments.loa.validation import LOAFileValidator
+        from loa.validation import LOAFileValidator
 
         validator = LOAFileValidator()
         result = validator.validate([], "applications")
@@ -98,7 +98,7 @@ class TestLOAFileValidator(unittest.TestCase):
 
     def test_system_id_check(self):
         """Test system ID validation."""
-        from deployments.loa.validation import LOAFileValidator
+        from loa.validation import LOAFileValidator
 
         validator = LOAFileValidator()
         self.assertEqual(validator.SYSTEM_ID, "LOA")
@@ -109,8 +109,8 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_valid_record(self):
         """Test validating a valid record."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -128,8 +128,8 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_missing_required_field(self):
         """Test validation catches missing required fields."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -145,8 +145,8 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_invalid_application_status(self):
         """Test validation catches invalid application_status."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -165,8 +165,8 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_loan_amount_out_of_range(self):
         """Test validation catches loan amount out of range."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -186,8 +186,8 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_interest_rate_out_of_range(self):
         """Test validation catches interest rate out of range."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -207,7 +207,7 @@ class TestLOARecordValidator(unittest.TestCase):
 
     def test_validate_records_batch(self):
         """Test batch record validation."""
-        from deployments.loa.validation import LOARecordValidator
+        from loa.validation import LOARecordValidator
 
         validator = LOARecordValidator()
 
@@ -241,7 +241,7 @@ class TestLOAValidator(unittest.TestCase):
 
     def test_import_validator(self):
         """Test importing LOAValidator."""
-        from deployments.loa.validation import LOAValidator
+        from loa.validation import LOAValidator
 
         validator = LOAValidator()
 
@@ -250,14 +250,14 @@ class TestLOAValidator(unittest.TestCase):
 
     def test_validator_has_file_validator(self):
         """Test LOAValidator has file validator."""
-        from deployments.loa.validation import LOAValidator
+        from loa.validation import LOAValidator
 
         validator = LOAValidator()
         self.assertIsNotNone(validator.file_validator)
 
     def test_validator_has_record_validator(self):
         """Test LOAValidator has record validator."""
-        from deployments.loa.validation import LOAValidator
+        from loa.validation import LOAValidator
 
         validator = LOAValidator()
         self.assertIsNotNone(validator.record_validator)

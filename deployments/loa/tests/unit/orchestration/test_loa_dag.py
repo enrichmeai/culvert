@@ -88,7 +88,7 @@ class TestErrorHandlers(unittest.TestCase):
 
     def test_import_error_handlers(self):
         """Test importing error handlers."""
-        from deployments.loa.orchestration.airflow.callbacks.error_handlers import (
+        from loa.orchestration.airflow.callbacks.error_handlers import (
             on_task_failure,
             on_dag_failure,
             on_retry,

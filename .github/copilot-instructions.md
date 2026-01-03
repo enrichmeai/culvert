@@ -8,7 +8,7 @@ This is a **legacy mainframe-to-GCP data migration framework** consisting of two
 2. **blueprint** - Implementation of two data pipelines (EM and LOA) using the library
 
 **Tech Stack:**
-- **Runtime**: Python 3.10+
+- **Runtime**: Python 3.11+
 - **Data Processing**: Apache Beam 2.49.0 (Dataflow runner)
 - **Orchestration**: Apache Airflow 2.5+
 - **Cloud Services**: GCP (BigQuery, GCS, Pub/Sub, Dataflow)
@@ -411,7 +411,7 @@ gdw_data_core/tests/
 import unittest
 from unittest.mock import MagicMock, patch
 
-from gdw_data_core.testing.comparison import (
+from gdw_data_core.testing import (
     ComparisonResult,
     ComparisonReport,
     DualRunComparison,
@@ -742,8 +742,8 @@ from gdw_data_core.pipelines.beam import BeamPipelineBuilder
 
 # Testing
 from gdw_data_core.testing import BaseGDWTest, BaseBeamTest
-from gdw_data_core.testing.comparison import DualRunComparison
-from gdw_data_core.testing.mocks import GCSClientMock, BigQueryClientMock
+from gdw_data_core.testing import DualRunComparison
+from gdw_data_core.testing import GCSClientMock, BigQueryClientMock
 
 # File Management
 from gdw_data_core.core.file_management import (
