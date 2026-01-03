@@ -135,7 +135,7 @@ class DataflowJobConfig:
         return errors
 
 
-class BaseDataflowOperator(BaseOperator):
+class BaseDataflowOperator:
     """
     Base Dataflow operator for data pipelines.
 
@@ -170,6 +170,8 @@ class BaseDataflowOperator(BaseOperator):
         additional_params: Additional Dataflow parameters
     """
 
+    _base_class = None
+
     template_fields = [
         "project_id",
         "region",
@@ -183,6 +185,14 @@ class BaseDataflowOperator(BaseOperator):
         "network",
         "subnetwork",
     ]
+
+    def __new__(cls, *args, **kwargs):
+        """Dynamically inherit from BaseOperator on first instantiation."""
+        if cls._base_class is None:
+            BaseOperator, _, _, _ = _get_airflow_classes()
+            cls._base_class = BaseOperator
+            cls.__bases__ = (cls._base_class,)
+        return super().__new__(cls)
 
     def __init__(
         self,
