@@ -32,36 +32,27 @@ Usage:
 """
 
 import logging
-from typing import Dict, Any, Optional, Literal, List, TYPE_CHECKING
+from typing import Dict, Any, Optional, Literal, List
 from dataclasses import dataclass, field
 from enum import Enum
 
-if TYPE_CHECKING:
+logger = logging.getLogger(__name__)
+
+# Try to import Airflow - if not available, create stub classes
+try:
     from airflow.models import BaseOperator
     from airflow.providers.google.cloud.operators.dataflow import (
         DataflowTemplatedJobStartOperator,
         DataflowStartFlexTemplateOperator,
     )
     from airflow.utils.context import Context
-
-logger = logging.getLogger(__name__)
-
-
-def _get_airflow_classes():
-    """Lazy import of Airflow classes."""
-    try:
-        from airflow.models import BaseOperator
-        from airflow.providers.google.cloud.operators.dataflow import (
-            DataflowTemplatedJobStartOperator,
-            DataflowStartFlexTemplateOperator,
-        )
-        from airflow.utils.context import Context
-        return BaseOperator, DataflowTemplatedJobStartOperator, DataflowStartFlexTemplateOperator, Context
-    except ImportError:
-        raise ImportError(
-            "apache-airflow-providers-google is required for Dataflow operators. "
-            "Install with: pip install apache-airflow-providers-google"
-        )
+    AIRFLOW_AVAILABLE = True
+except ImportError:
+    AIRFLOW_AVAILABLE = False
+    BaseOperator = object
+    DataflowTemplatedJobStartOperator = None
+    DataflowStartFlexTemplateOperator = None
+    Context = dict
 
 
 class SourceType(Enum):
@@ -135,7 +126,7 @@ class DataflowJobConfig:
         return errors
 
 
-class BaseDataflowOperator:
+class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
     """
     Base Dataflow operator for data pipelines.
 
@@ -170,8 +161,6 @@ class BaseDataflowOperator:
         additional_params: Additional Dataflow parameters
     """
 
-    _base_class = None
-
     template_fields = [
         "project_id",
         "region",
@@ -186,13 +175,6 @@ class BaseDataflowOperator:
         "subnetwork",
     ]
 
-    def __new__(cls, *args, **kwargs):
-        """Dynamically inherit from BaseOperator on first instantiation."""
-        if cls._base_class is None:
-            BaseOperator, _, _, _ = _get_airflow_classes()
-            cls._base_class = BaseOperator
-            cls.__bases__ = (cls._base_class,)
-        return super().__new__(cls)
 
     def __init__(
         self,
@@ -385,7 +367,6 @@ class BaseDataflowOperator:
         self, context: 'Context', job_name: str, parameters: Dict[str, str]
     ) -> str:
         """Execute using classic Dataflow template."""
-        _, DataflowTemplatedJobStartOperator, _, _ = _get_airflow_classes()
         operator = DataflowTemplatedJobStartOperator(
             task_id=f"{self.task_id}_inner",
             project_id=self.project_id,
@@ -400,7 +381,6 @@ class BaseDataflowOperator:
         self, context: 'Context', job_name: str, parameters: Dict[str, str]
     ) -> str:
         """Execute using Flex Template."""
-        _, _, DataflowStartFlexTemplateOperator, _ = _get_airflow_classes()
         body = {
             "launchParameter": {
                 "jobName": job_name,
