@@ -1652,14 +1652,14 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 # LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
 # PIPELINE provides the configuration (entities, counts, triggers)
 
-# Example: Blueprint pipeline configuration (blueprint/components/em/config.py)
+# Example: Blueprint pipeline configuration (deployments/em/src/em/config.py)
 EM_ENTITY_DEPENDENCIES = {
     "entities": ["customers", "accounts", "decision"],
     "required_count": 3,
     "trigger_next_stage": "transformation"
 }
 
-# Example: Blueprint pipeline configuration (blueprint/components/loa/config.py)
+# Example: Blueprint pipeline configuration (deployments/loa/src/loa/config.py)
 LOA_ENTITY_DEPENDENCIES = {
     "entities": ["applications"],
     "required_count": 1,  # Single entity - immediate trigger

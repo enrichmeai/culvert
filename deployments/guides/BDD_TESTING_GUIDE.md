@@ -13,7 +13,7 @@ We follow a tiered approach to BDD to maximize reusability:
 ## 🚀 How to Implement a New BDD Test
 
 ### 1. Create a Feature File
-Create a `.feature` file in `blueprint/components/tests/bdd/features/`.
+Create a `.feature` file in `deployments/src/tests/bdd/features/`.
 
 Example `my_feature.feature`:
 ```gherkin
@@ -31,7 +31,7 @@ Before writing new Python code, check if the steps are already available in `gcp
 - `dq_steps`: Data quality business rules
 
 ### 3. Create the Step Definition File
-Create a `.py` file in `blueprint/components/tests/bdd/step_definitions/`. Use the `GDWScenarioTest` helper.
+Create a `.py` file in `deployments/src/tests/bdd/step_definitions/`. Use the `GDWScenarioTest` helper.
 
 Example `test_my_feature.py`:
 
@@ -71,8 +71,8 @@ Importing `pipeline_steps` gives you:
 
 ```bash
 # Run all BDD tests
-pytest blueprint/components/tests/bdd/step_definitions/
+pytest deployments/src/tests/bdd/step_definitions/
 
 # Run a specific test
-pytest blueprint/components/tests/bdd/step_definitions/test_data_quality.py
+pytest deployments/src/tests/bdd/step_definitions/test_data_quality.py
 ```

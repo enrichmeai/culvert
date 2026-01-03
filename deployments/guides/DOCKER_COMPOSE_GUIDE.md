@@ -108,10 +108,10 @@ loa-jupyter                 Up (healthy)        0.0.0.0:8888->8888/tcp
 docker-compose run test-runner
 
 # Run specific test
-docker-compose run test-runner pytest components/tests/unit/test_validation.py -v
+docker-compose run test-runner pytest src/tests/unit/test_validation.py -v
 
 # Run with coverage
-docker-compose run test-runner pytest components/tests/ --cov=components.loa_common --cov-report=html
+docker-compose run test-runner pytest src/tests/ --cov=components.loa_common --cov-report=html
 ```
 
 ### 5. Stop Services
@@ -224,16 +224,16 @@ Runs: pytest
 docker-compose run test-runner
 
 # Run specific tests
-docker-compose run test-runner pytest components/tests/unit/ -v
+docker-compose run test-runner pytest src/tests/unit/ -v
 
 # Run with coverage report
 docker-compose run test-runner pytest --cov=components.loa_common --cov-report=html
 
 # Run specific test file
-docker-compose run test-runner pytest components/tests/unit/test_validation.py -v
+docker-compose run test-runner pytest src/tests/unit/test_validation.py -v
 
 # Run with verbose output
-docker-compose run test-runner pytest components/tests/ -vv -s
+docker-compose run test-runner pytest src/tests/ -vv -s
 ```
 
 ### GCP Emulators
@@ -326,12 +326,12 @@ docker-compose run test-runner
 
 **Run unit tests only:**
 ```bash
-docker-compose run test-runner pytest components/tests/unit/ -v
+docker-compose run test-runner pytest src/tests/unit/ -v
 ```
 
 **Run integration tests:**
 ```bash
-docker-compose run test-runner pytest components/tests/integration/ -v
+docker-compose run test-runner pytest src/tests/integration/ -v
 ```
 
 **Run with coverage:**
@@ -341,7 +341,7 @@ docker-compose run test-runner pytest --cov=components.loa_common --cov-report=h
 
 **View coverage report:**
 ```bash
-open blueprint/htmlcov/index.html  # macOS
+open deployments/htmlcov/index.html  # macOS
 ```
 
 ### Airflow Operations
@@ -498,10 +498,10 @@ docker-compose up -d airflow-webserver
 docker-compose build test-runner
 
 # Run tests with verbose output
-docker-compose run test-runner pytest components/tests/ -v -s
+docker-compose run test-runner pytest src/tests/ -v -s
 
 # Check volumes are mounted
-docker exec loa-test-runner ls /app/blueprint/
+docker exec loa-test-runner ls /app/deployments/
 ```
 
 ### Issue 5: Out of Disk Space
@@ -555,7 +555,7 @@ docker-compose logs -f airflow-db | head -50
 ```bash
 # Edit docker-compose.override.yml
 volumes:
-  - ./components/orchestration/airflow/dags:/home/appuser/airflow/dags
+  - ./src/orchestration/airflow/dags:/home/appuser/airflow/dags
 ```
 
 **Reload DAGs:**
