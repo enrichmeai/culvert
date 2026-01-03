@@ -5,13 +5,13 @@ from datetime import date
 from typing import Dict, List, Any
 from unittest.mock import patch, MagicMock
 
-from deployments.em.validation import (
+from em.validation import (
     ValidationResult,
     EMFileValidator,
     EMRecordValidator,
     EMValidator,
 )
-from deployments.em.schema import EM_SCHEMAS
+from em.schema import EM_SCHEMAS
 
 
 class TestValidationResult:
@@ -46,7 +46,7 @@ class TestValidationResult:
 class TestEMFileValidator:
     """Tests for deployments.em.validation.file_validator.EMFileValidator."""
 
-    @patch('deployments.em.validation.file_validator.validate_checksum')
+    @patch('em.validation.file_validator.validate_checksum')
     def test_validate_customers_file(self, mock_checksum, em_customers_file_lines):
         """Should validate customers file structure (mocking checksum)."""
         mock_checksum.return_value = (True, "OK")
@@ -61,7 +61,7 @@ class TestEMFileValidator:
         assert result.record_count == 3
         assert len(result.errors) == 0
 
-    @patch('deployments.em.validation.file_validator.validate_checksum')
+    @patch('em.validation.file_validator.validate_checksum')
     def test_validate_accounts_file(self, mock_checksum, em_accounts_file_lines):
         """Should validate accounts file structure (mocking checksum)."""
         mock_checksum.return_value = (True, "OK")
@@ -75,7 +75,7 @@ class TestEMFileValidator:
         assert result.is_valid
         assert result.record_count == 3
 
-    @patch('deployments.em.validation.file_validator.validate_checksum')
+    @patch('em.validation.file_validator.validate_checksum')
     def test_validate_decision_file(self, mock_checksum, em_decision_file_lines):
         """Should validate decision file structure (mocking checksum)."""
         mock_checksum.return_value = (True, "OK")
@@ -226,7 +226,7 @@ class TestEMRecordValidator:
 class TestEMValidator:
     """Tests for deployments.em.validation.validator.EMValidator."""
 
-    @patch('deployments.em.validation.file_validator.validate_checksum')
+    @patch('em.validation.file_validator.validate_checksum')
     def test_validate_file_and_records(self, mock_checksum, em_customers_file_lines):
         """Should validate file structure (mocking checksum)."""
         mock_checksum.return_value = (True, "OK")

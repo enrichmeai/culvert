@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from typing import Dict, List, Any
 
-from gdw_data_core.core.file_management import (
+from gcp_pipeline_builder.file_management import (
     FileValidator,
     FileArchiver,
     FileMetadataExtractor,
@@ -24,7 +24,7 @@ from gdw_data_core.core.file_management import (
 class TestFileValidator:
     """Test suite for FileValidator."""
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_file_exists_success(self, mock_client):
         """Test that file existence check returns True for existing file."""
         validator = FileValidator("test-bucket")
@@ -36,7 +36,7 @@ class TestFileValidator:
         assert result is True
         validator.storage_client.bucket.assert_called_with("test-bucket")
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_file_exists_not_found(self, mock_client):
         """Test that file existence check returns False for missing file."""
         validator = FileValidator("test-bucket")
@@ -47,7 +47,7 @@ class TestFileValidator:
 
         assert result is False
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_file_not_empty_success(self, mock_client):
         """Test that file size check passes for non-empty file."""
         validator = FileValidator("test-bucket")
@@ -58,7 +58,7 @@ class TestFileValidator:
 
         assert result is True
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_file_not_empty_fails(self, mock_client):
         """Test that file size check fails for empty file."""
         validator = FileValidator("test-bucket")
@@ -69,7 +69,7 @@ class TestFileValidator:
 
         assert result is False
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_csv_format_success(self, mock_client):
         """Test CSV format validation with correct headers."""
         validator = FileValidator("test-bucket")
@@ -85,7 +85,7 @@ class TestFileValidator:
         assert is_valid is True
         assert len(errors) == 0
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_csv_format_missing_columns(self, mock_client):
         """Test CSV validation fails with missing columns."""
         validator = FileValidator("test-bucket")
@@ -102,7 +102,7 @@ class TestFileValidator:
         assert len(errors) > 0
         assert "loan_amount" in str(errors)
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_encoding_utf8(self, mock_client):
         """Test UTF-8 encoding validation."""
         validator = FileValidator("test-bucket")
@@ -115,7 +115,7 @@ class TestFileValidator:
 
         assert result is True
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_encoding_invalid(self, mock_client):
         """Test encoding validation fails for invalid encoding."""
         validator = FileValidator("test-bucket")
@@ -128,7 +128,7 @@ class TestFileValidator:
 
         assert result is False
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_multiple_checks_all_pass(self, mock_client):
         """Test multiple validation checks all passing."""
         validator = FileValidator("test-bucket")
@@ -142,7 +142,7 @@ class TestFileValidator:
         assert exists is True
         assert not_empty is True
 
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
     def test_validate_file_with_special_characters(self, mock_client):
         """Test validation of files with special characters in name."""
         validator = FileValidator("test-bucket")
@@ -157,7 +157,7 @@ class TestFileValidator:
 class TestFileArchiver:
     """Test suite for FileArchiver."""
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_archive_file_success(self, mock_client):
         """Test successful file archival."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -174,7 +174,7 @@ class TestFileArchiver:
         assert "archive" in archive_path
         assert "test.csv" in archive_path
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_archive_file_with_custom_path(self, mock_client):
         """Test archival with custom archive path."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -189,7 +189,7 @@ class TestFileArchiver:
         archive_path = result.archive_path if hasattr(result, 'archive_path') else result
         assert custom_path == archive_path
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_archive_batch_success(self, mock_client):
         """Test archiving multiple files."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -204,7 +204,7 @@ class TestFileArchiver:
         assert isinstance(result, dict)
         assert len(result) == 3
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_archive_path_formatting(self, mock_client):
         """Test that archive path is properly formatted."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -220,7 +220,7 @@ class TestFileArchiver:
         assert "test.csv" in archive_path
         assert "archive/" in archive_path
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_restore_from_archive_success(self, mock_client):
         """Test restoring file from archive."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -236,7 +236,7 @@ class TestFileArchiver:
 
         assert result is True
 
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
     def test_list_archived_files(self, mock_client):
         """Test listing archived files."""
         archiver = FileArchiver("source-bucket", "archive-bucket")
@@ -258,7 +258,7 @@ class TestFileArchiver:
 class TestFileMetadataExtractor:
     """Test suite for FileMetadataExtractor."""
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_file_size(self, mock_client):
         """Test file size extraction."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -271,7 +271,7 @@ class TestFileMetadataExtractor:
 
         assert size == 1024 * 1024
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_file_created_time(self, mock_client):
         """Test file creation time extraction."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -285,7 +285,7 @@ class TestFileMetadataExtractor:
 
         assert created_time == test_time
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_file_modified_time(self, mock_client):
         """Test file modified time extraction."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -299,7 +299,7 @@ class TestFileMetadataExtractor:
 
         assert modified_time == test_time
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_csv_row_count(self, mock_client):
         """Test CSV row count extraction."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -313,7 +313,7 @@ class TestFileMetadataExtractor:
 
         assert row_count == 2  # 2 data rows (excluding header)
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_csv_columns(self, mock_client):
         """Test CSV column extraction."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -330,7 +330,7 @@ class TestFileMetadataExtractor:
         assert "loan_amount" in columns
         assert len(columns) == 3
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_file_checksum(self, mock_client):
         """Test file checksum calculation."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -343,7 +343,7 @@ class TestFileMetadataExtractor:
 
         assert checksum == "abc123hash"
 
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_extract_all_metadata(self, mock_client):
         """Test extracting all metadata at once."""
         extractor = FileMetadataExtractor("test-bucket")
@@ -367,10 +367,10 @@ class TestFileMetadataExtractor:
 class TestFileLifecycleManager:
     """Test suite for FileLifecycleManager."""
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_validate_file_success(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test successful file validation."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -381,10 +381,10 @@ class TestFileLifecycleManager:
         assert is_valid is True
         assert len(errors) == 0
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_validate_file_failure(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test file validation failure."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -394,10 +394,10 @@ class TestFileLifecycleManager:
 
         assert is_valid is False
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_complete_lifecycle_success(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test successful complete lifecycle."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -411,10 +411,10 @@ class TestFileLifecycleManager:
 
         assert result is not None
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_complete_lifecycle_validation_failure(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test lifecycle stops at validation failure."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -429,10 +429,10 @@ class TestFileLifecycleManager:
         # Should not proceed past validation
         manager.archiver.archive_file.assert_not_called()
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_handle_error_file(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test error file handling."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -442,10 +442,10 @@ class TestFileLifecycleManager:
 
         assert result is not None
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_get_file_status(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test getting file status."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -460,10 +460,10 @@ class TestFileLifecycleManager:
         assert status is not None
         assert isinstance(status, dict)
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_multiple_files_lifecycle(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test lifecycle for multiple files."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -483,10 +483,10 @@ class TestFileLifecycleManager:
 class TestFileIntegration:
     """Integration tests for file operations."""
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_full_workflow_csv_file(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test full workflow with CSV file."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")
@@ -513,10 +513,10 @@ class TestFileIntegration:
         assert size == 10000
         assert row_count == 500
 
-    @patch('gdw_data_core.core.file_management.lifecycle.storage.Client')
-    @patch('gdw_data_core.core.file_management.validator.storage.Client')
-    @patch('gdw_data_core.core.file_management.archiver.storage.Client')
-    @patch('gdw_data_core.core.file_management.metadata.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.lifecycle.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.validator.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.archiver.storage.Client')
+    @patch('gcp_pipeline_builder.file_management.metadata.storage.Client')
     def test_error_handling_workflow(self, mock_metadata, mock_archiver, mock_validator, mock_lifecycle):
         """Test error handling in workflow."""
         manager = FileLifecycleManager("source-bucket", "archive-bucket")

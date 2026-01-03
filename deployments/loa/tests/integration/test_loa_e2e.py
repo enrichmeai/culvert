@@ -28,7 +28,7 @@ class TestLOAE2EFlow(unittest.TestCase):
     @patch('deployments.loa.validation.LOAValidator')
     def test_file_validation_flow(self, mock_validator_class):
         """Test file validation in E2E flow."""
-        from deployments.loa.validation import ValidationResult
+        from loa.validation import ValidationResult
 
         mock_validator = MagicMock()
         mock_validator.validate_file.return_value = ValidationResult(
@@ -68,7 +68,7 @@ class TestLOAE2EFlow(unittest.TestCase):
 
     def test_no_dependency_wait(self):
         """Test LOA doesn't wait for dependencies (single entity)."""
-        from deployments.loa.config import REQUIRED_ENTITIES
+        from loa.config import REQUIRED_ENTITIES
 
         # LOA has single entity - no dependency wait needed
         self.assertEqual(len(REQUIRED_ENTITIES), 1)
@@ -82,7 +82,7 @@ class TestLOADataFlow(unittest.TestCase):
 
     def test_odp_to_fdp_mapping(self):
         """Test ODP fields map correctly to FDP tables."""
-        from deployments.loa.domain.schema import (
+        from loa.domain.schema import (
             ODP_APPLICATIONS_SCHEMA,
             FDP_EVENT_TRANSACTION_EXCESS_SCHEMA,
             FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA,
@@ -102,7 +102,7 @@ class TestLOADataFlow(unittest.TestCase):
 
     def test_audit_columns_preserved(self):
         """Test audit columns flow through correctly."""
-        from deployments.loa.domain.schema import (
+        from loa.domain.schema import (
             ODP_APPLICATIONS_SCHEMA,
             FDP_EVENT_TRANSACTION_EXCESS_SCHEMA,
         )
@@ -124,8 +124,8 @@ class TestLOAComplianceChecks(unittest.TestCase):
 
     def test_required_fields_validated(self):
         """Test required fields are validated."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 
@@ -141,8 +141,8 @@ class TestLOAComplianceChecks(unittest.TestCase):
 
     def test_allowed_values_validated(self):
         """Test allowed values are validated."""
-        from deployments.loa.validation import LOARecordValidator
-        from deployments.loa.schema import LOAApplicationsSchema
+        from loa.validation import LOARecordValidator
+        from loa.schema import LOAApplicationsSchema
 
         validator = LOARecordValidator()
 

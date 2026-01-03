@@ -12,14 +12,14 @@ class TestODPSchema(unittest.TestCase):
 
     def test_import_odp_schema(self):
         """Test importing ODP schema."""
-        from deployments.loa.domain.schema import ODP_APPLICATIONS_SCHEMA
+        from loa.domain.schema import ODP_APPLICATIONS_SCHEMA
 
         self.assertIsInstance(ODP_APPLICATIONS_SCHEMA, list)
         self.assertGreater(len(ODP_APPLICATIONS_SCHEMA), 0)
 
     def test_required_fields(self):
         """Test required fields in ODP schema."""
-        from deployments.loa.domain.schema import ODP_APPLICATIONS_SCHEMA
+        from loa.domain.schema import ODP_APPLICATIONS_SCHEMA
 
         field_names = [f["name"] for f in ODP_APPLICATIONS_SCHEMA]
 
@@ -34,7 +34,7 @@ class TestODPSchema(unittest.TestCase):
 
     def test_application_id_is_required(self):
         """Test application_id is required."""
-        from deployments.loa.domain.schema import ODP_APPLICATIONS_SCHEMA
+        from loa.domain.schema import ODP_APPLICATIONS_SCHEMA
 
         app_id_field = next(
             f for f in ODP_APPLICATIONS_SCHEMA if f["name"] == "application_id"
@@ -43,7 +43,7 @@ class TestODPSchema(unittest.TestCase):
 
     def test_field_types(self):
         """Test field types are valid BigQuery types."""
-        from deployments.loa.domain.schema import ODP_APPLICATIONS_SCHEMA
+        from loa.domain.schema import ODP_APPLICATIONS_SCHEMA
 
         valid_types = ["STRING", "INTEGER", "NUMERIC", "DATE", "TIMESTAMP", "BOOLEAN", "JSON"]
 
@@ -60,7 +60,7 @@ class TestFDPSchemas(unittest.TestCase):
 
     def test_import_fdp_schemas(self):
         """Test importing FDP schemas."""
-        from deployments.loa.domain.schema import (
+        from loa.domain.schema import (
             FDP_EVENT_TRANSACTION_EXCESS_SCHEMA,
             FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA,
         )
@@ -70,7 +70,7 @@ class TestFDPSchemas(unittest.TestCase):
 
     def test_event_transaction_excess_fields(self):
         """Test event_transaction_excess FDP schema fields."""
-        from deployments.loa.domain.schema import FDP_EVENT_TRANSACTION_EXCESS_SCHEMA
+        from loa.domain.schema import FDP_EVENT_TRANSACTION_EXCESS_SCHEMA
 
         field_names = [f["name"] for f in FDP_EVENT_TRANSACTION_EXCESS_SCHEMA]
 
@@ -96,7 +96,7 @@ class TestFDPSchemas(unittest.TestCase):
 
     def test_portfolio_account_excess_fields(self):
         """Test portfolio_account_excess FDP schema fields."""
-        from deployments.loa.domain.schema import FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA
+        from loa.domain.schema import FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA
 
         field_names = [f["name"] for f in FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA]
 
@@ -121,7 +121,7 @@ class TestFDPSchemas(unittest.TestCase):
 
     def test_fdp_keys_are_required(self):
         """Test FDP composite keys are required."""
-        from deployments.loa.domain.schema import (
+        from loa.domain.schema import (
             FDP_EVENT_TRANSACTION_EXCESS_SCHEMA,
             FDP_PORTFOLIO_ACCOUNT_EXCESS_SCHEMA,
         )
@@ -142,7 +142,7 @@ class TestSchemaRegistry(unittest.TestCase):
 
     def test_get_schema(self):
         """Test get_schema function."""
-        from deployments.loa.domain.schema import get_schema, LOA_SCHEMAS
+        from loa.domain.schema import get_schema, LOA_SCHEMAS
 
         # Valid entity
         schema = get_schema("applications")
@@ -155,14 +155,14 @@ class TestSchemaRegistry(unittest.TestCase):
 
     def test_get_schema_unknown_entity(self):
         """Test get_schema raises for unknown entity."""
-        from deployments.loa.domain.schema import get_schema
+        from loa.domain.schema import get_schema
 
         with self.assertRaises(ValueError):
             get_schema("unknown_entity")
 
     def test_get_field_names(self):
         """Test get_field_names function."""
-        from deployments.loa.domain.schema import get_field_names
+        from loa.domain.schema import get_field_names
 
         # Without audit columns
         fields = get_field_names("applications", include_audit=False)

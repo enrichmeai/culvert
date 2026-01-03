@@ -26,7 +26,7 @@ class TestEMIntegrationFlow:
 
     def test_entity_dependency_wait(self):
         """Test EM waits for all 3 entities before FDP."""
-        from deployments.em.config import REQUIRED_ENTITIES
+        from em.config import REQUIRED_ENTITIES
 
         # EM has 3 required entities
         assert len(REQUIRED_ENTITIES) == 3
@@ -56,7 +56,7 @@ class TestEMDataFlow:
 
     def test_odp_to_fdp_mapping(self):
         """Test ODP fields map correctly to FDP table."""
-        from deployments.em.domain.schema import (
+        from em.domain.schema import (
             EM_SCHEMAS,
         )
 
@@ -68,7 +68,7 @@ class TestEMDataFlow:
 
     def test_audit_columns_preserved(self):
         """Test audit columns flow through correctly."""
-        from deployments.em.domain.schema import get_schema
+        from em.domain.schema import get_schema
 
         # All tables should have audit columns
         for entity in ["customers", "accounts", "decision", "em_attributes"]:
@@ -83,7 +83,7 @@ class TestEMVsLOA:
 
     def test_em_vs_loa_entity_count(self):
         """Test EM has 3 entities vs LOA's 1."""
-        from deployments.em.config import REQUIRED_ENTITIES as EM_ENTITIES
+        from em.config import REQUIRED_ENTITIES as EM_ENTITIES
         from deployments.loa.config import REQUIRED_ENTITIES as LOA_ENTITIES
 
         assert len(EM_ENTITIES) == 3

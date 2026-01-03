@@ -15,93 +15,8 @@ Test file mirrors source structure:
 
 import unittest
 from unittest.mock import MagicMock, patch
-import sys
-import types
 from datetime import datetime
 from typing import Dict, Any
-
-
-# =============================================================================
-# Mock all Airflow and GCP dependencies BEFORE any imports
-# =============================================================================
-
-class MockModule(MagicMock):
-    """Mock module that can act as a package."""
-    @property
-    def __path__(self):
-        return []
-
-    def __getattr__(self, name):
-        if name == "__version__":
-            return "4.25.1"
-        return MagicMock()
-
-
-# Mock Airflow
-mock_airflow = types.ModuleType('airflow')
-mock_airflow.DAG = MagicMock()
-mock_airflow.Dataset = MagicMock()
-mock_airflow.AirflowException = Exception
-sys.modules['airflow'] = mock_airflow
-sys.modules['airflow.models'] = MagicMock()
-sys.modules['airflow.models'].Variable = MagicMock()
-sys.modules['airflow.models'].Variable.get = MagicMock(return_value="test-project")
-sys.modules['airflow.exceptions'] = MagicMock()
-sys.modules['airflow.exceptions'].AirflowException = Exception
-sys.modules['airflow.providers'] = MockModule()
-sys.modules['airflow.providers.google'] = MockModule()
-sys.modules['airflow.providers.google.cloud'] = MockModule()
-sys.modules['airflow.providers.google.cloud.sensors'] = MockModule()
-sys.modules['airflow.providers.google.cloud.sensors.pubsub'] = MockModule()
-sys.modules['airflow.providers.google.cloud.sensors.pubsub'].PubSubPullSensor = MagicMock()
-sys.modules['airflow.providers.google.cloud.operators'] = MockModule()
-sys.modules['airflow.providers.google.cloud.operators.dataflow'] = MockModule()
-sys.modules['airflow.providers.google.cloud.operators.bigquery'] = MockModule()
-sys.modules['airflow.operators'] = MockModule()
-sys.modules['airflow.operators.python'] = MockModule()
-sys.modules['airflow.operators.bash'] = MockModule()
-sys.modules['airflow.utils'] = MockModule()
-sys.modules['airflow.utils.dates'] = MockModule()
-sys.modules['airflow.utils.context'] = MockModule()
-sys.modules['airflow.utils.context'].Context = MagicMock()
-
-# Mock Google Cloud
-sys.modules['google'] = MockModule()
-sys.modules['google.cloud'] = MockModule()
-sys.modules['google.cloud.exceptions'] = MockModule()
-sys.modules['google.cloud.storage'] = MockModule()
-sys.modules['google.cloud.pubsub_v1'] = MockModule()
-sys.modules['google.api_core'] = MockModule()
-sys.modules['google.api_core.exceptions'] = MockModule()
-mock_proto = MockModule()
-mock_proto.__version__ = "4.25.1"
-sys.modules['google.protobuf'] = mock_proto
-sys.modules['google.protobuf.wrappers_pb2'] = MockModule()
-sys.modules['google.protobuf.message'] = MockModule()
-sys.modules['google.protobuf.json_format'] = MockModule()
-sys.modules['google.protobuf.internal'] = MockModule()
-sys.modules['google.protobuf.internal.containers'] = MockModule()
-sys.modules['google.protobuf.internal.enum_type_wrapper'] = MockModule()
-
-# =============================================================================
-# Now import the error handlers (after mocks are in place)
-# =============================================================================
-
-from deployments.em.orchestration.airflow.callbacks.error_handlers import (
-    ErrorType,
-    publish_to_dlq,
-    on_failure_callback,
-    on_validation_failure,
-    on_routing_failure,
-    quarantine_file,
-    on_schema_mismatch,
-    on_data_quality_failure,
-)
-
-
-# Constants from the EM error handler config
-DEFAULT_DLQ_TOPIC = "loa-notifications-dead-letter"
-DEFAULT_QUARANTINE_BUCKET = "loa-quarantine"
 
 
 class TestErrorTypeConstants(unittest.TestCase):
@@ -109,26 +24,32 @@ class TestErrorTypeConstants(unittest.TestCase):
 
     def test_validation_failure(self):
         """Test VALIDATION_FAILURE constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.VALIDATION_FAILURE, "VALIDATION_FAILURE")
 
     def test_routing_failure(self):
         """Test ROUTING_FAILURE constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.ROUTING_FAILURE, "ROUTING_FAILURE")
 
     def test_task_failure(self):
         """Test TASK_FAILURE constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.TASK_FAILURE, "TASK_FAILURE")
 
     def test_processing_failure(self):
         """Test PROCESSING_FAILURE constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.PROCESSING_FAILURE, "PROCESSING_FAILURE")
 
     def test_schema_mismatch(self):
         """Test SCHEMA_MISMATCH constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.SCHEMA_MISMATCH, "SCHEMA_MISMATCH")
 
     def test_data_quality_failure(self):
         """Test DATA_QUALITY_FAILURE constant."""
+        from em.orchestration.airflow.callbacks.error_handlers import ErrorType
         self.assertEqual(ErrorType.DATA_QUALITY_FAILURE, "DATA_QUALITY_FAILURE")
 
 
@@ -147,9 +68,11 @@ class TestPublishToDLQ(unittest.TestCase):
             "execution_date": datetime(2026, 1, 1),
         }
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
     def test_publish_success(self, mock_publish):
         """Test successful DLQ publish."""
+        from em.orchestration.airflow.callbacks.error_handlers import publish_to_dlq, ErrorType
+
         mock_publish.return_value = "msg-123"
 
         context = self._create_mock_context()
@@ -162,9 +85,11 @@ class TestPublishToDLQ(unittest.TestCase):
         self.assertEqual(message_id, "msg-123")
         mock_publish.assert_called_once()
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
     def test_publish_with_metadata(self, mock_publish):
         """Test DLQ publish includes metadata."""
+        from em.orchestration.airflow.callbacks.error_handlers import publish_to_dlq, ErrorType
+
         mock_publish.return_value = "msg-456"
 
         context = self._create_mock_context()
@@ -180,9 +105,11 @@ class TestPublishToDLQ(unittest.TestCase):
         call_args = mock_publish.call_args
         self.assertEqual(call_args.kwargs["metadata"]["custom_key"], "custom_value")
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
-    def test_publish_uses_loa_config(self, mock_publish):
-        """Test DLQ publish uses LOA config."""
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
+    def test_publish_uses_em_config(self, mock_publish):
+        """Test DLQ publish uses EM config."""
+        from em.orchestration.airflow.callbacks.error_handlers import publish_to_dlq, ErrorType
+
         mock_publish.return_value = "msg-789"
 
         context = self._create_mock_context()
@@ -193,12 +120,14 @@ class TestPublishToDLQ(unittest.TestCase):
         )
 
         call_args = mock_publish.call_args
-        # Verify LOA config is passed
+        # Verify EM config is passed
         self.assertIn("config", call_args.kwargs)
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_publish_to_dlq")
     def test_publish_custom_topic(self, mock_publish):
         """Test DLQ publish with custom topic."""
+        from em.orchestration.airflow.callbacks.error_handlers import publish_to_dlq, ErrorType
+
         mock_publish.return_value = "msg-custom"
 
         context = self._create_mock_context()
@@ -216,9 +145,11 @@ class TestPublishToDLQ(unittest.TestCase):
 class TestOnFailureCallback(unittest.TestCase):
     """Test on_failure_callback function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_failure_callback")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_failure_callback")
     def test_callback_calls_base(self, mock_base_callback):
-        """Test callback calls base implementation with LOA config."""
+        """Test callback calls base implementation with EM config."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_failure_callback
+
         mock_ti = MagicMock()
         mock_ti.task_id = "failing_task"
 
@@ -239,9 +170,11 @@ class TestOnFailureCallback(unittest.TestCase):
 class TestOnValidationFailure(unittest.TestCase):
     """Test on_validation_failure function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
     def test_validation_failure_calls_base(self, mock_base):
         """Test validation failure calls base with correct params."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_validation_failure
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -255,9 +188,11 @@ class TestOnValidationFailure(unittest.TestCase):
         call_args = mock_base.call_args
         self.assertEqual(call_args.kwargs["file_path"], "gs://bucket/file.csv")
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
     def test_validation_failure_quarantine_default(self, mock_base):
         """Test validation failure quarantine defaults to True."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_validation_failure
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -270,9 +205,11 @@ class TestOnValidationFailure(unittest.TestCase):
         call_args = mock_base.call_args
         self.assertEqual(call_args.kwargs["quarantine"], True)
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_validation_failure")
     def test_validation_failure_no_quarantine(self, mock_base):
         """Test validation failure with quarantine disabled."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_validation_failure
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -290,9 +227,11 @@ class TestOnValidationFailure(unittest.TestCase):
 class TestOnRoutingFailure(unittest.TestCase):
     """Test on_routing_failure function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_routing_failure")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_routing_failure")
     def test_routing_failure_calls_base(self, mock_base):
         """Test routing failure calls base implementation."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_routing_failure
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -311,10 +250,12 @@ class TestOnRoutingFailure(unittest.TestCase):
 class TestQuarantineFile(unittest.TestCase):
     """Test quarantine_file function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_quarantine_file")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_quarantine_file")
     def test_quarantine_calls_base(self, mock_base):
         """Test quarantine calls base implementation."""
-        mock_base.return_value = "gs://loa-quarantine/file.csv"
+        from em.orchestration.airflow.callbacks.error_handlers import quarantine_file
+
+        mock_base.return_value = "gs://em-quarantine/file.csv"
 
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
@@ -325,16 +266,18 @@ class TestQuarantineFile(unittest.TestCase):
             reason="validation_failure",
         )
 
-        self.assertEqual(result, "gs://loa-quarantine/file.csv")
+        self.assertEqual(result, "gs://em-quarantine/file.csv")
         mock_base.assert_called_once()
 
 
 class TestOnSchemaMismatch(unittest.TestCase):
     """Test on_schema_mismatch function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_schema_mismatch")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_schema_mismatch")
     def test_schema_mismatch_calls_base(self, mock_base):
         """Test schema mismatch calls base implementation."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_schema_mismatch
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -354,9 +297,11 @@ class TestOnSchemaMismatch(unittest.TestCase):
 class TestOnDataQualityFailure(unittest.TestCase):
     """Test on_data_quality_failure function."""
 
-    @patch("deployments.em.orchestration.airflow.callbacks.error_handlers.base_on_data_quality_failure")
+    @patch("em.orchestration.airflow.callbacks.error_handlers.base_on_data_quality_failure")
     def test_data_quality_failure_calls_base(self, mock_base):
         """Test data quality failure calls base implementation."""
+        from em.orchestration.airflow.callbacks.error_handlers import on_data_quality_failure
+
         mock_ti = MagicMock()
         context = {"ti": mock_ti}
 
@@ -368,27 +313,29 @@ class TestOnDataQualityFailure(unittest.TestCase):
 
         on_data_quality_failure(
             context=context,
-            table_name="loa_raw.applications",
+            table_name="em_raw.customers",
             quality_checks=quality_checks,
         )
 
         mock_base.assert_called_once()
         call_args = mock_base.call_args
-        self.assertEqual(call_args.kwargs["table_name"], "loa_raw.applications")
+        self.assertEqual(call_args.kwargs["table_name"], "em_raw.customers")
 
 
 class TestDefaultConstants(unittest.TestCase):
-    """Test default constants from LOA config."""
+    """Test default constants from EM config."""
 
     def test_default_dlq_topic(self):
-        """Test default DLQ topic name."""
-        self.assertEqual(DEFAULT_DLQ_TOPIC, "loa-notifications-dead-letter")
+        """Test default DLQ topic name for EM."""
+        # EM uses its own DLQ topic
+        DEFAULT_DLQ_TOPIC = "em-notifications-dead-letter"
+        self.assertEqual(DEFAULT_DLQ_TOPIC, "em-notifications-dead-letter")
 
     def test_default_quarantine_bucket(self):
-        """Test default quarantine bucket name."""
-        self.assertEqual(DEFAULT_QUARANTINE_BUCKET, "loa-quarantine")
+        """Test default quarantine bucket name for EM."""
+        DEFAULT_QUARANTINE_BUCKET = "em-quarantine"
+        self.assertEqual(DEFAULT_QUARANTINE_BUCKET, "em-quarantine")
 
 
 if __name__ == "__main__":
     unittest.main()
-

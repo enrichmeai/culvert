@@ -8,13 +8,9 @@ Tests: DataQualityChecker, QualityRule, AnomalyDetector, QualityReport
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from datetime import datetime, timedelta
-from typing import Dict, List, Any
-from statistics import mean, stdev
 
-from gdw_data_core.testing import BaseGDWTest
-from gdw_data_core.core.data_quality import (
+from gcp_pipeline_tester import BaseGDWTest
+from gcp_pipeline_builder.data_quality import (
     DataQualityChecker,
     AnomalyDetector
 )
@@ -31,7 +27,7 @@ class TestDataQualityChecker(BaseGDWTest):
     def test_check_footer_count_match(self):
         """Test footer count check when counts match."""
         result = self.checker.check_footer_count(processed_count=100, footer_count=100)
-        
+
         self.assertTrue(result.passed)
         self.assertEqual(result.score, 1.0)
         self.assertEqual(result.failed_records, 0)
@@ -40,7 +36,7 @@ class TestDataQualityChecker(BaseGDWTest):
     def test_check_footer_count_mismatch(self):
         """Test footer count check when counts mismatch."""
         result = self.checker.check_footer_count(processed_count=100, footer_count=95)
-        
+
         self.assertFalse(result.passed)
         self.assertEqual(result.score, 0.0)
         self.assertEqual(result.failed_records, 1)

@@ -1667,7 +1667,7 @@ LOA_ENTITY_DEPENDENCIES = {
 }
 
 # Usage in DAG (pipeline code, not library)
-from gdw_data_core.orchestration import EntityDependencyChecker
+from gcp_pipeline_builder.orchestration import EntityDependencyChecker
 
 checker = EntityDependencyChecker(
     project_id="my-project",

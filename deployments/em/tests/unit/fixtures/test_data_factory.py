@@ -5,8 +5,16 @@ Comprehensive unit tests for all factory classes and fixtures.
 Ensures generated test data is valid and consistent.
 """
 
+import sys
+from pathlib import Path
 from datetime import datetime
-from deployments.em.tests.fixtures.test_data_factory import (
+
+# Add tests directory to path for fixture imports
+tests_dir = Path(__file__).parent.parent.parent
+if str(tests_dir) not in sys.path:
+    sys.path.insert(0, str(tests_dir))
+
+from fixtures.test_data_factory import (
     ApplicationFactory,
     CustomerFactory,
     BranchFactory,

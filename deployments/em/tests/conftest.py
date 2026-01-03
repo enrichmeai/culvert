@@ -350,7 +350,7 @@ def sample_dag():
     Create a sample EM Airflow DAG for testing DAG structure and tasks.
     """
     try:
-        from deployments.em.orchestration.airflow.dags.em_daily_load_dag import dag
+        from em.orchestration.airflow.dags.em_daily_load_dag import dag
         return dag
     except ImportError as e:
         pytest.skip(f"EM DAG module not available: {str(e)}")

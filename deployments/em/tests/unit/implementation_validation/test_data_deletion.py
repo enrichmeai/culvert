@@ -1,7 +1,6 @@
-import pytest
 from unittest.mock import Mock, patch
-from gdw_data_core.testing import BaseGDWTest
-from gdw_data_core.core.data_deletion import DataDeletionFramework, MalformedRecord, QuarantineLevel
+from gcp_pipeline_tester import BaseGDWTest
+from gcp_pipeline_builder.data_deletion import DataDeletionFramework, MalformedRecord, QuarantineLevel
 
 class TestDataDeletion(BaseGDWTest):
     def test_data_deletion_framework_init(self):
@@ -22,7 +21,7 @@ class TestDataDeletion(BaseGDWTest):
         self.assertEqual(record.record_id, "REC001")
         self.assertIn("Invalid amount", record.reasons)
 
-    @patch('gdw_data_core.core.data_deletion.framework._get_logger')
+    @patch('gcp_pipeline_builder.data_deletion.framework._get_logger')
     def test_delete_record(self, mock_get_logger):
         mock_logger = Mock()
         mock_get_logger.return_value = mock_logger

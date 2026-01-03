@@ -2,7 +2,7 @@
 
 import pytest
 
-from deployments.em.config import (
+from em.config import (
     # Settings
     SYSTEM_ID,
     REQUIRED_ENTITIES,

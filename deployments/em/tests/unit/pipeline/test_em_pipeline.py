@@ -5,12 +5,12 @@ from unittest.mock import MagicMock, patch
 from typing import Dict, Any, List
 
 # Import the pipeline components to test
-from deployments.em.pipeline.em_pipeline import (
+from em.pipeline.em_pipeline import (
     ValidateEMRecordDoFn,
     AddAuditColumnsDoFn,
     EM_ENTITY_CONFIG,
 )
-from deployments.em.config import (
+from em.config import (
     ALLOWED_STATUSES,
     ALLOWED_ACCOUNT_TYPES,
     ALLOWED_DECISION_CODES,

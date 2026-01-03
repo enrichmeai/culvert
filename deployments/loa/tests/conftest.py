@@ -232,14 +232,14 @@ TRL|RecordCount=3|Checksum=abc123"""
 @pytest.fixture
 def loa_schema():
     """Get LOA applications schema."""
-    from deployments.loa.schema import LOAApplicationsSchema
+    from loa.schema import LOAApplicationsSchema
     return LOAApplicationsSchema
 
 
 @pytest.fixture
 def loa_domain_schema():
     """Get LOA BigQuery schema."""
-    from deployments.loa.domain.schema import ODP_APPLICATIONS_SCHEMA
+    from loa.domain.schema import ODP_APPLICATIONS_SCHEMA
     return ODP_APPLICATIONS_SCHEMA
 
 
@@ -250,20 +250,20 @@ def loa_domain_schema():
 @pytest.fixture
 def loa_validator():
     """Create LOA validator instance."""
-    from deployments.loa.validation import LOAValidator
+    from loa.validation import LOAValidator
     return LOAValidator()
 
 
 @pytest.fixture
 def loa_file_validator():
     """Create LOA file validator instance."""
-    from deployments.loa.validation import LOAFileValidator
+    from loa.validation import LOAFileValidator
     return LOAFileValidator()
 
 
 @pytest.fixture
 def loa_record_validator():
     """Create LOA record validator instance."""
-    from deployments.loa.validation import LOARecordValidator
+    from loa.validation import LOARecordValidator
     return LOARecordValidator()
 

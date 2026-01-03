@@ -13,14 +13,14 @@ class TestLOAEntityConfig(unittest.TestCase):
 
     def test_import_entity_config(self):
         """Test importing entity config."""
-        from deployments.loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
+        from loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
 
         self.assertIsInstance(LOA_ENTITY_CONFIG, dict)
         self.assertIn("applications", LOA_ENTITY_CONFIG)
 
     def test_applications_config(self):
         """Test applications entity config."""
-        from deployments.loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
+        from loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
 
         config = LOA_ENTITY_CONFIG["applications"]
 
@@ -34,7 +34,7 @@ class TestLOAEntityConfig(unittest.TestCase):
 
     def test_single_entity(self):
         """Test LOA has single entity (unlike EM with 3)."""
-        from deployments.loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
+        from loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
 
         self.assertEqual(len(LOA_ENTITY_CONFIG), 1)
 
@@ -44,7 +44,7 @@ class TestLOAPipelineOptions(unittest.TestCase):
 
     def test_import_options(self):
         """Test importing pipeline options."""
-        from deployments.loa.pipeline.options import LOAPipelineOptions
+        from loa.pipeline.options import LOAPipelineOptions
 
         # Options class should be importable
         self.assertIsNotNone(LOAPipelineOptions)
@@ -55,14 +55,14 @@ class TestPipelineRouter(unittest.TestCase):
 
     def test_import_router(self):
         """Test importing router."""
-        from deployments.loa.pipeline.pipeline_router import PipelineRouter, FileType
+        from loa.pipeline.pipeline_router import PipelineRouter, FileType
 
         self.assertIsNotNone(PipelineRouter)
         self.assertIn(FileType.APPLICATIONS, FileType)
 
     def test_detect_file_type(self):
         """Test file type detection."""
-        from deployments.loa.pipeline.pipeline_router import PipelineRouter, FileType
+        from loa.pipeline.pipeline_router import PipelineRouter, FileType
 
         router = PipelineRouter()
 
@@ -80,7 +80,7 @@ class TestTransforms(unittest.TestCase):
 
     def test_import_transforms(self):
         """Test importing transforms."""
-        from deployments.loa.pipeline.transforms import (
+        from loa.pipeline.transforms import (
             ValidateFileDoFn,
             ParseAndValidateRecordDoFn,
             AddExtractDateDoFn,
@@ -97,7 +97,7 @@ class TestTransforms(unittest.TestCase):
 
     def test_filter_by_event_type(self):
         """Test FilterByEventTypeDoFn filters correctly."""
-        from deployments.loa.pipeline.transforms import FilterByEventTypeDoFn
+        from loa.pipeline.transforms import FilterByEventTypeDoFn
 
         transform = FilterByEventTypeDoFn()
 
@@ -113,7 +113,7 @@ class TestTransforms(unittest.TestCase):
 
     def test_filter_by_portfolio(self):
         """Test FilterByPortfolioDoFn filters correctly."""
-        from deployments.loa.pipeline.transforms import FilterByPortfolioDoFn
+        from loa.pipeline.transforms import FilterByPortfolioDoFn
 
         transform = FilterByPortfolioDoFn()
 
@@ -129,7 +129,7 @@ class TestTransforms(unittest.TestCase):
 
     def test_create_event_key(self):
         """Test CreateEventKeyDoFn creates correct key."""
-        from deployments.loa.pipeline.transforms import CreateEventKeyDoFn
+        from loa.pipeline.transforms import CreateEventKeyDoFn
 
         transform = CreateEventKeyDoFn()
 
@@ -146,7 +146,7 @@ class TestTransforms(unittest.TestCase):
 
     def test_create_portfolio_key(self):
         """Test CreatePortfolioKeyDoFn creates correct key."""
-        from deployments.loa.pipeline.transforms import CreatePortfolioKeyDoFn
+        from loa.pipeline.transforms import CreatePortfolioKeyDoFn
 
         transform = CreatePortfolioKeyDoFn()
 
@@ -166,7 +166,7 @@ class TestDAGTemplate(unittest.TestCase):
 
     def test_import_dag_functions(self):
         """Test importing DAG functions."""
-        from deployments.loa.pipeline.dag_template import (
+        from loa.pipeline.dag_template import (
             create_loa_dag,
             create_loa_transformation_dag,
             LOA_DEFAULT_ARGS,
