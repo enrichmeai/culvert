@@ -6,14 +6,27 @@ Factory for creating standardized migration DAGs with config-driven approach.
 
 import logging
 from datetime import datetime
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, TYPE_CHECKING
 
-from airflow import DAG
+if TYPE_CHECKING:
+    from airflow import DAG
 
 from .config import DAGConfig, DefaultArgs, ScheduleConfig
 from .validators import DAGValidator, ValidationError
 
 logger = logging.getLogger(__name__)
+
+
+def _get_dag_class():
+    """Lazy import of Airflow DAG class."""
+    try:
+        from airflow import DAG
+        return DAG
+    except ImportError:
+        raise ImportError(
+            "apache-airflow is required for DAG creation. "
+            "Install with: pip install apache-airflow"
+        )
 
 
 class DAGFactory:
@@ -55,7 +68,7 @@ class DAGFactory:
         catchup: bool = False,
         tags: Optional[list] = None,
         **kwargs
-    ) -> DAG:
+    ) -> 'DAG':
         """
         Create a standardized DAG with default settings.
 
@@ -93,6 +106,7 @@ class DAGFactory:
             base_default_args.update(default_args)
 
         # Create DAG
+        DAG = _get_dag_class()
         dag = DAG(
             dag_id=dag_id,
             default_args=base_default_args,
@@ -106,7 +120,7 @@ class DAGFactory:
         logger.info(f"Created DAG: {dag_id}")
         return dag
 
-    def create_dag_from_config(self, config: DAGConfig) -> DAG:
+    def create_dag_from_config(self, config: DAGConfig) -> 'DAG':
         """
         Create a DAG from a DAGConfig object.
 
@@ -129,12 +143,13 @@ class DAGFactory:
         dag_params = config.to_dag_params()
 
         # Create DAG
+        DAG = _get_dag_class()
         dag = DAG(**dag_params)
 
         logger.info(f"Created DAG from config: {config.dag_id}")
         return dag
 
-    def create_dag_from_dict(self, config_dict: Dict[str, Any]) -> DAG:
+    def create_dag_from_dict(self, config_dict: Dict[str, Any]) -> 'DAG':
         """
         Create a DAG from a configuration dictionary.
 
@@ -175,6 +190,7 @@ class DAGFactory:
         dag_params = config.to_dag_params()
 
         # Create DAG
+        DAG = _get_dag_class()
         dag = DAG(**dag_params)
 
         logger.info(f"Created DAG from dictionary: {config.dag_id}")
