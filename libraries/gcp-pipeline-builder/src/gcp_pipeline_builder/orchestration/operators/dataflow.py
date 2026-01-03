@@ -32,18 +32,36 @@ Usage:
 """
 
 import logging
-from typing import Dict, Any, Optional, Literal, List
+from typing import Dict, Any, Optional, Literal, List, TYPE_CHECKING
 from dataclasses import dataclass, field
 from enum import Enum
 
-from airflow.models import BaseOperator
-from airflow.providers.google.cloud.operators.dataflow import (
-    DataflowTemplatedJobStartOperator,
-    DataflowStartFlexTemplateOperator,
-)
-from airflow.utils.context import Context
+if TYPE_CHECKING:
+    from airflow.models import BaseOperator
+    from airflow.providers.google.cloud.operators.dataflow import (
+        DataflowTemplatedJobStartOperator,
+        DataflowStartFlexTemplateOperator,
+    )
+    from airflow.utils.context import Context
 
 logger = logging.getLogger(__name__)
+
+
+def _get_airflow_classes():
+    """Lazy import of Airflow classes."""
+    try:
+        from airflow.models import BaseOperator
+        from airflow.providers.google.cloud.operators.dataflow import (
+            DataflowTemplatedJobStartOperator,
+            DataflowStartFlexTemplateOperator,
+        )
+        from airflow.utils.context import Context
+        return BaseOperator, DataflowTemplatedJobStartOperator, DataflowStartFlexTemplateOperator, Context
+    except ImportError:
+        raise ImportError(
+            "apache-airflow-providers-google is required for Dataflow operators. "
+            "Install with: pip install apache-airflow-providers-google"
+        )
 
 
 class SourceType(Enum):
