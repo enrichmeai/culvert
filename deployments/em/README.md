@@ -2,7 +2,7 @@
 
 **Application A (EM)** data migration pipeline.
 
-**Status:** ⚠️ Partially Complete | 152 tests passing
+**Status:** ✅ Complete | 218 tests passing
 
 ---
 
@@ -230,11 +230,15 @@ LEFT JOIN {{ ref('stg_em_decision') }} d
 
 ---
 
-## Known Issues
+## Library Components Used
 
-1. **Orchestration tests require Airflow** - Skip with `--ignore=tests/unit/orchestration/`
-2. **Some validation tests have API mismatches** - Need method updates
-3. **Infrastructure tests reference old paths** - Need path updates
-
-See [Project Status Analysis](../../docs/PROJECT_STATUS.md) for full details.
+| Component | Purpose |
+|-----------|---------|
+| `HDRTRLParser` | Parse header/trailer records |
+| `validate_record_count` | Verify TRL count matches |
+| `validate_checksum` | Verify data integrity |
+| `EntityDependencyChecker` | Wait for all 3 entities |
+| `JobControlRepository` | Track pipeline runs |
+| `BasePipeline` | Beam pipeline base class |
+| `DAGFactory` | Generate Airflow DAGs |
 

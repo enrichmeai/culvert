@@ -24,6 +24,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "apache-beam[gcp]>=2.52.0",
+    "apache-airflow>=2.5.0",
     "google-cloud-bigquery>=3.0.0",
     "google-cloud-storage>=2.0.0",
     "google-cloud-pubsub>=2.0.0",
@@ -40,9 +41,6 @@ dev = [
     "black>=23.0.0",
     "flake8>=6.0.0",
     "mypy>=1.0.0",
-]
-airflow = [
-    "apache-airflow>=2.5.0",
 ]
 
 [tool.setuptools.packages.find]

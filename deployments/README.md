@@ -101,7 +101,6 @@ Implementation guides are in the [docs/](../docs/) folder:
 | [Docker Compose](../docs/DOCKER_COMPOSE_GUIDE.md) | Local development setup |
 | [Error Handling](../docs/ERROR_HANDLING_GUIDE.md) | Error classification and retry |
 | [GCP Deployment](../docs/GCP_DEPLOYMENT_GUIDE.md) | Deploying to GCP |
-| [GitHub Flow](../docs/GITHUB_FLOW.md) | Git workflow |
 | [Pub/Sub + KMS](../docs/PUBSUB_KMS_GUIDE.md) | Secure messaging setup |
 | [Deployment Testing](../docs/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing in GCP |
 
