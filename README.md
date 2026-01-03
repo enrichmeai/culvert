@@ -654,13 +654,32 @@ cd deployments/loa && bash run_tests.sh                 # 55 tests
 
 ## 📚 Documentation
 
+All documentation is in the `docs/` folder:
+
+### Core Documentation
 | Document | Description |
 |----------|-------------|
 | [E2E Functional Flow](docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and architecture |
 | [GCP Deployment Guide](docs/GCP_DEPLOYMENT_GUIDE.md) | How to deploy to GCP |
+
+### Implementation Guides
+| Guide | Description |
+|-------|-------------|
+| [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail implementation |
+| [BDD Testing](docs/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
+| [Complete Testing](docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
+| [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Data quality checks |
+| [Docker Compose](docs/DOCKER_COMPOSE_GUIDE.md) | Local Docker setup |
+| [Error Handling](docs/ERROR_HANDLING_GUIDE.md) | Error handling patterns |
+| [GCP Deployment Testing](docs/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing in GCP |
+| [GitHub Flow](docs/GITHUB_FLOW.md) | Git workflow |
+| [Pub/Sub + KMS](docs/PUBSUB_KMS_GUIDE.md) | Secure messaging setup |
+
+### Deployment READMEs
+| Deployment | Description |
+|------------|-------------|
 | [EM Deployment](deployments/em/README.md) | EM implementation details |
 | [LOA Deployment](deployments/loa/README.md) | LOA implementation details |
-| [Implementation Guides](deployments/guides/) | Topic-specific guides |
 
 ---
 
