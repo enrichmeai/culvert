@@ -360,7 +360,7 @@ terraform plan -var-file="env/prod.tfvars"
 terraform apply
 
 # Deploy dbt
-cd ../../blueprint/transformations/dbt
+cd ../../deployments/transformations/dbt
 dbt run --target prod
 dbt test --target prod
 
@@ -474,7 +474,7 @@ git push origin develop
 
 3. **Test before pushing**
    ```bash
-   pytest blueprint/components/tests/ -v
+   pytest deployments/src/tests/ -v
    # Run tests locally first
    ```
 
@@ -584,7 +584,7 @@ python --version  # Should be 3.8, 3.9, or 3.10
 pip install -r requirements-dev.txt
 
 # Run same tests as CI
-pytest blueprint/components/tests/ -v --cov
+pytest deployments/src/tests/ -v --cov
 
 # Compare environment variables
 # CI might have different env vars
@@ -619,8 +619,8 @@ pytest blueprint/components/tests/ -v --cov
 - Run coverage report locally
 
 ```bash
-pytest blueprint/components/tests/ \
-  --cov=blueprint/components \
+pytest deployments/src/tests/ \
+  --cov=deployments/components \
   --cov-report=html
 open htmlcov/index.html
 ```

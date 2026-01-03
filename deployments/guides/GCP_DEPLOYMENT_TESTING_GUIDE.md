@@ -19,7 +19,7 @@ Prerequisites:
   - pytest, pytest-cov, pytest-mock
 
 Installation:
-  pip install -r blueprint/setup/requirements-dev.txt
+  pip install -r deployments/setup/requirements-dev.txt
 """
 
 import os
@@ -42,7 +42,7 @@ def local_unit_tests():
     These tests verify core logic without external dependencies.
 
     Command:
-        pytest blueprint/components/tests/unit/ -v --cov=blueprint/components
+        pytest deployments/src/tests/unit/ -v --cov=deployments/components
 
     Coverage Targets:
         - Core logic: 80%+
@@ -60,9 +60,9 @@ def local_unit_tests():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/unit/",
+        "deployments/src/tests/unit/",
         "-v",
-        "--cov=blueprint/components",
+        "--cov=deployments/components",
         "--cov-report=html",
         "--cov-report=term-missing"
     ]
@@ -78,7 +78,7 @@ def local_integration_tests_mock():
     These tests verify component interactions without external resources.
 
     Command:
-        pytest blueprint/components/tests/integration/ -v -m "not requires_gcp"
+        pytest deployments/src/tests/integration/ -v -m "not requires_gcp"
 
     Coverage:
         - GCP client integration: 80%+
@@ -97,10 +97,10 @@ def local_integration_tests_mock():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/integration/",
+        "deployments/src/tests/integration/",
         "-v",
         "-m", "not requires_gcp",
-        "--cov=blueprint/components",
+        "--cov=deployments/components",
     ]
 
     result = subprocess.run(cmd, cwd=project_root)
@@ -112,7 +112,7 @@ def local_dag_tests():
     Run DAG-specific tests.
 
     Command:
-        pytest blueprint/components/tests/unit/orchestration/test_dag_deployment.py -v
+        pytest deployments/src/tests/unit/orchestration/test_dag_deployment.py -v
 
     Tests:
         - DAG parsing and validation
@@ -126,7 +126,7 @@ def local_dag_tests():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/unit/orchestration/test_dag_deployment.py",
+        "deployments/src/tests/unit/orchestration/test_dag_deployment.py",
         "-v"
     ]
 
@@ -172,7 +172,7 @@ def staging_gcp_deployment_validation():
     Validate GCP staging environment is properly configured.
 
     Command:
-        pytest blueprint/components/tests/integration/test_gcp_deployment.py -v -m requires_gcp
+        pytest deployments/src/tests/integration/test_gcp_deployment.py -v -m requires_gcp
 
     Environment Variables:
         - GCP_TEST_PROJECT: Your staging GCP project ID
@@ -217,7 +217,7 @@ def staging_gcp_deployment_validation():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/integration/test_gcp_deployment.py",
+        "deployments/src/tests/integration/test_gcp_deployment.py",
         "-v",
         "-m", "requires_gcp"
     ]
@@ -231,7 +231,7 @@ def staging_gcp_client_tests():
     Test GCP client integration with actual services.
 
     Command:
-        pytest blueprint/components/tests/integration/test_gcp_clients.py -v -m integration
+        pytest deployments/src/tests/integration/test_gcp_clients.py -v -m integration
 
     Tests:
         - BigQuery operations (query, load, insert)
@@ -245,7 +245,7 @@ def staging_gcp_client_tests():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/integration/test_gcp_clients.py",
+        "deployments/src/tests/integration/test_gcp_clients.py",
         "-v",
         "-m", "integration"
     ]
@@ -404,7 +404,7 @@ def performance_benchmarks():
     Run performance benchmarks.
 
     Command:
-        pytest blueprint/components/tests/performance/ -v
+        pytest deployments/src/tests/performance/ -v
 
     Benchmarks:
         - Record processing throughput
@@ -422,7 +422,7 @@ def performance_benchmarks():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/performance/",
+        "deployments/src/tests/performance/",
         "-v",
         "--benchmark-only"
     ]
@@ -436,7 +436,7 @@ def chaos_engineering_tests():
     Run chaos engineering tests.
 
     Command:
-        pytest blueprint/components/tests/chaos/ -v
+        pytest deployments/src/tests/chaos/ -v
 
     Scenarios:
         - Network failures
@@ -456,7 +456,7 @@ def chaos_engineering_tests():
 
     cmd = [
         "pytest",
-        "blueprint/components/tests/chaos/",
+        "deployments/src/tests/chaos/",
         "-v"
     ]
 

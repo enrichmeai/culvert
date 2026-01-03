@@ -213,7 +213,7 @@ resource "google_storage_notification" "loa_file_notification" {
 
 Custom Airflow sensor extending `PubSubPullSensor` with LOA-specific functionality.
 
-**Location:** `blueprint/components/orchestration/airflow/sensors/pubsub.py`
+**Location:** `deployments/src/orchestration/airflow/sensors/pubsub.py`
 
 ### Features
 
@@ -353,7 +353,7 @@ gsutil rm "gs://${BUCKET}/${TEST_FILE}"
 ## References
 
 - [Terraform: security.tf](../../em/infrastructure/terraform/security.tf)
-- [Sensor: pubsub.py](../../em/components/orchestration/airflow/sensors/pubsub.py)
+- [Sensor: pubsub.py](../../em/src/orchestration/airflow/sensors/pubsub.py)
 - [PubSub Client](../../../gcp_pipeline_builder/core/clients/pubsub_client.py)
 - [Google Cloud Pub/Sub Docs](https://cloud.google.com/pubsub/docs)
 - [Google Cloud KMS Docs](https://cloud.google.com/kms/docs)
