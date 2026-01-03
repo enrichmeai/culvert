@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-builder"
-version = "0.1.0"
+version = "1.0.0"
 description = "A production-grade Python framework for building GCP data pipelines"
 readme = "README.md"
 license = {text = "MIT"}
