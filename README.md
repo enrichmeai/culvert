@@ -1,6 +1,6 @@
 # Legacy Mainframe to GCP Data Migration Framework
 
-A **reusable library-first framework** for migrating legacy mainframe batch systems to Google Cloud Platform. This reference implementation demonstrates how multiple teams can migrate their mainframe systems to BigQuery using a shared pattern - build once, deploy many.
+A **reusable library-first framework** for migrating legacy mainframe batch systems to Google Cloud Platform. This reference implementation demonstrates how multiple teams can migrate their mainframe systems to BigQuery using shared libraries - **library built once, deployments configured per team**.
 
 ---
 
@@ -11,6 +11,7 @@ A **reusable library-first framework** for migrating legacy mainframe batch syst
 - [Architecture Overview](#-architecture-overview)
 - [Why This Approach](#-why-this-approach)
 - [Project Structure](#-project-structure)
+- [How Deployments Use the Libraries](#-how-deployments-use-the-libraries)
 - [Reference Implementations](#-reference-implementations)
 - [Quick Start](#-quick-start)
 - [Documentation](#-documentation)
@@ -42,13 +43,13 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
 ## 💡 Our Solution
 
-**Build a reusable library once. Each team only configures their specific entities.**
+**Build the library once. Each team creates their deployment by configuring their specific entities.**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                                                                             │
-│   TEAM CONFIGURES              LIBRARY PROVIDES                             │
-│   (10% of work)                (90% of work - shared)                       │
+│   TEAM'S DEPLOYMENT            SHARED LIBRARIES                             │
+│   (Built per team)             (Built once, used by all)                    │
 │                                                                             │
 │   ┌─────────────────────┐     ┌─────────────────────────────────────────┐  │
 │   │                     │     │                                         │  │
@@ -155,43 +156,147 @@ legacy-migration-reference/
 │
 ├── libraries/                          # Reusable libraries (will be separate repos)
 │   ├── gcp-pipeline-builder/           # Core pipeline components (489 tests)
-│   │   └── src/gcp_pipeline_builder/
-│   │       ├── clients/                # GCS, BigQuery, Pub/Sub clients
-│   │       ├── file_management/        # HDR/TRL parsing, archival
-│   │       ├── error_handling/         # Classification, retry, DLQ
-│   │       ├── job_control/            # Status tracking
-│   │       ├── audit/                  # Lineage tracking
-│   │       ├── orchestration/          # Airflow DAG factories, sensors
-│   │       ├── pipelines/              # Beam pipeline base classes
-│   │       └── validators/             # SSN, date, numeric validation
-│   │
 │   └── gcp-pipeline-tester/            # Testing framework (89 tests)
-│       └── src/gcp_pipeline_tester/
-│           ├── mocks/                  # GCS, BigQuery, Pub/Sub mocks
-│           ├── fixtures/               # Test data generators
-│           ├── base/                   # Base test classes
-│           └── comparison/             # Dual-run comparison utilities
 │
 ├── deployments/                        # Reference implementations
 │   ├── em/                             # EM pipeline (218 tests)
-│   │   ├── src/em/                     # EM-specific code
-│   │   └── tests/                      # EM tests
-│   │
-│   ├── loa/                            # LOA pipeline (55 tests)
-│   │   ├── src/loa/                    # LOA-specific code
-│   │   └── tests/                      # LOA tests
-│   │
-│   └── guides/                         # Implementation guides
+│   └── loa/                            # LOA pipeline (55 tests)
 │
 ├── infrastructure/                     # Terraform configurations
 │   └── terraform/
-│       ├── security.tf                 # KMS, IAM
-│       ├── em/                         # EM infrastructure
-│       └── loa/                        # LOA infrastructure
 │
 └── docs/                               # Documentation
-    ├── E2E_FUNCTIONAL_FLOW.md          # Complete requirements
-    └── GCP_DEPLOYMENT_GUIDE.md         # Deployment guide
+```
+
+### Libraries
+
+| Library | Description | Tests | Link |
+|---------|-------------|-------|------|
+| **gcp-pipeline-builder** | Core pipeline components: clients, file management, error handling, job control, orchestration, validators | 489 | [README](libraries/gcp-pipeline-builder/README.md) |
+| **gcp-pipeline-tester** | Testing framework: mocks, fixtures, base test classes, comparison utilities | 89 | [README](libraries/gcp-pipeline-tester/README.md) |
+
+#### gcp-pipeline-builder Modules
+
+| Module | Purpose |
+|--------|---------|
+| `clients/` | GCS, BigQuery, Pub/Sub client wrappers |
+| `file_management/` | HDR/TRL parsing, file archival |
+| `error_handling/` | Error classification, retry, DLQ |
+| `job_control/` | Pipeline status tracking |
+| `audit/` | Lineage and audit trail |
+| `orchestration/` | Airflow DAG factories, sensors, callbacks |
+| `pipelines/` | Beam pipeline base classes and transforms |
+| `validators/` | SSN, date, numeric validation |
+| `data_quality/` | Row type validation, duplicate checks |
+
+#### gcp-pipeline-tester Modules
+
+| Module | Purpose |
+|--------|---------|
+| `mocks/` | GCSClientMock, BigQueryClientMock, PubSubClientMock |
+| `fixtures/` | Test data generators |
+| `base/` | BaseGDWTest, BaseBeamTest, GDWScenarioTest |
+| `comparison/` | DualRunComparison for validation |
+
+---
+
+## 🔗 How Deployments Use the Libraries
+
+Each deployment imports and uses the shared libraries. Here's how the integration works:
+
+### Dependencies (pyproject.toml)
+
+```toml
+# deployments/em/pyproject.toml
+[project]
+dependencies = [
+    "gcp-pipeline-builder>=1.0.0",  # Core library
+]
+
+[project.optional-dependencies]
+dev = [
+    "gcp-pipeline-tester>=1.0.0",   # Test library (dev only)
+]
+```
+
+### Source Code Imports (gcp-pipeline-builder)
+
+```python
+# In your pipeline code
+from gcp_pipeline_builder.file_management import HDRTRLParser, validate_checksum
+from gcp_pipeline_builder.job_control import JobControlRepository, JobStatus
+from gcp_pipeline_builder.orchestration import DAGFactory, EntityDependencyChecker
+from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_builder.orchestration.callbacks import on_failure_callback
+from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine
+from gcp_pipeline_builder.validators import validate_ssn
+from gcp_pipeline_builder.clients import GCSClient, BigQueryClient, PubSubClient
+from gcp_pipeline_builder.error_handling import ErrorHandler, GDWError
+from gcp_pipeline_builder.audit import AuditTrail
+from gcp_pipeline_builder.data_quality import validate_row_types, check_duplicate_keys
+```
+
+### Test Code Imports (gcp-pipeline-tester)
+
+```python
+# In your test code
+from gcp_pipeline_tester import BaseGDWTest, BaseBeamTest, GDWScenarioTest
+from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock, PubSubClientMock
+from gcp_pipeline_tester.comparison import DualRunComparison, ComparisonResult
+```
+
+### Example: EM Validator Using Library
+
+```python
+# deployments/em/src/em/validation/file_validator.py
+
+from gcp_pipeline_builder.file_management import HDRTRLParser, validate_checksum
+from gcp_pipeline_builder.data_quality import validate_row_types
+
+class EMFileValidator:
+    """EM-specific validator using library components."""
+    
+    SYSTEM_ID = "EM"  # EM-specific config
+    
+    def __init__(self):
+        self.parser = HDRTRLParser()  # Library component
+    
+    def validate(self, file_lines: list, entity_name: str):
+        # Use library for row type validation
+        is_valid, msg = validate_row_types(file_lines)
+        if not is_valid:
+            return ValidationResult(is_valid=False, errors=[msg])
+        
+        # Use library for HDR/TRL parsing
+        metadata = self.parser.parse_file_lines(file_lines)
+        
+        # EM-specific validation
+        if metadata.header.system_id != self.SYSTEM_ID:
+            return ValidationResult(is_valid=False, errors=["Wrong system"])
+        
+        # Use library for checksum
+        is_valid, msg = validate_checksum(...)
+        ...
+```
+
+### Example: Test Using Library Mocks
+
+```python
+# deployments/em/tests/unit/validation/test_validator.py
+
+from unittest.mock import patch
+from em.validation import EMFileValidator
+
+class TestEMFileValidator:
+    
+    @patch('em.validation.file_validator.validate_checksum')
+    def test_validate_file(self, mock_checksum):
+        mock_checksum.return_value = (True, "OK")
+        
+        validator = EMFileValidator()
+        result = validator.validate(file_lines, 'customers')
+        
+        assert result.is_valid
 ```
 
 ---
