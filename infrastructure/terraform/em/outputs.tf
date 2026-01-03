@@ -113,3 +113,22 @@ output "em_landing_paths" {
   }
 }
 
+ow# ============================================================================
+# CLOUD COMPOSER
+# ============================================================================
+
+output "composer_environment_name" {
+  description = "Name of the Cloud Composer environment"
+  value       = google_composer_environment.em_composer.name
+}
+
+output "composer_dag_bucket" {
+  description = "GCS bucket for Composer DAGs (use for COMPOSER_BUCKET secret)"
+  value       = google_composer_environment.em_composer.config[0].dag_gcs_prefix
+}
+
+output "composer_airflow_uri" {
+  description = "Airflow web UI URL"
+  value       = google_composer_environment.em_composer.config[0].airflow_uri
+}
+
