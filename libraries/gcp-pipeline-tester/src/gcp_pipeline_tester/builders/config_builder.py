@@ -4,7 +4,10 @@ Config Builder Module
 Fluent builders for test configuration objects.
 """
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from gcp_pipeline_tester.pipelines.base import PipelineConfig
 
 
 class PipelineConfigBuilder:
