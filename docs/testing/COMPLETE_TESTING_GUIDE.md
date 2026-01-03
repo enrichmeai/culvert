@@ -1,528 +1,338 @@
 # 📖 Complete Testing & Deployment Guide
 
-Unified guide for LOA Blueprint & GDW Core Library - combining automated testing, manual testing, and GCP deployment.
+Unified guide for the GDW Data Core Library and Deployments (EM & LOA).
+
+**Last Updated:** January 2, 2026  
+**Reference:** [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md)
+
+---
 
 ## Quick Navigation
 
-- **Getting Started?** → [Environment Setup](#environment-setup)
-- **Ready to Test?** → [Testing Workflow](#testing-workflow)
-- **Setting up GCP?** → [GCP Deployment](#gcp-deployment-with-tools)
-- **Issues?** → [Troubleshooting](#troubleshooting)
+| Goal | Section |
+|------|---------|
+| Set up environment | [Environment Setup](#environment-setup) |
+| Run tests locally | [Testing Workflow](#testing-workflow) |
+| Deploy to GCP | [GCP Deployment](#gcp-deployment) |
+| Validate deployment | [Post-Deployment Testing](#post-deployment-testing) |
+| Troubleshoot issues | [Troubleshooting](#troubleshooting) |
+
+---
+
+## System Overview
+
+Per the [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md), we have two pipeline systems:
+
+| System | Entities | ODP Tables | FDP Tables | Pattern |
+|--------|----------|------------|------------|---------|
+| **EM** (Application A) | 3 (Customers, Accounts, Decision) | 3 | 1 (`em_attributes`) | JOIN 3→1 |
+| **LOA** (Application B) | 1 (Applications) | 1 | 2 (`event_transaction_excess`, `portfolio_account_excess`) | SPLIT 1→2 |
+
+### File Format (Both Systems)
+
+```
+HDR|{SYSTEM}|{ENTITY}|{YYYYMMDD}     ← Header record
+{csv_header_row}                      ← Column names  
+{data_rows...}                        ← Data records
+TRL|RecordCount={n}|Checksum={hash}   ← Trailer record
+```
 
 ---
 
 ## Environment Setup
 
-### Step 1: Choose Your Setup Method
-
-#### Option A: Docker (Recommended - Full Stack)
+### Step 1: Clone and Install
 
 ```bash
-cd blueprint/setup
+# Clone repository
+git clone <repo-url>
+cd legacy-migration-reference
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install -r deployments/setup/requirements.txt
+pip install -r deployments/setup/requirements-test.txt
+
+# Install packages in editable mode
+pip install -e gdw_data_core/
+pip install -e deployments/
+
+# Verify installation
+python -c "
+from gdw_data_core.core.file_management import HDRTRLParser
+from deployments.em.config import SYSTEM_ID as EM_ID
+from deployments.loa.config import SYSTEM_ID as LOA_ID
+print(f'✅ Library: OK')
+print(f'✅ EM System ID: {EM_ID}')
+print(f'✅ LOA System ID: {LOA_ID}')
+"
+```
+
+### Step 2: Docker Setup (Optional)
+
+```bash
+cd deployments/setup
 docker-compose up -d
 
-# Wait for services (2-3 minutes)
-docker-compose ps
-
-# Access services:
-# - Airflow: http://localhost:8080 (admin/airflow)
-# - Jupyter: http://localhost:8888
-# - PostgreSQL: localhost:5432
-# - BigQuery Emulator: localhost:9050
-```
-
-#### Option B: Airflow Setup Script
-
-```bash
-cd blueprint/setup
-./setup_airflow.sh
-
-# Automatically handles:
-# ✓ Virtual environment
-# ✓ Dependencies
-# ✓ Database setup
-# ✓ Admin user creation
-# ✓ Service startup
-```
-
-#### Option C: Manual Python Installation
-
-```bash
-# Create environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install all packages
-pip install -r blueprint/setup/requirements.txt
-pip install -r blueprint/setup/requirements-dev.txt
-pip install -r blueprint/setup/requirements-test.txt
-pip install -e blueprint
-pip install -e gdw_data_core
-
-# Verify
-python -c "import blueprint; import gdw_data_core; print('✓ OK')"
+# Access Airflow: http://localhost:8080 (admin/airflow)
 ```
 
 ---
 
 ## Testing Workflow
 
-### Phase 1: Unit & Integration Tests (8-10 minutes)
+### ⚠️ Critical: Run Tests in Isolation
+
+To avoid Python module caching conflicts, run tests for each component **separately**:
 
 ```bash
-cd blueprint
+# Use the test runner script (recommended)
+./run_all_tests.sh
 
-# Run all local tests (no external dependencies)
-./run_full_tests.sh --full --coverage --report
-
-# Or specific phases:
-./run_full_tests.sh --unit              # Unit tests only
-./run_full_tests.sh --integration       # Integration tests (mocked)
-./run_full_tests.sh --coverage --report # With coverage report
-
-# Expected: 75+ tests pass ✅
+# Or run each component separately:
+./run_all_tests.sh library   # Library only (500+ tests)
+./run_all_tests.sh em        # EM only (400+ tests)
+./run_all_tests.sh loa       # LOA only (60+ tests)
 ```
 
-**What's Tested:**
-- DAG creation and parsing
-- GCP client mocks (BigQuery, GCS, Dataflow, Pub/Sub)
-- Error handling
-- Configuration validation
-- Retry and timeout settings
+### Test Categories
 
-**View Results:**
+| Category | Location | Purpose |
+|----------|----------|---------|
+| **Unit** | `tests/unit/` | Test individual components |
+| **Integration** | `tests/integration/` | Test with mocked GCP |
+| **BDD** | `tests/bdd/` | E2E scenarios (post-deployment) |
+| **Infrastructure** | `tests/unit/infrastructure/` | Terraform validation |
+
+### Running Tests Manually
+
 ```bash
-open htmlcov/index.html
+cd /path/to/legacy-migration-reference
+
+# Library tests
+PYTHONPATH=.:./gdw_data_core pytest gdw_data_core/tests -v --tb=short
+
+# EM tests
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/em/tests -v --tb=short
+
+# LOA tests
+PYTHONPATH=.:./gdw_data_core:./deployments pytest deployments/loa/tests -v --tb=short
+```
+
+### CI/CD Pipeline
+
+On every push/PR, GitHub Actions runs tests in isolation:
+
+```
+┌──────────────┐
+│ test-library │ ← Runs first
+└──────┬───────┘
+       │
+  ┌────┴────┐
+  ▼         ▼
+┌────────┐ ┌────────┐
+│test-em │ │test-loa│ ← Parallel after library
+└────────┘ └────────┘
+       │         │
+       └────┬────┘
+            ▼
+   ┌─────────────────┐
+   │ all-tests-pass  │
+   └─────────────────┘
+```
+
+See [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).
+
+---
+
+## GCP Deployment
+
+### Step 1: Deploy Infrastructure
+
+```bash
+cd infrastructure/terraform
+
+# Deploy shared security (KMS keys)
+terraform init
+terraform apply
+
+# Deploy EM
+cd em
+terraform init
+terraform apply -var-file=../env/staging.tfvars
+
+# Deploy LOA
+cd ../loa
+terraform init  
+terraform apply -var-file=../env/staging.tfvars
+```
+
+### Step 2: Verify Resources
+
+```bash
+export PROJECT_ID=$(gcloud config get-value project)
+
+# Check buckets
+gsutil ls gs://${PROJECT_ID}-em-staging-landing
+gsutil ls gs://${PROJECT_ID}-loa-staging-landing
+
+# Check Pub/Sub
+gcloud pubsub topics list
+
+# Check BigQuery
+bq ls
+```
+
+### Step 3: Deploy Airflow DAGs
+
+```bash
+# Copy to Cloud Composer
+gsutil -m cp deployments/em/orchestration/dags/*.py gs://${COMPOSER_BUCKET}/dags/
+gsutil -m cp deployments/loa/orchestration/dags/*.py gs://${COMPOSER_BUCKET}/dags/
 ```
 
 ---
 
-### Phase 2: Manual Pipeline Testing (15-30 minutes)
+## Post-Deployment Testing
 
-#### 2a: Airflow DAG Testing
+### Using the Deployment Test Script
 
 ```bash
-# Access Airflow UI
-open http://localhost:8080
+# Test EM deployment
+./test_deployment.sh em
 
-# In the UI:
-# 1. Navigate to DAGs tab
-# 2. Find loa_applications_migration
-# 3. Click to view structure
-# 4. Trigger DAG manually
-# 5. Monitor execution
+# Test LOA deployment
+./test_deployment.sh loa
 ```
 
-**Command-line DAG Validation:**
-```bash
-# List DAGs
-airflow dags list
+**What the script does:**
+1. ✅ Generates test data with HDR/TRL format
+2. ✅ Uploads to GCS landing bucket
+3. ✅ Creates `.ok` trigger file
+4. ✅ Waits for pipeline processing
+5. ✅ Checks Pub/Sub, BigQuery, and archive
 
-# Parse DAG
-airflow dags test loa_applications_migration 2025-01-01
-
-# Show structure
-airflow dags show loa_applications_migration
-
-# Validate connections
-airflow connections test gcp_default
-```
-
-#### 2b: Local Pipeline Testing
+### Manual Validation
 
 ```bash
-cd blueprint
+export PROJECT_ID=$(gcloud config get-value project)
 
-# Run local pipeline test
-python tools/testing/test_loa_local.py
+# 1. Upload test file + trigger
+gsutil cp test_applications.csv gs://${PROJECT_ID}-loa-staging-landing/loa/
+gsutil cp /dev/null gs://${PROJECT_ID}-loa-staging-landing/loa/test_applications.csv.ok
 
-# Deploy locally
-python tools/testing/deploy_local.py
+# 2. Check Pub/Sub received message
+gcloud pubsub subscriptions pull loa-file-notifications-sub --auto-ack --limit=5
 
-# Generate test data
-python tools/testing/generate_output.py
+# 3. Wait for pipeline (30-60 seconds)
+sleep 60
 
-# Validate schema
-python components/validation/schema_validator.py /tmp/test_data.csv
-
-# Data quality checks
-python components/validation/data_quality.py /tmp/test_data.csv
-```
-
-#### 2c: Interactive Testing
-
-```bash
-# Start Jupyter
-jupyter lab
-
-# Create test notebook:
-# - Import components
-# - Load sample data
-# - Test transformations
-# - Validate outputs
-```
-
----
-
-### Phase 3: Staging GCP Deployment (20-30 minutes)
-
-#### 3a: Automated Setup with Tools
-
-```bash
-cd blueprint/tools/gcp
-
-# 1. Preflight checks
-./preflight_check.sh
-
-# 2. Install dependencies
-./setup-dependencies.sh
-
-# 3. Run main setup (interactive)
-./setupanddeployongcp.sh
-
-# This configures:
-# ✓ GCS buckets
-# ✓ BigQuery datasets
-# ✓ Dataflow templates
-# ✓ Pub/Sub topics
-# ✓ Service accounts
-# ✓ IAM permissions
-# ✓ Airflow connections
-```
-
-#### 3b: Manual GCP Setup
-
-```bash
-export GCP_PROJECT="staging-project"
-export GCP_REGION="us-central1"
-
-# Create GCS bucket
-gsutil mb -l $GCP_REGION gs://staging-bucket
-
-# Create BigQuery dataset
-bq mk --location=US loa_staging
-
-# Create Pub/Sub topics
-gcloud pubsub topics create loa-events --project=$GCP_PROJECT
-
-# Setup service account
-gcloud iam service-accounts create loa-tester --project=$GCP_PROJECT
-
-# Grant permissions
-gcloud projects add-iam-policy-binding $GCP_PROJECT \
-  --member="serviceAccount:loa-tester@$GCP_PROJECT.iam.gserviceaccount.com" \
-  --role="roles/dataflow.admin"
-```
-
-#### 3c: Run Staging Tests
-
-```bash
-export GCP_TEST_PROJECT="staging-project"
-export GCP_TEST_REGION="us-central1"
-export GCP_TEST_BUCKET="staging-bucket"
-export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
-
-# Run staging tests
-cd blueprint
-./run_full_tests.sh --staging
-
-# Or Python runner
-python GCP_DEPLOYMENT_TESTING_GUIDE.py --phase staging
-```
-
----
-
-### Phase 4: Manual Staging Pipeline (10-15 minutes)
-
-```bash
-# 1. Upload sample data
-gsutil cp tests/data/sample_*.csv gs://staging-bucket/raw/
-
-# 2. Trigger DAG
-gcloud composer environments run my-env \
-  --location=us-central1 \
-  dags trigger -- loa_applications_migration
-
-# 3. Monitor
-gcloud composer environments run my-env \
-  --location=us-central1 \
-  dags list-runs -- loa_applications_migration
-
-# 4. Validate output in BigQuery
-bq query "SELECT COUNT(*) FROM \`project:dataset.applications\`"
+# 4. Query BigQuery
+bq query --use_legacy_sql=false \
+  "SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_loa.applications\`"
 
 # 5. Check archive
-gsutil ls gs://staging-bucket/archive/
-
-# 6. Check Pub/Sub events
-gcloud pubsub subscriptions pull loa-subscription --auto-ack
+gsutil ls gs://${PROJECT_ID}-loa-staging-archive/
 ```
 
 ---
 
-### Phase 5: Performance Testing (Optional - 10-15 minutes)
+## Test Data Examples
 
-```bash
-cd blueprint
+### EM Customers File
 
-# Run performance benchmarks
-./run_full_tests.sh --performance
-
-# Or Python runner
-python GCP_DEPLOYMENT_TESTING_GUIDE.py --phase performance
-
-# Metrics Checked:
-# ✓ Throughput >1000 rec/s
-# ✓ Latency <5 min (10K records)
-# ✓ Cost <$0.01 per record
+```csv
+HDR|EM|Customers|20260102
+customer_id,name,ssn,account_status,created_date
+CUST001,John Doe,123-45-6789,ACTIVE,2026-01-01
+CUST002,Jane Smith,987-65-4321,ACTIVE,2026-01-01
+TRL|RecordCount=2|Checksum=abc123
 ```
 
----
+### LOA Applications File
 
-## Complete Testing Sequence
-
-**Recommended order for full deployment validation:**
-
-```bash
-# 1. Setup (5 minutes)
-cd blueprint/setup
-docker-compose up -d
-sleep 180
-
-# 2. Unit & Integration (10 minutes)
-cd ../
-./run_full_tests.sh --full --coverage --report
-
-# 3. Manual DAG Tests (15 minutes)
-open http://localhost:8080
-# Manually trigger and monitor DAG
-
-# 4. Local Pipeline (10 minutes)
-python tools/testing/test_loa_local.py
-
-# 5. Setup GCP Staging (20 minutes)
-cd tools/gcp
-./preflight_check.sh
-./setupanddeployongcp.sh
-
-# 6. Staging Tests (15 minutes)
-export GCP_TEST_PROJECT="staging-project"
-cd ../../
-./run_full_tests.sh --staging
-
-# 7. Manual Staging Pipeline (15 minutes)
-gsutil cp tests/data/sample_*.csv gs://staging-bucket/raw/
-# Trigger, monitor, validate
-
-# 8. Performance Testing (15 minutes)
-./run_full_tests.sh --performance
-
-# Total: ~2 hours for complete validation
-```
-
----
-
-## Key Commands Reference
-
-### Environment Management
-
-```bash
-# Start services
-cd blueprint/setup && docker-compose up -d
-
-# Check services
-docker-compose ps
-
-# View logs
-docker-compose logs -f airflow-webserver
-
-# Stop services
-docker-compose down
-
-# Reset everything
-docker-compose down -v && docker-compose up -d
-```
-
-### Testing
-
-```bash
-# Run all tests
-./blueprint/run_full_tests.sh --full --coverage --report
-
-# Specific test files
-pytest blueprint/components/tests/unit/orchestration/test_dag_deployment.py -v
-pytest blueprint/components/tests/integration/test_gcp_clients.py -v
-
-# With output
-pytest -vv blueprint/components/tests/
-
-# Stop on first failure
-pytest -x blueprint/components/tests/
-```
-
-### GCP Management
-
-```bash
-# Check GCP setup
-cd blueprint/tools/gcp && ./preflight_check.sh
-
-# Deploy to GCP
-./setupanddeployongcp.sh
-
-# List resources
-gcloud compute instances list
-gsutil ls
-bq ls
-
-# Monitor jobs
-gcloud dataflow jobs list --region=us-central1
-gcloud composer environments list
-```
-
-### Data & Validation
-
-```bash
-# Generate test data
-python blueprint/tools/testing/generate_output.py
-
-# Validate schema
-python blueprint/components/validation/schema_validator.py
-
-# Run data quality
-python blueprint/components/validation/data_quality.py
-
-# Bulk migration
-python blueprint/tools/migration/bulk_migration_tool.py --config config.yaml
+```csv
+HDR|LOA|Applications|20260102
+application_id,customer_id,ssn,loan_amount,application_date,application_status
+APP001,CUST001,123-45-6789,50000.00,2026-01-01,PENDING
+APP002,CUST002,987-65-4321,75000.00,2026-01-01,APPROVED
+TRL|RecordCount=2|Checksum=def456
 ```
 
 ---
 
 ## Troubleshooting
 
-### Docker Issues
+### Tests Fail When Run Together
+
+**Solution:** Run in isolation using `./run_all_tests.sh`
 
 ```bash
-# Docker services won't start
-docker-compose logs -f
-docker-compose down -v
-docker-compose up -d --build
-
-# Specific service logs
-docker-compose logs airflow-webserver
-docker-compose logs airflow-db
+./run_all_tests.sh library  # Then
+./run_all_tests.sh em       # Then
+./run_all_tests.sh loa
 ```
 
-### Module Import Errors
+### Import Errors
+
+**Solution:** Set PYTHONPATH correctly:
 
 ```bash
-# Install packages in editable mode
-pip install -e blueprint
-pip install -e gdw_data_core
-
-# Verify imports
-python -c "import blueprint; import gdw_data_core"
-
-# Check Python path
-python -c "import sys; print(sys.path)"
+export PYTHONPATH=.:./gdw_data_core:./deployments
+pip install -e gdw_data_core/
+pip install -e deployments/
 ```
 
-### Test Failures
+### Pub/Sub Not Triggering
 
-```bash
-# Run with verbose output
-pytest -vv blueprint/components/tests/
+**Check:**
+1. `.ok` file uploaded
+2. GCS notification configured: `gsutil notification list gs://BUCKET`
+3. Subscription exists: `gcloud pubsub subscriptions describe SUBSCRIPTION`
 
-# Show print statements
-pytest -s blueprint/components/tests/
+### BigQuery Table Empty
 
-# Stop on first failure
-pytest -x blueprint/components/tests/
-
-# Run specific test
-pytest blueprint/components/tests/unit/orchestration/test_dag_deployment.py::TestDAGCreationAndParsing::test_dag_creation_succeeds -v
-```
-
-### GCP Authentication
-
-```bash
-# Check credentials
-gcloud auth list
-gcloud config list
-
-# Re-authenticate
-gcloud auth application-default login
-
-# Set project
-gcloud config set project my-project-id
-
-# Test access
-gcloud compute zones list
-bq ls
-gsutil ls
-```
+**Check:**
+1. Airflow DAG status
+2. Dataflow job logs
+3. Error bucket: `gsutil ls gs://${PROJECT_ID}-*-error/`
 
 ---
 
-## Pre-Deployment Checklist
+## Architecture Reference
 
-Before deploying to production:
+See [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md) for complete architecture.
 
-- [ ] **Environment**
-  - [ ] Docker/Airflow setup successful
-  - [ ] All services healthy
-  - [ ] Python packages installed
+### Key Diagrams
 
-- [ ] **Automated Tests**
-  - [ ] Unit tests pass (40+)
-  - [ ] Integration tests pass (20+)
-  - [ ] DAG tests pass (15+)
-  - [ ] Coverage ≥80%
-
-- [ ] **Manual Tests**
-  - [ ] DAG triggering works
-  - [ ] Data flows end-to-end
-  - [ ] Schema validation passes
-  - [ ] Data quality passes
-
-- [ ] **GCP Staging**
-  - [ ] Preflight checks pass
-  - [ ] Resources created
-  - [ ] Permissions configured
-  - [ ] Connections validated
-
-- [ ] **Staging Pipeline**
-  - [ ] Sample pipeline runs
-  - [ ] Output in BigQuery
-  - [ ] Archive verified
-  - [ ] Pub/Sub events received
-
-- [ ] **Performance**
-  - [ ] Throughput >1000 rec/s
-  - [ ] Latency <5 min
-  - [ ] Cost <$0.01/rec
+| Diagram | Purpose |
+|---------|---------|
+| [pubsub_kms_secure_trigger.mmd](../diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS |
+| [intelligent_routing_flow.mmd](../diagrams/intelligent_routing_flow.mmd) | Pipeline routing |
+| [audit_framework_flow.mmd](../diagrams/audit_framework_flow.mmd) | Audit trail |
 
 ---
 
-## Documentation Map
+## Quick Reference
 
-| Need | File |
-|------|------|
-| **Getting Started** | `QUICK_START_TESTING.md` |
-| **Complete Reference** | `COMPLETE_TESTING_GUIDE.md` |
-| **Manual Testing Details** | `MANUAL_TESTING_GUIDE.md` |
-| **Architecture** | `TESTING_ARCHITECTURE.md` |
-
----
-
-## Support
-
-- **Setup Issues**: See `MANUAL_TESTING_GUIDE.md` → Setup section
-- **Test Failures**: See `COMPLETE_TESTING_GUIDE.md` → Troubleshooting
-- **GCP Problems**: Check GCP documentation and IAM permissions
-- **Questions**: Review relevant guide, then contact data engineering team
+| Task | Command |
+|------|---------|
+| Run all tests | `./run_all_tests.sh` |
+| Run library tests | `./run_all_tests.sh library` |
+| Run EM tests | `./run_all_tests.sh em` |
+| Run LOA tests | `./run_all_tests.sh loa` |
+| Test EM deployment | `./test_deployment.sh em` |
+| Test LOA deployment | `./test_deployment.sh loa` |
+| Deploy EM Terraform | `cd infrastructure/terraform/em && terraform apply` |
+| Deploy LOA Terraform | `cd infrastructure/terraform/loa && terraform apply` |
 
 ---
 
-**Last Updated:** December 27, 2025  
-**Status:** Complete & Ready ✅
+<div align="center">
 
+**Version 2.0** | **Last Updated: January 2, 2026**
+
+</div>
