@@ -76,20 +76,88 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 ### Local Development Requirements
 
-- Python 3.10+
-- Terraform 1.0+
+- Python 3.11+
+- Terraform 1.5+
 - dbt 1.5+
-- Apache Beam 2.49+
+- Apache Beam 2.52+
 
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
+pip install -e libraries/gcp-pipeline-builder[dev]
+pip install -e libraries/gcp-pipeline-tester
 
 # Install Terraform
 brew install terraform
 
 # Install dbt
 pip install dbt-bigquery
+```
+
+---
+
+## Production Deployment Flow
+
+In production, the deployment is fully automated:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      PRODUCTION DEPLOYMENT FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  1. TERRAFORM PROVISIONS INFRASTRUCTURE                                      │
+│  ───────────────────────────────────────                                     │
+│  terraform apply creates:                                                    │
+│  • GCS Buckets (landing, archive, error)                                    │
+│  • BigQuery Datasets (odp_*, fdp_*, job_control)                            │
+│  • Pub/Sub Topics & Subscriptions                                           │
+│  • Cloud Composer Environment ← Airflow managed service                     │
+│  • Service Accounts & IAM roles                                             │
+│  • KMS keys for encryption                                                  │
+│                                                                              │
+│  2. COMPOSER_BUCKET OUTPUT                                                   │
+│  ────────────────────────                                                    │
+│  Terraform outputs the Composer DAG bucket:                                 │
+│  $ terraform output composer_dag_bucket                                     │
+│  → gs://europe-west2-em-composer-abc123-bucket/dags                         │
+│                                                                              │
+│  This value is set as COMPOSER_BUCKET GitHub secret                         │
+│                                                                              │
+│  3. CI/CD DEPLOYS CODE                                                       │
+│  ─────────────────────                                                       │
+│  GitHub Actions / Harness:                                                  │
+│  • Runs tests                                                               │
+│  • Builds Dataflow template                                                 │
+│  • Runs dbt models                                                          │
+│  • Uploads DAGs to Composer bucket                                          │
+│                                                                              │
+│  4. AIRFLOW ORCHESTRATES PIPELINES                                           │
+│  ─────────────────────────────────                                           │
+│  Cloud Composer automatically picks up DAGs and:                            │
+│  • Monitors Pub/Sub for file notifications                                  │
+│  • Triggers Dataflow jobs                                                   │
+│  • Runs dbt transformations                                                 │
+│  • Manages retries and error handling                                       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Production Deployment Commands
+
+```bash
+# 1. Deploy infrastructure (creates Cloud Composer)
+cd infrastructure/terraform/em
+terraform init
+terraform apply -var-file="env/dev.tfvars"
+
+# 2. Get Composer bucket (for GitHub secret)
+terraform output composer_dag_bucket
+# → gs://europe-west2-em-dev-composer-abc123-bucket/dags
+
+# 3. Set GitHub secret (or Harness variable)
+# COMPOSER_BUCKET = output from step 2
+
+# 4. Deploy via CI/CD
+# Push to main branch triggers GitHub Actions / Harness
 ```
 
 ---
@@ -340,12 +408,28 @@ jobs:
 
 ### Required Secrets
 
-Configure in GitHub repository settings:
+Configure in GitHub repository settings (Settings → Secrets and variables → Actions):
+
+| Secret | Description | Example |
+|--------|-------------|---------|
+| `GCP_PROJECT_ID` | GCP Project ID | `my-project-123` |
+| `GCP_SA_KEY` | Service account JSON key (base64 encoded) | `{"type": "service_account", ...}` |
+| `COMPOSER_BUCKET` | Cloud Composer DAGs bucket name | `europe-west2-composer-abc123-bucket` |
+
+#### Optional Secrets
 
 | Secret | Description |
 |--------|-------------|
-| `GCP_PROJECT_ID` | GCP Project ID |
-| `GCP_SA_KEY` | Service account JSON key |
+| `QODANA_TOKEN` | JetBrains Qodana code quality token (for qodana_code_quality.yml) |
+
+#### How to Get COMPOSER_BUCKET
+
+```bash
+# Get Cloud Composer DAGs bucket
+gcloud composer environments describe YOUR_COMPOSER_ENV \
+  --location europe-west2 \
+  --format="value(config.dagGcsPrefix)"
+```
 
 ---
 

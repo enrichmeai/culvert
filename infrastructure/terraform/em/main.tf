@@ -597,3 +597,103 @@ resource "google_bigquery_dataset_iam_member" "em_dbt_job_control" {
   member     = "serviceAccount:${google_service_account.em_dbt.email}"
 }
 
+# ============================================================================
+# CLOUD COMPOSER (APACHE AIRFLOW)
+# ============================================================================
+
+# Cloud Composer Environment for EM orchestration
+resource "google_composer_environment" "em_composer" {
+  name   = "${local.prefix}-composer"
+  region = var.gcp_region
+
+  config {
+    software_config {
+      image_version = "composer-2.5.0-airflow-2.6.3"
+
+      env_variables = {
+        GCP_PROJECT_ID    = var.gcp_project_id
+        EM_LANDING_BUCKET = google_storage_bucket.landing.name
+        EM_ARCHIVE_BUCKET = google_storage_bucket.archive.name
+        EM_ERROR_BUCKET   = google_storage_bucket.error.name
+        ODP_DATASET       = google_bigquery_dataset.odp_em.dataset_id
+        FDP_DATASET       = google_bigquery_dataset.fdp_em.dataset_id
+        JOB_CONTROL_TABLE = "${google_bigquery_dataset.job_control.dataset_id}.pipeline_jobs"
+      }
+
+      pypi_packages = {
+        "gcp-pipeline-builder" = ">=1.0.0"
+      }
+    }
+
+    workloads_config {
+      scheduler {
+        cpu        = 0.5
+        memory_gb  = 2
+        storage_gb = 1
+        count      = 1
+      }
+      web_server {
+        cpu        = 0.5
+        memory_gb  = 2
+        storage_gb = 1
+      }
+      worker {
+        cpu        = 1
+        memory_gb  = 4
+        storage_gb = 2
+        min_count  = 1
+        max_count  = 3
+      }
+    }
+
+    environment_size = "ENVIRONMENT_SIZE_SMALL"
+
+    node_config {
+      service_account = google_service_account.em_composer.email
+    }
+  }
+
+  labels = local.common_labels
+
+  depends_on = [
+    google_project_iam_member.em_composer_worker,
+  ]
+}
+
+# Service account for Cloud Composer
+resource "google_service_account" "em_composer" {
+  account_id   = "em-composer-sa"
+  display_name = "EM Cloud Composer Service Account"
+}
+
+# Composer service account IAM roles
+resource "google_project_iam_member" "em_composer_worker" {
+  project = var.gcp_project_id
+  role    = "roles/composer.worker"
+  member  = "serviceAccount:${google_service_account.em_composer.email}"
+}
+
+resource "google_project_iam_member" "em_composer_dataflow" {
+  project = var.gcp_project_id
+  role    = "roles/dataflow.admin"
+  member  = "serviceAccount:${google_service_account.em_composer.email}"
+}
+
+resource "google_project_iam_member" "em_composer_bigquery" {
+  project = var.gcp_project_id
+  role    = "roles/bigquery.admin"
+  member  = "serviceAccount:${google_service_account.em_composer.email}"
+}
+
+resource "google_project_iam_member" "em_composer_storage" {
+  project = var.gcp_project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.em_composer.email}"
+}
+
+resource "google_pubsub_subscription_iam_member" "em_composer_subscriber" {
+  subscription = google_pubsub_subscription.em_file_notifications_sub.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.em_composer.email}"
+}
+

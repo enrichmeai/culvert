@@ -427,3 +427,102 @@ resource "google_project_iam_member" "pipeline_dataflow_worker" {
   member  = "serviceAccount:${google_service_account.loa_pipeline.email}"
 }
 
+# ============================================================================
+# CLOUD COMPOSER (APACHE AIRFLOW)
+# ============================================================================
+
+# Cloud Composer Environment for LOA orchestration
+resource "google_composer_environment" "loa_composer" {
+  name   = "${local.prefix}-composer"
+  region = var.gcp_region
+
+  config {
+    software_config {
+      image_version = "composer-2.5.0-airflow-2.6.3"
+
+      env_variables = {
+        GCP_PROJECT_ID     = var.gcp_project_id
+        LOA_LANDING_BUCKET = google_storage_bucket.landing.name
+        LOA_ARCHIVE_BUCKET = google_storage_bucket.archive.name
+        LOA_ERROR_BUCKET   = google_storage_bucket.error.name
+        ODP_DATASET        = google_bigquery_dataset.odp_loa.dataset_id
+        FDP_DATASET        = google_bigquery_dataset.fdp_loa.dataset_id
+      }
+
+      pypi_packages = {
+        "gcp-pipeline-builder" = ">=1.0.0"
+      }
+    }
+
+    workloads_config {
+      scheduler {
+        cpu        = 0.5
+        memory_gb  = 2
+        storage_gb = 1
+        count      = 1
+      }
+      web_server {
+        cpu        = 0.5
+        memory_gb  = 2
+        storage_gb = 1
+      }
+      worker {
+        cpu        = 1
+        memory_gb  = 4
+        storage_gb = 2
+        min_count  = 1
+        max_count  = 3
+      }
+    }
+
+    environment_size = "ENVIRONMENT_SIZE_SMALL"
+
+    node_config {
+      service_account = google_service_account.loa_composer.email
+    }
+  }
+
+  labels = local.common_labels
+
+  depends_on = [
+    google_project_iam_member.loa_composer_worker,
+  ]
+}
+
+# Service account for Cloud Composer
+resource "google_service_account" "loa_composer" {
+  account_id   = "loa-composer-sa"
+  display_name = "LOA Cloud Composer Service Account"
+}
+
+# Composer service account IAM roles
+resource "google_project_iam_member" "loa_composer_worker" {
+  project = var.gcp_project_id
+  role    = "roles/composer.worker"
+  member  = "serviceAccount:${google_service_account.loa_composer.email}"
+}
+
+resource "google_project_iam_member" "loa_composer_dataflow" {
+  project = var.gcp_project_id
+  role    = "roles/dataflow.admin"
+  member  = "serviceAccount:${google_service_account.loa_composer.email}"
+}
+
+resource "google_project_iam_member" "loa_composer_bigquery" {
+  project = var.gcp_project_id
+  role    = "roles/bigquery.admin"
+  member  = "serviceAccount:${google_service_account.loa_composer.email}"
+}
+
+resource "google_project_iam_member" "loa_composer_storage" {
+  project = var.gcp_project_id
+  role    = "roles/storage.admin"
+  member  = "serviceAccount:${google_service_account.loa_composer.email}"
+}
+
+resource "google_pubsub_subscription_iam_member" "loa_composer_subscriber" {
+  subscription = google_pubsub_subscription.loa_file_notifications_sub.name
+  role         = "roles/pubsub.subscriber"
+  member       = "serviceAccount:${google_service_account.loa_composer.email}"
+}
+
