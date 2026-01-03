@@ -1,4 +1,4 @@
-a# LOA Terraform Variables
+# LOA Terraform Variables
 
 variable "gcp_project_id" {
   description = "GCP Project ID"
