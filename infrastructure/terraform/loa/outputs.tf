@@ -1,4 +1,4 @@
- e# LOA Terraform Outputs
+# LOA Terraform Outputs
 
 output "landing_bucket_name" {
   description = "Name of the LOA landing bucket"
