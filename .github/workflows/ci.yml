@@ -84,13 +84,13 @@ jobs:
     - name: Test EM deployment
       run: |
         cd deployments/em
-        pip install -e .
+        pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
     - name: Test LOA deployment
       run: |
         cd deployments/loa
-        pip install -e .
+        pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
   validate-terraform:

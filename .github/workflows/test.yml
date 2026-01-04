@@ -97,7 +97,7 @@ jobs:
     - name: Install EM deployment
       run: |
         cd deployments/em
-        pip install -e .[dev]
+        pip install -e .[dev,airflow]
 
     - name: Run EM tests
       run: |
@@ -131,7 +131,7 @@ jobs:
     - name: Install LOA deployment
       run: |
         cd deployments/loa
-        pip install -e .[dev]
+        pip install -e .[dev,airflow]
 
     - name: Run LOA tests
       run: |
