@@ -28,15 +28,25 @@ echo "=============================================="
 echo ""
 
 SERVICES=(
+    # Core Services
     "bigquery.googleapis.com"
     "storage.googleapis.com"
     "pubsub.googleapis.com"
     "dataflow.googleapis.com"
+    # Security
     "cloudkms.googleapis.com"
+    "iam.googleapis.com"
+    # Monitoring
     "monitoring.googleapis.com"
     "logging.googleapis.com"
-    "iam.googleapis.com"
+    # Build & Deploy
     "cloudbuild.googleapis.com"
+    "containerregistry.googleapis.com"
+    "artifactregistry.googleapis.com"
+    # Orchestration
+    "composer.googleapis.com"
+    # Compute (for Dataflow)
+    "compute.googleapis.com"
 )
 
 echo "Enabling services..."
