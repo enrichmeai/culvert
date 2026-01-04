@@ -11,9 +11,10 @@ This document provides complete instructions for deploying the legacy-migration-
 5. [Service Accounts](#service-accounts)
 6. [Infrastructure Components](#infrastructure-components)
 7. [Deployment Methods](#deployment-methods)
-8. [Post-Deployment Verification](#post-deployment-verification)
-9. [Testing the Pipeline](#testing-the-pipeline)
-10. [Troubleshooting](#troubleshooting)
+8. [GitHub Actions Workflow Configuration](#github-actions-workflow-configuration)
+9. [Post-Deployment Verification](#post-deployment-verification)
+10. [Testing the Pipeline](#testing-the-pipeline)
+11. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -280,7 +281,7 @@ terraform apply -var="gcp_project_id=${PROJECT_ID}" -var="gcp_region=${REGION}"
 
 ---
 
-## GitHub Actions Configuration
+## GitHub Actions Workflow Configuration
 
 ### Required Secrets
 
