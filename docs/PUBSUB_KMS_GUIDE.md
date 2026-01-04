@@ -1,116 +1,161 @@
-# Pub/Sub & KMS Security Guide
+# 📡 Pub/Sub Event-Driven Architecture
 
 ## Overview
+The library provides an enhanced Pub/Sub sensor for event-driven pipeline triggers. This allows for reliable, scalable, and secure file processing.
 
-This guide covers the secure event-driven architecture for the LOA Blueprint,
-including Pub/Sub messaging, KMS encryption, and IAM configuration.
+## Why Pull (Not Push)?
 
-**Last Updated:** January 1, 2026  
-**Related Ticket:** LOA-INF-005
+| Aspect | Push Model | Pull Model (What We Use) |
+|--------|-----------|--------------------------|
+| **Control** | Pub/Sub controls pace | Consumer controls pace |
+| **Backpressure** | Can overwhelm consumer | Consumer pulls when ready |
+| **Acknowledgement** | Immediate or timeout | Explicit after processing |
+| **Retry** | Limited control | Full control with DLQ |
 
----
+## Features Built Into the Sensor
+- **File extension filtering**: Only trigger on `.ok` files.
+- **Metadata extraction**: Parse and push file info to Airflow XCom.
+- **Configurable acknowledgement**: Acknowledge only after successful processing.
+- **Error handling**: Graceful handling of malformed messages.
+- **Dead Letter Queue (DLQ)**: Automatic capture of failed messages for investigation.
 
-## Table of Contents
+## Core Component
+- `BasePubSubPullSensor`: Located in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/orchestration/sensors/pubsub.py`.
 
-1. [Architecture Overview](#architecture-overview)
-2. [KMS Configuration](#kms-configuration)
-3. [Pub/Sub Topics & Subscriptions](#pubsub-topics--subscriptions)
-4. [GCS Notifications](#gcs-notifications)
-5. [IAM Bindings](#iam-bindings)
-6. [LOAPubSubPullSensor](#loapubsubpullsensor)
-7. [Troubleshooting](#troubleshooting)
-8. [Monitoring & Alerts](#monitoring--alerts)
-9. [Runbooks](#runbooks)
+## Usage Example (Airflow DAG)
 
----
+```python
+from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
 
-## Architecture Overview
-
-### Event Flow
-
-```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         Event-Driven Pipeline Trigger                    │
-└─────────────────────────────────────────────────────────────────────────┘
-
-  GCS Landing Bucket
-  gs://{project}-loa-data/incoming/
-         │
-         │ (1) File Upload: data.csv + data.ok
-         ▼
-  ┌──────────────────┐
-  │ GCS Notification │ (Object Finalize Event)
-  └────────┬─────────┘
-           │
-           │ (2) Publish to Topic
-           ▼
-  ┌──────────────────────────────────────┐
-  │   Pub/Sub Topic                      │
-  │   loa-processing-notifications       │
-  │   🔐 CMEK Encrypted (loa-messaging-key)
-  └────────┬───────────────────┬─────────┘
-           │                   │
-           │ (3a) Success      │ (3b) Failure
-           ▼                   ▼
-  ┌─────────────────┐  ┌─────────────────────┐
-  │ Subscription    │  │ Dead Letter Topic   │
-  │ (7-day retain)  │  │ loa-notifications-  │
-  │                 │  │ dead-letter         │
-  └────────┬────────┘  └─────────────────────┘
-           │
-           │ (4) Pull Message
-           ▼
-  ┌──────────────────────────────────────┐
-  │   Cloud Composer / Airflow           │
-  │   LOAPubSubPullSensor                │
-  │   - Filters .ok files                │
-  │   - Extracts metadata to XCom        │
-  └──────────────────────────────────────┘
+# In your Airflow DAG
+wait_for_file = BasePubSubPullSensor(
+    task_id='wait_for_file',
+    project_id='my-project',
+    subscription='em-notifications-sub',
+    filter_extension='.ok',           # Only trigger on .ok files
+    metadata_xcom_key='file_metadata', # Push metadata to XCom
+    ack_messages=True,                # Acknowledge after processing
+    poke_interval=30,                 # Check every 30 seconds
+    timeout=3600,                     # Timeout after 1 hour
+)
 ```
 
-### Security Layers
+## Detailed Processing Flow
 
-| Layer | Protection | Implementation |
-|-------|------------|----------------|
-| **Encryption at Rest** | CMEK | KMS keys for Pub/Sub, GCS, BigQuery |
-| **Encryption in Transit** | TLS 1.3 | All GCP API communications |
-| **Access Control** | Least-privilege IAM | Service agent bindings only |
-| **Message Retention** | 7-day retention | Recovery from processing failures |
-| **Dead-lettering** | Automatic retry & DLQ | Failed message capture |
-
----
-
-## KMS Configuration
-
-### Key Ring & Keys
-
-| Resource | Name | Purpose | Rotation |
-|----------|------|---------|----------|
-| KeyRing | `loa-keyring-{env}` | Container for all LOA keys | N/A |
-| CryptoKey | `loa-messaging-key` | Pub/Sub message encryption | 90 days |
-| CryptoKey | `loa-storage-key` | GCS bucket encryption | 90 days |
-| CryptoKey | `loa-warehouse-key` | BigQuery dataset encryption | 90 days |
-
-### Terraform Configuration
-
-```hcl
-# From security.tf
-
-resource "google_kms_key_ring" "loa_key_ring" {
-  name     = "loa-keyring-${var.environment}"
-  location = var.region
-}
-
-resource "google_kms_crypto_key" "loa_messaging_key" {
-  name            = "loa-messaging-key"
-  key_ring        = google_kms_key_ring.loa_key_ring.id
-  rotation_period = "7776000s"  # 90 days
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
 ```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                           PUB/SUB PULL SENSOR FLOW                                       │
+├─────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                          │
+│  STAGE 1: FILE LANDING                                                                   │
+│  ─────────────────────                                                                   │
+│                                                                                          │
+│  ┌──────────────────┐                                                                    │
+│  │ Mainframe Extract│                                                                    │
+│  │   (Daily Batch)  │                                                                    │
+│  └────────┬─────────┘                                                                    │
+│           │                                                                              │
+│           ▼                                                                              │
+│  ┌──────────────────────────────────────┐                                               │
+│  │ GCS Landing Bucket                    │                                               │
+│  │ gs://landing-bucket/em/customers/     │                                               │
+│  │                                       │                                               │
+│  │  📄 customers_1.csv    (data file)    │                                               │
+│  │  📄 customers_2.csv    (data file)    │                                               │
+│  │  ✅ customers.csv.ok   (trigger file) │ ◄── This triggers the notification           │
+│  └──────────────────┬───────────────────┘                                               │
+│                     │                                                                    │
+│                     │ OBJECT_FINALIZE event                                              │
+│                     ▼                                                                    │
+│                                                                                          │
+│  STAGE 2: PUB/SUB NOTIFICATION                                                           │
+│  ─────────────────────────────                                                              │
+│                                                                                          │
+│  ┌──────────────────────────────────────┐                                               │
+│  │ Pub/Sub Topic                         │                                               │
+│  │ em-file-notifications                 │                                               │
+│  │ 🔐 CMEK Encrypted (KMS)              │                                               │
+│  │                                       │                                               │
+│  │ Message:                              │                                               │
+│  │ {                                     │                                               │
+│  │   "bucket": "landing-bucket",         │                                               │
+│  │   "name": "em/customers/customers.csv.ok",                                           │
+│  │   "eventType": "OBJECT_FINALIZE"      │                                               │
+│  │ }                                     │                                               │
+│  └──────────────────┬───────────────────┘                                               │
+│                     │                                                                    │
+│                     │ Pull Subscription                                                  │
+│                     ▼                                                                    │
+│                                                                                          │
+│  STAGE 3: AIRFLOW SENSOR (PULL)                                                          │
+│  ──────────────────────────────                                                          │
+│                                                                                          │
+│  ┌──────────────────────────────────────────────────────────────────────────────────┐   │
+│  │ BasePubSubPullSensor (Library)                                                    │   │
+│  │                                                                                   │   │
+│  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 1: PULL MESSAGE                                                        │ │   │
+│  │  │ • Sensor polls subscription every 30 seconds (configurable)                 │ │   │
+│  │  │ • Consumer controls pace (backpressure friendly)                            │ │   │
+│  └─────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                        │                                          │   │
+│  │                                        ▼                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 2: FILTER BY EXTENSION                                                 │ │   │
+│  │  │ • filter_extension='.ok'                                                    │ │   │
+│  │  │ • Ignore: customers_1.csv, customers_2.csv                                  │ │   │
+│  │  │ • Match:  customers.csv.ok ✅                                               │ │   │
+│  │  └─────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                        │                                          │   │
+│  │                                        ▼                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 3: EXTRACT METADATA                                                    │ │   │
+│  │  │ • Parse bucket, object path, event type                                     │ │   │
+│  │  │ • Extract: system=em, entity=customers, date=20260103                       │ │   │
+│  │  └─────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                        │                                          │   │
+│  │                                        ▼                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 4: PUSH TO XCOM                                                        │ │   │
+│  │  │ • Key: 'file_metadata'                                                      │ │   │
+│  │  │ • Value: {"bucket": "...", "entity": "customers", "files": [...]}           │ │   │
+│  │  │ • Downstream tasks can access via XCom                                      │ │   │
+│  │  └─────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                        │                                          │   │
+│  │                                        ▼                                          │   │
+│  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
+│  │  │ Step 5: ACKNOWLEDGE MESSAGE                                                 │ │   │
+│  │  │ • ack_messages=True                                                         │ │   │
+│  │  │ • Message removed from subscription                                         │ │   │
+│  │  │ • If processing fails → message returns to queue (retry)                    │ │   │
+│  │  └─────────────────────────────────────────────────────────────────────────────┘ │   │
+│  │                                                                                   │   │
+│  └──────────────────────────────────────────────────────────────────────────────────┘   │
+│                     │                                                                    │
+│                     │ Sensor Complete ✅                                                 │
+│                     ▼                                                                    │
+│                                                                                          │
+│  STAGE 4: DOWNSTREAM TASKS                                                               │
+│  ─────────────────────────                                                               │
+│                                                                                          │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐        │
+│  │ Discover     │────►│ Validate     │────►│ Load to      │────►│ Transform    │        │
+│  │ Split Files  │     │ HDR/TRL      │     │ BigQuery ODP │     │ via dbt      │        │
+│  └──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘        │
+│                                                                                          │
+│  Uses XCom metadata to find: customers_1.csv, customers_2.csv                           │
+│                                                                                          │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Security & Encryption
+- **CMEK Encryption**: All Pub/Sub topics are encrypted with Cloud KMS.
+- **IAM Policies**: Least-privilege access for Airflow and Dataflow service accounts.
+- **TLS 1.2+**: All data in transit is encrypted.
+
+## References
+- [GCP Deployment Configuration](./GCP_DEPLOYMENT_CONFIGURATION.md)
+- [Audit Integration Guide](./AUDIT_INTEGRATION_GUIDE.md)
 
 ### Key Rotation Policy
 
@@ -211,9 +256,9 @@ resource "google_storage_notification" "loa_file_notification" {
 
 ### Overview
 
-Custom Airflow sensor extending `PubSubPullSensor` with LOA-specific functionality.
+Custom Airflow sensor extending `BasePubSubPullSensor` with system-specific functionality.
 
-**Location:** `deployments/src/orchestration/airflow/sensors/pubsub.py`
+**Location:** `deployments/em/src/em/orchestration/airflow/sensors/pubsub.py`
 
 ### Features
 
@@ -226,7 +271,7 @@ Custom Airflow sensor extending `PubSubPullSensor` with LOA-specific functionali
 ### Usage
 
 ```python
-from blueprint.em.components.orchestration import LOAPubSubPullSensor
+from em.orchestration.airflow.sensors.pubsub import LOAPubSubPullSensor
 
 wait_for_trigger = LOAPubSubPullSensor(
     task_id='wait_for_trigger_file',

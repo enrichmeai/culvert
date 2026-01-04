@@ -57,14 +57,15 @@ pip install -r deployments/setup/requirements.txt
 pip install -r deployments/setup/requirements-test.txt
 
 # Install packages in editable mode
-pip install -e gcp_pipeline_builder/
-pip install -e deployments/
+pip install -e libraries/gcp-pipeline-builder/
+pip install -e deployments/em/
+pip install -e deployments/loa/
 
 # Verify installation
 python -c "
-from gcp_pipeline_builder.core.file_management import HDRTRLParser
-from deployments.em.config import SYSTEM_ID as EM_ID
-from deployments.loa.config import SYSTEM_ID as LOA_ID
+from gcp_pipeline_builder.file_management import HDRTRLParser
+from em.config import SYSTEM_ID as EM_ID
+from loa.config import SYSTEM_ID as LOA_ID
 print(f'✅ Library: OK')
 print(f'✅ EM System ID: {EM_ID}')
 print(f'✅ LOA System ID: {LOA_ID}')
@@ -113,13 +114,13 @@ To avoid Python module caching conflicts, run tests for each component **separat
 cd /path/to/legacy-migration-reference
 
 # Library tests
-PYTHONPATH=.:./gcp_pipeline_builder pytest gcp_pipeline_builder/tests -v --tb=short
+PYTHONPATH=libraries/gcp-pipeline-builder/src pytest libraries/gcp-pipeline-builder/tests -v --tb=short
 
 # EM tests
-PYTHONPATH=.:./gcp_pipeline_builder:./deployments pytest deployments/em/tests -v --tb=short
+PYTHONPATH=libraries/gcp-pipeline-builder/src:deployments/em/src pytest deployments/em/tests -v --tb=short
 
 # LOA tests
-PYTHONPATH=.:./gcp_pipeline_builder:./deployments pytest deployments/loa/tests -v --tb=short
+PYTHONPATH=libraries/gcp-pipeline-builder/src:deployments/loa/src pytest deployments/loa/tests -v --tb=short
 ```
 
 ### CI/CD Pipeline
@@ -190,8 +191,8 @@ bq ls
 
 ```bash
 # Copy to Cloud Composer
-gsutil -m cp deployments/em/orchestration/dags/*.py gs://${COMPOSER_BUCKET}/dags/
-gsutil -m cp deployments/loa/orchestration/dags/*.py gs://${COMPOSER_BUCKET}/dags/
+gsutil -m cp deployments/em/src/em/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
+gsutil -m cp deployments/loa/src/loa/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
 ```
 
 ---
