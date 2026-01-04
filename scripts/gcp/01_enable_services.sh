@@ -57,6 +57,14 @@ for service in "${SERVICES[@]}"; do
 done
 
 echo ""
+echo "Granting Composer Service Agent role..."
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:service-${PROJECT_NUMBER}@cloudcomposer-accounts.iam.gserviceaccount.com" \
+    --role="roles/composer.ServiceAgentV2Ext" \
+    --quiet 2>/dev/null && echo -e "  ${GREEN}✅${NC}" || echo -e "  ${YELLOW}(already granted)${NC}"
+
+echo ""
 echo -e "${GREEN}✅ Step 1 Complete!${NC}"
 echo ""
 echo "Next: ./scripts/gcp/02_create_state_bucket.sh"
