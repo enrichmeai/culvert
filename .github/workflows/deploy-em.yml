@@ -1,10 +1,17 @@
 name: Deploy EM
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployments/em/**'
+      - 'libraries/**'
+      - 'infrastructure/terraform/em/**'
   workflow_dispatch:
 
 env:
   PYTHON_VERSION: '3.11'
+  GCP_PROJECT_ID: 'joseph-antony-aruja'
   GCP_REGION: 'europe-west2'
   ENVIRONMENT: 'dev'
 
