@@ -2,30 +2,27 @@
 
 Step-by-step scripts to set up GCP infrastructure for the Legacy Migration Pipeline.
 
-## Quick Start
+## Quick Start (One Command)
 
 ```bash
-# Make all scripts executable
+# Deploy everything
 chmod +x scripts/gcp/*.sh
+./scripts/gcp/deploy_all.sh all
+```
 
-# Run steps 1-5 in order
-./scripts/gcp/01_enable_services.sh
-./scripts/gcp/02_create_state_bucket.sh
-./scripts/gcp/03_create_infrastructure.sh all
-./scripts/gcp/04_setup_github_actions.sh
-./scripts/gcp/05_verify_setup.sh
+## Full Reset (Start Fresh)
 
-# Then push to deploy pipelines via GitHub Actions
-git push
-
-# Test with sample data
-./scripts/gcp/06_test_pipeline.sh em
+```bash
+# Delete everything and start over
+./scripts/gcp/00_full_reset.sh
+./scripts/gcp/deploy_all.sh all
 ```
 
 ## Scripts Overview
 
 | Script | Purpose |
 |--------|---------|
+| `00_full_reset.sh` | **DELETE everything** - buckets, datasets, topics, service accounts |
 | `01_enable_services.sh` | Enable required GCP APIs |
 | `02_create_state_bucket.sh` | Create Terraform state bucket |
 | `03_create_infrastructure.sh` | Create buckets, datasets, Pub/Sub |
@@ -33,6 +30,8 @@ git push
 | `05_verify_setup.sh` | Verify all components are set up |
 | `06_test_pipeline.sh` | Upload test data and trigger pipeline |
 | `07_cleanup.sh` | Delete infrastructure (keeps project) |
+| `deploy_all.sh` | **Run all steps** in order |
+| `e2e_test_em.sh` | End-to-end test for EM pipeline |
 
 ## Prerequisites
 
