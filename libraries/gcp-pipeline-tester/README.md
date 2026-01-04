@@ -17,8 +17,13 @@ A comprehensive testing framework for GCP data pipelines, providing mocks, fixtu
 - [Builders](#builders)
 - [Fixtures](#fixtures)
 - [Assertions](#assertions)
+  - [Record Assertions](#record-assertions)
+  - [Beam Assertions](#beam-assertions)
+  - [Pipeline Assertions](#pipeline-assertions)
 - [Dual-Run Comparison](#dual-run-comparison)
 - [BDD Testing](#bdd-testing)
+  - [Data Quality Steps](#data-quality-steps)
+  - [Pipeline Steps](#pipeline-steps)
 - [Running Tests](#running-tests)
 - [Project Structure](#project-structure)
 - [API Reference](#api-reference)
@@ -339,24 +344,48 @@ def test_with_config(sample_config):
 
 ## Assertions
 
-Domain-specific assertion functions.
+Domain-specific assertion functions for various testing levels.
+
+### Record Assertions
+
+**Location**: `gcp_pipeline_tester.assertions.record_assertions`
+
+Assertions for validating individual record dictionaries.
+
+| Assertion | Description |
+|-----------|-------------|
+| `assert_field_exists(record, field)` | Ensure field is present |
+| `assert_field_value(record, field, value)` | Check specific field value |
+| `assert_record_structure(record, fields)` | Validate all required fields |
+
+### Beam Assertions
+
+**Location**: `gcp_pipeline_tester.assertions.beam_assertions`
+
+Assertions for validating Apache Beam `PCollection` contents.
 
 ```python
-from gcp_pipeline_tester.assertions import (
-    assert_field_exists,
-    assert_records_equal,
-    assert_record_count
-)
+from gcp_pipeline_tester.assertions import assert_pcollection_count, assert_pcollection_contains
 
-# Field assertions
-assert_field_exists(record, "id")
+# Verify record count in PCollection
+assert_pcollection_count(pcollection, expected_count=10)
 
-# Record comparison
-assert_records_equal(actual_records, expected_records)
-
-# Count assertions
-assert_record_count(records, expected_count=100)
+# Verify specific record exists in PCollection
+assert_pcollection_contains(pcollection, expected_record)
 ```
+
+### Pipeline Assertions
+
+**Location**: `gcp_pipeline_tester.assertions.pipeline_assertions`
+
+Assertions for high-level pipeline execution status.
+
+| Assertion | Description |
+|-----------|-------------|
+| `assert_pipeline_success(audit_record)` | Verify `success` flag in audit |
+| `assert_no_errors(error_handler)` | Ensure no errors were recorded |
+| `assert_metrics_recorded(metrics)` | Verify metrics were emitted |
+| `assert_audit_trail_complete(audit)` | Check for required audit fields |
 
 ---
 
@@ -397,6 +426,32 @@ assert report.overall_status == "PASS"
 ## BDD Testing
 
 Behavior-driven development support with Gherkin step definitions.
+
+### Data Quality Steps
+
+**Location**: `gcp_pipeline_tester.bdd.steps.dq_steps`
+
+Pre-built steps for testing data quality rules.
+
+```gherkin
+Given a record with ssn value "123-45-6789"
+When I run the data quality validation
+Then the record should be marked as valid
+```
+
+### Pipeline Steps
+
+**Location**: `gcp_pipeline_tester.bdd.steps.pipeline_steps`
+
+Steps for testing end-to-end pipeline execution.
+
+```gherkin
+Given a pipeline for entity "customers"
+And a source file "gs://bucket/customers.csv"
+When I execute the pipeline
+Then the pipeline should complete successfully
+And the target table should contain 100 records
+```
 
 ### Writing Feature Files
 
