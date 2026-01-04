@@ -181,8 +181,15 @@ legacy-migration-reference/
 │   └── gcp-pipeline-tester/            # Testing framework (89 tests)
 │
 ├── deployments/                        # Reference implementations
-│   ├── em/                             # EM pipeline (218 tests)
-│   └── loa/                            # LOA pipeline (55 tests)
+│   ├── em/                             # EM pipeline
+│   │   ├── src/em/                     # System-specific code
+│   │   ├── tests/                      # Unit & Integration tests
+│   │   └── pyproject.toml
+│   │
+│   └── loa/                            # LOA pipeline
+│       ├── src/loa/                    # System-specific code
+│       ├── tests/                      # Unit & Integration tests
+│       └── pyproject.toml
 │
 ├── infrastructure/                     # Terraform configurations
 │   └── terraform/
@@ -224,106 +231,55 @@ legacy-migration-reference/
 
 ---
 
+## 📦 Library Features: Out-of-the-Box Resilience
+
+The `gcp-pipeline-builder` library provides standardized, production-ready components that all migration teams inherit automatically:
+
+- **🔐 Security**: Built-in CMEK encryption, PII masking, and IAM least-privilege templates.
+- **✅ Integrity**: Automated HDR/TRL validation, checksum verification, and record count reconciliation.
+- **📊 Observability**: Standardized job control, audit lineage columns, and metrics collection.
+- **⚙️ Automation**: Airflow DAG factories, Beam pipeline templates, and exponential backoff retry logic.
+- **🚨 Incident Response**: Automatic dead-lettering, quarantine bucket management, and failure classification.
+
+---
+
 ## 🔗 How Deployments Use the Libraries
 
-Each deployment imports and uses the shared libraries. Here's how the integration works:
+Deployments are lightweight configurations that leverage the core library. Each team defines:
+1. **Metadata**: Entity schemas and system identifiers.
+2. **Infrastructure**: Terraform variables (buckets, topics, IAM).
+3. **Logic**: dbt SQL transformations and specific Airflow task triggers.
 
-### Dependencies (pyproject.toml)
+See the [EM](deployments/em/README.md) and [LOA](deployments/loa/README.md) reference implementations for integration patterns.
 
-```toml
-# deployments/em/pyproject.toml
-[project]
-dependencies = [
-    "gcp-pipeline-builder>=1.0.0",  # Core library
-]
+---
 
-[project.optional-dependencies]
-dev = [
-    "gcp-pipeline-tester>=1.0.0",   # Test library (dev only)
-]
-```
+## 📝 Audit Trail
 
-### Source Code Imports (gcp-pipeline-builder)
+The library provides built-in audit trail capabilities for data lineage and reconciliation. Every record processed through the pipeline is automatically enriched with audit metadata:
 
-```python
-# In your pipeline code
-from gcp_pipeline_builder.file_management import HDRTRLParser, validate_checksum
-from gcp_pipeline_builder.job_control import JobControlRepository, JobStatus
-from gcp_pipeline_builder.orchestration import DAGFactory, EntityDependencyChecker
-from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
-from gcp_pipeline_builder.orchestration.callbacks import on_failure_callback
-from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine
-from gcp_pipeline_builder.validators import validate_ssn
-from gcp_pipeline_builder.clients import GCSClient, BigQueryClient, PubSubClient
-from gcp_pipeline_builder.error_handling import ErrorHandler, GDWError
-from gcp_pipeline_builder.audit import AuditTrail
-from gcp_pipeline_builder.data_quality import validate_row_types, check_duplicate_keys, DataQualityChecker
-from gcp_pipeline_builder.data_deletion import DataDeletionFramework
-from gcp_pipeline_builder.monitoring import MetricsCollector
-```
+| Column | Description |
+|--------|-------------|
+| `_run_id` | Unique pipeline execution ID |
+| `_source_file` | Original source file name |
+| `_extract_date` | Date from HDR record |
+| `_processed_at` | Loading timestamp |
 
-### Test Code Imports (gcp-pipeline-tester)
+For implementation details and query examples, see the [Audit Integration Guide](docs/AUDIT_INTEGRATION_GUIDE.md).
 
-```python
-# In your test code
-from gcp_pipeline_tester import BaseGDWTest, BaseBeamTest, GDWScenarioTest
-from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock, PubSubClientMock
-from gcp_pipeline_tester.comparison import DualRunComparison, ComparisonResult
-```
+---
 
-### Example: EM Validator Using Library
+## 📡 Pub/Sub Event-Driven Triggers
 
-```python
-# deployments/em/src/em/validation/file_validator.py
+The framework uses an enhanced **Pub/Sub Pull Sensor** for reliable, event-driven orchestration.
 
-from gcp_pipeline_builder.file_management import HDRTRLParser, validate_checksum
-from gcp_pipeline_builder.data_quality import validate_row_types
+- **Reliability**: Explicit acknowledgement only after successful processing.
+- **Backpressure**: Consumer-led pulling ensures the system isn't overwhelmed.
+- **Security**: All topics are CMEK-encrypted via Cloud KMS.
 
-class EMFileValidator:
-    """EM-specific validator using library components."""
-    
-    SYSTEM_ID = "EM"  # EM-specific config
-    
-    def __init__(self):
-        self.parser = HDRTRLParser()  # Library component
-    
-    def validate(self, file_lines: list, entity_name: str):
-        # Use library for row type validation
-        is_valid, msg = validate_row_types(file_lines)
-        if not is_valid:
-            return ValidationResult(is_valid=False, errors=[msg])
-        
-        # Use library for HDR/TRL parsing
-        metadata = self.parser.parse_file_lines(file_lines)
-        
-        # EM-specific validation
-        if metadata.header.system_id != self.SYSTEM_ID:
-            return ValidationResult(is_valid=False, errors=["Wrong system"])
-        
-        # Use library for checksum
-        is_valid, msg = validate_checksum(...)
-        ...
-```
+For a detailed flow diagram and configuration examples, see the [Pub/Sub & KMS Guide](docs/PUBSUB_KMS_GUIDE.md).
 
-### Example: Test Using Library Mocks
-
-```python
-# deployments/em/tests/unit/validation/test_validator.py
-
-from unittest.mock import patch
-from em.validation import EMFileValidator
-
-class TestEMFileValidator:
-    
-    @patch('em.validation.file_validator.validate_checksum')
-    def test_validate_file(self, mock_checksum):
-        mock_checksum.return_value = (True, "OK")
-        
-        validator = EMFileValidator()
-        result = validator.validate(file_lines, 'customers')
-        
-        assert result.is_valid
-```
+## 🚀 Reference Implementations
 
 ---
 
@@ -604,77 +560,56 @@ class EMPubSubPullSensor(BasePubSubPullSensor):
 This repository includes two complete reference implementations demonstrating different migration patterns:
 
 ### EM (Application A) - JOIN Pattern
+- **Source Entities**: 3 (Customers, Accounts, Decision)
+- **Transformation**: **JOIN** 3 sources → 1 target (`fdp_em.em_attributes`)
+- **Dependency**: Wait for all 3 entities before processing FDP.
 
-| Attribute | Value |
-|-----------|-------|
-| **Source Entities** | 3 (Customers, Accounts, Decision) |
-| **ODP Tables** | 3 tables (`odp_em.customers`, `odp_em.accounts`, `odp_em.decision`) |
-| **FDP Tables** | 1 table (`fdp_em.em_attributes`) |
-| **Transformation** | **JOIN** 3 sources → 1 target |
-| **Dependency** | Wait for all 3 entities before FDP |
-| **Tests** | 218 passing |
+#### EM Standardized DAGs
+| DAG | Library Components | Tags |
+|-----|--------------------|------|
+| `em_pubsub_trigger_dag` | `BasePubSubPullSensor`, `HDRTRLParser`, `AuditTrail` | `[em, trigger, pubsub]` |
+| `em_odp_load_dag` | `EntityDependencyChecker`, `JobControlRepository`, `JobStatus`, `PipelineJob` | `[em, odp, dataflow]` |
+| `em_fdp_transform_dag` | `EntityDependencyChecker`, `JobControlRepository`, `JobStatus` | `[em, fdp, dbt, transformation]` |
+| `em_error_handling_dag` | `ErrorHandler`, `ErrorClassifier`, `RetryStrategy`, `JobControlRepository`, `AuditTrail` | `[em, error, reprocessing]` |
 
 ### LOA (Application B Application) - SPLIT Pattern
+- **Source Entities**: 1 (Applications)
+- **Transformation**: **SPLIT** 1 source → 2 targets (`fdp_loa.event_transaction_excess`, `fdp_loa.portfolio_account_excess`)
+- **Dependency**: Immediate trigger (no wait).
 
-| Attribute | Value |
-|-----------|-------|
-| **Source Entities** | 1 (Applications) |
-| **ODP Tables** | 1 table (`odp_loa.applications`) |
-| **FDP Tables** | 2 tables (`fdp_loa.event_transaction_excess`, `fdp_loa.portfolio_account_excess`) |
-| **Transformation** | **SPLIT** 1 source → 2 targets |
-| **Dependency** | Immediate trigger (no wait) |
-| **Tests** | 55 passing |
+#### LOA Standardized DAGs
+| DAG | Library Components | Tags |
+|-----|--------------------|------|
+| `loa_pubsub_trigger_dag` | `BasePubSubPullSensor`, `HDRTRLParser`, `AuditTrail` | `[loa, trigger, pubsub]` |
+| `loa_odp_load_dag` | `JobControlRepository`, `PipelineJob`, `AuditTrail` | `[loa, odp, dataflow]` |
+| `loa_fdp_transform_dag` | `JobControlRepository`, `AuditTrail` | `[loa, fdp, dbt, transformation]` |
+| `loa_error_handling_dag` | `ErrorHandler`, `ErrorClassifier`, `RetryStrategy`, `AuditTrail` | `[loa, error, reprocessing]` |
 
-### Pattern Comparison
-
-```
-EM Pattern (JOIN):                    LOA Pattern (SPLIT):
-
-┌──────────┐                          ┌──────────────────┐
-│Customers │──┐                       │   Applications   │
-└──────────┘  │                       └────────┬─────────┘
-              │    ┌──────────────┐            │
-┌──────────┐  ├───►│ em_attributes│            ├────────────────┐
-│ Accounts │──┤    └──────────────┘            │                │
-└──────────┘  │                                ▼                ▼
-              │                       ┌──────────────┐ ┌──────────────┐
-┌──────────┐  │                       │event_trans-  │ │portfolio_    │
-│ Decision │──┘                       │action_excess │ │account_excess│
-└──────────┘                          └──────────────┘ └──────────────┘
-
-3 → 1 (JOIN)                          1 → 2 (SPLIT)
-```
+---
 
 ---
 
 ## ⚡ Quick Start
 
-### Run All Tests
+### 1. Local Testing
+For local unit and integration testing, follow the [Complete Testing Guide](docs/COMPLETE_TESTING_GUIDE.md).
 
-```bash
-# Library tests
-cd libraries/gcp-pipeline-builder && bash run_tests.sh  # 489 tests
-cd libraries/gcp-pipeline-tester && bash run_tests.sh   # 89 tests
+### 2. End-to-End GCP Testing
+For testing the fully deployed pipelines on GCP (using the `scripts/` folder), follow the [E2E Testing Guide](docs/E2E_TESTING_GUIDE.md).
 
-# Deployment tests
-cd deployments/em && bash run_tests.sh                  # 218 tests
-cd deployments/loa && bash run_tests.sh                 # 55 tests
-```
+### 3. Automated GCP Infrastructure & Security Setup
+The framework includes a comprehensive set of scripts for automated infrastructure provisioning, configuration, and security setup (IAM roles, CMEK, etc.). See the [GCP Setup Scripts README](scripts/gcp/README.md) for detailed documentation on:
+- Automated API enablement
+- Infrastructure as Code (Terraform) integration
+- IAM role and Service Account management
+- Security configuration and verification
 
-### Create a New Pipeline Deployment
-
-1. **Copy the template** from `deployments/em/` or `deployments/loa/`
-2. **Configure infrastructure** in `infrastructure/terraform/`:
-   - Set bucket names, Pub/Sub topic names, and IAM members in `terraform.tfvars`.
-3. **Configure your system** in `src/{system}/config/`:
-   ```python
-   SYSTEM_ID = "YOUR_SYSTEM"
-   ENTITY_HEADERS = ["col1", "col2", "col3"]
-   ```
-4. **Define entity schemas** in `src/{system}/schema/`
-5. **Write dbt transformations** in `transformations/`
-6. **Configure Airflow DAGs** in `src/{system}/orchestration/`
-7. **Run tests** to validate
+### 4. Create a New Pipeline Deployment
+1. **Copy the template** from `deployments/em/` or `deployments/loa/`.
+2. **Configure infrastructure** in `infrastructure/terraform/` (see [GCP Deployment Configuration](docs/GCP_DEPLOYMENT_CONFIGURATION.md)).
+3. **Define entity schemas** in `src/{system}/schema/`.
+4. **Write dbt transformations** in `transformations/`.
+5. **Configure Airflow DAGs** in `src/{system}/orchestration/`.
 
 ---
 
@@ -686,6 +621,7 @@ All documentation is in the `docs/` folder:
 | Document | Description |
 |----------|-------------|
 | [E2E Functional Flow](docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and architecture |
+| [E2E Testing Guide](docs/E2E_TESTING_GUIDE.md) | Deployed pipeline verification (Scripts & GCP) |
 | [GCP Deployment Guide](docs/GCP_DEPLOYMENT_GUIDE.md) | How to deploy to GCP |
 
 ### Implementation Guides
@@ -924,15 +860,15 @@ Every resilience principle is **implemented in code** and **verified by tests**:
 
 | Principle | Status |
 |-----------|--------|
-| **Confidentiality** | 🏗️ In Progress |
-| **Integrity** | 🏗️ In Progress |
-| **Monitoring & Alerting** | 🏗️ In Progress |
-| **Automation** | 🏗️ In Progress |
-| **Identifiable & Locatable** | 🏗️ In Progress |
-| **Governance** | 🏗️ In Progress |
-| **Interdependency** | 🏗️ In Progress |
-| **Incident Response** | 🏗️ In Progress |
-| **Performance** | 🏗️ In Progress |
+| **Confidentiality** | 🏗️ In Progress (PII Masking TODO) |
+| **Integrity** | ✅ Completed (HDR/TRL, Checksums) |
+| **Monitoring & Alerting** | ✅ Completed (Metrics, Job Status) |
+| **Automation** | ✅ Completed (DAG Factory, Templates) |
+| **Identifiable & Locatable** | ✅ Completed (Audit Columns, Run ID) |
+| **Governance** | 🏗️ In Progress (Schema-Driven DQ TODO) |
+| **Interdependency** | ✅ Completed (EntityDependencyChecker) |
+| **Incident Response** | ✅ Completed (DLQ, Retries, Quarantine) |
+| **Performance** | ✅ Completed (Dataflow, Partitioning) |
 
 ---
 
@@ -975,5 +911,5 @@ We are evolving the `gcp-pipeline-builder` library from a utility collection int
 | **Structured JSON Logging** | Standardized machine-readable logging across all library components for Cloud Logging. | 🕒 Planned | [04_library_structured_logging.md](features/04_library_structured_logging.md) |
 | **Monitoring Metrics** | Standardized collection of migration KPIs (processed counts, failure rates) for Cloud Monitoring. | ✅ Completed | [05_library_monitoring_metrics.md](features/05_library_monitoring_metrics.md) |
 
-For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed/completed.md) and [ticketstoimplement.md](features/remaining/ticketstoimplement.md) for implementation status.
+For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed.md) and [ticketstoimplement.md](features/remaining/ticketstoimplement.md) for implementation status.
 

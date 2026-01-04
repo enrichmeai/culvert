@@ -1,87 +1,79 @@
-# 📋 LOA Blueprint - Audit Trail Integration Guide
+# 📋 Audit Trail Integration Guide
 
 ## Overview
-All LOA pipelines track a complete audit trail using the GDW Data Core library. This ensures transparency, compliance, and easy troubleshooting.
+The library provides built-in audit trail capabilities for data lineage and reconciliation. This ensures transparency, compliance, and easy troubleshooting across all migration streams.
 
-## Features
-- **Processing Timestamps**: Start and end times for every run.
-- **Record Counts**: Track valid, error, and duplicate counts.
-- **Duplicate Detection**: Built-in logic to identify redundant records.
-- **Data Reconciliation**: Automatic cross-check between source and destination.
-- **Audit Hash**: Cryptographic verification of record integrity.
-- **Event Publishing**: Automatic publishing of audit records to Pub/Sub for downstream processing.
+## What's Built
 
-## Usage Pattern
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| `AuditTrail` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/trail.py` | Track pipeline executions |
+| `AuditRecord` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/records.py` | Structured audit entries |
+| `AuditPublisher` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/publisher.py` | Publish audit events |
+| `LineageTracker` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/lineage.py` | Data lineage tracking |
+| `Reconciliation` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/reconciliation.py` | Source-to-target reconciliation |
+
+## Audit Columns Added to Every Record
+
+Every record processed through the pipeline gets these columns automatically:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `_run_id` | STRING | Unique pipeline execution ID (e.g., `em_20260103_143022_abc123`) |
+| `_source_file` | STRING | Original source file name |
+| `_extract_date` | DATE | Extract date from HDR record |
+| `_processed_at` | TIMESTAMP | When record was loaded to ODP |
+| `_transformed_at` | TIMESTAMP | When record was transformed to FDP |
+
+## Usage Examples
+
+### Python Integration
 
 ```python
-from gcp_pipeline_builder.core.audit import AuditTrail, AuditPublisher
+from gcp_pipeline_builder.audit import AuditTrail
+from gcp_pipeline_builder.utilities import generate_run_id
 
-# 1. Initialize publisher (optional, but recommended for automation)
-publisher = AuditPublisher(project_id="your-project", topic_name="audit-topic")
-
-# 2. Initialize audit trail
+# Create audit trail for pipeline run
+run_id = generate_run_id("em")  # → "em_20260103_143022_abc123"
 audit = AuditTrail(
-    run_id="run_123", 
-    pipeline_name="loa_daily", 
-    entity_type="applications",
-    publisher=publisher
+    run_id=run_id,
+    pipeline_name="em_daily_load",
+    entity_type="customers"
 )
 
-# 3. Record start
-audit.record_processing_start(source_file="gs://bucket/input.csv")
+# Log pipeline stages
+audit.log_entry("STARTED", "Pipeline initiated")
+audit.log_entry("VALIDATION", "File validation passed", {"record_count": 1000})
+audit.log_entry("ODP_LOAD", "Loaded to BigQuery", {"table": "odp_em.customers"})
+audit.log_entry("COMPLETED", "Pipeline finished successfully")
 
-# Process records...
-audit.increment_counts(valid=100, errors=5)
-
-# 4. End processing - this automatically publishes the audit record if publisher is set
-record = audit.record_processing_end(success=True)
-
-# Access audit data
-print(f"Duration: {record.processing_duration_seconds}s")
-print(f"Records: {record.record_count}")
-print(f"Audit Hash: {record.audit_hash}")
+# Get summary
+print(f"Total entries: {audit.get_entry_count()}")
+print(f"Records processed: {audit.records_processed}")
 ```
 
-## Complete Example
-```python
-from gcp_pipeline_builder.core.audit import AuditTrail, ReconciliationEngine, AuditPublisher
+### Lineage Query Examples (BigQuery)
 
-def run_pipeline(source_file, run_id, project_id, audit_topic):
-    # Setup publisher
-    publisher = AuditPublisher(project_id=project_id, topic_name=audit_topic)
-    
-    audit = AuditTrail(
-        run_id=run_id, 
-        pipeline_name="loa_daily", 
-        entity_type="applications",
-        publisher=publisher
-    )
-    
-    audit.record_processing_start(source_file)
-    
-    try:
-        # Pipeline execution...
-        valid_count = 100
-        error_count = 5
-        
-        audit.increment_counts(valid=valid_count, errors=error_count)
-        
-        # This finishes the trail and publishes to Pub/Sub
-        audit.record_processing_end(success=True)
-        
-        # Reconcile
-        reconciler = ReconciliationEngine()
-        report = reconciler.reconcile(
-            source_count=valid_count + error_count,
-            destination_count=valid_count,
-            entity_type="applications"
-        )
-        return report
-    except Exception as e:
-        audit.record_processing_end(success=False)
-        raise e
+```sql
+-- Find all records from a specific pipeline run
+SELECT * FROM odp_em.customers 
+WHERE _run_id = 'em_20260103_143022_abc123';
+
+-- Track which file a record came from
+SELECT customer_id, _source_file, _extract_date 
+FROM odp_em.customers 
+WHERE customer_id = 'CUST001';
+
+-- Reconciliation: compare source vs loaded counts
+SELECT 
+  _source_file,
+  COUNT(*) as loaded_count,
+  _extract_date
+FROM odp_em.customers
+WHERE _run_id = 'em_20260103_143022_abc123'
+GROUP BY _source_file, _extract_date;
 ```
 
 ## References
-- [GDW Data Core - Audit](../../gcp_pipeline_builder/README.md#audit-trail)
+- [E2E Functional Flow](../docs/E2E_FUNCTIONAL_FLOW.md)
 - [Data Quality Guide](./DATA_QUALITY_GUIDE.md)

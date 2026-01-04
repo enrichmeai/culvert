@@ -41,6 +41,83 @@ TRL|RecordCount=2|Checksum=def456
 
 ## Data Flow
 
+```mermaid
+graph TD
+    subgraph "Stage 1: Landing & Trigger"
+        A[Applications CSV + .ok Land] -->|GCS Event| B(Pub/Sub Notification)
+        B --> C[loa_pubsub_trigger_dag]
+        C --> D{BasePubSubPullSensor}
+        D -->|New File| E[HDRTRLParser]
+        E -->|Valid| F[Trigger ODP Load]
+    end
+
+    subgraph "Stage 2: ODP Load"
+        F --> G[loa_odp_load_dag]
+        G --> H[JobControlRepository: Track Run]
+        H --> I[Dataflow: Beam Pipeline]
+        I --> J[BigQuery: odp_loa.applications]
+        J --> K[Trigger FDP Transform]
+    end
+
+    subgraph "Stage 3: FDP Transformation (SPLIT)"
+        K --> L[loa_fdp_transform_dag]
+        L --> M[dbt: stg_loa_applications]
+        M --> N{SPLIT Transformation}
+        N --> O[BigQuery: fdp_loa.event_transaction_excess]
+        N --> P[BigQuery: fdp_loa.portfolio_account_excess]
+        O --> Q[dbt tests]
+        P --> Q
+    end
+
+    subgraph "Error Handling"
+        R[ErrorHandler] -->|Monitor| J
+        R --> S[ErrorClassifier]
+        S --> T[RetryStrategy]
+        T -->|Retry| G
+    end
+```
+
+## End-to-End Operational Flow
+
+The LOA pipeline follows a standardized event-driven flow using shared library components, specifically implementing the **SPLIT** pattern (1 source → 2 targets).
+
+### 1. File Landing & Trigger (Stage 1)
+- **Source**: Mainframe extract files (CSV) and trigger files (`.ok`) land in `gs://{project}-loa-landing`.
+- **DAG**: `loa_pubsub_trigger_dag`
+- **Library Components**:
+    - `BasePubSubPullSensor`: Listens for `.ok` file notifications via Pub/Sub.
+    - `HDRTRLParser`: Reads the `.ok` file, extracts metadata, and validates the corresponding data file's HDR and TRL records.
+- **Outcome**: If valid, metadata (entity, extract date, file path) is passed to the next stage. If invalid, the file is moved to the error bucket.
+
+### 2. ODP Load (Stage 2)
+- **Trigger**: Automated trigger from Stage 1.
+- **DAG**: `loa_odp_load_dag`
+- **Library Components**:
+    - `JobControlRepository`: Creates a job record in BigQuery to track the lifecycle of this specific run.
+    - `PipelineJob`: Represents the individual load task.
+- **Action**: Executes a Dataflow Flex Template (Beam pipeline) to load raw CSV data into a 1:1 BigQuery ODP table (`odp_loa.applications`).
+- **Immediate Trigger**: Unlike EM, LOA does not use `EntityDependencyChecker` as it has no multi-entity dependencies; it triggers Stage 3 immediately upon successful ODP load.
+
+### 3. FDP Transformation (Stage 3)
+- **Trigger**: Automated trigger from Stage 2.
+- **DAG**: `loa_fdp_transform_dag`
+- **Library Components**:
+    - `JobControlRepository`: Updates the status of the overall LOA processing job.
+- **Action**: Runs `dbt` models to:
+    1. Create staging views with standardized types.
+    2. **SPLIT** the single source entity into two Foundation Data Products: `fdp_loa.event_transaction_excess` and `fdp_loa.portfolio_account_excess`.
+    3. Run data quality tests on the final products.
+
+### 4. Error Handling & Recovery
+- **DAG**: `loa_error_handling_dag`
+- **Library Components**:
+    - `ErrorHandler`: Monitors the `odp_loa` dataset for validation or processing failures.
+    - `ErrorClassifier`: Categorizes errors as transient or permanent.
+    - `RetryStrategy`: Automatically triggers retries for transient failures.
+    - `AuditTrail`: Logs all manual interventions and automated recovery attempts for compliance.
+
+---
+
 ```
                     ┌─────────────────┐
                     │  LOA Extract    │
@@ -76,53 +153,56 @@ TRL|RecordCount=2|Checksum=def456
 
 ```
 deployments/loa/
-├── config/
-│   ├── __init__.py
-│   ├── settings.py          # SYSTEM_ID="LOA", datasets
-│   └── constants.py         # Headers, allowed values
+├── src/loa/
+│   ├── config/
+│   │   ├── __init__.py
+│   │   ├── settings.py          # SYSTEM_ID="LOA", datasets
+│   │   └── constants.py         # Headers, allowed values
+│   │
+│   ├── schema/
+│   │   ├── __init__.py
+│   │   ├── applications.py      # ApplicationsSchema
+│   │   └── registry.py          # LOA_SCHEMAS
+│   │
+│   ├── domain/
+│   │   ├── __init__.py
+│   │   └── schema.py            # BigQuery schemas
+│   │
+│   ├── validation/
+│   │   ├── __init__.py
+│   │   ├── types.py             # ValidationResult
+│   │   ├── file_validator.py    # HDR/TRL validation
+│   │   ├── record_validator.py  # Field validation
+│   │   └── validator.py         # LOAValidator
+│   │
+│   ├── pipeline/
+│   │   ├── __init__.py
+│   │   ├── loa_pipeline.py      # Main Beam pipeline
+│   │   ├── dag_template.py      # create_loa_dag()
+│   │   └── transforms.py        # Beam DoFns
+│   │
+│   ├── orchestration/
+│   │   └── airflow/
+│   │       ├── dags/            # Airflow DAGs
+│   │       ├── sensors/         # PubSub sensors
+│   │       └── callbacks/       # Error handlers
+│   │
+│   ├── transformations/
+│   │   └── dbt/
+│   │       └── models/
+│   │           ├── staging/loa/ # stg_loa_applications
+│   │           └── fdp/         # 2 targets (SPLIT)
+│   │
+│   └── schemas/                 # BigQuery JSON schemas
+│       ├── odp_loa_applications.json
+│       ├── fdp_loa_event_transaction_excess.json
+│       └── fdp_loa_portfolio_account_excess.json
 │
-├── schema/
-│   ├── __init__.py
-│   ├── applications.py      # ApplicationsSchema
-│   └── registry.py          # LOA_SCHEMAS
-│
-├── domain/
-│   ├── __init__.py
-│   └── schema.py            # BigQuery schemas
-│
-├── validation/
-│   ├── __init__.py
-│   ├── types.py             # ValidationResult
-│   ├── file_validator.py    # HDR/TRL validation
-│   ├── record_validator.py  # Field validation
-│   └── validator.py         # LOAValidator
-│
-├── pipeline/
-│   ├── __init__.py
-│   ├── loa_pipeline.py      # Main Beam pipeline
-│   ├── dag_template.py      # create_loa_dag()
-│   └── transforms.py        # Beam DoFns
-│
-├── orchestration/
-│   └── airflow/
-│       ├── dags/            # Airflow DAGs
-│       ├── sensors/         # PubSub sensors
-│       └── callbacks/       # Error handlers
-│
-├── transformations/
-│   └── dbt/
-│       └── models/
-│           ├── staging/loa/ # stg_loa_applications
-│           └── fdp/         # 2 targets (SPLIT)
-│
-├── schemas/                 # BigQuery JSON schemas
-│   ├── odp_loa_applications.json
-│   ├── fdp_loa_event_transaction_excess.json
-│   └── fdp_loa_portfolio_account_excess.json
-│
-└── tests/
-    ├── unit/                # Unit tests
-    └── data/                # Test data files
+├── tests/
+│   ├── unit/                # Unit tests
+│   └── data/                # Test data files
+├── pyproject.toml
+└── README.md
 ```
 
 ---
