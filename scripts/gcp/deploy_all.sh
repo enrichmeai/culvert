@@ -45,22 +45,60 @@ echo -e "${BLUE}>>> Step 1/5: Enable Services${NC}"
 echo ""
 
 # Step 2: Create Terraform State Bucket
-echo -e "${BLUE}>>> Step 2/5: Create Terraform State Bucket${NC}"
+ echo -e "${BLUE}>>> Step 2/6: Create Terraform State Bucket${NC}"
 "$SCRIPT_DIR/02_create_state_bucket.sh"
 echo ""
 
 # Step 3: Create Infrastructure
-echo -e "${BLUE}>>> Step 3/5: Create Infrastructure${NC}"
+echo -e "${BLUE}>>> Step 3/6: Create Infrastructure${NC}"
 "$SCRIPT_DIR/03_create_infrastructure.sh" "$DEPLOYMENT"
 echo ""
 
-# Step 4: Verify Setup
-echo -e "${BLUE}>>> Step 4/5: Verify Setup${NC}"
+# Step 4: Setup GitHub Actions (service account + permissions)
+echo -e "${BLUE}>>> Step 4/6: Setup GitHub Actions Service Account${NC}"
+SA_EMAIL="github-actions-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Check if SA exists, if not create it
+if ! gcloud iam service-accounts describe "$SA_EMAIL" --project="$PROJECT_ID" &>/dev/null; then
+    echo "Creating service account..."
+    "$SCRIPT_DIR/setup_github_actions.sh"
+else
+    echo "Service account exists, granting additional roles..."
+    # Grant all required roles
+    for role in \
+        "roles/bigquery.admin" \
+        "roles/storage.admin" \
+        "roles/pubsub.admin" \
+        "roles/dataflow.admin" \
+        "roles/iam.serviceAccountUser" \
+        "roles/iam.serviceAccountAdmin" \
+        "roles/resourcemanager.projectIamAdmin" \
+        "roles/logging.admin" \
+        "roles/monitoring.admin" \
+        "roles/composer.admin" \
+        "roles/cloudbuild.builds.builder"; do
+        gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+            --member="serviceAccount:${SA_EMAIL}" \
+            --role="$role" \
+            --quiet 2>/dev/null || true
+    done
+    echo "  Roles granted ✅"
+fi
+
+# Grant bucket permissions for Terraform state
+echo "Granting Terraform state bucket permissions..."
+gsutil iam ch "serviceAccount:${SA_EMAIL}:objectAdmin" gs://gdw-terraform-state 2>/dev/null || true
+gsutil iam ch "serviceAccount:${SA_EMAIL}:legacyBucketWriter" gs://gdw-terraform-state 2>/dev/null || true
+echo "  Bucket permissions granted ✅"
+echo ""
+
+# Step 5: Verify Setup
+echo -e "${BLUE}>>> Step 5/6: Verify Setup${NC}"
 "$SCRIPT_DIR/05_verify_setup.sh"
 echo ""
 
-# Step 5: Upload Test Data (optional)
-echo -e "${BLUE}>>> Step 5/5: Upload Test Data${NC}"
+# Step 6: Upload Test Data (optional)
+echo -e "${BLUE}>>> Step 6/6: Upload Test Data${NC}"
 read -p "Upload test data now? (y/n) " -n 1 -r
 echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then

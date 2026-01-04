@@ -47,14 +47,21 @@ echo ""
 echo "Granting IAM roles..."
 
 ROLES=(
+    # Core Admin Roles
     "roles/bigquery.admin"
     "roles/storage.admin"
     "roles/pubsub.admin"
     "roles/dataflow.admin"
+    # IAM Roles
     "roles/iam.serviceAccountUser"
     "roles/iam.serviceAccountAdmin"
+    "roles/resourcemanager.projectIamAdmin"
+    # Monitoring
     "roles/logging.admin"
     "roles/monitoring.admin"
+    # Composer/Airflow
+    "roles/composer.admin"
+    # Build
     "roles/cloudbuild.builds.builder"
 )
 
