@@ -18,6 +18,7 @@ A **reusable library-first framework** for migrating legacy mainframe batch syst
 - [Quick Start](#-quick-start)
 - [Resilience by Design](#-resilience-by-design)
 - [Documentation](#-documentation)
+- [🚀 Future Roadmap: Schema-First Migration Engine](#-future-roadmap-schema-first-migration-engine)
 
 ---
 
@@ -1076,4 +1077,22 @@ Proprietary - Internal Use Only
 ---
 
 **Built for teams migrating from mainframe to modern cloud data platforms.**
+
+---
+
+## 🚀 Future Roadmap: Schema-First Migration Engine
+
+We are evolving the `gcp-pipeline-builder` library from a utility collection into a comprehensive **Schema-First Migration Engine**. This will further reduce code duplication and enforce data governance automatically through metadata.
+
+### 📋 Key Upcoming Features
+
+| Feature | Description | Status | Reference |
+|---------|-------------|--------|-----------|
+| **Schema-Driven Validation** | Automated record validation based on `EntitySchema` definitions (required, allowed values, lengths). | 🕒 Planned | [01_library_schema_validation.md](features/01_library_schema_validation.md) |
+| **Automated Reconciliation** | Built-in comparison between mainframe trailer record counts and BigQuery destination counts. | 🕒 Planned | [02_library_automated_reconciliation.md](features/02_library_automated_reconciliation.md) |
+| **PII Masking Transform** | Metadata-driven masking of sensitive fields using the `is_pii` flag in the schema. | 🕒 Planned | [03_library_pii_masking.md](features/03_library_pii_masking.md) |
+| **Structured JSON Logging** | Standardized machine-readable logging across all library components for Cloud Logging. | 🕒 Planned | [04_library_structured_logging.md](features/04_library_structured_logging.md) |
+| **Monitoring Metrics** | Standardized collection of migration KPIs (processed counts, failure rates) for Cloud Monitoring. | 🕒 Planned | [05_library_monitoring_metrics.md](features/05_library_monitoring_metrics.md) |
+
+For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed/completed.md) and [ticketstoimplement.md](features/remaining/ticketstoimplement.md) for implementation status.
 
