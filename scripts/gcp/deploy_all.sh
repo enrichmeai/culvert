@@ -45,17 +45,12 @@ echo -e "${BLUE}>>> Step 1/5: Enable Services${NC}"
 echo ""
 
 # Step 2: Create Terraform State Bucket
- echo -e "${BLUE}>>> Step 2/6: Create Terraform State Bucket${NC}"
+echo -e "${BLUE}>>> Step 2/5: Create Terraform State Bucket${NC}"
 "$SCRIPT_DIR/02_create_state_bucket.sh"
 echo ""
 
-# Step 3: Create Infrastructure
-echo -e "${BLUE}>>> Step 3/6: Create Infrastructure${NC}"
-"$SCRIPT_DIR/03_create_infrastructure.sh" "$DEPLOYMENT"
-echo ""
-
-# Step 4: Setup GitHub Actions (service account + permissions)
-echo -e "${BLUE}>>> Step 4/6: Setup GitHub Actions Service Account${NC}"
+# Step 3: Setup GitHub Actions (service account + permissions)
+echo -e "${BLUE}>>> Step 3/5: Setup GitHub Actions Service Account${NC}"
 SA_EMAIL="github-actions-deploy@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Check if SA exists, if not create it
@@ -92,39 +87,53 @@ gsutil iam ch "serviceAccount:${SA_EMAIL}:legacyBucketWriter" gs://gdw-terraform
 echo "  Bucket permissions granted ✅"
 echo ""
 
-# Step 5: Verify Setup
-echo -e "${BLUE}>>> Step 5/6: Verify Setup${NC}"
-"$SCRIPT_DIR/05_verify_setup.sh"
-echo ""
+# Step 4: Trigger GitHub Actions to deploy infrastructure via Terraform
+echo -e "${BLUE}>>> Step 4/5: Deploy via GitHub Actions${NC}"
+echo "Triggering GitHub Actions deployments..."
 
-# Step 6: Upload Test Data (optional)
-echo -e "${BLUE}>>> Step 6/6: Upload Test Data${NC}"
-read -p "Upload test data now? (y/n) " -n 1 -r
-echo ""
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "em" ]]; then
-        "$SCRIPT_DIR/06_test_pipeline.sh" em
-    fi
-    if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "loa" ]]; then
-        "$SCRIPT_DIR/06_test_pipeline.sh" loa
-    fi
+if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "em" ]]; then
+    gh workflow run deploy-em.yml && echo "  EM deployment triggered ✅"
+fi
+if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "loa" ]]; then
+    gh workflow run deploy-loa.yml && echo "  LOA deployment triggered ✅"
 fi
 
 echo ""
+echo "Waiting for deployments to complete (this may take 5-10 minutes)..."
+echo "Check status with: gh run list --limit 4"
+echo ""
+
+# Step 5: Wait and verify
+echo -e "${BLUE}>>> Step 5/5: Verify Deployment${NC}"
+echo "Once GitHub Actions complete, run:"
+echo "  ./scripts/gcp/05_verify_setup.sh"
+echo "  ./scripts/gcp/06_test_pipeline.sh em"
+echo ""
+echo ""
 echo -e "${GREEN}=============================================="
-echo "✅ Deployment Complete!"
+echo "✅ Deployment Initiated!"
 echo "==============================================${NC}"
 echo ""
-echo "What was created:"
+echo "What was done:"
 echo "  - GCP services enabled"
-echo "  - Terraform state bucket"
-echo "  - GCS buckets for $DEPLOYMENT"
-echo "  - BigQuery datasets for $DEPLOYMENT"
-echo "  - Pub/Sub topics for $DEPLOYMENT"
+echo "  - Terraform state bucket created"
+echo "  - GitHub Actions service account configured"
+echo "  - GitHub Actions deployments triggered"
 echo ""
-echo "To test:"
+echo "GitHub Actions will now:"
+echo "  - Create GCS buckets via Terraform"
+echo "  - Create BigQuery datasets via Terraform"
+echo "  - Create Pub/Sub topics via Terraform"
+echo "  - Deploy Dataflow templates"
+echo "  - Deploy Airflow DAGs"
+echo ""
+echo "Monitor deployment:"
+echo "  gh run list --limit 4"
+echo "  gh run view <RUN_ID> --log"
+echo ""
+echo "After deployment completes:"
+echo "  ./scripts/gcp/05_verify_setup.sh"
 echo "  ./scripts/gcp/06_test_pipeline.sh em"
-echo "  ./scripts/gcp/06_test_pipeline.sh loa"
 echo ""
 echo "To cleanup:"
 echo "  ./scripts/gcp/00_full_reset.sh"
