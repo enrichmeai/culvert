@@ -620,9 +620,7 @@ resource "google_composer_environment" "em_composer" {
         JOB_CONTROL_TABLE = "${google_bigquery_dataset.job_control.dataset_id}.pipeline_jobs"
       }
 
-      pypi_packages = {
-        "gcp-pipeline-builder" = ">=1.0.0"
-      }
+      # PyPI packages will be installed via requirements.txt in DAGs
     }
 
     workloads_config {

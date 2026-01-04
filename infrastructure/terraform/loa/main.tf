@@ -83,10 +83,6 @@ resource "google_storage_bucket" "landing" {
     enabled = var.enable_versioning
   }
 
-  # CMEK encryption using shared security key
-  encryption {
-    default_kms_key_name = var.storage_kms_key_id
-  }
 
   # Move to coldline after 90 days
   lifecycle_rule {
@@ -114,9 +110,6 @@ resource "google_storage_bucket" "archive" {
     enabled = var.enable_versioning
   }
 
-  encryption {
-    default_kms_key_name = var.storage_kms_key_id
-  }
 
   # Move to archive after 30 days
   lifecycle_rule {
@@ -140,9 +133,6 @@ resource "google_storage_bucket" "error" {
 
   uniform_bucket_level_access = true
 
-  encryption {
-    default_kms_key_name = var.storage_kms_key_id
-  }
 
   # Delete error files after 90 days
   lifecycle_rule {
@@ -166,7 +156,6 @@ resource "google_pubsub_topic" "loa_file_notifications" {
   name = "loa-file-notifications"
 
   # CMEK encryption
-  kms_key_name = var.messaging_kms_key_id
 
   labels = local.common_labels
 }
@@ -197,7 +186,6 @@ resource "google_pubsub_subscription" "loa_file_notifications_sub" {
 resource "google_pubsub_topic" "loa_dead_letter" {
   name = "loa-file-notifications-dead-letter"
 
-  kms_key_name = var.messaging_kms_key_id
 
   labels = local.common_labels
 }
@@ -238,9 +226,6 @@ resource "google_bigquery_dataset" "odp_loa" {
   description   = "Raw 1:1 copy of LOA mainframe data - Applications entity"
   location      = var.gcp_region
 
-  default_encryption_configuration {
-    kms_key_name = var.bigquery_kms_key_id
-  }
 
   # Default table expiration: none (keep indefinitely)
   delete_contents_on_destroy = var.force_destroy
@@ -255,9 +240,6 @@ resource "google_bigquery_dataset" "fdp_loa" {
   description   = "Transformed LOA data - event_transaction_excess and portfolio_account_excess tables"
   location      = var.gcp_region
 
-  default_encryption_configuration {
-    kms_key_name = var.bigquery_kms_key_id
-  }
 
   delete_contents_on_destroy = var.force_destroy
 
@@ -449,9 +431,7 @@ resource "google_composer_environment" "loa_composer" {
         FDP_DATASET        = google_bigquery_dataset.fdp_loa.dataset_id
       }
 
-      pypi_packages = {
-        "gcp-pipeline-builder" = ">=1.0.0"
-      }
+      # PyPI packages will be installed via requirements.txt in DAGs
     }
 
     workloads_config {
