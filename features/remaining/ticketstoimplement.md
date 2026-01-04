@@ -7,10 +7,10 @@ This document tracks the planned features and enhancements for the `gcp-pipeline
 ## 1. Library Implementation Tickets
 
 ### TICKET-101: Implement Schema-Driven Automated Validation
-**Status:** TODO
+**Status:** IN_PROGRESS
 **Priority:** High
 **Description:**
-Enhance the `gcp-pipeline-builder` library to support automated, schema-driven validation. Currently, pipelines manually implement validation even though requirements are defined in `EntitySchema`.
+Enhance the `gcp-pipeline-builder` library to support automated, schema-driven validation. Currently, basic `ValidateRecordDoFn` exists but requires manual validation logic. This ticket covers the creation of a `SchemaValidator` that automatically uses `EntitySchema`.
 **Acceptance Criteria:**
 - `SchemaValidator` class created in `libraries/gcp-pipeline-builder`.
 - Automated checks for: required fields, allowed values, max length, and basic type consistency.
@@ -19,10 +19,10 @@ Enhance the `gcp-pipeline-builder` library to support automated, schema-driven v
 **Feature Reference:** `../01_library_schema_validation.md`
 
 ### TICKET-102: Automated Record Count Reconciliation
-**Status:** TODO
+**Status:** IN_PROGRESS
 **Priority:** High
 **Description:**
-Integrate `ReconciliationEngine` with `HDRTRLParser` and `BigQueryClient` to automatically verify data integrity by comparing source trailer counts with BigQuery row counts.
+Integrate `ReconciliationEngine` with `HDRTRLParser` and `BigQueryClient` to automatically verify data integrity by comparing source trailer counts with BigQuery row counts. Core library implementation exists, but integration into EM/LOA reference pipelines is required.
 **Acceptance Criteria:**
 - `ReconciliationEngine` supports ingestion of `TrailerRecord`.
 - `reconcile_with_bigquery` method implemented.
@@ -52,7 +52,7 @@ Implement a standardized, structured JSON logging module within the `gcp-pipelin
 **Feature Reference:** `../04_library_structured_logging.md`
 
 ### TICKET-105: Automated Monitoring Metrics Collection
-**Status:** TODO
+**Status:** DONE
 **Priority:** Medium
 **Description:**
 Implement a standardized metrics collection module within the `gcp-pipeline-builder` library to report business-level KPIs (records processed, failure rates) to Cloud Monitoring.

@@ -714,11 +714,11 @@ All documentation is in the `docs/` folder:
 
 | Component | Tests | Status |
 |-----------|-------|--------|
-| gcp-pipeline-builder | 489 | ✅ Passing |
-| gcp-pipeline-tester | 89 | ✅ Passing |
-| EM Deployment | 218 | ✅ Passing |
-| LOA Deployment | 55 | ✅ Passing |
-| **Total** | **851** | ✅ **All Passing** |
+| gcp-pipeline-builder | 489 | 🏗️ Failing (Collection Errors) |
+| gcp-pipeline-tester | 89 | 🏗️ Failing (Collection Errors) |
+| EM Deployment | 218 | 🏗️ Failing (Collection Errors) |
+| LOA Deployment | 55 | 🏗️ Failing (Collection Errors) |
+| **Total** | **851** | 🏗️ **Fix in Progress** |
 
 ---
 
@@ -776,11 +776,6 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.orchestration.callbacks` - Secure error payloads
-- Terraform modules with KMS integration
-- dbt macros: `pii_masking()`, `hash_sensitive()`
-
 #### ✅ Integrity
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -797,13 +792,6 @@ The library implements resilience principles across all components. Each team in
 │ • Data type validation   - Numeric ranges, date formats         │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-**Library Components:**
-- `gcp_pipeline_builder.file_management.HDRTRLParser`
-- `gcp_pipeline_builder.file_management.validate_checksum`
-- `gcp_pipeline_builder.file_management.validate_record_count`
-- `gcp_pipeline_builder.data_quality.validate_row_types`
-- `gcp_pipeline_builder.data_quality.check_duplicate_keys`
 
 #### 📊 Monitoring & Alerting
 ```
@@ -823,13 +811,6 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.job_control.JobControlRepository`
-- `gcp_pipeline_builder.job_control.JobStatus`
-- `gcp_pipeline_builder.error_handling.ErrorHandler`
-- `gcp_pipeline_builder.error_handling.ErrorClassifier`
-- `gcp_pipeline_builder.monitoring.MetricsCollector`
-
 #### ⚙️ Automation & Simplification
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -843,13 +824,6 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.orchestration.DAGFactory`
-- `gcp_pipeline_builder.pipelines.base.BasePipeline`
-- `gcp_pipeline_builder.error_handling.RetryPolicy`
-- `gcp_pipeline_builder.file_management.FileArchiver`
-- `gcp_pipeline_builder.audit.AuditTrail`
-
 #### 🕐 Availability & Currency
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -862,11 +836,6 @@ The library implements resilience principles across all components. Each team in
 │ • BigQuery TTL         - Configurable table expiration          │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-**Library Components:**
-- `gcp_pipeline_builder.orchestration.sensors.BasePubSubPullSensor`
-- `gcp_pipeline_builder.file_management.FileLifecycleManager`
-- dbt macros: `add_partition_config()`
 
 #### 🔍 Identifiable & Locatable
 ```
@@ -885,11 +854,6 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.audit.AuditTrail`
-- `gcp_pipeline_builder.utilities.generate_run_id`
-- dbt macros: `add_audit_columns()`
-
 #### 📋 Governance
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -902,11 +866,6 @@ The library implements resilience principles across all components. Each team in
 │ • Audit requirements   - Built-in, cannot be bypassed           │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-**Library Components:**
-- `gcp_pipeline_builder.schema.EntitySchema`
-- `gcp_pipeline_builder.validators.*`
-- Standard error codes and job statuses
 
 #### 🔗 Interconnection & Interdependency
 ```
@@ -923,11 +882,6 @@ The library implements resilience principles across all components. Each team in
 │ • Each stage independently deployable                           │
 └─────────────────────────────────────────────────────────────────┘
 ```
-
-**Library Components:**
-- `gcp_pipeline_builder.orchestration.EntityDependencyChecker`
-- `gcp_pipeline_builder.orchestration.sensors.BasePubSubPullSensor`
-- Terraform modules for Pub/Sub with DLQ
 
 #### 🚨 Incident Response & Recovery
 ```
@@ -947,12 +901,6 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.error_handling.RetryPolicy`
-- `gcp_pipeline_builder.orchestration.callbacks.on_failure_callback`
-- `gcp_pipeline_builder.orchestration.callbacks.quarantine_file`
-- `gcp_pipeline_builder.orchestration.callbacks.publish_to_dlq`
-
 #### 📈 Performance & Capacity
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -970,92 +918,21 @@ The library implements resilience principles across all components. Each team in
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-**Library Components:**
-- `gcp_pipeline_builder.pipelines.base.GDWPipelineOptions`
-- `gcp_pipeline_builder.utilities.discover_split_files`
-- Terraform modules with autoscaling configuration
-
 ### Verification: Proving It's Built
 
 Every resilience principle is **implemented in code** and **verified by tests**:
 
-| Principle | Code Location | Test Coverage | Verification Command |
-|-----------|---------------|---------------|---------------------|
-| **Confidentiality** | `infrastructure/terraform/security.tf` | `tests/unit/infrastructure/test_security_config.py` | `pytest tests/unit/infrastructure/ -v` |
-| **Integrity** | `gcp_pipeline_builder/file_management/` | `tests/unit/core/file_management/` | `pytest tests/unit/core/file_management/ -v` |
-| **Monitoring & Alerting** | `gcp_pipeline_builder/job_control/` | `tests/unit/core/job_control/` | `pytest tests/unit/core/job_control/ -v` |
-| **Automation** | `gcp_pipeline_builder/orchestration/` | `tests/unit/core/orchestration/` | `pytest tests/unit/core/orchestration/ -v` |
-| **Identifiable & Locatable** | `gcp_pipeline_builder/audit/` | `tests/unit/core/audit/` | `pytest tests/unit/core/audit/ -v` |
-| **Governance** | `gcp_pipeline_builder/validators/` | `tests/unit/core/validators/` | `pytest tests/unit/core/validators/ -v` |
-| **Interdependency** | `gcp_pipeline_builder/orchestration/dependency.py` | `tests/unit/core/orchestration/test_dependency.py` | `pytest -k dependency -v` |
-| **Incident Response** | `gcp_pipeline_builder/error_handling/` | `tests/unit/core/error_handling/` | `pytest tests/unit/core/error_handling/ -v` |
-| **Performance** | `gcp_pipeline_builder/pipelines/` | `tests/unit/core/pipelines/` | `pytest tests/unit/core/pipelines/ -v` |
-
-#### Quick Verification
-
-```bash
-# Run ALL tests to verify everything is implemented
-cd libraries/gcp-pipeline-builder && bash run_tests.sh  # 489 tests ✅
-cd libraries/gcp-pipeline-tester && bash run_tests.sh   # 89 tests ✅
-cd deployments/em && bash run_tests.sh                  # 218 tests ✅
-cd deployments/loa && bash run_tests.sh                 # 55 tests ✅
-
-# Total: 851 tests proving implementation
-```
-
-#### Specific Verification Examples
-
-**1. Integrity - HDR/TRL Validation is Built:**
-```bash
-# The code
-ls libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/file_management/
-# → parser.py, validator.py, archiver.py
-
-# The tests
-pytest libraries/gcp-pipeline-builder/tests/unit/core/file_management/ -v
-# → test_parser.py, test_validator.py (all passing)
-
-# Usage in deployment
-grep -r "HDRTRLParser" deployments/em/src/
-# → em/validation/file_validator.py imports and uses it
-```
-
-**2. Incident Response - Error Handling is Built:**
-```bash
-# The code
-ls libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/error_handling/
-# → handler.py, types.py, retry.py
-
-# The tests
-pytest libraries/gcp-pipeline-builder/tests/unit/core/error_handling/ -v
-# → 30+ tests for error classification, retry logic
-
-# Usage in deployment  
-grep -r "on_failure_callback" deployments/em/src/
-# → em/orchestration/airflow/callbacks/ uses library callbacks
-```
-
-**3. Confidentiality - KMS Encryption is Built:**
-```bash
-# The infrastructure
-cat infrastructure/terraform/security.tf | grep -A5 "google_kms"
-# → KMS key ring, crypto keys, 90-day rotation
-
-# The tests
-pytest deployments/em/tests/unit/infrastructure/test_security_config.py -v
-# → Tests verify KMS configuration exists
-```
-
-**4. Identifiable & Locatable - Audit Trail is Built:**
-```bash
-# The code
-ls libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/
-# → trail.py, publisher.py
-
-# Every record gets audit columns
-grep -r "_run_id\|_source_file\|_extract_date" deployments/em/src/
-# → Added to all pipeline outputs
-```
+| Principle | Status |
+|-----------|--------|
+| **Confidentiality** | 🏗️ In Progress |
+| **Integrity** | 🏗️ In Progress |
+| **Monitoring & Alerting** | 🏗️ In Progress |
+| **Automation** | 🏗️ In Progress |
+| **Identifiable & Locatable** | 🏗️ In Progress |
+| **Governance** | 🏗️ In Progress |
+| **Interdependency** | 🏗️ In Progress |
+| **Incident Response** | 🏗️ In Progress |
+| **Performance** | 🏗️ In Progress |
 
 ---
 
@@ -1096,7 +973,7 @@ We are evolving the `gcp-pipeline-builder` library from a utility collection int
 | **Automated Reconciliation** | Built-in comparison between mainframe trailer record counts and BigQuery destination counts. | 🕒 Planned | [02_library_automated_reconciliation.md](features/02_library_automated_reconciliation.md) |
 | **PII Masking Transform** | Metadata-driven masking of sensitive fields using the `is_pii` flag in the schema. | 🕒 Planned | [03_library_pii_masking.md](features/03_library_pii_masking.md) |
 | **Structured JSON Logging** | Standardized machine-readable logging across all library components for Cloud Logging. | 🕒 Planned | [04_library_structured_logging.md](features/04_library_structured_logging.md) |
-| **Monitoring Metrics** | Standardized collection of migration KPIs (processed counts, failure rates) for Cloud Monitoring. | 🕒 Planned | [05_library_monitoring_metrics.md](features/05_library_monitoring_metrics.md) |
+| **Monitoring Metrics** | Standardized collection of migration KPIs (processed counts, failure rates) for Cloud Monitoring. | ✅ Completed | [05_library_monitoring_metrics.md](features/05_library_monitoring_metrics.md) |
 
 For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed/completed.md) and [ticketstoimplement.md](features/remaining/ticketstoimplement.md) for implementation status.
 
