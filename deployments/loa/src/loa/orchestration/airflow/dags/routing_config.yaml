@@ -1,0 +1,89 @@
+# Routing configuration for LOA (Application B Application) Pipeline
+# Version: 1.0.0
+# Last Updated: 2026-01-04
+
+# LOA Pattern: 1 source entity → 2 FDP tables (SPLIT)
+# Unlike EM which has 3 entities → 1 FDP (JOIN)
+
+# Default settings for all pipelines
+default_settings:
+  default_pipeline: loa_odp_load_dag
+  default_processing_mode: batch
+  dlq_topic: loa-notifications-dead-letter
+  quarantine_bucket: loa-error
+  max_retries: 3
+  retry_delay_seconds: 300
+
+# Entity-specific routing rules
+# LOA has only 1 entity: applications
+routing_rules:
+  # Applications Pipeline
+  - pipeline_id: loa_applications_pipeline
+    entity_type: applications
+    file_patterns:
+      - "*/applications_*"
+      - "*/loa_applications_*"
+      - "*/APPLICATIONS_*"
+    target_table: odp_loa.applications
+    error_table: odp_loa.applications_errors
+    processing_mode: batch
+    dataflow_template: gs://loa-templates/dataflow/loa_pipeline_template
+    validation:
+      required_columns:
+        - application_id
+        - customer_id
+        - loan_type
+        - amount
+        - status
+        - application_date
+      rules:
+        amount_range: [0, 10000000]
+        loan_types:
+          - PERSONAL
+          - MORTGAGE
+          - AUTO
+          - BUSINESS
+      sample_size: 5
+
+# FDP transformation configuration
+# LOA SPLITS 1 source → 2 targets (opposite of EM which JOINs)
+fdp_transformation:
+  system_id: LOA
+  source_entity: applications
+  transformation_type: SPLIT  # Key difference from EM (which is JOIN)
+  trigger_mode: immediate     # No wait for other entities (EM waits for 3)
+  target_tables:
+    - fdp_loa.event_transaction_excess
+    - fdp_loa.portfolio_account_excess
+  fdp_trigger_dag: loa_fdp_transform_dag
+
+# Error handling configuration
+error_handling:
+  validation_failure:
+    action: quarantine
+    notify: true
+    dlq_publish: true
+    dlq_topic: loa-notifications-dead-letter
+  routing_failure:
+    action: log_and_skip
+    notify: true
+    dlq_publish: true
+  processing_failure:
+    action: retry
+    max_retries: 3
+    retry_delay_seconds: 300
+    notify: true
+    dlq_publish: true
+  schema_mismatch:
+    action: quarantine
+    notify: true
+    dlq_publish: true
+
+# Monitoring and alerting configuration
+monitoring:
+  enable_metrics: true
+  metrics_namespace: loa/pipeline
+  alert_on_failure: true
+  alert_channels:
+    - email
+
