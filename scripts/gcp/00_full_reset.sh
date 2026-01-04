@@ -67,7 +67,13 @@ done
 
 echo ""
 echo -e "${BLUE}=== Step 4: Delete GCS Buckets ===${NC}"
-for bucket in em-landing em-archive em-error em-temp loa-landing loa-archive loa-error loa-temp dataflow-templates; do
+# Delete both manual and Terraform-created buckets
+for bucket in \
+    em-landing em-archive em-error em-temp \
+    em-dev-landing em-dev-archive em-dev-error em-dev-temp \
+    loa-landing loa-archive loa-error loa-temp \
+    loa-dev-landing loa-dev-archive loa-dev-error loa-dev-temp \
+    dataflow-templates em-dataflow-temp loa-dataflow-temp; do
     gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
 done
 
@@ -77,8 +83,20 @@ gsutil -m rm -r "gs://gdw-terraform-state" 2>/dev/null && echo "  Deleted: gs://
 
 echo ""
 echo -e "${BLUE}=== Step 6: Delete Service Accounts ===${NC}"
-for sa in em-dataflow-sa em-dbt-sa em-composer-sa loa-dataflow-sa loa-dbt-sa; do
+# Delete all pipeline service accounts (both naming patterns)
+for sa in \
+    em-dataflow-sa em-dbt-sa em-composer-sa \
+    em-dev-dataflow em-dev-dbt em-dev-composer \
+    loa-dataflow-sa loa-dbt-sa loa-composer-sa \
+    loa-dev-dataflow loa-dev-dbt loa-dev-composer; do
     gcloud iam service-accounts delete "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sa" || true
+done
+
+echo ""
+echo -e "${BLUE}=== Step 7: Delete Additional Pub/Sub Resources ===${NC}"
+# Delete dead letter topics/subscriptions created by Terraform
+for topic in em-file-notifications-dead-letter em-pipeline-events-dead-letter loa-file-notifications-dead-letter loa-pipeline-events-dead-letter; do
+    gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted topic: $topic" || true
 done
 
 echo ""
