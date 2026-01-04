@@ -11,7 +11,6 @@ on:
 
 env:
   PYTHON_VERSION: '3.11'
-  GCP_PROJECT_ID: 'joseph-antony-aruja'
   GCP_REGION: 'europe-west2'
   ENVIRONMENT: 'dev'
 
@@ -70,6 +69,7 @@ jobs:
         cd infrastructure/terraform/em
         terraform plan \
           -var-file="env/dev.tfvars" \
+          -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -out=tfplan
 
     - name: Terraform Apply
