@@ -1,9 +1,9 @@
 #!/bin/bash
 # =============================================================================
-# Setup GitHub Actions for GCP Deployment
+# Step 4: Setup GitHub Actions for GCP Deployment
 # =============================================================================
-# This script creates a service account and outputs the key for GitHub secrets
-# Usage: ./scripts/gcp/setup_github_actions.sh
+# Creates service account and outputs key for GitHub secrets
+# Usage: ./scripts/gcp/04_setup_github_actions.sh
 # =============================================================================
 
 set -e

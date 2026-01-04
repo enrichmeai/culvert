@@ -1,616 +1,270 @@
 # GCP Deployment Guide
 
-Complete guide for deploying EM and LOA pipelines to Google Cloud Platform.
+This guide explains how to set up and deploy the Legacy Migration Pipeline to GCP.
 
----
+## Overview
 
-## Table of Contents
+The deployment process has 3 phases:
 
-1. [Prerequisites](#prerequisites)
-2. [Infrastructure Setup](#infrastructure-setup)
-3. [Pipeline Deployment](#pipeline-deployment)
-4. [Environment Configuration](#environment-configuration)
-5. [CI/CD Setup](#cicd-setup)
-6. [Monitoring & Alerting](#monitoring--alerting)
-7. [Troubleshooting](#troubleshooting)
+| Phase | What | How | When |
+|-------|------|-----|------|
+| **1. Infrastructure Setup** | Create GCS buckets, BigQuery datasets, Pub/Sub topics, Terraform state | `gcloud` CLI (manual) | Once per environment |
+| **2. Pipeline Deployment** | Deploy Dataflow templates, DAGs | GitHub Actions (on commit) | On each commit |
+| **3. Testing** | Upload test files, trigger pipeline | Test scripts (manual) | As needed |
 
 ---
 
 ## Prerequisites
 
-### GCP Project Setup
+### Required Tools
+```bash
+# Google Cloud SDK
+brew install google-cloud-sdk   # macOS
+# or: https://cloud.google.com/sdk/docs/install
 
-1. **Create GCP Project** with billing enabled
-2. **Install Cloud SDK** locally:
-   ```bash
-   # macOS
-   brew install google-cloud-sdk
-   
-   # Or download from https://cloud.google.com/sdk/docs/install
-   ```
+# GitHub CLI
+brew install gh                  # macOS
+# or: https://cli.github.com/
 
-3. **Authenticate:**
-   ```bash
-   gcloud auth login
-   gcloud config set project YOUR_PROJECT_ID
-   ```
+# Terraform (optional, for local development)
+brew install terraform           # macOS
+```
 
-### Required APIs
+### Authentication
+```bash
+# Login to GCP
+gcloud auth login
 
-Enable the following APIs:
+# Set project
+gcloud config set project <YOUR_PROJECT_ID>
 
+# Verify
+gcloud config get-value project
+```
+
+---
+
+## Phase 1: Infrastructure Setup (One-time)
+
+Run these commands **once** to create the required GCP infrastructure.
+
+### Step 1.1: Enable Required Services
+```bash
+./scripts/gcp/01_enable_services.sh
+```
+
+Or manually:
 ```bash
 gcloud services enable \
-  bigquery.googleapis.com \
-  storage.googleapis.com \
-  dataflow.googleapis.com \
-  composer.googleapis.com \
-  pubsub.googleapis.com \
-  logging.googleapis.com \
-  monitoring.googleapis.com \
-  cloudbuild.googleapis.com
+    bigquery.googleapis.com \
+    storage.googleapis.com \
+    pubsub.googleapis.com \
+    dataflow.googleapis.com \
+    cloudkms.googleapis.com \
+    monitoring.googleapis.com \
+    logging.googleapis.com
 ```
 
-### Service Accounts
-
-Create service accounts for pipeline execution:
-
+### Step 1.2: Create Terraform State Bucket
 ```bash
-# Dataflow Service Account
-gcloud iam service-accounts create dataflow-worker \
-  --display-name="Dataflow Worker"
-
-# Grant roles
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:dataflow-worker@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/dataflow.worker"
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:dataflow-worker@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/bigquery.dataEditor"
-
-gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:dataflow-worker@$PROJECT_ID.iam.gserviceaccount.com" \
-  --role="roles/storage.objectAdmin"
+./scripts/gcp/02_create_state_bucket.sh
 ```
 
-### Local Development Requirements
-
-- Python 3.11+
-- Terraform 1.5+
-- dbt 1.5+
-- Apache Beam 2.52+
-
+Or manually:
 ```bash
-# Install Python dependencies
-pip install -e libraries/gcp-pipeline-builder[dev]
-pip install -e libraries/gcp-pipeline-tester
+PROJECT_ID=$(gcloud config get-value project)
+gsutil mb -l europe-west2 -p $PROJECT_ID gs://gdw-terraform-state
+gsutil versioning set on gs://gdw-terraform-state
+```
 
-# Install Terraform
-brew install terraform
+### Step 1.3: Create Infrastructure (Buckets, Datasets, Topics)
+```bash
+./scripts/gcp/03_create_infrastructure.sh all
+```
 
-# Install dbt
-pip install dbt-bigquery
+Or manually:
+```bash
+PROJECT_ID=$(gcloud config get-value project)
+REGION="europe-west2"
+
+# EM Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-em-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-em-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-em-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-em-temp
+
+# EM BigQuery Datasets
+bq mk --location=$REGION odp_em
+bq mk --location=$REGION fdp_em
+bq mk --location=$REGION job_control
+
+# EM Pub/Sub Topics
+gcloud pubsub topics create em-file-notifications
+gcloud pubsub topics create em-pipeline-events
+gcloud pubsub subscriptions create em-file-notifications-sub --topic=em-file-notifications
+gcloud pubsub subscriptions create em-pipeline-events-sub --topic=em-pipeline-events
+
+# LOA Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-loa-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-loa-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-loa-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-loa-temp
+
+# LOA BigQuery Datasets
+bq mk --location=$REGION odp_loa
+bq mk --location=$REGION fdp_loa
+
+# LOA Pub/Sub Topics
+gcloud pubsub topics create loa-file-notifications
+gcloud pubsub topics create loa-pipeline-events
+gcloud pubsub subscriptions create loa-file-notifications-sub --topic=loa-file-notifications
+gcloud pubsub subscriptions create loa-pipeline-events-sub --topic=loa-pipeline-events
+```
+
+### Step 1.4: Setup GitHub Actions Service Account
+```bash
+./scripts/gcp/04_setup_github_actions.sh
+```
+
+This creates:
+- Service account: `github-actions-deploy@<PROJECT>.iam.gserviceaccount.com`
+- IAM roles for deployment
+- Key file for GitHub secrets
+
+Then add secrets to GitHub:
+```bash
+gh secret set GCP_SA_KEY < /tmp/gcp-sa-key.json
+gh secret set GCP_PROJECT_ID --body '<PROJECT_ID>'
+rm /tmp/gcp-sa-key.json  # Delete key after adding
+```
+
+### Step 1.5: Verify Setup
+```bash
+./scripts/gcp/05_verify_setup.sh
 ```
 
 ---
 
-## Production Deployment Flow
+## Phase 2: Pipeline Deployment (GitHub Actions)
 
-In production, the deployment is fully automated:
+### Automatic Deployment
+Pipelines deploy automatically when you push to `main` branch with changes in:
+- `deployments/em/**` → Triggers EM deployment
+- `deployments/loa/**` → Triggers LOA deployment
+- `libraries/**` → Triggers both deployments
+- `infrastructure/terraform/**` → Triggers infrastructure updates
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      PRODUCTION DEPLOYMENT FLOW                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  1. TERRAFORM PROVISIONS INFRASTRUCTURE                                      │
-│  ───────────────────────────────────────                                     │
-│  terraform apply creates:                                                    │
-│  • GCS Buckets (landing, archive, error)                                    │
-│  • BigQuery Datasets (odp_*, fdp_*, job_control)                            │
-│  • Pub/Sub Topics & Subscriptions                                           │
-│  • Cloud Composer Environment ← Airflow managed service                     │
-│  • Service Accounts & IAM roles                                             │
-│  • KMS keys for encryption                                                  │
-│                                                                              │
-│  2. COMPOSER_BUCKET OUTPUT                                                   │
-│  ────────────────────────                                                    │
-│  Terraform outputs the Composer DAG bucket:                                 │
-│  $ terraform output composer_dag_bucket                                     │
-│  → gs://europe-west2-em-composer-abc123-bucket/dags                         │
-│                                                                              │
-│  This value is set as COMPOSER_BUCKET GitHub secret                         │
-│                                                                              │
-│  3. CI/CD DEPLOYS CODE                                                       │
-│  ─────────────────────                                                       │
-│  GitHub Actions / Harness:                                                  │
-│  • Runs tests                                                               │
-│  • Builds Dataflow template                                                 │
-│  • Runs dbt models                                                          │
-│  • Uploads DAGs to Composer bucket                                          │
-│                                                                              │
-│  4. AIRFLOW ORCHESTRATES PIPELINES                                           │
-│  ─────────────────────────────────                                           │
-│  Cloud Composer automatically picks up DAGs and:                            │
-│  • Monitors Pub/Sub for file notifications                                  │
-│  • Triggers Dataflow jobs                                                   │
-│  • Runs dbt transformations                                                 │
-│  • Manages retries and error handling                                       │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Production Deployment Commands
-
+### Manual Deployment
 ```bash
-# 1. Deploy infrastructure (creates Cloud Composer)
-cd infrastructure/terraform/em
-terraform init
-terraform apply -var-file="env/dev.tfvars"
+# Trigger EM deployment
+gh workflow run deploy-em.yml
 
-# 2. Get Composer bucket (for GitHub secret)
-terraform output composer_dag_bucket
-# → gs://europe-west2-em-dev-composer-abc123-bucket/dags
+# Trigger LOA deployment
+gh workflow run deploy-loa.yml
 
-# 3. Set GitHub secret (or Harness variable)
-# COMPOSER_BUCKET = output from step 2
-
-# 4. Deploy via CI/CD
-# Push to main branch triggers GitHub Actions / Harness
+# Check status
+gh run list --workflow=deploy-em.yml --limit 3
 ```
 
 ---
 
-## Infrastructure Setup
+## Phase 3: Testing (Manual)
 
-### Directory Structure
-
-```
-infrastructure/
-└── terraform/
-    ├── em/              # EM-specific infrastructure
-    │   ├── main.tf
-    │   ├── variables.tf
-    │   ├── outputs.tf
-    │   └── env/
-    │       ├── dev.tfvars
-    │       ├── staging.tfvars
-    │       └── prod.tfvars
-    └── loa/             # LOA-specific infrastructure
-        └── (same structure)
-```
-
-### Deploy with Terraform
-
+### Step 3.1: Upload Test Data
 ```bash
-# Set environment variables
-export PROJECT_ID="your-project-id"
-export REGION="us-central1"
-export ENVIRONMENT="dev"
-
-# Navigate to infrastructure
-cd infrastructure/terraform/em  # or /loa
-
-# Initialize Terraform
-terraform init
-
-# Plan deployment
-terraform plan \
-  -var="project_id=${PROJECT_ID}" \
-  -var="region=${REGION}" \
-  -var="environment=${ENVIRONMENT}" \
-  -var-file="env/${ENVIRONMENT}.tfvars"
-
-# Apply
-terraform apply \
-  -var="project_id=${PROJECT_ID}" \
-  -var="region=${REGION}" \
-  -var="environment=${ENVIRONMENT}" \
-  -var-file="env/${ENVIRONMENT}.tfvars"
+./scripts/gcp/06_test_pipeline.sh em
 ```
 
-### Resources Created
-
-| Resource | Purpose | Naming Pattern |
-|----------|---------|----------------|
-| **BigQuery Datasets** | Data storage | `odp_{system}`, `fdp_{system}`, `job_control` |
-| **GCS Buckets** | File storage | `{project}-{env}-landing`, `-archive`, `-error` |
-| **Pub/Sub Topics** | Event notifications | `{system}-notifications` |
-| **Pub/Sub Subscriptions** | Event consumption | `{system}-processing-sub` |
-| **Cloud Composer** | Airflow environment | `{system}-composer-{env}` |
-
----
-
-## Pipeline Deployment
-
-### Deploy Dataflow Template
-
+Or manually:
 ```bash
-# Build container image
-gcloud builds submit \
-  --tag gcr.io/${PROJECT_ID}/em-pipeline:latest \
-  deployments/em/pipeline/
+PROJECT_ID=$(gcloud config get-value project)
+DATE=$(date +%Y%m%d)
 
-# Create Flex Template
-gcloud dataflow flex-template build \
-  gs://${PROJECT_ID}-dataflow-templates/em_pipeline.json \
-  --image-gcr-path gcr.io/${PROJECT_ID}/em-pipeline:latest \
-  --sdk-language PYTHON \
-  --flex-template-base-image PYTHON3 \
-  --metadata-file deployments/em/pipeline/metadata.json
+# Create test file
+cat > /tmp/em_customers.csv << 'EOF'
+HDR|EM|Customers|20260104
+customer_id,name,email,status
+CUST001,John Doe,john@example.com,ACTIVE
+CUST002,Jane Smith,jane@example.com,ACTIVE
+TRL|RecordCount=2|Checksum=abc123
+EOF
+
+# Upload to landing bucket
+gsutil cp /tmp/em_customers.csv gs://${PROJECT_ID}-em-landing/
+
+# Create trigger file (.ok)
+touch /tmp/em_customers.csv.ok
+gsutil cp /tmp/em_customers.csv.ok gs://${PROJECT_ID}-em-landing/
+
+# Publish notification
+gcloud pubsub topics publish em-file-notifications \
+    --message='{"file": "em_customers.csv", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
-### Deploy Airflow DAGs
-
+### Step 3.2: Monitor Pipeline
 ```bash
-# Get Composer environment bucket
-COMPOSER_BUCKET=$(gcloud composer environments describe em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  --format="value(config.dagGcsPrefix)")
+# Check Pub/Sub messages
+gcloud pubsub subscriptions pull em-pipeline-events-sub --auto-ack
 
-# Upload DAGs
-gsutil -m cp -r deployments/em/orchestration/airflow/dags/* ${COMPOSER_BUCKET}/
-```
+# Check BigQuery for loaded data
+bq query --use_legacy_sql=false 'SELECT * FROM odp_em.customers LIMIT 10'
 
-### Deploy dbt Models
-
-```bash
-# Navigate to dbt project
-cd deployments/em/transformations/dbt
-
-# Install dependencies
-dbt deps
-
-# Run models
-dbt run --target ${ENVIRONMENT}
-
-# Run tests
-dbt test --target ${ENVIRONMENT}
+# Check Dataflow jobs
+gcloud dataflow jobs list --status=active
 ```
 
 ---
 
-## Environment Configuration
+## Cleanup
 
-### Environment Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `GCP_PROJECT_ID` | GCP Project ID | `my-project-123` |
-| `GCP_REGION` | Deployment region | `us-central1` |
-| `ENVIRONMENT` | Environment name | `dev`, `staging`, `prod` |
-| `DATAFLOW_TEMPLATE_PATH` | Template location | `gs://bucket/template.json` |
-
-### Airflow Variables
-
-Set in Cloud Composer UI or via gcloud:
-
+### Delete Infrastructure (Keep Project)
 ```bash
-gcloud composer environments run em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  variables set -- \
-  gcp_project_id ${PROJECT_ID}
-
-gcloud composer environments run em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  variables set -- \
-  landing_bucket ${PROJECT_ID}-${ENVIRONMENT}-landing
+./scripts/gcp/cleanup_infrastructure.sh all
 ```
 
-### dbt Profiles
-
-Configure `profiles.yml`:
-
-```yaml
-em_profile:
-  target: "{{ env_var('ENVIRONMENT', 'dev') }}"
-  outputs:
-    dev:
-      type: bigquery
-      project: "{{ env_var('GCP_PROJECT_ID') }}"
-      dataset: fdp_em
-      location: US
-      method: oauth
-    staging:
-      # Same with different project
-    prod:
-      # Production settings
-```
-
----
-
-## CI/CD Setup
-
-### GitHub Actions Workflow
-
-Create `.github/workflows/deploy.yml`:
-
-```yaml
-name: Deploy Pipeline
-
-on:
-  push:
-    branches: [main]
-    paths:
-      - 'deployments/**'
-      - 'infrastructure/**'
-
-env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: us-central1
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-      
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          pip install -e ./gcp_pipeline_builder
-      
-      - name: Run tests
-        run: |
-          PYTHONPATH=. pytest deployments/loa/tests/ -v
-          PYTHONPATH=. pytest deployments/em/tests/unit/ -v \
-            --ignore=deployments/em/tests/unit/orchestration/
-
-  deploy-infrastructure:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-      
-      - name: Set up Terraform
-        uses: hashicorp/setup-terraform@v2
-      
-      - name: Terraform Apply
-        run: |
-          cd infrastructure/terraform/em
-          terraform init
-          terraform apply -auto-approve \
-            -var="project_id=$PROJECT_ID" \
-            -var="environment=staging"
-
-  deploy-pipeline:
-    needs: deploy-infrastructure
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-      
-      - name: Deploy DAGs
-        run: |
-          ./deploy.sh dags em staging
-      
-      - name: Deploy dbt
-        run: |
-          cd deployments/em/transformations/dbt
-          dbt run --target staging
-```
-
-### Required Secrets
-
-Configure in GitHub repository settings (Settings → Secrets and variables → Actions):
-
-| Secret | Description | Example |
-|--------|-------------|---------|
-| `GCP_PROJECT_ID` | GCP Project ID | `my-project-123` |
-| `GCP_SA_KEY` | Service account JSON key (base64 encoded) | `{"type": "service_account", ...}` |
-| `COMPOSER_BUCKET` | Cloud Composer DAGs bucket name | `europe-west2-composer-abc123-bucket` |
-
-#### Optional Secrets
-
-| Secret | Description |
-|--------|-------------|
-| `QODANA_TOKEN` | JetBrains Qodana code quality token (for qodana_code_quality.yml) |
-
-#### How to Get COMPOSER_BUCKET
-
+### Delete Entire Project
 ```bash
-# Get Cloud Composer DAGs bucket
-gcloud composer environments describe YOUR_COMPOSER_ENV \
-  --location europe-west2 \
-  --format="value(config.dagGcsPrefix)"
-```
-
----
-
-## Monitoring & Alerting
-
-### Cloud Monitoring Dashboard
-
-Create a dashboard for:
-- Dataflow job success/failure rate
-- BigQuery slot usage
-- GCS object counts
-- Pub/Sub message latency
-
-```bash
-# Create dashboard from template
-gcloud monitoring dashboards create \
-  --config-from-file=infrastructure/monitoring/dashboard.json
-```
-
-### Alert Policies
-
-```bash
-# Pipeline failure alert
-gcloud alpha monitoring policies create \
-  --notification-channels="projects/${PROJECT_ID}/notificationChannels/YOUR_CHANNEL" \
-  --display-name="Pipeline Failure Alert" \
-  --condition-display-name="Dataflow Job Failed" \
-  --condition-filter='resource.type="dataflow_job" AND metric.type="dataflow.googleapis.com/job/status"'
-```
-
-### Log-Based Metrics
-
-```bash
-# Create metric for validation errors
-gcloud logging metrics create validation_errors \
-  --description="Count of validation errors" \
-  --log-filter='resource.type="dataflow_step" AND jsonPayload.error_type="VALIDATION"'
+./scripts/gcp/delete_project.sh
 ```
 
 ---
 
 ## Troubleshooting
 
-### Common Issues
-
-#### 1. Dataflow Job Fails
-
-**Check worker logs:**
+### "Bucket doesn't exist" error
 ```bash
-gcloud logging read "resource.type=dataflow_step AND resource.labels.job_id=YOUR_JOB_ID" \
-  --limit=100 \
-  --format="table(timestamp,jsonPayload.message)"
+# Create the Terraform state bucket
+gsutil mb -l europe-west2 gs://gdw-terraform-state
 ```
 
-**Common causes:**
-- Schema mismatch
-- Invalid data format
-- Permission issues
-
-#### 2. BigQuery Load Fails
-
-**Check job status:**
+### "Permission denied" error
 ```bash
-bq ls -j -a --max_results=10
-bq show -j YOUR_JOB_ID
+# Check service account roles
+gcloud projects get-iam-policy $(gcloud config get-value project) \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:github-actions-deploy"
 ```
 
-**Common causes:**
-- Schema incompatibility
-- Quota exceeded
-- Table not found
-
-#### 3. Airflow DAG Fails
-
-**Check task logs:**
+### GitHub secrets not set
 ```bash
-gcloud composer environments run em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  tasks logs list -- YOUR_DAG_ID YOUR_TASK_ID
-```
+# Verify secrets
+gh secret list
 
-**Common causes:**
-- Missing Airflow variables
-- Connection issues
-- Timeout
-
-#### 4. dbt Model Fails
-
-**Run with debug:**
-```bash
-dbt run --models YOUR_MODEL --debug
-```
-
-**Check compiled SQL:**
-```bash
-cat target/compiled/em_transformations/models/fdp/em_attributes.sql
-```
-
-### Debug Commands
-
-```bash
-# View Dataflow jobs
-gcloud dataflow jobs list --region=${REGION}
-
-# View BigQuery jobs
-bq ls -j -a
-
-# View Composer logs
-gcloud composer environments run em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  logs
-
-# View Pub/Sub messages
-gcloud pubsub subscriptions pull ${SYSTEM}-processing-sub --auto-ack --limit=10
-```
-
-### Health Check Script
-
-```bash
-#!/bin/bash
-# health_check.sh
-
-echo "=== GCP Pipeline Health Check ==="
-
-# Check BigQuery datasets
-echo "BigQuery Datasets:"
-bq ls --datasets
-
-# Check GCS buckets
-echo "GCS Buckets:"
-gsutil ls
-
-# Check Pub/Sub topics
-echo "Pub/Sub Topics:"
-gcloud pubsub topics list
-
-# Check recent Dataflow jobs
-echo "Recent Dataflow Jobs:"
-gcloud dataflow jobs list --region=${REGION} --limit=5
-
-# Check Composer status
-echo "Composer Environment:"
-gcloud composer environments describe em-composer-${ENVIRONMENT} \
-  --location ${REGION} \
-  --format="value(state)"
+# Re-add if missing
+./scripts/gcp/04_setup_github_actions.sh
 ```
 
 ---
 
 ## Quick Reference
 
-### Deploy Commands
-
-```bash
-# Full deployment (Terraform + DAGs + dbt)
-./deploy.sh all em staging
-
-# Infrastructure only
-./deploy.sh infra em staging
-
-# DAGs only
-./deploy.sh dags em staging
-
-# dbt only
-./deploy.sh dbt em staging
-```
-
-### Test Commands
-
-```bash
-# Run all tests
-PYTHONPATH=. pytest deployments/ -v
-
-# Run specific deployment
-PYTHONPATH=. pytest deployments/loa/tests/ -v
-
-# Run with coverage
-PYTHONPATH=. pytest deployments/ -v --cov=deployments --cov-report=html
-```
-
----
-
-**Last Updated:** January 2, 2026
+| Resource | EM | LOA |
+|----------|-----|-----|
+| Landing Bucket | `{project}-em-landing` | `{project}-loa-landing` |
+| Archive Bucket | `{project}-em-archive` | `{project}-loa-archive` |
+| Error Bucket | `{project}-em-error` | `{project}-loa-error` |
+| ODP Dataset | `odp_em` | `odp_loa` |
+| FDP Dataset | `fdp_em` | `fdp_loa` |
+| Notification Topic | `em-file-notifications` | `loa-file-notifications` |
+| Events Topic | `em-pipeline-events` | `loa-pipeline-events` |
 
