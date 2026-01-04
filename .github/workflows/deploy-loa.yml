@@ -63,6 +63,7 @@ jobs:
         cd infrastructure/terraform/loa
         terraform plan \
           -var-file="env/dev.tfvars" \
+          -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -out=tfplan
 
     - name: Terraform Apply
