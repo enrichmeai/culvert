@@ -23,19 +23,24 @@ A production-grade Python framework for building GCP data pipelines. Provides re
   - [Validators](#1-validators-module)
   - [Error Handling](#2-error-handling-module)
   - [Audit & Reconciliation](#3-audit--reconciliation-module)
-  - [Monitoring & Observability](#4-monitoring--observability-module)
-  - [Utilities](#5-utilities-module)
-- [Pipeline Components](#pipeline-components)
-  - [Apache Beam Transforms](#6-apache-beam-transforms)
-  - [Apache Beam I/O Operations](#7-apache-beam-io-operations)
-  - [Pipeline Base Classes](#8-pipeline-base-classes)
-- [Orchestration](#orchestration)
-  - [Pub/Sub Integration](#pubsub-integration-event-driven-triggers)
-  - [Dead Letter Queue Management](#dead-letter-queue-dlq-management)
-- [Common Patterns](#common-patterns)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-- [Best Practices](#best-practices)
+  - [Data Quality & Scoring](#4-data-quality--scoring-module)
+  - [Monitoring & Observability](#5-monitoring--observability-module)
+  - [Data Deletion Framework](#6-data-deletion-framework)
+  - [Job Control](#7-job-control-module)
+  - [Utilities](#8-utilities-module)
+  - [Pipeline Components](#pipeline-components)
+    - [Apache Beam Transforms](#9-apache-beam-transforms)
+    - [Apache Beam I/O Operations](#10-apache-beam-io-operations)
+    - [Pipeline Base Classes](#11-pipeline-base-classes)
+  - [Orchestration](#orchestration)
+    - [DAG Factory](#dag-factory)
+    - [Pub/Sub Integration](#pubsub-integration-event-driven-triggers)
+    - [Dead Letter Queue Management](#dead-letter-queue-dlq-management)
+  - [Shared dbt Transformations](#shared-dbt-transformations)
+  - [Common Patterns](#common-patterns)
+  - [Testing](#testing)
+  - [Project Structure](#project-structure)
+  - [Best Practices](#best-practices)
 
 ---
 
@@ -297,7 +302,38 @@ audit_record = audit.record_processing_end(success=True)
 
 ---
 
-### 4. Monitoring & Observability Module
+### 4. Data Quality & Scoring Module
+
+**Location**: `gcp_pipeline_builder.data_quality`
+
+Orchestrates multiple dimensions of data quality and provides a consolidated score.
+
+```python
+from gcp_pipeline_builder.data_quality import DataQualityChecker
+
+checker = DataQualityChecker(entity_type="customers")
+
+# Check multiple dimensions
+checker.check_completeness(records, required_fields=["id", "ssn"])
+checker.check_validity(records, validation_rules={"ssn": validate_ssn})
+checker.check_uniqueness(records, unique_key="id")
+
+# Get results
+score = checker.calculate_overall_quality_score()  # 0.0 to 1.0
+report = checker.get_quality_report()
+checker.print_quality_report()
+```
+
+#### Utility Functions
+
+| Function | Purpose |
+|----------|---------|
+| `check_duplicate_keys(records, key_fields)` | Detect duplicate primary/composite keys |
+| `validate_row_types(lines)` | Verify HDR first, TRL last, no HDR/TRL in middle |
+
+---
+
+### 5. Monitoring & Observability Module
 
 **Location**: `gcp_pipeline_builder.monitoring`
 
@@ -325,7 +361,68 @@ stats = metrics.get_statistics()
 
 ---
 
-### 5. Utilities Module
+### 6. Data Deletion Framework
+
+**Location**: `gcp_pipeline_builder.data_deletion`
+
+Handles lifecycle of malformed records, including quarantine, approval, and deletion.
+
+```python
+from gcp_pipeline_builder.data_deletion import DataDeletionFramework
+
+framework = DataDeletionFramework(pipeline_name="loa_migration", run_id="run_001")
+
+# Detect and quarantine malformed records
+framework.detect_malformed_record(
+    record_id="REC001",
+    entity_type="applications",
+    data={"id": "REC001", "ssn": "invalid"},
+    validation_errors=["Invalid SSN format"],
+    severity="HIGH"
+)
+
+# Manage deletion lifecycle
+framework.request_deletion_approval(record)
+framework.approve_deletion(record, approved_by="admin@example.com")
+framework.delete_record(record)
+
+# Reporting
+report = framework.get_deletion_report()
+```
+
+---
+
+### 7. Job Control Module
+
+**Location**: `gcp_pipeline_builder.job_control`
+
+Tracks pipeline job status and metadata in BigQuery for operational visibility.
+
+```python
+from gcp_pipeline_builder.job_control import JobControlRepository, JobStatus, PipelineJob
+
+repo = JobControlRepository(project_id="my-project")
+
+# Create a new job record
+job = PipelineJob(run_id="run_001", pipeline_name="em_sync", system_id="EM")
+repo.create_job(job)
+
+# Update job status
+repo.update_status("run_001", JobStatus.RUNNING)
+repo.update_status("run_001", JobStatus.SUCCESS, total_records=1000)
+
+# Mark as failed
+repo.mark_failed(
+    run_id="run_001",
+    error_code="PARSE_ERROR",
+    error_message="Invalid CSV format",
+    failure_stage="ODP_LOAD"
+)
+```
+
+---
+
+### 8. Utilities Module
 
 **Location**: `gcp_pipeline_builder.utilities`
 
@@ -413,6 +510,29 @@ result = pipeline.run()
 ---
 
 ## Orchestration
+
+### DAG Factory
+
+**Location**: `gcp_pipeline_builder.orchestration.factories`
+
+Automates the creation of Airflow DAGs with standardized patterns.
+
+```python
+from gcp_pipeline_builder.orchestration.factories import DAGFactory
+
+factory = DAGFactory()
+
+# Create DAG from a configuration dictionary
+dag_config = {
+    "dag_id": "em_customer_migration",
+    "schedule_interval": "@daily",
+    "default_args": {
+        "owner": "data-engineering",
+        "start_date": "2023-01-01"
+    }
+}
+dag = factory.create_dag_from_dict(dag_config)
+```
 
 ### Pub/Sub Integration (Event-Driven Triggers)
 
@@ -504,6 +624,20 @@ default_args = {
     'on_failure_callback': on_failure_callback,
 }
 ```
+
+---
+
+### Shared dbt Transformations
+
+**Location**: `gcp_pipeline_builder.transformations.dbt_shared`
+
+Reusable dbt macros for common data transformation and quality tasks.
+
+| Macro | Description |
+|-------|-------------|
+| `audit_columns()` | Adds standard audit columns (`_run_id`, `_processed_at`, etc.) |
+| `pii_masking(column, type)` | Masks sensitive data like SSN or Account numbers |
+| `data_quality_check(rules)` | Implements complex DQ rules within SQL |
 
 ---
 

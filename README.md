@@ -128,34 +128,35 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
 ---
 
-## 📊 Why This Approach
+## 📈 Value Proposition: Efficiency & Acceleration
 
-### Time & Effort Savings (Approximate)
+### Estimated Potential Savings
+By providing a foundation of pre-built, tested components, the framework enables teams to bypass the initial "heavy lifting" of infrastructure and pattern development. This allows engineers to focus their energy on system-specific business logic and data quality.
 
-Each team building a mainframe migration pipeline would need to implement these components. 
-With the library, they configure once instead of building from scratch:
+| Component | Traditional Build (Est.) | With Framework | Efficiency Gain |
+|-----------|---------------------------|----------------|-----------------|
+| **Resilient Error Handling** | ~2-3 weeks | ~2 days | ~85% |
+| **Pub/Sub Event Integration** | ~1-2 weeks | Ready to use | ~90% |
+| **Mainframe File Validation** | ~1 week | Ready to use | ~95% |
+| **Automated Audit Lineage** | ~1 week | Out-of-the-box | ~100% |
+| **Unified Testing Utilities** | ~2 weeks | Ready to use | ~85% |
 
-| Component | Without Library (per team) | With Library | Time Saved |
-|-----------|---------------------------|--------------|------------|
-| **Error Handling** | ~2-3 weeks to build | Configure in ~2 days | ~85% |
-| **Pub/Sub Integration** | ~1-2 weeks to build | Pre-built sensors | ~90% |
-| **File Validation (HDR/TRL)** | ~1 week to build | HDRTRLParser ready | ~95% |
-| **Audit Trail** | ~1 week to build | Automatic columns | ~100% |
-| **Testing Framework** | ~2 weeks to build | Mocks & fixtures ready | ~85% |
+> **Note:** These estimates are illustrative and may vary based on team experience, system complexity, and specific requirements.
 
-> **Note:** All estimates are approximate and may vary based on team experience and requirements.
+### Illustrative Scale: 5 Migration Streams
+When multiple teams leverage a shared library, the organizational benefits compound. Instead of five teams solving the same technical challenges in parallel, the organization solves them once in the library.
 
-#### Example: 5 Teams Migrating Different Mainframe Systems
+| Migration Stream | Foundation Phase (Est.) | Integration Phase |
+|------------------|-------------------------|-------------------|
+| Team A (EM) | ~8 weeks building core | ~1 week configuring |
+| Team B (LOA) | ~8 weeks building core | ~1 week configuring |
+| Team C (System X) | ~8 weeks building core | ~1 week configuring |
+| Team D (System Y) | ~8 weeks building core | ~1 week configuring |
+| Team E (System Z) | ~8 weeks building core | ~1 week configuring |
+| **Total Effort** | **~40 weeks** | **~5 weeks + Library** |
+| **Acceleration** | - | **~85% Time-to-Value** |
 
-| Scenario | Without Library | With Library |
-|----------|-----------------|--------------|
-| Team A (EM) | ~8 weeks building infra | ~1 week configuring |
-| Team B (LOA) | ~8 weeks building infra | ~1 week configuring |
-| Team C (System X) | ~8 weeks building infra | ~1 week configuring |
-| Team D (System Y) | ~8 weeks building infra | ~1 week configuring |
-| Team E (System Z) | ~8 weeks building infra | ~1 week configuring |
-| **Total** | **~40 weeks** (duplicated effort) | **~5 weeks** + library |
-| **Savings** | - | **~85% reduction** |
+*By centralizing these patterns, we don't just save time—we ensure consistent quality, security, and maintainability across the entire enterprise data landscape.*
 
 
 ### Consistency Benefits
@@ -207,7 +208,9 @@ legacy-migration-reference/
 | `orchestration/` | Airflow DAG factories, sensors, callbacks |
 | `pipelines/` | Beam pipeline base classes and transforms |
 | `validators/` | SSN, date, numeric validation |
-| `data_quality/` | Row type validation, duplicate checks |
+| `data_quality/` | Quality scoring, consolidated scoring, row-type validation |
+| `data_deletion/` | Quarantine, approval, and deletion lifecycle |
+| `job_control/` | Pipeline job status and metadata tracking |
 
 #### gcp-pipeline-tester Modules
 
@@ -253,7 +256,9 @@ from gcp_pipeline_builder.validators import validate_ssn
 from gcp_pipeline_builder.clients import GCSClient, BigQueryClient, PubSubClient
 from gcp_pipeline_builder.error_handling import ErrorHandler, GDWError
 from gcp_pipeline_builder.audit import AuditTrail
-from gcp_pipeline_builder.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_builder.data_quality import validate_row_types, check_duplicate_keys, DataQualityChecker
+from gcp_pipeline_builder.data_deletion import DataDeletionFramework
+from gcp_pipeline_builder.monitoring import MetricsCollector
 ```
 
 ### Test Code Imports (gcp-pipeline-tester)
@@ -685,6 +690,7 @@ All documentation is in the `docs/` folder:
 | [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail implementation |
 | [BDD Testing](docs/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
 | [Complete Testing](docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
+| [Data Deletion](docs/DATA_DELETION_GUIDE.md) | Deletion approval workflow |
 | [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Data quality checks |
 | [Docker Compose](docs/DOCKER_COMPOSE_GUIDE.md) | Local Docker setup |
 | [Error Handling](docs/ERROR_HANDLING_GUIDE.md) | Error handling patterns |
@@ -745,9 +751,9 @@ The library implements resilience principles across all components. Each team in
 | **Automation & Simplification** | Reduce manual intervention | DAG factories, pipeline templates, auto-retry logic |
 | **Availability & Currency** | Data is accessible and up-to-date | Partitioned tables, archive policies, job scheduling |
 | **Identifiable & Locatable** | Track data lineage | `_run_id`, `_source_file`, `_extract_date` audit columns |
-| **Governance** | Consistent policies enforced | Standardized patterns, schema validation, DQ checks |
-| **Interconnection & Interdependency** | Manage dependencies | EntityDependencyChecker, Pub/Sub decoupling |
-| **Incident Response & Recovery** | Handle failures gracefully | Dead letter queues, quarantine buckets, retry policies |
+| **Governance** | Consistent policies enforced | Standardized patterns, schema validation, DQ checks, Data Deletion lifecycle |
+| **Interconnection & Interdependency** | Manage dependencies | EntityDependencyChecker, Pub/Sub decoupling, DAG Factory |
+| **Incident Response & Recovery** | Handle failures gracefully | Dead letter queues, quarantine buckets, retry policies, Job Control status |
 | **Performance & Capacity** | Scale efficiently | Dataflow autoscaling, BigQuery partitioning |
 
 ### Detailed Implementation
