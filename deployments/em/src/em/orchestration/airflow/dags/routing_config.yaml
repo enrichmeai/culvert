@@ -1,146 +1,108 @@
-# Routing configuration for LOA Blueprint Pipeline Selector
+# Routing configuration for EM (Application A) Pipeline
 # Version: 1.0.0
-# Last Updated: 2026-01-01
+# Last Updated: 2026-01-04
 
 # Default settings for all pipelines
 default_settings:
-  default_pipeline: default_batch_pipeline
+  default_pipeline: em_odp_load_dag
   default_processing_mode: batch
-  dlq_topic: loa-notifications-dead-letter
-  quarantine_bucket: loa-quarantine
+  dlq_topic: em-notifications-dead-letter
+  quarantine_bucket: em-error
   max_retries: 3
   retry_delay_seconds: 300
 
 # Entity-specific routing rules
+# EM has 3 entities: customers, accounts, decision
+# All 3 must be loaded before FDP transformation (JOIN)
 routing_rules:
-  # Applications Pipeline
-  - pipeline_id: loa_applications_pipeline
-    entity_type: applications
-    file_patterns:
-      - "*/applications_*"
-      - "*/app_*"
-      - "*/APP_*"
-      - "*/TYPE_A_*"
-    target_table: loa_raw.applications_raw
-    error_table: loa_raw.applications_errors
-    processing_mode: batch
-    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
-    validation:
-      required_columns:
-        - application_id
-        - ssn
-        - loan_amount
-        - loan_type
-        - application_date
-        - branch_code
-      rules:
-        ssn_format: "^\\d{3}-\\d{2}-\\d{4}$"
-        loan_amount_range: [10000, 1000000]
-        loan_types:
-          - MORTGAGE
-          - PERSONAL
-          - AUTO
-          - HOME_EQUITY
-      sample_size: 5
-
   # Customers Pipeline
-  - pipeline_id: loa_customers_pipeline
+  - pipeline_id: em_customers_pipeline
     entity_type: customers
     file_patterns:
       - "*/customers_*"
-      - "*/cust_*"
-      - "*/CUSTOMER_*"
-      - "*/TYPE_B_*"
-    target_table: loa_raw.customers_raw
-    error_table: loa_raw.customers_errors
+      - "*/em_customers_*"
+      - "*/CUSTOMERS_*"
+    target_table: odp_em.customers
+    error_table: odp_em.customers_errors
     processing_mode: batch
-    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    dataflow_template: gs://em-templates/dataflow/em_pipeline_template
     validation:
       required_columns:
         - customer_id
+        - first_name
+        - last_name
         - ssn
-        - customer_name
-        - account_number
-        - email
-        - phone
-        - credit_score
-        - branch_code
+        - dob
+        - status
+        - created_date
       rules:
         ssn_format: "^\\d{3}-\\d{2}-\\d{4}$"
-        credit_score_range: [300, 850]
-        email_format: "^[\\w\\.-]+@[\\w\\.-]+\\.\\w+$"
-        phone_format: "^\\+?1?\\d{10,14}$"
       sample_size: 5
 
-  # Branches Pipeline
-  - pipeline_id: loa_branches_pipeline
-    entity_type: branches
+  # Accounts Pipeline
+  - pipeline_id: em_accounts_pipeline
+    entity_type: accounts
     file_patterns:
-      - "*/branches_*"
-      - "*/branch_*"
-      - "*/BRANCH_*"
-    target_table: loa_raw.branches_raw
-    error_table: loa_raw.branches_errors
+      - "*/accounts_*"
+      - "*/em_accounts_*"
+      - "*/ACCOUNTS_*"
+    target_table: odp_em.accounts
+    error_table: odp_em.accounts_errors
     processing_mode: batch
-    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
+    dataflow_template: gs://em-templates/dataflow/em_pipeline_template
     validation:
       required_columns:
-        - branch_code
-        - branch_name
-        - region
-        - state
-        - city
-        - manager_name
-        - employee_count
+        - account_id
+        - customer_id
+        - account_type
+        - balance
+        - status
+        - opened_date
       rules:
-        state_code_length: 2
-        employee_count_range: [0, 1000]
-      sample_size: 3
-
-  # Collateral Pipeline
-  - pipeline_id: loa_collateral_pipeline
-    entity_type: collateral
-    file_patterns:
-      - "*/collateral_*"
-      - "*/coll_*"
-      - "*/COLL_*"
-    target_table: loa_raw.collateral_raw
-    error_table: loa_raw.collateral_errors
-    processing_mode: batch
-    dataflow_template: gs://loa-templates/dataflow/batch_ingest_template
-    validation:
-      required_columns:
-        - collateral_id
-        - application_id
-        - collateral_type
-        - collateral_value
-        - appraisal_date
-      rules:
-        collateral_types:
-          - VEHICLE
-          - PROPERTY
-          - SECURITIES
-          - EQUIPMENT
-        collateral_value_range: [1000, 10000000]
+        balance_range: [0, 10000000]
+        account_types:
+          - CHECKING
+          - SAVINGS
+          - MONEY_MARKET
       sample_size: 5
 
-  # Realtime Event Pipeline (Streaming)
-  - pipeline_id: realtime_event_pipeline
-    entity_type: realtime_event
+  # Decision Pipeline
+  - pipeline_id: em_decision_pipeline
+    entity_type: decision
     file_patterns:
-      - "*/events_*"
-      - "*/EVENT_*"
-    processing_mode: streaming
-    input_subscription: projects/loa-project/subscriptions/loa-events-sub
-    target_table: loa_raw.events_stream
-    error_table: loa_raw.events_errors
-    dataflow_template: gs://loa-templates/dataflow/streaming_ingest_template
+      - "*/decision_*"
+      - "*/em_decision_*"
+      - "*/DECISION_*"
+    target_table: odp_em.decision
+    error_table: odp_em.decision_errors
+    processing_mode: batch
+    dataflow_template: gs://em-templates/dataflow/em_pipeline_template
     validation:
       required_columns:
-        - event_id
-        - event_type
-        - event_timestamp
-        - payload
+        - decision_id
+        - customer_id
+        - account_id
+        - decision_type
+        - decision_date
+        - score
+      rules:
+        score_range: [0, 1000]
+        decision_types:
+          - APPROVE
+          - DECLINE
+          - REVIEW
+      sample_size: 5
+
+# Entity dependency configuration
+# EM requires all 3 entities before FDP transformation
+entity_dependencies:
+  system_id: EM
+  required_entities:
+    - customers
+    - accounts
+    - decision
+  fdp_trigger_dag: em_fdp_transform_dag
+  fdp_target_table: fdp_em.em_attributes
 
 # Error handling configuration
 error_handling:
@@ -148,30 +110,27 @@ error_handling:
     action: quarantine
     notify: true
     dlq_publish: true
-    dlq_topic: loa-notifications-dead-letter
+    dlq_topic: em-notifications-dead-letter
   routing_failure:
     action: log_and_skip
     notify: true
     dlq_publish: true
-    dlq_topic: loa-notifications-dead-letter
   processing_failure:
     action: retry
     max_retries: 3
     retry_delay_seconds: 300
     notify: true
     dlq_publish: true
-    dlq_topic: loa-notifications-dead-letter
   schema_mismatch:
     action: quarantine
     notify: true
     dlq_publish: true
-    dlq_topic: loa-notifications-dead-letter
 
 # Monitoring and alerting configuration
 monitoring:
   enable_metrics: true
-  metrics_namespace: loa/pipeline
+  metrics_namespace: em/pipeline
   alert_on_failure: true
   alert_channels:
     - email
-    - slack
+
