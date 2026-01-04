@@ -438,7 +438,7 @@ resource "google_composer_environment" "loa_composer" {
 
   config {
     software_config {
-      image_version = "composer-2.5.0-airflow-2.6.3"
+      image_version = "composer-2.16.1-airflow-2.10.5"
 
       env_variables = {
         GCP_PROJECT_ID     = var.gcp_project_id
