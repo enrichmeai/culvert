@@ -64,6 +64,32 @@ jobs:
         cd infrastructure/terraform/em
         terraform init
 
+    - name: Import Existing Resources
+      continue-on-error: true
+      run: |
+        cd infrastructure/terraform/em
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        
+        # Import BigQuery datasets if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_bigquery_dataset.odp_em' "$PROJECT_ID/odp_em" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_bigquery_dataset.fdp_em' "$PROJECT_ID/fdp_em" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_bigquery_dataset.job_control' "$PROJECT_ID/job_control" 2>/dev/null || true
+        
+        # Import Pub/Sub topics if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_topic.em_file_notifications' "projects/$PROJECT_ID/topics/em-file-notifications" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_topic.em_pipeline_events' "projects/$PROJECT_ID/topics/em-pipeline-events" 2>/dev/null || true
+        
+        # Import Pub/Sub subscriptions if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_subscription.em_file_notifications' "projects/$PROJECT_ID/subscriptions/em-file-notifications-sub" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_subscription.em_pipeline_events' "projects/$PROJECT_ID/subscriptions/em-pipeline-events-sub" 2>/dev/null || true
+
     - name: Terraform Plan
       run: |
         cd infrastructure/terraform/em

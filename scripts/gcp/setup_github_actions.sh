@@ -52,8 +52,10 @@ ROLES=(
     "roles/pubsub.admin"
     "roles/dataflow.admin"
     "roles/iam.serviceAccountUser"
+    "roles/iam.serviceAccountAdmin"
     "roles/logging.admin"
     "roles/monitoring.admin"
+    "roles/cloudbuild.builds.builder"
 )
 
 for role in "${ROLES[@]}"; do

@@ -35,6 +35,8 @@ SERVICES=(
     "cloudkms.googleapis.com"
     "monitoring.googleapis.com"
     "logging.googleapis.com"
+    "iam.googleapis.com"
+    "cloudbuild.googleapis.com"
 )
 
 echo "Enabling services..."
