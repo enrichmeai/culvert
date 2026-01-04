@@ -605,6 +605,9 @@ The framework includes a comprehensive set of scripts for automated infrastructu
 - Security configuration and verification
 
 ### 4. Create a New Pipeline Deployment
+Follow the detailed [Creating a New Deployment Guide](docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) to set up a new migration stream.
+
+Brief overview of steps:
 1. **Copy the template** from `deployments/em/` or `deployments/loa/`.
 2. **Configure infrastructure** in `infrastructure/terraform/` (see [GCP Deployment Configuration](docs/GCP_DEPLOYMENT_CONFIGURATION.md)).
 3. **Define entity schemas** in `src/{system}/schema/`.
@@ -630,6 +633,7 @@ All documentation is in the `docs/` folder:
 | [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail implementation |
 | [BDD Testing](docs/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
 | [Complete Testing](docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
+| [Creating a New Deployment](docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to set up a new migration stream |
 | [Testing Specific Pipelines](docs/TESTING_SPECIFIC_PIPELINES.md) | Instructions for EM and LOA pipelines |
 | [Data Deletion](docs/DATA_DELETION_GUIDE.md) | Deletion approval workflow |
 | [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Data quality checks |
