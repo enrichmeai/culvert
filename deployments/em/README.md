@@ -2,7 +2,7 @@
 
 **Application A (EM)** data migration pipeline.
 
-**Status:** ✅ Complete | 218 tests passing
+**Status:** ⚠️ In Progress | ~100 tests
 
 ---
 

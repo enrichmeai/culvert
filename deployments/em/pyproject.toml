@@ -38,10 +38,12 @@ dev = [
     "faker>=18.0.0",
     "apache-airflow>=2.5.0",
     "apache-airflow-providers-google>=10.0.0",
+    "apache-airflow-providers-apache-beam>=5.0.0",
 ]
 airflow = [
     "apache-airflow>=2.5.0",
     "apache-airflow-providers-google>=10.0.0",
+    "apache-airflow-providers-apache-beam>=5.0.0",
 ]
 
 [tool.setuptools.packages.find]

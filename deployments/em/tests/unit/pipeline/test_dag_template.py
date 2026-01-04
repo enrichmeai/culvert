@@ -16,17 +16,19 @@ In production, Airflow is available via Cloud Composer.
 import pytest
 from unittest.mock import MagicMock, patch
 
-# Check if Airflow is available
+# Check if Airflow and providers are available
 try:
     import airflow
+    from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+    from airflow.providers.google.cloud.operators.dataflow import DataflowTemplatedJobStartOperator
     AIRFLOW_AVAILABLE = True
 except ImportError:
     AIRFLOW_AVAILABLE = False
 
-# Skip all tests in this module if Airflow is not available
+# Skip all tests in this module if Airflow providers are not available
 pytestmark = pytest.mark.skipif(
     not AIRFLOW_AVAILABLE,
-    reason="Airflow not available - tests require Cloud Composer environment"
+    reason="Airflow providers not available - tests require Cloud Composer environment"
 )
 
 
