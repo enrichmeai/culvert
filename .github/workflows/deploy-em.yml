@@ -230,8 +230,19 @@ jobs:
             --format='value(config.dagGcsPrefix)')
           
           DAG_SOURCE="deployments/em/src/em/orchestration/airflow/dags"
+          LIBRARY_SOURCE="libraries/gcp-pipeline-builder/src/gcp_pipeline_builder"
           
           if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
+            # Upload .airflowignore first (to exclude library from DAG parsing)
+            echo "gcp_pipeline_builder/" | gsutil cp - ${DAGS_BUCKET}/.airflowignore
+            echo "✅ .airflowignore uploaded"
+            
+            # Upload the library
+            echo "Uploading library to $DAGS_BUCKET/gcp_pipeline_builder/"
+            gsutil -m cp -r ${LIBRARY_SOURCE} ${DAGS_BUCKET}/
+            echo "✅ Library uploaded"
+            
+            # Upload DAGs
             echo "Uploading DAGs to $DAGS_BUCKET/em/"
             gsutil -m cp -r ${DAG_SOURCE}/* ${DAGS_BUCKET}/em/
             echo "✅ DAGs uploaded"

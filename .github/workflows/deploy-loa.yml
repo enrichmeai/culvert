@@ -195,9 +195,23 @@ jobs:
           --format='value(config.dagGcsPrefix)' 2>/dev/null | sed 's|/dags||')
         
         if [ -n "$COMPOSER_BUCKET" ]; then
-          echo "Uploading DAGs to $COMPOSER_BUCKET/dags/loa/"
+          DAGS_BUCKET="${COMPOSER_BUCKET}/dags"
+          LIBRARY_SOURCE="libraries/gcp-pipeline-builder/src/gcp_pipeline_builder"
+          
+          # Upload .airflowignore first (to exclude library from DAG parsing)
+          echo "gcp_pipeline_builder/" | gsutil cp - ${DAGS_BUCKET}/.airflowignore
+          echo "✅ .airflowignore uploaded"
+          
+          # Upload the library
+          echo "Uploading library to $DAGS_BUCKET/gcp_pipeline_builder/"
+          gsutil -m cp -r ${LIBRARY_SOURCE} ${DAGS_BUCKET}/
+          echo "✅ Library uploaded"
+          
+          # Upload DAGs
+          echo "Uploading DAGs to $DAGS_BUCKET/loa/"
           gsutil -m cp -r deployments/loa/src/loa/orchestration/airflow/dags/* \
-            ${COMPOSER_BUCKET}/dags/loa/
+            ${DAGS_BUCKET}/loa/
+          echo "✅ DAGs uploaded"
         else
           echo "Composer environment not ready yet - skipping DAG upload"
         fi
