@@ -265,6 +265,10 @@ dbt test
 | FDP Transformation | JOIN (3→1) | SPLIT (1→2) |
 | EntityDependencyChecker | Required | Not needed |
 
+## Creating a New Deployment
+
+See the [Creating a New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) for detailed steps on setting up a new pipeline.
+
 ---
 
 ## Library Components Used

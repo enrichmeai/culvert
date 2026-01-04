@@ -108,6 +108,8 @@ Implementation guides are in the [docs/](../docs/) folder:
 
 ## Creating a New Deployment
 
+See the [Creating a New Deployment Guide](../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) for detailed step-by-step instructions.
+
 1. **Copy template:** Use `em/` or `loa/` as a starting point
 2. **Update config:** Set `SYSTEM_ID`, entity headers
 3. **Define schemas:** Column definitions for each entity
