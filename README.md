@@ -47,7 +47,7 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
 ## 💡 Our Solution
 
-**Build the library once. Each team creates their deployment by configuring their specific entities.**
+**Build the library once. Each team creates their deployment by defining their metadata, transformations, and infrastructure parameters.**
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -58,13 +58,13 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 │   ┌─────────────────────┐     ┌─────────────────────────────────────────┐  │
 │   │                     │     │                                         │  │
 │   │  • System ID        │     │  • Pub/Sub event handling               │  │
-│   │  • Entity schemas   │  +  │  • HDR/TRL file validation              │  │
+│   │  • Entity schemas   │     │  • HDR/TRL file validation              │  │
 │   │  • Column mappings  │     │  • Error classification & retry         │  │
-│   │  • dbt SQL models   │     │  • Dead letter queue handling           │  │
-│   │                     │     │  • Audit trail (run_id, timestamps)     │  │
-│   │                     │     │  • Job control & status tracking        │  │
-│   │                     │     │  • File archival policies               │  │
-│   │                     │     │  • Data quality checks                  │  │
+│   │  • dbt SQL models   │  +  │  • Dead letter queue handling           │  │
+│   │  • TF Variables     │     │  • Audit trail (run_id, timestamps)     │  │
+│   │  • GCS Buckets      │     │  • Job control & status tracking        │  │
+│   │  • Pub/Sub Topics   │     │  • File archival policies               │  │
+│   │  • Airflow DAGs     │     │  • Data quality checks                  │  │
 │   │                     │     │  • CMEK encryption with KMS             │  │
 │   │                     │     │  • Beam pipeline templates              │  │
 │   │                     │     │  • Airflow DAG factories                │  │
@@ -664,14 +664,17 @@ cd deployments/loa && bash run_tests.sh                 # 55 tests
 ### Create a New Pipeline Deployment
 
 1. **Copy the template** from `deployments/em/` or `deployments/loa/`
-2. **Configure your system** in `config/`:
+2. **Configure infrastructure** in `infrastructure/terraform/`:
+   - Set bucket names, Pub/Sub topic names, and IAM members in `terraform.tfvars`.
+3. **Configure your system** in `src/{system}/config/`:
    ```python
    SYSTEM_ID = "YOUR_SYSTEM"
    ENTITY_HEADERS = ["col1", "col2", "col3"]
    ```
-3. **Define entity schemas** in `schema/`
-4. **Write dbt transformations** in `transformations/`
-5. **Run tests** to validate
+4. **Define entity schemas** in `src/{system}/schema/`
+5. **Write dbt transformations** in `transformations/`
+6. **Configure Airflow DAGs** in `src/{system}/orchestration/`
+7. **Run tests** to validate
 
 ---
 
@@ -691,6 +694,7 @@ All documentation is in the `docs/` folder:
 | [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail implementation |
 | [BDD Testing](docs/BDD_TESTING_GUIDE.md) | Behavior-driven testing patterns |
 | [Complete Testing](docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
+| [Testing Specific Pipelines](docs/TESTING_SPECIFIC_PIPELINES.md) | Instructions for EM and LOA pipelines |
 | [Data Deletion](docs/DATA_DELETION_GUIDE.md) | Deletion approval workflow |
 | [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Data quality checks |
 | [Docker Compose](docs/DOCKER_COMPOSE_GUIDE.md) | Local Docker setup |
