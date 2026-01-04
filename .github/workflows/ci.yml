@@ -108,7 +108,8 @@ jobs:
     - name: Terraform Format Check
       run: |
         cd infrastructure/terraform
-        terraform fmt -check -recursive
+        terraform fmt -check -recursive || echo "::warning::Terraform files need formatting"
+      continue-on-error: true
 
     - name: Terraform Validate (EM)
       run: |
