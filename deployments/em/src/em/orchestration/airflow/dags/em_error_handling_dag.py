@@ -1,18 +1,24 @@
 """
-Error Reprocessing DAG - Cloud Composer (Airflow)
-Purpose: Monitor and reprocess failed records from LOA pipelines
-Enables: Automatic error recovery, manual intervention, audit trail
+EM Error Handling DAG.
 
-This DAG:
-1. Monitors error tables in BigQuery
-2. Identifies retryable errors
-3. Triggers reprocessing for failed records
-4. Tracks manual interventions
-5. Produces reconciliation reports
+Purpose: Monitor and reprocess failed records from EM pipelines.
+Enables: Automatic error recovery, manual intervention, audit trail.
 
-Author: the enterprise platform Team
-Blueprint: blueprint/orchestration/airflow/dags/error_reprocessing_dag.py
+Flow:
+1. Monitor error tables in BigQuery using library's ErrorHandler
+2. Identify retryable errors using RetryStrategy
+3. Trigger reprocessing for failed records
+4. Track manual interventions via AuditTrail
+5. Produce reconciliation reports
+
+Tags: em, error, reprocessing
 """
+import os
+import json
+import logging
+from datetime import datetime, timedelta
+from typing import Dict, List
+
 from airflow import DAG
 from airflow.providers.google.cloud.operators.bigquery import (
     BigQueryInsertJobOperator,
@@ -26,19 +32,26 @@ from airflow.operators.email_operator import EmailOperator
 from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.models import Variable
-from datetime import datetime, timedelta
-import logging
-import json
-from typing import Dict, List
+
+# Import from gcp_pipeline_builder library
+from gcp_pipeline_builder.error_handling import (
+    ErrorHandler,
+    ErrorClassifier,
+    ErrorSeverity,
+    ErrorCategory,
+    RetryStrategy,
+)
+from gcp_pipeline_builder.job_control import JobControlRepository, JobStatus
+from gcp_pipeline_builder.audit import AuditTrail
 
 logger = logging.getLogger(__name__)
 
 # DAG configuration
 default_args = {
-    'owner': 'enterprise-platform',
+    'owner': 'data-engineering',
     'depends_on_past': False,
-    'start_date': datetime(2025, 1, 1),
-    'email': ['enterprise-platform-team@company.com'],
+    'start_date': datetime(2026, 1, 1),
+    'email': ['data-eng@company.com'],
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 1,
@@ -46,11 +59,11 @@ default_args = {
     'execution_timeout': timedelta(hours=6),
 }
 
-# GCP Configuration
-PROJECT_ID = 'loa-migration-staging'
-REGION = 'europe-west2'
-DATASET_ID = 'loa_migration'
-ERROR_DATASET_ID = 'loa_errors'
+# GCP Configuration - use Airflow Variables
+PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
+REGION = Variable.get("gcp_region", default_var="europe-west2")
+DATASET_ID = 'odp_em'
+ERROR_DATASET_ID = 'odp_em'  # Errors stored in same dataset
 
 # Error handling configuration
 ERROR_THRESHOLDS = {
@@ -66,12 +79,12 @@ CRITICAL_CATEGORIES = ['CRITICAL']
 
 # Initialize DAG
 dag = DAG(
-    'loa_error_reprocessing',
+    'em_error_handling_dag',
     default_args=default_args,
     schedule_interval='*/30 * * * *',  # Run every 30 minutes
     catchup=False,
-    tags=['loa', 'error-handling', 'production'],
-    description='Monitor and reprocess failed records from LOA pipelines'
+    tags=['em', 'error', 'reprocessing'],
+    description='Monitor and reprocess failed records from EM pipelines'
 )
 
 
