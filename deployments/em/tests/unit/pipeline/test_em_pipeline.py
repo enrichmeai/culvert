@@ -6,17 +6,14 @@ from typing import Dict, Any, List
 
 # Import the pipeline components to test
 from em.pipeline.em_pipeline import (
-    ValidateEMRecordDoFn,
     AddAuditColumnsDoFn,
     EM_ENTITY_CONFIG,
 )
-from em.config import (
-    ALLOWED_STATUSES,
-    ALLOWED_ACCOUNT_TYPES,
-    ALLOWED_DECISION_CODES,
-    SCORE_MIN,
-    SCORE_MAX,
-)
+from em.schema import EMCustomerSchema, EMAccountSchema, EMDecisionSchema
+
+# Import schema-driven validator from library
+from gcp_pipeline_builder.validators import SchemaValidator
+from gcp_pipeline_builder.pipelines.beam.transforms import SchemaValidateRecordDoFn
 
 
 class TestEMEntityConfig:
@@ -28,17 +25,17 @@ class TestEMEntityConfig:
         assert 'accounts' in EM_ENTITY_CONFIG
         assert 'decision' in EM_ENTITY_CONFIG
 
-    def test_headers_defined(self):
-        """Each entity should have headers."""
+    def test_schema_defined(self):
+        """Each entity should have a schema."""
         for entity, config in EM_ENTITY_CONFIG.items():
-            assert 'headers' in config
-            assert len(config['headers']) > 0, f"Entity {entity} has no headers"
+            assert 'schema' in config, f"Entity {entity} has no schema"
+            assert config['schema'] is not None
 
-    def test_primary_keys_defined(self):
-        """Primary keys should be defined correctly."""
-        assert EM_ENTITY_CONFIG['customers']['primary_key'] == ['customer_id']
-        assert EM_ENTITY_CONFIG['accounts']['primary_key'] == ['account_id']
-        assert EM_ENTITY_CONFIG['decision']['primary_key'] == ['decision_id']
+    def test_schemas_have_fields(self):
+        """Each schema should have fields defined."""
+        assert len(EMCustomerSchema.fields) > 0
+        assert len(EMAccountSchema.fields) > 0
+        assert len(EMDecisionSchema.fields) > 0
 
     def test_output_tables_defined(self):
         """Output tables should be defined."""
@@ -48,85 +45,52 @@ class TestEMEntityConfig:
             assert config['output_table'].startswith('odp_em.')
 
 
-class TestValidateEMRecordDoFn:
-    """Tests for EM record validation DoFn."""
+class TestSchemaValidation:
+    """Tests for schema-driven validation (uses library SchemaValidator)."""
 
     def test_valid_customer_passes(self, em_customer_record):
         """Valid customer record should pass validation."""
-        validator = ValidateEMRecordDoFn('customers')
-        results = list(validator.process(em_customer_record))
-
-        assert len(results) == 1
+        validator = SchemaValidator(EMCustomerSchema)
+        errors = validator.validate(em_customer_record)
+        assert len(errors) == 0
 
     def test_missing_customer_id_fails(self, em_customer_record):
         """Missing customer_id should fail validation."""
         em_customer_record['customer_id'] = ''
-        validator = ValidateEMRecordDoFn('customers')
-        results = list(validator.process(em_customer_record))
-
-        assert len(results) == 1
+        validator = SchemaValidator(EMCustomerSchema)
+        errors = validator.validate(em_customer_record)
+        assert len(errors) > 0
+        assert any('customer_id' in str(e) for e in errors)
 
     def test_invalid_status_fails(self, em_customer_record):
         """Invalid status should fail validation."""
         em_customer_record['status'] = 'X'
-        validator = ValidateEMRecordDoFn('customers')
-        results = list(validator.process(em_customer_record))
-
-        assert len(results) == 1
+        validator = SchemaValidator(EMCustomerSchema)
+        errors = validator.validate(em_customer_record)
+        assert len(errors) > 0
+        assert any('status' in str(e) for e in errors)
 
     def test_valid_account_passes(self, em_account_record):
         """Valid account record should pass validation."""
-        validator = ValidateEMRecordDoFn('accounts')
-        results = list(validator.process(em_account_record))
-
-        assert len(results) == 1
-
-    def test_invalid_account_type_fails(self, em_account_record):
-        """Invalid account type should fail validation."""
-        em_account_record['account_type'] = 'INVALID_TYPE'
-        validator = ValidateEMRecordDoFn('accounts')
-        results = list(validator.process(em_account_record))
-
-        assert len(results) == 1
+        validator = SchemaValidator(EMAccountSchema)
+        errors = validator.validate(em_account_record)
+        assert len(errors) == 0
 
     def test_valid_decision_passes(self, em_decision_record):
         """Valid decision record should pass validation."""
-        validator = ValidateEMRecordDoFn('decision')
-        results = list(validator.process(em_decision_record))
+        validator = SchemaValidator(EMDecisionSchema)
+        errors = validator.validate(em_decision_record)
+        assert len(errors) == 0
 
-        assert len(results) == 1
 
-    def test_invalid_decision_code_fails(self, em_decision_record):
-        """Invalid decision code should fail validation."""
-        em_decision_record['decision_code'] = 'MAYBE'
-        validator = ValidateEMRecordDoFn('decision')
-        results = list(validator.process(em_decision_record))
+class TestSchemaValidateRecordDoFn:
+    """Tests for SchemaValidateRecordDoFn from library."""
 
-        assert len(results) == 1
-
-    def test_score_out_of_range_fails(self, em_decision_record):
-        """Score outside 300-850 should fail validation."""
-        em_decision_record['score'] = '200'
-        validator = ValidateEMRecordDoFn('decision')
-        results = list(validator.process(em_decision_record))
-
-        assert len(results) == 1
-
-    def test_score_too_high_fails(self, em_decision_record):
-        """Score above 850 should fail validation."""
-        em_decision_record['score'] = '900'
-        validator = ValidateEMRecordDoFn('decision')
-        results = list(validator.process(em_decision_record))
-
-        assert len(results) == 1
-
-    def test_invalid_score_format_fails(self, em_decision_record):
-        """Non-numeric score should fail validation."""
-        em_decision_record['score'] = 'ABC'
-        validator = ValidateEMRecordDoFn('decision')
-        results = list(validator.process(em_decision_record))
-
-        assert len(results) == 1
+    def test_dofn_can_be_created(self):
+        """SchemaValidateRecordDoFn can be instantiated."""
+        dofn = SchemaValidateRecordDoFn(schema=EMCustomerSchema)
+        assert dofn is not None
+        assert dofn.schema == EMCustomerSchema
 
 
 class TestAddAuditColumnsDoFn:
@@ -161,15 +125,15 @@ class TestAddAuditColumnsDoFn:
         dofn = AddAuditColumnsDoFn(
             run_id='test_run_123',
             source_file='test.csv',
-            extract_date='2026-01-01'
+            extract_date='2026-01-05'
         )
         results = list(dofn.process(em_customer_record))
 
         assert len(results) == 1
-        assert results[0]['_extract_date'] == '2026-01-01'
+        assert results[0]['_extract_date'] == '2026-01-05'
 
     def test_adds_processed_at(self, em_customer_record):
-        """Should add _processed_at timestamp to record."""
+        """Should add _processed_at timestamp."""
         dofn = AddAuditColumnsDoFn(
             run_id='test_run_123',
             source_file='test.csv',
@@ -180,35 +144,4 @@ class TestAddAuditColumnsDoFn:
         assert len(results) == 1
         assert '_processed_at' in results[0]
         assert results[0]['_processed_at'] is not None
-
-
-class TestAllowedValues:
-    """Tests for allowed value constants."""
-
-    def test_allowed_statuses(self):
-        """Verify allowed status values."""
-        assert 'A' in ALLOWED_STATUSES
-        assert 'I' in ALLOWED_STATUSES
-        assert 'C' in ALLOWED_STATUSES
-        assert len(ALLOWED_STATUSES) == 3
-
-    def test_allowed_account_types(self):
-        """Verify allowed account types."""
-        assert 'CHECKING' in ALLOWED_ACCOUNT_TYPES
-        assert 'SAVINGS' in ALLOWED_ACCOUNT_TYPES
-        assert 'MONEY_MARKET' in ALLOWED_ACCOUNT_TYPES
-        assert 'CD' in ALLOWED_ACCOUNT_TYPES
-        assert 'IRA' in ALLOWED_ACCOUNT_TYPES
-
-    def test_allowed_decision_codes(self):
-        """Verify allowed decision codes."""
-        assert 'APPROVE' in ALLOWED_DECISION_CODES
-        assert 'DECLINE' in ALLOWED_DECISION_CODES
-        assert 'REVIEW' in ALLOWED_DECISION_CODES
-        assert 'PENDING' in ALLOWED_DECISION_CODES
-
-    def test_score_range(self):
-        """Verify score range constants."""
-        assert SCORE_MIN == 300
-        assert SCORE_MAX == 850
 

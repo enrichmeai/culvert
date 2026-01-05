@@ -23,9 +23,9 @@ Usage:
     )
 
     # Or use the EM error handler instance
-    from em.orchestration.airflow.callbacks import loa_error_handler
+    from em.orchestration.airflow.callbacks import em_error_handler
 
-    loa_error_handler.on_validation_failure(context, errors, file_path)
+    em_error_handler.on_validation_failure(context, errors, file_path)
 """
 
 import logging
@@ -48,25 +48,25 @@ from gcp_pipeline_builder.orchestration.callbacks import (
 
 logger = logging.getLogger(__name__)
 
-# LOA-specific configuration
-LOA_ERROR_CONFIG = ErrorHandlerConfig(
-    dlq_topic="loa-notifications-dead-letter",
-    quarantine_bucket="loa-quarantine",
+# EM-specific configuration
+EM_ERROR_CONFIG = ErrorHandlerConfig(
+    dlq_topic="em-notifications-dead-letter",
+    quarantine_bucket="em-quarantine",
     project_id_var="gcp_project_id",
-    routing_metadata_key="loa_metadata",
+    routing_metadata_key="em_metadata",
     enable_quarantine=True,
     enable_dlq=True,
 )
 
-# Create LOA-specific error handler instance
-loa_error_handler = create_error_handler(LOA_ERROR_CONFIG)
+# Create EM-specific error handler instance
+em_error_handler = create_error_handler(EM_ERROR_CONFIG)
 
 # Re-export base types for convenience
 __all__ = [
-    # LOA-specific
-    "LOA_ERROR_CONFIG",
-    "loa_error_handler",
-    # Wrapped functions with LOA defaults
+    # EM-specific
+    "EM_ERROR_CONFIG",
+    "em_error_handler",
+    # Wrapped functions with EM defaults
     "publish_to_dlq",
     "on_failure_callback",
     "on_validation_failure",
@@ -88,16 +88,16 @@ def publish_to_dlq(
     topic: Optional[str] = None,
 ) -> Optional[str]:
     """
-    Publish error event to LOA Dead Letter Queue.
+    Publish error event to EM Dead Letter Queue.
 
-    Uses LOA-specific defaults (loa-notifications-dead-letter topic).
+    Uses EM-specific defaults (em-notifications-dead-letter topic).
 
     Args:
         context: Airflow task context
         error_message: Error description
         error_type: Type of error (use ErrorType constants)
         metadata: Additional metadata
-        topic: DLQ topic name (overrides LOA default)
+        topic: DLQ topic name (overrides EM default)
 
     Returns:
         Message ID from Pub/Sub, or None if publishing failed
@@ -108,20 +108,20 @@ def publish_to_dlq(
         error_type=error_type,
         metadata=metadata,
         topic=topic,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 
 
 def on_failure_callback(context: Dict[str, Any]) -> None:
     """
-    LOA callback for task failure - publishes to LOA DLQ.
+    EM callback for task failure - publishes to EM DLQ.
 
-    Use this as the on_failure_callback for LOA tasks.
+    Use this as the on_failure_callback for EM tasks.
 
     Args:
         context: Airflow task context
     """
-    base_on_failure_callback(context, config=LOA_ERROR_CONFIG)
+    base_on_failure_callback(context, config=EM_ERROR_CONFIG)
 
 
 def on_validation_failure(
@@ -131,9 +131,9 @@ def on_validation_failure(
     quarantine: bool = True,
 ) -> Optional[str]:
     """
-    LOA handler for validation failures.
+    EM handler for validation failures.
 
-    Uses LOA-specific DLQ and quarantine bucket.
+    Uses EM-specific DLQ and quarantine bucket.
 
     Args:
         context: Airflow task context
@@ -149,7 +149,7 @@ def on_validation_failure(
         validation_errors=validation_errors,
         file_path=file_path,
         quarantine=quarantine,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 
 
@@ -159,7 +159,7 @@ def on_routing_failure(
     reason: str,
 ) -> Optional[str]:
     """
-    LOA handler for routing failures.
+    EM handler for routing failures.
 
     Args:
         context: Airflow task context
@@ -173,7 +173,7 @@ def on_routing_failure(
         context=context,
         file_path=file_path,
         reason=reason,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 
 
@@ -184,13 +184,13 @@ def quarantine_file(
     quarantine_bucket: Optional[str] = None,
 ) -> Optional[str]:
     """
-    Move a file to the LOA quarantine bucket.
+    Move a file to the EM quarantine bucket.
 
     Args:
         context: Airflow task context
         file_path: GCS path to the file
         reason: Reason for quarantine
-        quarantine_bucket: Target bucket (defaults to loa-quarantine)
+        quarantine_bucket: Target bucket (defaults to em-quarantine)
 
     Returns:
         New file path in quarantine bucket, or None if failed
@@ -200,7 +200,7 @@ def quarantine_file(
         file_path=file_path,
         reason=reason,
         quarantine_bucket=quarantine_bucket,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 
 
@@ -211,7 +211,7 @@ def on_schema_mismatch(
     actual_columns: List[str],
 ) -> Optional[str]:
     """
-    LOA handler for schema mismatch errors.
+    EM handler for schema mismatch errors.
 
     Args:
         context: Airflow task context
@@ -227,7 +227,7 @@ def on_schema_mismatch(
         file_path=file_path,
         expected_columns=expected_columns,
         actual_columns=actual_columns,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 
 
@@ -237,7 +237,7 @@ def on_data_quality_failure(
     quality_checks: Dict[str, Any],
 ) -> Optional[str]:
     """
-    LOA handler for data quality check failures.
+    EM handler for data quality check failures.
 
     Args:
         context: Airflow task context
@@ -251,6 +251,6 @@ def on_data_quality_failure(
         context=context,
         table_name=table_name,
         quality_checks=quality_checks,
-        config=LOA_ERROR_CONFIG,
+        config=EM_ERROR_CONFIG,
     )
 

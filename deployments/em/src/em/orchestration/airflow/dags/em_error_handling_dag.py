@@ -384,7 +384,7 @@ def send_alert_for_critical_errors(**context) -> str:
 
         if errors:
             message = f"""
-            CRITICAL ERRORS DETECTED in LOA Pipelines
+            CRITICAL ERRORS DETECTED in EM Pipelines
             
             {json.dumps(errors, indent=2, default=str)}
             
@@ -486,8 +486,8 @@ with dag:
 
         notify_team = EmailOperator(
             task_id='notify_team',
-            to=['enterprise-platform-team@company.com'],
-            subject='LOA Pipeline: Manual Error Review Required',
+            to=['data-ops-team@company.com'],
+            subject='EM Pipeline: Manual Error Review Required',
             html_content='Review errors in error dashboard',
             trigger_rule=TriggerRule.ALL_DONE
         )

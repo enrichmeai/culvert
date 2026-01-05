@@ -24,3 +24,36 @@ Currently, the library uses standard Python logging, which is often inconsistent
 - `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/pipelines/beam/base.py`
 - `deployments/em/src/em/pipeline/em_pipeline.py`
 - `deployments/loa/src/loa/pipeline/loa_pipeline.py`
+
+
+Cloud Logging → Parses JSON automatically
+↓
+Error grouping by message
+↓
+Alerting on severity
+↓
+Dashboards showing stages
+
+
+1. Create StructuredLogger class
+   class StructuredLogger:
+   def __init__(self, name, run_id, system_id):
+   self.run_id = run_id
+   self.system_id = system_id
+
+   def info(self, message, **kwargs):
+   # Output JSON with automatic context injection
+
+   def error(self, message, **kwargs):
+   # Same as info but level=ERROR
+
+2. Create configure function
+   def configure_structured_logging(run_id, system_id):
+# Setup Python logging
+# Return StructuredLogger instance
+
+3. Use in pipelines
+
+logger = configure_structured_logging("em_20260105_073500_abc123", "EM")
+logger.info("Processing", records=1000)
+# Output: {"timestamp": "...", "level": "INFO", "message": "Processing", "run_id": "em_...", "system_id": "EM", "records": 1000}

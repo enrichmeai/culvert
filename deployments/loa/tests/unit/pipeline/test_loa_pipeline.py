@@ -1,7 +1,7 @@
 """
 Unit tests for LOA Pipeline.
 
-Tests pipeline configuration and transforms.
+Tests pipeline configuration and transforms using schema-driven validation.
 """
 
 import unittest
@@ -19,17 +19,18 @@ class TestLOAEntityConfig(unittest.TestCase):
         self.assertIn("applications", LOA_ENTITY_CONFIG)
 
     def test_applications_config(self):
-        """Test applications entity config."""
+        """Test applications entity config has schema."""
         from loa.pipeline.loa_pipeline import LOA_ENTITY_CONFIG
 
         config = LOA_ENTITY_CONFIG["applications"]
 
-        self.assertIn("headers", config)
-        self.assertIn("primary_key", config)
+        self.assertIn("schema", config)
         self.assertIn("output_table", config)
         self.assertIn("error_table", config)
 
-        self.assertEqual(config["primary_key"], ["application_id"])
+        # Schema provides primary_key
+        schema = config["schema"]
+        self.assertEqual(schema.primary_key, ["application_id"])
         self.assertEqual(config["output_table"], "odp_loa.applications")
 
     def test_single_entity(self):
@@ -44,35 +45,48 @@ class TestLOAPipelineOptions(unittest.TestCase):
 
     def test_import_options(self):
         """Test importing pipeline options."""
-        from loa.pipeline.options import LOAPipelineOptions
+        from loa.pipeline.loa_pipeline import LOAPipelineOptions
 
         # Options class should be importable
         self.assertIsNotNone(LOAPipelineOptions)
 
 
-class TestPipelineRouter(unittest.TestCase):
-    """Test pipeline router."""
+class TestSchemaValidation(unittest.TestCase):
+    """Test schema-driven validation for LOA."""
 
-    def test_import_router(self):
-        """Test importing router."""
-        from loa.pipeline.pipeline_router import PipelineRouter, FileType
+    def test_import_schema(self):
+        """Test importing LOA schema."""
+        from loa.schema import LOAApplicationsSchema
 
-        self.assertIsNotNone(PipelineRouter)
-        self.assertIn(FileType.APPLICATIONS, FileType)
+        self.assertIsNotNone(LOAApplicationsSchema)
+        self.assertEqual(LOAApplicationsSchema.entity_name, "applications")
+        self.assertEqual(LOAApplicationsSchema.system_id, "LOA")
 
-    def test_detect_file_type(self):
-        """Test file type detection."""
-        from loa.pipeline.pipeline_router import PipelineRouter, FileType
+    def test_schema_has_required_fields(self):
+        """Test schema defines required fields."""
+        from loa.schema import LOAApplicationsSchema
 
-        router = PipelineRouter()
+        required_fields = LOAApplicationsSchema.get_required_fields()
+        self.assertIn("application_id", required_fields)
 
-        # LOA applications file
-        file_type = router.detect_file_type("loa_applications_20260101.csv")
-        self.assertEqual(file_type, FileType.APPLICATIONS)
+    def test_schema_validator(self):
+        """Test SchemaValidator works with LOA schema."""
+        from loa.schema import LOAApplicationsSchema
+        from gcp_pipeline_builder.validators import SchemaValidator
 
-        # Unknown file
-        file_type = router.detect_file_type("unknown_file.csv")
-        self.assertEqual(file_type, FileType.UNKNOWN)
+        validator = SchemaValidator(LOAApplicationsSchema)
+
+        # Valid record
+        valid_record = {
+            "application_id": "APP001",
+            "customer_id": "CUST001",
+            "application_date": "2026-01-05",
+            "application_type": "NEW",
+            "application_status": "PENDING",
+            "loan_amount": "50000",
+        }
+        errors = validator.validate(valid_record)
+        self.assertEqual(len(errors), 0, f"Unexpected errors: {errors}")
 
 
 class TestTransforms(unittest.TestCase):
@@ -160,21 +174,6 @@ class TestTransforms(unittest.TestCase):
         self.assertIn("portfolio_key", result[0])
         self.assertEqual(result[0]["portfolio_key"], "PORT001-ACCT001")
 
-
-class TestDAGTemplate(unittest.TestCase):
-    """Test DAG template functions."""
-
-    def test_import_dag_functions(self):
-        """Test importing DAG functions."""
-        from loa.pipeline.dag_template import (
-            create_loa_dag,
-            create_loa_transformation_dag,
-            LOA_DEFAULT_ARGS,
-        )
-
-        self.assertIsNotNone(create_loa_dag)
-        self.assertIsNotNone(create_loa_transformation_dag)
-        self.assertIsInstance(LOA_DEFAULT_ARGS, dict)
 
 
 if __name__ == '__main__':
