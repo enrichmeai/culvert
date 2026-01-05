@@ -6,7 +6,7 @@ Integrates with Google Cloud Monitoring, Datadog, and custom backends.
 """
 
 from .types import MetricType, AlertLevel, MetricValue, Alert
-from .metrics import MetricsCollector, TimerContext
+from .metrics import MetricsCollector, TimerContext, MigrationMetrics
 from .health import HealthChecker, HealthStatus
 from .alerts import (
     AlertManager,
@@ -27,6 +27,7 @@ __all__ = [
     # Metrics
     'MetricsCollector',
     'TimerContext',
+    'MigrationMetrics',
     # Health
     'HealthChecker',
     'HealthStatus',
