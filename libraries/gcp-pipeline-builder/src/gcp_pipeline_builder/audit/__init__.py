@@ -8,7 +8,12 @@ Used by: ALL migration pipelines
 """
 
 from .records import AuditRecord, AuditEntry
-from .reconciliation import ReconciliationReport, ReconciliationEngine
+from .reconciliation import (
+    ReconciliationReport,
+    ReconciliationEngine,
+    ReconciliationResult,
+    ReconciliationStatus,
+)
 from .trail import AuditTrail, DuplicateDetector
 from .lineage import DataLineageTracker, generate_data_lineage
 from .publisher import AuditPublisher
@@ -20,6 +25,8 @@ __all__ = [
     # Reconciliation
     'ReconciliationReport',
     'ReconciliationEngine',
+    'ReconciliationResult',
+    'ReconciliationStatus',
     # Trail
     'AuditTrail',
     'DuplicateDetector',
