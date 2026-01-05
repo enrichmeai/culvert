@@ -110,6 +110,7 @@ class MetricsCollector:
         )
         self.metric_history.append(metric)
 
+
 class TimerContext:
     """
     Context manager for timing operations and recording to a MetricsCollector.
@@ -126,3 +127,203 @@ class TimerContext:
     def __exit__(self, exc_type, exc_val, exc_tb):
         duration = time.time() - self.start_time
         self.collector.record_timer(self.metric_name, duration)
+
+
+class MigrationMetrics:
+    """
+    Standardized metrics for data migration pipelines.
+
+    Provides consistent metric names and automatic tagging with
+    run_id, system_id, and entity_type for all pipeline metrics.
+
+    Standard Metrics:
+    - records_read: Total records read from source
+    - records_parsed: Records successfully parsed
+    - records_validated: Records that passed validation
+    - records_failed: Records that failed validation
+    - records_written: Records written to destination
+    - processing_duration_ms: Time to process records
+    - validation_errors: Count by error type
+
+    Example:
+        >>> metrics = MigrationMetrics(
+        ...     run_id="em_20260105_143022",
+        ...     system_id="EM",
+        ...     entity_type="customers"
+        ... )
+        >>> metrics.record_read(1000)
+        >>> metrics.record_validated(950)
+        >>> metrics.record_failed(50)
+        >>> print(metrics.get_summary())
+    """
+
+    # Standard metric names
+    RECORDS_READ = "records_read"
+    RECORDS_PARSED = "records_parsed"
+    RECORDS_VALIDATED = "records_validated"
+    RECORDS_FAILED = "records_failed"
+    RECORDS_WRITTEN = "records_written"
+    RECORDS_SKIPPED = "records_skipped"
+    PROCESSING_DURATION_MS = "processing_duration_ms"
+    VALIDATION_ERRORS = "validation_errors"
+    PARSE_ERRORS = "parse_errors"
+
+    def __init__(
+        self,
+        run_id: str,
+        system_id: str,
+        entity_type: Optional[str] = None,
+        pipeline_name: Optional[str] = None
+    ):
+        """
+        Initialize migration metrics.
+
+        Args:
+            run_id: Pipeline run identifier
+            system_id: System identifier (EM, LOA)
+            entity_type: Entity being processed (customers, accounts, etc.)
+            pipeline_name: Optional pipeline name
+        """
+        self.run_id = run_id
+        self.system_id = system_id
+        self.entity_type = entity_type
+        self.pipeline_name = pipeline_name or f"{system_id}_{entity_type or 'pipeline'}"
+
+        # Initialize collector
+        self._collector = MetricsCollector(
+            pipeline_name=self.pipeline_name,
+            run_id=run_id
+        )
+
+        # Standard labels for all metrics
+        self._labels = {
+            'run_id': run_id,
+            'system_id': system_id,
+        }
+        if entity_type:
+            self._labels['entity_type'] = entity_type
+
+    def _get_labels(self, extra_labels: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+        """Get labels with optional extras."""
+        labels = self._labels.copy()
+        if extra_labels:
+            labels.update(extra_labels)
+        return labels
+
+    # Record counting methods
+    def record_read(self, count: int = 1):
+        """Record records read from source."""
+        self._collector.increment(self.RECORDS_READ, count, self._get_labels())
+
+    def record_parsed(self, count: int = 1):
+        """Record records successfully parsed."""
+        self._collector.increment(self.RECORDS_PARSED, count, self._get_labels())
+
+    def record_validated(self, count: int = 1):
+        """Record records that passed validation."""
+        self._collector.increment(self.RECORDS_VALIDATED, count, self._get_labels())
+
+    def record_failed(self, count: int = 1, error_type: Optional[str] = None):
+        """Record records that failed validation."""
+        labels = self._get_labels()
+        if error_type:
+            labels['error_type'] = error_type
+        self._collector.increment(self.RECORDS_FAILED, count, labels)
+
+    def record_written(self, count: int = 1):
+        """Record records written to destination."""
+        self._collector.increment(self.RECORDS_WRITTEN, count, self._get_labels())
+
+    def record_skipped(self, count: int = 1, reason: Optional[str] = None):
+        """Record records skipped."""
+        labels = self._get_labels()
+        if reason:
+            labels['skip_reason'] = reason
+        self._collector.increment(self.RECORDS_SKIPPED, count, labels)
+
+    def record_validation_error(self, error_type: str, count: int = 1):
+        """Record validation error by type."""
+        labels = self._get_labels({'error_type': error_type})
+        self._collector.increment(self.VALIDATION_ERRORS, count, labels)
+
+    def record_parse_error(self, count: int = 1):
+        """Record parse error."""
+        self._collector.increment(self.PARSE_ERRORS, count, self._get_labels())
+
+    # Timing methods
+    def record_processing_time(self, duration_ms: float):
+        """Record processing duration in milliseconds."""
+        self._collector.record_histogram(
+            self.PROCESSING_DURATION_MS,
+            duration_ms,
+            self._get_labels()
+        )
+
+    def start_timer(self, metric_name: str = "operation") -> TimerContext:
+        """Start a timer for an operation."""
+        return TimerContext(self._collector, f"{metric_name}_duration")
+
+    # Summary methods
+    def get_summary(self) -> Dict[str, Any]:
+        """
+        Get summary of all migration metrics.
+
+        Returns:
+            Dict with counts, rates, and duration stats
+        """
+        stats = self._collector.get_statistics()
+
+        # Calculate rates
+        read = stats['counters'].get(self.RECORDS_READ, 0)
+        validated = stats['counters'].get(self.RECORDS_VALIDATED, 0)
+        failed = stats['counters'].get(self.RECORDS_FAILED, 0)
+
+        summary = {
+            'run_id': self.run_id,
+            'system_id': self.system_id,
+            'entity_type': self.entity_type,
+            'counts': {
+                'read': read,
+                'parsed': stats['counters'].get(self.RECORDS_PARSED, 0),
+                'validated': validated,
+                'failed': failed,
+                'written': stats['counters'].get(self.RECORDS_WRITTEN, 0),
+                'skipped': stats['counters'].get(self.RECORDS_SKIPPED, 0),
+            },
+            'rates': {
+                'validation_success_rate': (validated / read * 100) if read > 0 else 0,
+                'validation_failure_rate': (failed / read * 100) if read > 0 else 0,
+            },
+            'duration': stats.get('uptime_seconds', 0),
+            'start_time': stats.get('start_time'),
+        }
+
+        return summary
+
+    def to_job_record(self) -> Dict[str, Any]:
+        """
+        Convert metrics to job control record format.
+
+        Returns:
+            Dict suitable for updating pipeline_jobs table
+        """
+        summary = self.get_summary()
+        return {
+            'run_id': self.run_id,
+            'system_id': self.system_id,
+            'entity_type': self.entity_type,
+            'records_read': summary['counts']['read'],
+            'records_validated': summary['counts']['validated'],
+            'records_failed': summary['counts']['failed'],
+            'records_written': summary['counts']['written'],
+            'validation_success_rate': summary['rates']['validation_success_rate'],
+            'processing_duration_seconds': summary['duration'],
+        }
+
+
+__all__ = [
+    'MetricsCollector',
+    'TimerContext',
+    'MigrationMetrics',
+]
+

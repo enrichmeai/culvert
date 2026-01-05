@@ -13,14 +13,14 @@ Flow:
   4. Validate each record using SCHEMA-DRIVEN validation
   5. Write valid records to BigQuery ODP table
   6. Write error records to error table
-  7. Update job_control table
+  7. Update job_control table with metrics
   8. Archive source files
 
 Library Components Used:
-  - gcp_pipeline_builder.file_management.HDRTRLParser
+  - gcp_pipeline_builder.utilities.configure_structured_logging (JSON logging)
+  - gcp_pipeline_builder.monitoring.MigrationMetrics (standardized metrics)
   - gcp_pipeline_builder.pipelines.beam.transforms.ParseCsvLine
   - gcp_pipeline_builder.pipelines.beam.transforms.SchemaValidateRecordDoFn
-  - gcp_pipeline_builder.job_control.JobControlRepository
 
 Entities:
   - customers → odp_em.customers
@@ -31,12 +31,15 @@ Usage:
   python em_pipeline.py --entity=customers --input_pattern=gs://bucket/em/customers/*.csv
 """
 
-import logging
 from datetime import datetime
 from typing import Dict, Any, Iterator
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+
+# Library imports - structured logging and metrics
+from gcp_pipeline_builder.utilities import configure_structured_logging, generate_run_id
+from gcp_pipeline_builder.monitoring import MigrationMetrics
 
 # Library imports - schema-driven validation
 from gcp_pipeline_builder.file_management import HDRTRLParser
@@ -46,8 +49,6 @@ from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine, SchemaV
 # EM-specific imports - ONLY configuration and schemas
 from em.config import SYSTEM_ID
 from em.schema import EMCustomerSchema, EMAccountSchema, EMDecisionSchema, EM_SCHEMAS
-
-logger = logging.getLogger(__name__)
 
 
 # Entity configuration - maps entity name to schema
@@ -111,8 +112,10 @@ def run_em_pipeline(argv=None):
     """
     Run the EM ODP load pipeline.
 
-    Uses schema-driven validation - no custom validation code needed.
-    The schema defines required fields, allowed values, max lengths, types.
+    Uses:
+    - Structured JSON logging for Cloud Logging
+    - MigrationMetrics for standardized metrics
+    - Schema-driven validation - no custom validation code needed
     """
     options = EMPipelineOptions(argv)
     em_opts = options.view_as(EMPipelineOptions)
@@ -120,54 +123,78 @@ def run_em_pipeline(argv=None):
     entity = em_opts.entity
     config = EM_ENTITY_CONFIG[entity]
     schema = config["schema"]
-    run_id = em_opts.run_id or f"em_{entity}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    run_id = em_opts.run_id or generate_run_id(f"em_{entity}")
 
-    logger.info(f"Starting EM pipeline: entity={entity}, run_id={run_id}")
-    logger.info(f"Using schema-driven validation for {schema.entity_name}")
+    # Configure structured JSON logging
+    logger = configure_structured_logging(
+        run_id=run_id,
+        system_id=SYSTEM_ID,
+        entity_type=entity,
+        logger_name="em_pipeline"
+    )
 
-    with beam.Pipeline(options=options) as p:
-        # Read files
-        lines = p | 'ReadFiles' >> beam.io.ReadFromText(em_opts.input_pattern)
+    # Initialize migration metrics
+    metrics = MigrationMetrics(
+        run_id=run_id,
+        system_id=SYSTEM_ID,
+        entity_type=entity
+    )
 
-        # Parse CSV - headers from schema, uses library ParseCsvLine
-        records = lines | 'ParseCSV' >> beam.ParDo(
-            ParseCsvLine(
-                headers=schema.get_csv_headers(),
-                skip_hdr_trl=True,
-                hdr_prefix="HDR|",
-                trl_prefix="TRL|"
+    logger.info("Pipeline starting",
+                input_pattern=em_opts.input_pattern,
+                output_table=em_opts.output_table)
+
+    try:
+        with beam.Pipeline(options=options) as p:
+            # Read files
+            lines = p | 'ReadFiles' >> beam.io.ReadFromText(em_opts.input_pattern)
+
+            # Parse CSV - headers from schema, uses library ParseCsvLine
+            records = lines | 'ParseCSV' >> beam.ParDo(
+                ParseCsvLine(
+                    headers=schema.get_csv_headers(),
+                    skip_hdr_trl=True,
+                    hdr_prefix="HDR|",
+                    trl_prefix="TRL|"
+                )
             )
-        )
 
-        # Validate using SCHEMA-DRIVEN validation from library
-        # No custom validation code - schema defines everything!
-        validated = records | 'Validate' >> beam.ParDo(
-            SchemaValidateRecordDoFn(schema=schema)
-        ).with_outputs('invalid', main='valid')
+            # Validate using SCHEMA-DRIVEN validation from library
+            validated = records | 'Validate' >> beam.ParDo(
+                SchemaValidateRecordDoFn(schema=schema)
+            ).with_outputs('invalid', main='valid')
 
-        # Add audit columns
-        audited = validated.valid | 'AddAudit' >> beam.ParDo(
-            AddAuditColumnsDoFn(run_id, em_opts.input_pattern,
-                               datetime.utcnow().strftime('%Y-%m-%d'))
-        )
+            # Add audit columns
+            audited = validated.valid | 'AddAudit' >> beam.ParDo(
+                AddAuditColumnsDoFn(run_id, em_opts.input_pattern,
+                                   datetime.utcnow().strftime('%Y-%m-%d'))
+            )
 
-        # Write to BigQuery - schema from EntitySchema
-        audited | 'WriteODP' >> beam.io.WriteToBigQuery(
-            em_opts.output_table,
-            schema={'fields': schema.to_bq_schema()},
-            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-            create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
-        )
+            # Write to BigQuery - schema from EntitySchema
+            audited | 'WriteODP' >> beam.io.WriteToBigQuery(
+                em_opts.output_table,
+                schema={'fields': schema.to_bq_schema()},
+                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
+            )
 
-        validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(
-            em_opts.error_table,
-            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-            create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER
-        )
+            validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(
+                em_opts.error_table,
+                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER
+            )
 
-    logger.info(f"EM pipeline completed: entity={entity}")
+        # Log success with metrics summary
+        summary = metrics.get_summary()
+        logger.info("Pipeline completed successfully",
+                    duration_seconds=summary['duration'],
+                    counts=summary['counts'],
+                    rates=summary['rates'])
+
+    except Exception as e:
+        logger.error("Pipeline failed", error=str(e), exception_type=type(e).__name__)
+        raise
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
     run_em_pipeline()
