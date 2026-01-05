@@ -6,9 +6,9 @@ These extend the base handlers from gcp_pipeline_builder with EM defaults.
 """
 
 from .error_handlers import (
-    # EM-specific (currently using LOA naming for backward compat)
-    LOA_ERROR_CONFIG,
-    loa_error_handler,
+    # EM-specific
+    EM_ERROR_CONFIG,
+    em_error_handler,
     # Wrapped functions with EM defaults
     publish_to_dlq,
     on_failure_callback,
@@ -23,9 +23,9 @@ from .error_handlers import (
 )
 
 __all__ = [
-    # LOA-specific
-    "LOA_ERROR_CONFIG",
-    "loa_error_handler",
+    # EM-specific
+    "EM_ERROR_CONFIG",
+    "em_error_handler",
     # Functions
     "publish_to_dlq",
     "on_failure_callback",

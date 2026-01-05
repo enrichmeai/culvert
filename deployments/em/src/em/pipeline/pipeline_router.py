@@ -1,8 +1,10 @@
 """
-Pipeline Router - Dynamic File Type Routing
+EM Pipeline Router - Dynamic File Type Routing
 
 Routes incoming files to appropriate pipeline based on file type and content.
-Enables single DAG to handle multiple entity types (Applications, Customers, Branches, Collateral).
+Handles EM entity types: Customers, Accounts, Decision.
+
+EM Flow: 3 entities → ODP tables → JOIN → 1 FDP table (em_attributes)
 
 Usage: Identify file type → Select pipeline → Route for processing
 """
@@ -23,11 +25,10 @@ logger = logging.getLogger(__name__)
 
 
 class FileType(Enum):
-    """Supported file types for routing."""
-    APPLICATIONS = "applications"
+    """Supported EM file types for routing."""
     CUSTOMERS = "customers"
-    BRANCHES = "branches"
-    COLLATERAL = "collateral"
+    ACCOUNTS = "accounts"
+    DECISION = "decision"
     UNKNOWN = "unknown"
 
 
@@ -40,97 +41,80 @@ class ProcessingMode(Enum):
 
 
 class PipelineRouter(BasePipelineRouter):
-    """Routes files to appropriate pipeline."""
+    """Routes EM files to appropriate pipeline."""
 
     def __init__(self):
-        """Initialize router with known pipelines."""
+        """Initialize router with EM pipelines."""
         super().__init__()
         self._register_default_pipelines()
 
     def _register_default_pipelines(self):
-        """Register default pipeline configurations."""
-
-        # Applications Pipeline
-        self.register_pipeline(PipelineConfig(
-            file_type=FileType.APPLICATIONS,
-            dag_id="loa_applications_pipeline",
-            entity_name="Applications",
-            table_name="applications_raw",
-            required_columns=[
-                "application_id", "ssn", "loan_amount", "loan_type",
-                "application_date", "branch_code"
-            ],
-            validation_rules={
-                "ssn_format": r"^\d{3}-\d{2}-\d{4}$",
-                "loan_amount_range": (10000, 1000000),
-                "loan_types": ["MORTGAGE", "PERSONAL", "AUTO", "HOME_EQUITY"]
-            }
-        ))
+        """Register EM pipeline configurations."""
 
         # Customers Pipeline
         self.register_pipeline(PipelineConfig(
             file_type=FileType.CUSTOMERS,
-            dag_id="loa_customers_pipeline",
+            dag_id="em_odp_load_dag",
             entity_name="Customers",
-            table_name="customers_raw",
+            table_name="customers",
             required_columns=[
-                "customer_id", "ssn", "customer_name", "account_number",
-                "email", "phone", "credit_score", "branch_code"
+                "customer_id", "ssn", "customer_name", "date_of_birth",
+                "email", "phone", "address", "city", "state", "zip_code"
             ],
             validation_rules={
                 "ssn_format": r"^\d{3}-\d{2}-\d{4}$",
-                "credit_score_range": (300, 850),
-                "email_format": r"^[\w\.-]+@[\w\.-]+\.\w+$"
+                "email_format": r"^[\w\.-]+@[\w\.-]+\.\w+$",
+                "state_code_length": 2
             }
         ))
 
-        # Branches Pipeline
+        # Accounts Pipeline
         self.register_pipeline(PipelineConfig(
-            file_type=FileType.BRANCHES,
-            dag_id="loa_branches_pipeline",
-            entity_name="Branches",
-            table_name="branches_raw",
+            file_type=FileType.ACCOUNTS,
+            dag_id="em_odp_load_dag",
+            entity_name="Accounts",
+            table_name="accounts",
             required_columns=[
-                "branch_code", "branch_name", "region", "state", "city",
-                "manager_name", "employee_count"
+                "account_id", "customer_id", "account_type", "account_status",
+                "balance", "open_date", "branch_code"
             ],
             validation_rules={
-                "state_code_length": 2,
-                "employee_count_range": (0, 1000)
+                "account_types": ["CHECKING", "SAVINGS", "MONEY_MARKET", "CD"],
+                "balance_range": (0, 10000000),
+                "account_statuses": ["ACTIVE", "CLOSED", "DORMANT", "FROZEN"]
             }
         ))
 
-        # Collateral Pipeline
+        # Decision Pipeline
         self.register_pipeline(PipelineConfig(
-            file_type=FileType.COLLATERAL,
-            dag_id="loa_collateral_pipeline",
-            entity_name="Collateral",
-            table_name="collateral_raw",
+            file_type=FileType.DECISION,
+            dag_id="em_odp_load_dag",
+            entity_name="Decision",
+            table_name="decision",
             required_columns=[
-                "collateral_id", "application_id", "collateral_type",
-                "collateral_value", "appraisal_date"
+                "decision_id", "customer_id", "account_id", "decision_type",
+                "decision_date", "decision_score", "decision_outcome"
             ],
             validation_rules={
-                "collateral_types": ["PROPERTY", "VEHICLE", "SECURITIES"],
-                "collateral_value_range": (10000, 500000)
+                "decision_types": ["CREDIT", "RISK", "FRAUD", "COMPLIANCE"],
+                "decision_score_range": (0, 1000),
+                "decision_outcomes": ["APPROVED", "DENIED", "PENDING", "REVIEW"]
             }
         ))
 
     def detect_file_type(self, file_path: str) -> FileType:
         """
-        Detect file type from file path and name.
+        Detect EM file type from file path and name.
         """
         file_path_lower = file_path.lower()
 
-        # Check for entity type keywords in path
-        if "application" in file_path_lower or "app_" in file_path_lower:
-            return FileType.APPLICATIONS
-        elif "customer" in file_path_lower or "cust_" in file_path_lower:
+        # Check for EM entity type keywords in path
+        if "customer" in file_path_lower or "cust_" in file_path_lower:
             return FileType.CUSTOMERS
-        elif "branch" in file_path_lower:
-            return FileType.BRANCHES
-        elif "collateral" in file_path_lower or "coll_" in file_path_lower:
-            return FileType.COLLATERAL
+        elif "account" in file_path_lower or "acct_" in file_path_lower:
+            return FileType.ACCOUNTS
+        elif "decision" in file_path_lower or "dec_" in file_path_lower:
+            return FileType.DECISION
         else:
             return FileType.UNKNOWN
 

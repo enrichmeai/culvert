@@ -4,9 +4,9 @@ EM Dual-Run Comparison Utility
 EM-specific wrapper around the base DualRunComparison from gcp_pipeline_builder.
 
 Usage:
-    from em.validation_extras.compare_outputs import LOADualRunComparison
+    from em.validation_extras.compare_outputs import EMDualRunComparison
 
-    comparison = LOADualRunComparison(
+    comparison = EMDualRunComparison(
         project_id="my-project",
         mainframe_file="mainframe_output.csv",
         bigquery_table="project:dataset.table",
@@ -25,17 +25,17 @@ from gcp_pipeline_tester import (
 __all__ = [
     "ComparisonResult",
     "ComparisonReport",
-    "LOADualRunComparison",
+    "EMDualRunComparison",
     # Backwards compatibility
     "DualRunComparison",
 ]
 
 
-class LOADualRunComparison(BaseDualRunComparison):
+class EMDualRunComparison(BaseDualRunComparison):
     """
-    LOA-specific dual-run comparison.
+    EM-specific dual-run comparison.
 
-    Pre-configured with LOA defaults for comparing mainframe output
+    Pre-configured with EM defaults for comparing mainframe output
     with BigQuery tables.
 
     Args:
@@ -46,10 +46,10 @@ class LOADualRunComparison(BaseDualRunComparison):
         job_name: Name for the comparison job
 
     Example:
-        >>> comparison = LOADualRunComparison(
+        >>> comparison = EMDualRunComparison(
         ...     project_id="my-project",
         ...     mainframe_file="mainframe_output.csv",
-        ...     bigquery_table="project:dataset.applications"
+        ...     bigquery_table="project:dataset.em_attributes"
         ... )
         >>> report = comparison.compare()
         >>> print(report.summary())
@@ -61,10 +61,10 @@ class LOADualRunComparison(BaseDualRunComparison):
         mainframe_file: str = None,
         bigquery_table: str = None,
         tolerance_percent: float = 1.0,
-        job_name: str = "loa_migration",
+        job_name: str = "em_migration",
     ):
         # Derive job name from file if not specified
-        if job_name == "loa_migration" and mainframe_file:
+        if job_name == "em_migration" and mainframe_file:
             job_name = mainframe_file.split("/")[-1].replace(".csv", "")
 
         super().__init__(
@@ -73,7 +73,7 @@ class LOADualRunComparison(BaseDualRunComparison):
             target_table=bigquery_table,
             tolerance_percent=tolerance_percent,
             job_name=job_name,
-            report_title="LOA Migration Comparison Report",
+            report_title="EM Migration Comparison Report",
         )
 
         # Keep original attribute names for backwards compatibility
@@ -82,7 +82,7 @@ class LOADualRunComparison(BaseDualRunComparison):
 
 
 # Backwards compatibility alias
-DualRunComparison = LOADualRunComparison
+DualRunComparison = EMDualRunComparison
 
 
 # ============================================================================
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     import logging
 
     parser = argparse.ArgumentParser(
-        description="LOA Dual-Run Comparison"
+        description="EM Dual-Run Comparison"
     )
     parser.add_argument(
         "--mainframe_file",
@@ -131,7 +131,7 @@ if __name__ == "__main__":
     )
 
     # Run comparison
-    comparison = LOADualRunComparison(
+    comparison = EMDualRunComparison(
         project_id=args.project_id,
         mainframe_file=args.mainframe_file,
         bigquery_table=args.bigquery_table,

@@ -9,13 +9,13 @@ from .compare_outputs import (
     ComparisonResult,
     ComparisonReport,
     DualRunComparison,
-    LOADualRunComparison,
+    EMDualRunComparison,
 )
 
 __all__ = [
     "ComparisonResult",
     "ComparisonReport",
     "DualRunComparison",
-    "LOADualRunComparison",
+    "EMDualRunComparison",
 ]
 

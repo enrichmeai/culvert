@@ -2,7 +2,7 @@
 EM Pipeline Module.
 
 Apache Beam pipelines for EM entity processing.
-Uses gcp_pipeline_builder library components.
+Uses gcp_pipeline_builder library components with schema-driven validation.
 """
 
 from .options import EMPipelineOptions
@@ -13,11 +13,13 @@ from .transforms import (
 )
 from .runner import run_pipeline
 from .em_pipeline import (
-    ValidateEMRecordDoFn,
     AddAuditColumnsDoFn as EMAddAuditColumnsDoFn,
     EM_ENTITY_CONFIG,
     run_em_pipeline,
 )
+
+# Schema-driven validation from library
+from gcp_pipeline_builder.pipelines.beam.transforms import SchemaValidateRecordDoFn
 
 __all__ = [
     # Legacy/shared
@@ -27,8 +29,9 @@ __all__ = [
     'AddAuditColumnsDoFn',
     'run_pipeline',
     # EM-specific
-    'ValidateEMRecordDoFn',
     'EMAddAuditColumnsDoFn',
     'EM_ENTITY_CONFIG',
     'run_em_pipeline',
+    # Schema-driven validation (from library)
+    'SchemaValidateRecordDoFn',
 ]

@@ -20,10 +20,13 @@ Key Difference from EM:
 from .loa_pipeline import (
     LOA_ENTITY_CONFIG,
     LOAPipelineOptions,
-    ValidateLOARecordDoFn,
     AddAuditColumnsDoFn,
     run_loa_pipeline,
 )
+
+# Schema-driven validation from library
+from gcp_pipeline_builder.pipelines.beam.transforms import SchemaValidateRecordDoFn
+
 # dag_template imports are lazy - only import when needed
 # from .dag_template import (
 #     create_loa_dag,
@@ -62,9 +65,10 @@ __all__ = [
     # Pipeline
     'LOA_ENTITY_CONFIG',
     'LOAPipelineOptions',
-    'ValidateLOARecordDoFn',
     'AddAuditColumnsDoFn',
     'run_loa_pipeline',
+    # Schema-driven validation (from library)
+    'SchemaValidateRecordDoFn',
     # DAG template (lazy)
     'get_dag_template',
     # Router
