@@ -1,4 +1,4 @@
-# GCP Pipeline Builder
+t# GCP Pipeline Builder
 
 A production-grade Python framework for building GCP data pipelines. Provides reusable components for data migration including validation, error handling, audit trails, monitoring, and orchestration.
 
@@ -211,6 +211,78 @@ assert errors == []
 # Numeric range with currency formatting
 cleaned, errors = validate_numeric_range("loan_amount", "$1,234.56", min_value=0, max_value=100000)
 assert cleaned == 1234.56
+```
+
+#### Schema-Driven Validation (SchemaValidator)
+
+Automatically validate records against an `EntitySchema` - no manual validation code needed.
+
+```python
+from gcp_pipeline_builder.schema import EntitySchema, SchemaField
+from gcp_pipeline_builder.validators import SchemaValidator
+
+# Define schema with PII fields marked
+CustomerSchema = EntitySchema(
+    entity_name="customers",
+    system_id="EM",
+    fields=[
+        SchemaField(name="customer_id", field_type="STRING", required=True),
+        SchemaField(name="customer_name", field_type="STRING", required=True, max_length=100),
+        SchemaField(name="ssn", field_type="STRING", required=True, is_pii=True),  # PII - masked in errors
+        SchemaField(name="email", field_type="STRING", is_pii=True),  # PII - masked in errors
+        SchemaField(name="status", field_type="STRING", allowed_values=["ACTIVE", "CLOSED"]),
+    ],
+    primary_key=["customer_id"],
+)
+
+# Validate records
+validator = SchemaValidator(CustomerSchema)
+errors = validator.validate(record)
+```
+
+#### Validation Checks
+
+| Check | Schema Field | Description |
+|-------|--------------|-------------|
+| Required | `required=True` | Field must be present and non-empty |
+| Allowed Values | `allowed_values=['A', 'B']` | Value must be in the list |
+| Max Length | `max_length=50` | String length ≤ max_length |
+| Type Check | `field_type='INTEGER'` | Value can be cast to type |
+
+#### PII Masking Configuration
+
+Mark sensitive fields with `is_pii=True` to automatically mask values in error messages:
+
+```python
+SchemaField(
+    name="ssn",
+    field_type="STRING",
+    required=True,
+    is_pii=True  # Values masked as "***6789" in error messages
+)
+```
+
+| Field Type | Example Value | Masked Output |
+|------------|--------------|---------------|
+| SSN | `123-45-6789` | `***6789` |
+| Short value | `1234` | `***` |
+| Non-PII | `ACTIVE` | `ACTIVE` (not masked) |
+
+#### In Beam Pipelines
+
+```python
+from gcp_pipeline_builder.pipelines.beam.transforms import SchemaValidateRecordDoFn
+
+# Automatically routes valid/invalid records
+validated = records | 'Validate' >> beam.ParDo(
+    SchemaValidateRecordDoFn(schema=CustomerSchema)
+).with_outputs('invalid', main='valid')
+
+# Process valid records
+validated.valid | 'WriteValid' >> beam.io.WriteToBigQuery(...)
+
+# Handle invalid records
+validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(...)
 ```
 
 ---

@@ -13,12 +13,14 @@ Flow:
   4. Validate each record using SCHEMA-DRIVEN validation
   5. Write valid records to BigQuery ODP table
   6. Write error records to error table
-  7. Update job_control table with metrics
-  8. Archive source files
+  7. Reconcile source count with BigQuery count
+  8. Update job_control table with metrics
+  9. Archive source files
 
 Library Components Used:
   - gcp_pipeline_builder.utilities.configure_structured_logging (JSON logging)
   - gcp_pipeline_builder.monitoring.MigrationMetrics (standardized metrics)
+  - gcp_pipeline_builder.audit.ReconciliationEngine (automated reconciliation)
   - gcp_pipeline_builder.pipelines.beam.transforms.ParseCsvLine
   - gcp_pipeline_builder.pipelines.beam.transforms.SchemaValidateRecordDoFn
 
@@ -32,7 +34,7 @@ Usage:
 """
 
 from datetime import datetime
-from typing import Dict, Any, Iterator
+from typing import Dict, Any, Iterator, Optional
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
@@ -40,6 +42,9 @@ from apache_beam.options.pipeline_options import PipelineOptions
 # Library imports - structured logging and metrics
 from gcp_pipeline_builder.utilities import configure_structured_logging, generate_run_id
 from gcp_pipeline_builder.monitoring import MigrationMetrics
+
+# Library imports - reconciliation
+from gcp_pipeline_builder.audit import ReconciliationEngine, ReconciliationStatus
 
 # Library imports - schema-driven validation
 from gcp_pipeline_builder.file_management import HDRTRLParser
@@ -89,6 +94,8 @@ class EMPipelineOptions(PipelineOptions):
                           help='Pipeline run ID')
         parser.add_argument('--project_id', type=str, required=True,
                           help='GCP project ID')
+        parser.add_argument('--skip_reconciliation', action='store_true',
+                          help='Skip reconciliation check')
 
 
 class AddAuditColumnsDoFn(beam.DoFn):
@@ -108,14 +115,19 @@ class AddAuditColumnsDoFn(beam.DoFn):
         yield record
 
 
-def run_em_pipeline(argv=None):
+def run_em_pipeline(argv=None, expected_count: Optional[int] = None):
     """
     Run the EM ODP load pipeline.
 
     Uses:
     - Structured JSON logging for Cloud Logging
     - MigrationMetrics for standardized metrics
+    - ReconciliationEngine for automated reconciliation
     - Schema-driven validation - no custom validation code needed
+
+    Args:
+        argv: Command line arguments
+        expected_count: Expected record count (from trailer) for reconciliation
     """
     options = EMPipelineOptions(argv)
     em_opts = options.view_as(EMPipelineOptions)
@@ -138,6 +150,14 @@ def run_em_pipeline(argv=None):
         run_id=run_id,
         system_id=SYSTEM_ID,
         entity_type=entity
+    )
+
+    # Initialize reconciliation engine
+    reconciler = ReconciliationEngine(
+        entity_type=entity,
+        run_id=run_id,
+        project_id=em_opts.project_id,
+        logger=logger
     )
 
     logger.info("Pipeline starting",
@@ -190,6 +210,26 @@ def run_em_pipeline(argv=None):
                     duration_seconds=summary['duration'],
                     counts=summary['counts'],
                     rates=summary['rates'])
+
+        # Perform reconciliation if expected_count provided
+        if expected_count is not None and not em_opts.skip_reconciliation:
+            logger.info("Starting reconciliation", expected_count=expected_count)
+
+            recon_result = reconciler.reconcile_with_bigquery(
+                expected_count=expected_count,
+                destination_table=em_opts.output_table,
+                error_table=em_opts.error_table
+            )
+
+            if not recon_result.is_reconciled:
+                logger.warning("Reconciliation failed",
+                              expected=recon_result.expected_count,
+                              actual=recon_result.actual_count,
+                              difference=recon_result.difference)
+            else:
+                logger.info("Reconciliation passed",
+                           expected=recon_result.expected_count,
+                           actual=recon_result.actual_count)
 
     except Exception as e:
         logger.error("Pipeline failed", error=str(e), exception_type=type(e).__name__)
