@@ -1,7 +1,7 @@
 """
 LOA Validation Module.
 
-Provides validation for LOA entities using gcp_pipeline_builder library.
+Provides validation for LOA entities using gcp_pipeline_core library.
 
 Components:
 - ValidationResult: Data type for validation results

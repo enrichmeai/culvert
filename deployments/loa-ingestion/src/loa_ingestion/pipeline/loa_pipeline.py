@@ -18,12 +18,12 @@ Flow:
   9. Archive source files
 
 Library Components Used:
-  - gcp_pipeline_builder.utilities.configure_structured_logging (JSON logging)
-  - gcp_pipeline_builder.monitoring.MigrationMetrics (standardized metrics)
-the  - gcp_pipeline_builder.monitoring.otel (OTEL/Dynatrace integration)
-  - gcp_pipeline_builder.audit.ReconciliationEngine (automated reconciliation)
-  - gcp_pipeline_builder.pipelines.beam.transforms.ParseCsvLine
-  - gcp_pipeline_builder.pipelines.beam.transforms.SchemaValidateRecordDoFn
+  - gcp_pipeline_core.utilities.configure_structured_logging (JSON logging)
+  - gcp_pipeline_core.monitoring.MigrationMetrics (standardized metrics)
+the  - gcp_pipeline_core.monitoring.otel (OTEL/Dynatrace integration)
+  - gcp_pipeline_core.audit.ReconciliationEngine (automated reconciliation)
+  - gcp_pipeline_beam.pipelines.beam.transforms.ParseCsvLine
+  - gcp_pipeline_beam.pipelines.beam.transforms.SchemaValidateRecordDoFn
 
 Entities:
   - applications → odp_loa.applications

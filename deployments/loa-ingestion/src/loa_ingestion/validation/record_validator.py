@@ -8,7 +8,7 @@ Uses library validators.
 import logging
 from typing import Dict, List, Any, Tuple
 
-from gcp_pipeline_builder.data_quality import check_duplicate_keys
+from gcp_pipeline_core.data_quality import check_duplicate_keys
 from gcp_pipeline_core.schema import EntitySchema
 
 from ..schema import LOA_SCHEMAS

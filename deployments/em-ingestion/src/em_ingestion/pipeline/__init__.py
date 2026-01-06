@@ -2,7 +2,7 @@
 EM Pipeline Module.
 
 Apache Beam pipelines for EM entity processing.
-Uses gcp_pipeline_builder library components with schema-driven validation.
+Uses gcp_pipeline_core library components with schema-driven validation.
 """
 
 from .options import EMPipelineOptions
