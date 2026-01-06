@@ -12,7 +12,7 @@ from em_ingestion.pipeline.em_pipeline import (
 from em_ingestion.schema import EMCustomerSchema, EMAccountSchema, EMDecisionSchema
 
 # Import schema-driven validator from library
-from gcp_pipeline_core.data_quality import SchemaValidator
+from gcp_pipeline_beam.validators import SchemaValidator
 from gcp_pipeline_beam.pipelines.beam.transforms import SchemaValidateRecordDoFn
 
 
