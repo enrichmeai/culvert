@@ -1,2 +1,0 @@
-"""Config unit tests package."""
-

@@ -1,2 +1,0 @@
-"""LOA Domain Unit Tests."""
-
