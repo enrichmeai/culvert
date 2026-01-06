@@ -3,7 +3,7 @@
 A comprehensive testing framework for GCP data pipelines, providing mocks, fixtures, builders, and assertions for testing BigQuery, GCS, Pub/Sub, and Dataflow pipelines.
 
 > **📖 Part of the Legacy Mainframe to GCP Migration Framework**  
-> This library provides testing utilities for pipelines built with `gcp-pipeline-builder`.
+> This library provides testing utilities for pipelines built with `gcp-pipeline-core and gcp-pipeline-beam`.
 
 ---
 
@@ -602,7 +602,7 @@ gcp-pipeline-tester/
 
 ## Related Libraries
 
-- **[gcp-pipeline-builder](../gcp-pipeline-builder/README.md)**: Core pipeline building library
+- **[gcp-pipeline-core and gcp-pipeline-beam](../gcp-pipeline-core and gcp-pipeline-beam/README.md)**: Core pipeline building library
 
 ---
 

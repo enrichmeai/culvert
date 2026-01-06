@@ -7,36 +7,107 @@
 ## Architecture
 
 ```
-gcp-pipeline-core (Foundation - NO beam, NO airflow)
-        ↓
-   ┌────┴────┐
-   ↓         ↓
-gcp-pipeline-beam         gcp-pipeline-orchestration
-(Ingestion)               (Control)
+                         LIBRARY ARCHITECTURE
+                         ────────────────────
+
+                    ┌─────────────────────────────┐
+                    │      gcp-pipeline-core      │
+                    │         (Foundation)        │
+                    │                             │
+                    │  • Audit & Reconciliation   │
+                    │  • Monitoring & Metrics     │
+                    │  • Error Handling           │
+                    │  • Job Control              │
+                    │  • Structured Logging       │
+                    │                             │
+                    │  NO beam, NO airflow        │
+                    └──────────────┬──────────────┘
+                                   │
+              ┌────────────────────┼────────────────────┐
+              │                    │                    │
+              ▼                    │                    ▼
+┌─────────────────────────┐        │        ┌─────────────────────────┐
+│    gcp-pipeline-beam    │        │        │ gcp-pipeline-orchestr.  │
+│      (Ingestion)        │        │        │      (Control)          │
+│                         │        │        │                         │
+│  • HDR/TRL Parser       │        │        │  • Pub/Sub Sensors      │
+│  • Split File Handler   │        │        │  • DAG Factory          │
+│  • Schema Validator     │        │        │  • Entity Dependency    │
+│  • Beam Transforms      │        │        │  • Error Callbacks      │
+│                         │        │        │                         │
+│  beam, NO airflow       │        │        │  airflow, NO beam       │
+└─────────────────────────┘        │        └─────────────────────────┘
+                                   │
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │    gcp-pipeline-transform   │
+                    │          (SQL)              │
+                    │                             │
+                    │  • dbt Audit Macros         │
+                    │  • PII Masking              │
+                    │  • SQL Templates            │
+                    │                             │
+                    │  dbt only                   │
+                    └─────────────────────────────┘
 ```
 
 ---
 
 ## Libraries
 
-| Library | Purpose | Tests |
-|---------|---------|-------|
-| [gcp-pipeline-core](gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 |
-| [gcp-pipeline-beam](gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
-| [gcp-pipeline-orchestration](gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
-| [gcp-pipeline-transform](gcp-pipeline-transform/) | dbt macros for audit columns | - |
-| [gcp-pipeline-tester](gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
+| Library | Purpose | Tests | README |
+|---------|---------|-------|--------|
+| [gcp-pipeline-core](gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 | ✅ |
+| [gcp-pipeline-beam](gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 | ✅ |
+| [gcp-pipeline-orchestration](gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 | ✅ |
+| [gcp-pipeline-transform](gcp-pipeline-transform/) | dbt macros for audit columns | - | ✅ |
+| [gcp-pipeline-tester](gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - | ✅ |
 
 ---
 
 ## Dependency Rules
 
-| Library | Can Import | Cannot Import |
-|---------|------------|---------------|
-| `gcp-pipeline-core` | Standard libs, GCP clients | beam, airflow |
-| `gcp-pipeline-beam` | core, apache-beam | airflow |
-| `gcp-pipeline-orchestration` | core, apache-airflow | beam |
-| `gcp-pipeline-transform` | dbt | beam, airflow |
+```
+                    CAN IMPORT              CANNOT IMPORT
+                    ──────────              ─────────────
+
+gcp-pipeline-core   Standard libs,          beam, airflow
+                    GCP clients
+
+gcp-pipeline-beam   core, apache-beam       airflow
+
+gcp-pipeline-orch   core, apache-airflow    beam
+
+gcp-pipeline-trans  dbt                     beam, airflow
+```
+
+---
+
+## Key Features
+
+### gcp-pipeline-core
+- **Audit Trail**: Track every pipeline execution with `_run_id`
+- **Reconciliation**: Compare source counts with target counts
+- **Structured Logging**: JSON logs with context (run_id, system_id)
+- **Metrics**: Cloud Monitoring, OTEL/Dynatrace integration
+- **Error Handling**: Classification, retry, dead-letter queues
+
+### gcp-pipeline-beam
+- **HDR/TRL Parsing**: Validate mainframe file headers and trailers
+- **Split File Handling**: Reassemble files split at 25MB threshold
+- **Schema Validation**: Validate records against EntitySchema
+- **Beam Transforms**: ParseCsvLine, ValidateRecordDoFn, AddAuditColumns
+
+### gcp-pipeline-orchestration
+- **Pub/Sub Sensor**: Event-driven detection of .ok files
+- **Entity Dependency**: Wait for all entities before transformation (EM)
+- **DAG Factory**: Generate DAGs from configuration
+- **Error Callbacks**: DLQ publishing on failure
+
+### gcp-pipeline-transform
+- **Audit Macros**: `add_audit_columns()` for every FDP table
+- **PII Masking**: `mask_ssn()`, `mask_dob()` for compliance
+- **SQL Templates**: Staging and FDP model templates
 
 ---
 
@@ -58,33 +129,5 @@ PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 
 ---
 
-## Module Summary
-
-### gcp-pipeline-core
-
-| Module | Purpose |
-|--------|---------|
-| `audit/` | Lineage, reconciliation, audit trail |
-| `monitoring/` | Metrics, OTEL/Dynatrace |
-| `error_handling/` | Classification, retry, DLQ |
-| `job_control/` | Pipeline status tracking |
-| `clients/` | GCS, BigQuery, Pub/Sub wrappers |
-| `utilities/` | Structured logging, run ID generation |
-
-### gcp-pipeline-beam
-
-| Module | Purpose |
-|--------|---------|
-| `pipelines/` | Base classes, transforms |
-| `file_management/` | HDR/TRL parsing, archival |
-| `validators/` | Schema, SSN, date validation |
-
-### gcp-pipeline-orchestration
-
-| Module | Purpose |
-|--------|---------|
-| `factories/` | DAG factories |
-| `sensors/` | Pub/Sub Pull sensors |
-| `operators/` | Custom operators |
-| `callbacks/` | Error handlers |
+## Total: 618 tests passing ✅
 
