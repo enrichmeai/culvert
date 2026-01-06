@@ -9,7 +9,7 @@ import logging
 from typing import List, Optional
 from datetime import date
 
-from gcp_pipeline_builder.data_quality import validate_row_types
+from gcp_pipeline_core.data_quality import validate_row_types
 from gcp_pipeline_beam.file_management import (
     HDRTRLParser,
     validate_record_count,

@@ -1,7 +1,7 @@
 """
 EM Validation Module.
 
-Provides validation for EM entities using gcp_pipeline_builder library.
+Provides validation for EM entities using gcp_pipeline_core library.
 """
 
 from .types import ValidationResult
