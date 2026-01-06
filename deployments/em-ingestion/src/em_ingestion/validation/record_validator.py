@@ -48,9 +48,7 @@ class EMRecordValidator:
         """
         validator = self._validators.get(entity_name)
         if not validator:
-            return [f"Unknown entity: {entity_name}"]
-
-        # SchemaValidator.validate() returns List[ValidationError]
+            return [f"Unknown entity: {entity_name}"]        # SchemaValidator.validate() returns List[ValidationError]
         validation_errors = validator.validate(record)
         return [str(e) for e in validation_errors]
 
