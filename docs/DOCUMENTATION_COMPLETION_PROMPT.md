@@ -32,7 +32,7 @@ Update `/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/NEX
 
 | Component | Tests | Status |
 |-----------|-------|--------|
-| Library (gcp-pipeline-builder) | 574 | ✅ PASS |
+| Library (gcp-pipeline-core) | 574 | ✅ PASS |
 | EM Deployment | 199 | ✅ PASS |
 | LOA Deployment | 55 | ✅ PASS |
 | **TOTAL** | **828** | ✅ **ALL PASS** |
@@ -122,7 +122,7 @@ This white paper describes a "Schema-First" approach to migrating legacy mainfra
 - Need for consistent, auditable migration
 
 ### 1.2 The Solution
-A reusable library (`gcp-pipeline-builder`) that provides:
+A reusable library (`gcp-pipeline-core`) that provides:
 - Schema-driven validation
 - Automated reconciliation
 - Structured logging
@@ -140,7 +140,7 @@ A reusable library (`gcp-pipeline-builder`) that provides:
 │ Deployment Layer (EM, LOA)                             │
 │ - System-specific schemas and configuration            │
 ├────────────────────────────────────────────────────────┤
-│ Library Layer (gcp-pipeline-builder)                   │
+│ Library Layer (gcp-pipeline-core)                   │
 │ - Reusable components: validation, metrics, audit      │
 ├────────────────────────────────────────────────────────┤
 │ GCP Services Layer                                     │
@@ -298,7 +298,7 @@ After completing documentation:
 # Verify all tests still pass
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
-echo "=== LIBRARY ===" && cd libraries/gcp-pipeline-builder && python -m pytest tests/ --tb=no -q
+echo "=== LIBRARY ===" && cd libraries/gcp-pipeline-core && python -m pytest tests/ --tb=no -q
 echo "=== EM ===" && cd ../../deployments/em && PYTHONPATH=src python -m pytest tests/unit/ --tb=no -q
 echo "=== LOA ===" && cd ../loa && PYTHONPATH=src python -m pytest tests/unit/ --tb=no -q
 ```

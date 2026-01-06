@@ -57,7 +57,7 @@ pip install -r deployments/setup/requirements.txt
 pip install -r deployments/setup/requirements-test.txt
 
 # Install packages in editable mode
-pip install -e libraries/gcp-pipeline-builder/
+pip install -e libraries/gcp-pipeline-core/
 pip install -e deployments/em/
 pip install -e deployments/loa/
 
@@ -113,14 +113,27 @@ To avoid Python module caching conflicts, run tests for each component **separat
 ```bash
 cd /path/to/legacy-migration-reference
 
-# Library tests
-PYTHONPATH=libraries/gcp-pipeline-builder/src pytest libraries/gcp-pipeline-builder/tests -v --tb=short
+# Core library tests (208 tests)
+cd libraries/gcp-pipeline-core
+PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short
 
-# EM tests
-PYTHONPATH=libraries/gcp-pipeline-builder/src:deployments/em/src pytest deployments/em/tests -v --tb=short
+# Beam library tests (358 tests)
+cd ../gcp-pipeline-beam
+PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v --tb=short
 
-# LOA tests
-PYTHONPATH=libraries/gcp-pipeline-builder/src:deployments/loa/src pytest deployments/loa/tests -v --tb=short
+# Orchestration library tests (52 tests)
+cd ../gcp-pipeline-orchestration
+PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v --tb=short
+
+# LOA Ingestion tests (36 tests)
+cd ../../deployments/loa-ingestion
+PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
+  python -m pytest tests/unit/ -v --tb=short
+
+# EM Ingestion tests (44 tests)
+cd ../em-ingestion
+PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
+  python -m pytest tests/unit/ -v --tb=short
 ```
 
 ### CI/CD Pipeline
@@ -128,21 +141,22 @@ PYTHONPATH=libraries/gcp-pipeline-builder/src:deployments/loa/src pytest deploym
 On every push/PR, GitHub Actions runs tests in isolation:
 
 ```
-┌──────────────┐
-│ test-library │ ← Runs first
-└──────┬───────┘
-       │
-  ┌────┴────┐
-  ▼         ▼
-┌────────┐ ┌────────┐
-│test-em │ │test-loa│ ← Parallel after library
-└────────┘ └────────┘
-       │         │
-       └────┬────┘
-            ▼
-   ┌─────────────────┐
-   │ all-tests-pass  │
-   └─────────────────┘
+┌──────────────────┐
+│ test-core        │ ← Runs first (foundation)
+└────────┬─────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+┌────────┐ ┌──────────────┐
+│test-   │ │test-         │
+│beam    │ │orchestration │ ← Parallel after core
+└────┬───┘ └──────┬───────┘
+     │            │
+     └─────┬──────┘
+           ▼
+  ┌────────────────┐
+  │ test-ingestion │ ← EM + LOA ingestion
+  └────────────────┘
 ```
 
 See [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml).

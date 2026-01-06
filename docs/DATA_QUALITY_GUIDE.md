@@ -8,7 +8,7 @@
 
 ## 🎯 Overview
 
-The platform utilizes a **hybrid data quality strategy** to ensure data trust. We combine the fine-grained control of our internal **`gcp_pipeline_builder` Python library** with the managed scale and profiling capabilities of **Google Cloud Dataplex**.
+The platform utilizes a **hybrid data quality strategy** to ensure data trust. We combine the fine-grained control of our internal **`gcp_pipeline_core` Python library** with the managed scale and profiling capabilities of **Google Cloud Dataplex**.
 
 ### Strategy Goals
 ✅ **Developer Choice**: Use the library for runtime business logic; use Dataplex for post-load scale.
@@ -20,7 +20,7 @@ The platform utilizes a **hybrid data quality strategy** to ensure data trust. W
 
 ## 🛠 Quality Engines
 
-### 1. Library-Based Checks (`gcp_pipeline_builder`)
+### 1. Library-Based Checks (`gcp_pipeline_core`)
 Best for: Low-latency, fine-grained business rules, and runtime validation during data processing.
 
 - **Implementation**: `DataQualityChecker.py`
@@ -67,11 +67,11 @@ Dataplex automatically profiles data to identify statistical trends, distributio
 
 ## 🛑 Quality Enforcement & Hybrid Orchestration
 
-Pipelines should integrate quality checks using the `gcp_pipeline_builder` library wrapper to ensure unified reporting.
+Pipelines should integrate quality checks using the `gcp_pipeline_core` library wrapper to ensure unified reporting.
 
 ### Hybrid Code Example
 ```python
-from gcp_pipeline_builder.core.data_quality import DataQualityChecker
+from gcp_pipeline_core.core.data_quality import DataQualityChecker
 
 checker = DataQualityChecker(entity_type="loan")
 
@@ -104,7 +104,7 @@ report = checker.get_quality_report()
 ## 📚 Official Documentation
 - [Google Cloud Dataplex Overview](https://cloud.google.com/dataplex/docs/introduction)
 - [Dataplex Auto DQ Guide](https://cloud.google.com/dataplex/docs/data-quality-overview)
-- [GDW Data Core: Data Quality Module](../libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_quality/)
+- [GDW Data Core: Data Quality Module](../libraries/gcp-pipeline-core/src/gcp_pipeline_core/data_quality/)
 
 ---
 
