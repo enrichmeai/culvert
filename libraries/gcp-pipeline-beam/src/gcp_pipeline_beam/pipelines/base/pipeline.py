@@ -15,7 +15,7 @@ from apache_beam.options.pipeline_options import PipelineOptions, StandardOption
 from gcp_pipeline_core.audit import AuditTrail, AuditPublisher
 from gcp_pipeline_core.error_handling import ErrorHandler
 from gcp_pipeline_core.monitoring import MetricsCollector
-from gcp_pipeline_builder import generate_run_id
+from gcp_pipeline_core.utilities import generate_run_id
 
 from .config import PipelineConfig
 from .options import GDWPipelineOptions

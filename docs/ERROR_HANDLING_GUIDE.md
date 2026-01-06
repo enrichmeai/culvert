@@ -15,7 +15,7 @@ This guide describes the error handling patterns used in the LOA migration pipel
 When a record fails validation, it is tagged with a `ValidationError` and routed to the error output.
 
 ```python
-from gcp_pipeline_builder.core.validators import ValidationError
+from gcp_pipeline_core.core.validators import ValidationError
 
 def validate_record(record):
     errors = []
@@ -28,7 +28,7 @@ def validate_record(record):
 The `ErrorContext` manager captures any unhandled exceptions during execution.
 
 ```python
-from gcp_pipeline_builder.core.error_handling import ErrorHandler, ErrorContext
+from gcp_pipeline_core.core.error_handling import ErrorHandler, ErrorContext
 
 handler = ErrorHandler(pipeline_name="loa-applications", run_id="run_001")
 
@@ -42,5 +42,5 @@ with ErrorContext(handler, operation_name="dataflow_execution"):
 - **GCS Quarantine**: Files that cannot be parsed at all are moved to a quarantine bucket.
 
 ## References
-- [GDW Data Core - Error Handling](../libraries/gcp-pipeline-builder/README.md#error-handling)
+- [GDW Data Core - Error Handling](../libraries/gcp-pipeline-core/README.md#error-handling)
 - [Testing Strategy](./COMPLETE_TESTING_GUIDE.md)

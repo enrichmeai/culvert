@@ -22,7 +22,7 @@ resource "google_kms_key_ring" "data_key_ring" {
 
 # Key for Pub/Sub messaging encryption
 resource "google_kms_crypto_key" "messaging_key" {
-  name            = "gdw-messaging-key-${var.environment}"
+  name            = "gcp-pipeline-messaging-key-${var.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 
@@ -39,7 +39,7 @@ resource "google_kms_crypto_key" "messaging_key" {
 
 # Key for GCS storage encryption
 resource "google_kms_crypto_key" "storage_key" {
-  name            = "gdw-storage-key-${var.environment}"
+  name            = "gcp-pipeline-storage-key-${var.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 
@@ -56,7 +56,7 @@ resource "google_kms_crypto_key" "storage_key" {
 
 # Key for BigQuery dataset encryption
 resource "google_kms_crypto_key" "bigquery_key" {
-  name            = "gdw-bigquery-key-${var.environment}"
+  name            = "gcp-pipeline-bigquery-key-${var.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 

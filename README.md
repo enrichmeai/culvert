@@ -4,6 +4,38 @@ A **library-first framework** for migrating legacy mainframe batch systems to Go
 
 ---
 
+## Why This Framework?
+
+### Reusable Patterns
+
+| Pattern | Description | Library |
+|---------|-------------|---------|
+| **File Validation** | HDR/TRL parsing, checksum verification, record count reconciliation | `gcp-pipeline-beam` |
+| **Split File Handling** | Reassemble files split at 25MB threshold | `gcp-pipeline-beam` |
+| **Schema Validation** | Automatic validation against entity schemas | `gcp-pipeline-beam` |
+| **Data Quality** | Row type, data type, duplicate detection | `gcp-pipeline-beam` |
+| **Audit Trail** | Run tracking, lineage, source-to-target reconciliation | `gcp-pipeline-core` |
+| **Structured Logging** | JSON logging with run_id, system_id context | `gcp-pipeline-core` |
+| **Metrics & OTEL** | Cloud Monitoring, Dynatrace integration | `gcp-pipeline-core` |
+| **Error Handling** | Classification, retry logic, dead-letter queues | `gcp-pipeline-core` |
+| **Job Control** | Pipeline status tracking and metadata | `gcp-pipeline-core` |
+| **DAG Factory** | Standardized Airflow DAG generation | `gcp-pipeline-orchestration` |
+| **Pub/Sub Sensor** | Event-driven file detection with .ok triggers | `gcp-pipeline-orchestration` |
+| **Entity Dependency** | Wait for all entities before transformation | `gcp-pipeline-orchestration` |
+
+### Cloud Cost Benefits
+
+The **3-Unit Deployment Model** reduces cloud costs:
+
+| Benefit | Description |
+|---------|-------------|
+| **Smaller Airflow Environment** | Orchestration unit has NO Apache Beam dependency → faster builds, less memory |
+| **Smaller Dataflow Images** | Ingestion unit has NO Airflow dependency → smaller container images |
+| **Independent Scaling** | Scale ingestion workers without affecting orchestration |
+| **Faster Deployments** | Smaller units = faster CI/CD pipelines |
+
+---
+
 ## Architecture
 
 ### 4-Library Model
@@ -32,8 +64,88 @@ Each system is split into 3 independent units:
 | Unit | Purpose | Dependencies |
 |------|---------|--------------|
 | `*-ingestion` | Beam pipeline (GCS → ODP) | core, beam (NO airflow) |
-| `*-transformation` | dbt models (ODP → FDP) | transform |
+| `*-transformation` | dbt models (ODP → FDP) | transform (dbt only) |
 | `*-orchestration` | Airflow DAGs | core, orchestration (NO beam) |
+
+---
+
+## End-to-End Flow
+
+```
+MAINFRAME           GCS LANDING         AIRFLOW              DATAFLOW            dbt
+─────────           ───────────         ───────              ────────            ───
+
+Extract     ───────►  .csv files   ──┐
+CSV files             + .ok file     │
+(HDR/TRL)                            ▼
+                                ┌─────────────┐
+                                │ Pub/Sub     │
+                                │ Sensor      │
+                                └──────┬──────┘
+                                       │
+                                       ▼
+                                ┌─────────────┐
+                                │ Validate    │
+                                │ HDR/TRL     │
+                                │ DQ Checks   │
+                                └──────┬──────┘
+                                       │
+                                       ▼
+                                ┌─────────────┐     ┌─────────────┐
+                                │ Trigger     │────►│ Beam        │────► ODP Tables
+                                │ Dataflow    │     │ Pipeline    │      (BigQuery)
+                                └─────────────┘     └─────────────┘
+                                       │
+                                       ▼
+                                ┌─────────────┐     ┌─────────────┐
+                                │ Trigger     │────►│ dbt run     │────► FDP Tables
+                                │ dbt         │     │ Transform   │      (BigQuery)
+                                └─────────────┘     └─────────────┘
+```
+
+### File Format
+
+```
+HDR|EM|CUSTOMERS|20260101           ← Header: System, Entity, Date
+customer_id,name,ssn,status         ← CSV headers
+1001,John Doe,123-45-6789,ACTIVE    ← Data rows
+1002,Jane Smith,987-65-4321,ACTIVE
+TRL|RecordCount=2|Checksum=a1b2c3d4 ← Trailer: Count, Checksum
+```
+
+### Split File Handling
+
+Files > 25MB are split by mainframe with naming: `customers_1.csv`, `customers_2.csv`
+
+Single `.ok` file signals all splits are complete:
+```
+gs://landing/em/customers/
+├── customers_1.csv
+├── customers_2.csv
+└── customers.csv.ok    ← Triggers processing of ALL splits
+```
+
+---
+
+## Reference Implementations
+
+### EM (Application A) - JOIN Pattern
+
+| Aspect | Value |
+|--------|-------|
+| Source Entities | 3 (Customers, Accounts, Decision) |
+| ODP Tables | 3 |
+| FDP Tables | 1 (`em_attributes`) |
+| Dependency | Wait for all 3 entities before FDP transformation |
+
+### LOA (Application B) - SPLIT Pattern
+
+| Aspect | Value |
+|--------|-------|
+| Source Entities | 1 (Applications) |
+| ODP Tables | 1 |
+| FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
+| Dependency | Immediate trigger after ODP load |
 
 ---
 
@@ -41,54 +153,30 @@ Each system is split into 3 independent units:
 
 ```
 libraries/
-├── gcp-pipeline-core/           # 208 tests
-├── gcp-pipeline-beam/           # 358 tests  
-├── gcp-pipeline-orchestration/  # 52 tests
+├── gcp-pipeline-core/           # 208 tests - Foundation
+├── gcp-pipeline-beam/           # 358 tests - Ingestion
+├── gcp-pipeline-orchestration/  # 52 tests - Control
 ├── gcp-pipeline-transform/      # dbt macros
 └── gcp-pipeline-tester/         # Testing utilities
 
 deployments/
 ├── em-ingestion/                # 44 tests (JOIN: 3→1)
-├── em-transformation/           # dbt
-├── em-orchestration/            # DAGs
+├── em-transformation/           # dbt models
+├── em-orchestration/            # Airflow DAGs
 ├── loa-ingestion/               # 36 tests (SPLIT: 1→2)
-├── loa-transformation/          # dbt
-└── loa-orchestration/           # DAGs
+├── loa-transformation/          # dbt models
+└── loa-orchestration/           # Airflow DAGs
+
+infrastructure/terraform/
+├── systems/em/                  # EM infrastructure
+│   ├── ingestion/               # GCS, Pub/Sub
+│   ├── transformation/          # BigQuery datasets
+│   └── orchestration/           # Service accounts, IAM
+└── systems/loa/                 # LOA infrastructure
+    ├── ingestion/
+    ├── transformation/
+    └── orchestration/
 ```
-
----
-
-## 🚀 The Minimalist Advantage
-
-### Why 3 Independent Deployments?
-1.  **Decoupled Scaling**: Scale Dataflow (Ingestion) for high-volume bursts without over-provisioning Airflow (Orchestration).
-2.  **Failure Isolation**: A dbt syntax error (Transformation) won't stop the file from being safely landed and audited in ODP (Ingestion).
-3.  **Clean Dependencies**: Airflow stays "light" (no Beam/Java dependencies), reducing environment conflicts and start-up times.
-4.  **Polyglot Fit**: Use the best tool for the job—Python/Beam for complex parsing, SQL/dbt for business logic.
-5.  **Simpler E2E Testing**: Each unit (Ingestion, Transformation, Orchestration) can be tested in isolation with mocked inputs, significantly shortening feedback loops and simplifying CI/CD.
-
-### Resiliency Patterns
-*   **Integrity (Reconciliation)**: Automated TRL record count vs. BigQuery row count verification.
-*   **Recoverability (Idempotency)**: Every run is uniquely identified (`run_id`), allowing safe re-execution and data overwrites.
-*   **Observability (Audit Trail)**: Single correlation ID links GCS files, Beam logs, and dbt transformations.
-*   **Durability (DLQ)**: Invalid records are isolated to side-tables, preserving the pipeline's "Green" status for valid data.
-*   **Security (Metadata-Masking)**: PII masking is defined in the schema and enforced during both Ingestion and Transformation.
-
----
-
-### EM (Application A) - JOIN Pattern
-
-- **Source**: 3 entities (Customers, Accounts, Decision)
-- **ODP**: 3 tables
-- **FDP**: 1 table (`em_attributes`)
-- **Dependency**: Wait for all 3 entities before FDP transformation
-
-### LOA (Application B) - SPLIT Pattern
-
-- **Source**: 1 entity (Applications)
-- **ODP**: 1 table
-- **FDP**: 2 tables (`event_transaction_excess`, `portfolio_account_excess`)
-- **Dependency**: Immediate trigger after ODP load
 
 ---
 
@@ -100,50 +188,27 @@ deployments/
 | **FDP** | Foundation Data Product - Transformed, business-ready |
 | **HDR/TRL** | Header/Trailer records for file validation |
 | **.ok file** | Signal file indicating transfer complete |
-
----
-
-## Library Features
-
-| Feature | Module |
-|---------|--------|
-| HDR/TRL Parsing | `gcp-pipeline-beam.file_management` |
-| Schema Validation | `gcp-pipeline-beam.validators` |
-| Audit Trail | `gcp-pipeline-core.audit` |
-| Reconciliation | `gcp-pipeline-core.audit.reconciliation` |
-| Structured Logging | `gcp-pipeline-core.utilities` |
-| Metrics & OTEL | `gcp-pipeline-core.monitoring` |
-| Error Handling | `gcp-pipeline-core.error_handling` |
-| Job Control | `gcp-pipeline-core.job_control` |
-| DAG Factory | `gcp-pipeline-orchestration.factories` |
-| Pub/Sub Sensor | `gcp-pipeline-orchestration.sensors` |
+| **Split Files** | Large files (>25MB) split by mainframe |
 
 ---
 
 ## Quick Start
 
-### Run Library Tests
+### Run All Tests
 
 ```bash
-cd libraries/gcp-pipeline-core
-PYTHONPATH=src python -m pytest tests/unit/ -q
+# Libraries (618 tests)
+cd libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
+cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
+cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 
-cd ../gcp-pipeline-beam
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
-
-cd ../gcp-pipeline-orchestration
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
-```
-
-### Run Deployment Tests
-
-```bash
-cd deployments/loa-ingestion
-PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
+# Deployments (80 tests)
+cd ../../deployments/loa-ingestion && \
+  PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -q
 
-cd ../em-ingestion
-PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
+cd ../em-ingestion && \
+  PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -q
 ```
 
@@ -166,12 +231,12 @@ PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipelin
 
 | Guide | Description |
 |-------|-------------|
-| [E2E Flow](docs/E2E_FUNCTIONAL_FLOW.md) | End-to-end functional flow |
-| [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail implementation |
-| [Pub/Sub & KMS](docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers |
-| [Error Handling](docs/ERROR_HANDLING_GUIDE.md) | Error classification and DLQ |
+| [E2E Functional Flow](docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
+| [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
+| [Pub/Sub & KMS](docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
+| [Error Handling](docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
 | [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
-| [GCP Deployment](docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment |
+| [GCP Deployment](docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
 
 ---
 
@@ -180,10 +245,11 @@ PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipelin
 | Layer | Technology |
 |-------|------------|
 | Storage | GCS |
-| Messaging | Pub/Sub with KMS |
+| Messaging | Pub/Sub with KMS encryption |
 | Processing | Apache Beam on Dataflow |
 | Orchestration | Apache Airflow (Cloud Composer) |
 | Transformation | dbt |
 | Data Warehouse | BigQuery |
+| Monitoring | Cloud Monitoring, OTEL, Dynatrace |
 | Infrastructure | Terraform |
 

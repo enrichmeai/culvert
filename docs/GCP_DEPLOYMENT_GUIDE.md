@@ -73,8 +73,8 @@ gcloud services enable \
 Or manually:
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
-gsutil mb -l europe-west2 -p $PROJECT_ID gs://gdw-terraform-state
-gsutil versioning set on gs://gdw-terraform-state
+gsutil mb -l europe-west2 -p $PROJECT_ID gs://gcp-pipeline-terraform-state
+gsutil versioning set on gs://gcp-pipeline-terraform-state
 ```
 
 ### Step 1.3: Create Infrastructure (Buckets, Datasets, Topics)
@@ -251,7 +251,7 @@ gcloud dataflow jobs list --status=active
 ### "Bucket doesn't exist" error
 ```bash
 # Create the Terraform state bucket
-gsutil mb -l europe-west2 gs://gdw-terraform-state
+gsutil mb -l europe-west2 gs://gcp-pipeline-terraform-state
 ```
 
 ### "Permission denied" error

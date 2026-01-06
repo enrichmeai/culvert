@@ -7,11 +7,11 @@ The library provides built-in audit trail capabilities for data lineage and reco
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `AuditTrail` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/trail.py` | Track pipeline executions |
-| `AuditRecord` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/records.py` | Structured audit entries |
-| `AuditPublisher` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/publisher.py` | Publish audit events |
-| `LineageTracker` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/lineage.py` | Data lineage tracking |
-| `Reconciliation` | `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/reconciliation.py` | Source-to-target reconciliation |
+| `AuditTrail` | `libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py` | Track pipeline executions |
+| `AuditRecord` | `libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/records.py` | Structured audit entries |
+| `AuditPublisher` | `libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/publisher.py` | Publish audit events |
+| `LineageTracker` | `libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/lineage.py` | Data lineage tracking |
+| `Reconciliation` | `libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py` | Source-to-target reconciliation |
 
 ## Audit Columns Added to Every Record
 
@@ -30,8 +30,8 @@ Every record processed through the pipeline gets these columns automatically:
 ### Python Integration
 
 ```python
-from gcp_pipeline_builder.audit import AuditTrail
-from gcp_pipeline_builder.utilities import generate_run_id
+from gcp_pipeline_core.audit import AuditTrail
+from gcp_pipeline_core.utilities import generate_run_id
 
 # Create audit trail for pipeline run
 run_id = generate_run_id("em")  # → "em_20260103_143022_abc123"
