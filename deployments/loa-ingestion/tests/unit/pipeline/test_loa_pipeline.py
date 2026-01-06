@@ -72,7 +72,7 @@ class TestSchemaValidation(unittest.TestCase):
     def test_schema_validator(self):
         """Test SchemaValidator works with LOA schema."""
         from loa_ingestion.schema import LOAApplicationsSchema
-        from gcp_pipeline_core.data_quality import SchemaValidator
+        from gcp_pipeline_beam.validators import SchemaValidator
 
         validator = SchemaValidator(LOAApplicationsSchema)
 
