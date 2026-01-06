@@ -1,0 +1,7 @@
+HDR|EM|decision|20260101
+decision_id,customer_id,application_id,decision_code,decision_date,score,reason_codes
+D001,C001,APP001,APPROVE,2026-01-01T10:30:00,720,R01|R02
+D002,C002,APP002,DECLINE,2026-01-01T11:00:00,580,R03|R04|R05
+D003,C003,APP003,REVIEW,2026-01-01T11:30:00,650,R06
+TRL|RecordCount=3|Checksum=ghi789
+

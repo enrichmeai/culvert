@@ -4,7 +4,7 @@
 
 This is a **legacy mainframe-to-GCP data migration framework** consisting of two main components:
 
-1. **gdw_data_core** - Reusable Python library providing infrastructure components
+1. **gcp-pipeline-builder** - Reusable Python library providing infrastructure components
 2. **blueprint** - Implementation of two data pipelines (EM and LOA) using the library
 
 **Tech Stack:**
@@ -53,16 +53,16 @@ TRL|RecordCount={n}|Checksum={hash}   ← Trailer record
 ### Key Library Components
 ```python
 # File Management
-from gdw_data_core.core.file_management import HDRTRLParser, validate_record_count, validate_checksum
+from gcp_pipeline_builder.core.file_management import HDRTRLParser, validate_record_count, validate_checksum
 
 # Job Control
-from gdw_data_core.core.job_control import JobControlRepository, JobStatus, PipelineJob
+from gcp_pipeline_builder.core.job_control import JobControlRepository, JobStatus, PipelineJob
 
 # Entity Dependency
-from gdw_data_core.orchestration import EntityDependencyChecker
+from gcp_pipeline_builder.orchestration import EntityDependencyChecker
 
 # Data Quality
-from gdw_data_core.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
 ```
 
 ### Library Design: Generic with Pipeline Configuration
@@ -126,7 +126,7 @@ Organize them into a **directory (submodule)** with separate files:
 #### ✅ CORRECT - Directory Structure for Multiple Components
 
 ```
-gdw_data_core/core/validators/
+gcp_pipeline_builder/core/validators/
 ├── __init__.py          # Re-exports all public API
 ├── types.py             # Shared types (ValidationError)
 ├── ssn.py               # validate_ssn()
@@ -139,7 +139,7 @@ gdw_data_core/core/validators/
 #### ❌ INCORRECT - Single Large File
 
 ```
-gdw_data_core/core/validators.py  # 500+ lines with everything
+gcp_pipeline_builder/core/validators.py  # 500+ lines with everything
 ```
 
 ### Test Structure Must Mirror Source Structure
@@ -150,14 +150,14 @@ Tests MUST mirror the source module structure exactly. No backward compatibility
 
 ```
 # Source structure
-gdw_data_core/core/job_control/
+gcp_pipeline_builder/core/job_control/
 ├── __init__.py
 ├── types.py
 ├── models.py
 └── repository.py
 
 # Test structure mirrors source EXACTLY
-gdw_data_core/tests/unit/core/job_control/
+gcp_pipeline_builder/tests/unit/core/job_control/
 ├── __init__.py
 ├── test_types.py          # Tests for types.py
 ├── test_models.py         # Tests for models.py
@@ -167,8 +167,8 @@ gdw_data_core/tests/unit/core/job_control/
 #### ❌ INCORRECT - Single Test File or Backward Compat Files
 
 ```
-gdw_data_core/tests/unit/core/test_job_control.py  # All tests in one file - WRONG
-gdw_data_core/tests/unit/core/test_job_control.py  # Backward compat file - NOT NEEDED
+gcp_pipeline_builder/tests/unit/core/test_job_control.py  # All tests in one file - WRONG
+gcp_pipeline_builder/tests/unit/core/test_job_control.py  # Backward compat file - NOT NEEDED
 ```
 
 ### When Refactoring to Submodules
@@ -267,7 +267,7 @@ from enum import Enum
 from google.cloud import bigquery
 from google.cloud import storage
 
-from gdw_data_core.core.error_handling import ErrorHandler
+from gcp_pipeline_builder.core.error_handling import ErrorHandler
 from .types import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -317,7 +317,7 @@ class ErrorSeverity(Enum):
 Library classes should be **generic and configurable**. Blueprint classes **extend with defaults**:
 
 ```python
-# Library (gdw_data_core) - Generic base
+# Library (gcp-pipeline-builder) - Generic base
 class BasePubSubPullSensor(PubSubPullSensor):
     """Generic sensor with configurable filtering."""
     
@@ -353,7 +353,7 @@ class LOAPubSubPullSensor(BasePubSubPullSensor):
 ### Use Structured Error Types
 
 ```python
-from gdw_data_core.core.error_handling import (
+from gcp_pipeline_builder.core.error_handling import (
     GDWError,
     GDWValidationError,
     ErrorSeverity,
@@ -371,7 +371,7 @@ raise GDWValidationError(
 ### Use Error Context Manager
 
 ```python
-from gdw_data_core.core.error_handling import ErrorContext, ErrorHandler
+from gcp_pipeline_builder.core.error_handling import ErrorContext, ErrorHandler
 
 handler = ErrorHandler(pipeline_name="my_job", run_id="run_001")
 
@@ -387,7 +387,7 @@ with ErrorContext(handler):
 ### Test File Structure
 
 ```
-gdw_data_core/tests/
+gcp_pipeline_builder/tests/
 ├── unit/
 │   ├── core/
 │   │   ├── test_validators.py
@@ -411,7 +411,7 @@ gdw_data_core/tests/
 import unittest
 from unittest.mock import MagicMock, patch
 
-from gdw_data_core.testing import (
+from gcp_pipeline_builder.testing import (
     ComparisonResult,
     ComparisonReport,
     DualRunComparison,
@@ -436,7 +436,7 @@ class TestComparisonResult(unittest.TestCase):
 ### Use Base Test Classes
 
 ```python
-from gdw_data_core.testing import BaseGDWTest, BaseBeamTest
+from gcp_pipeline_builder.testing import BaseGDWTest, BaseBeamTest
 
 class TestMyPipeline(BaseBeamTest):
     """Tests for my pipeline."""
@@ -453,7 +453,7 @@ class TestMyPipeline(BaseBeamTest):
 ### GCS Client Usage
 
 ```python
-from gdw_data_core.core.clients import GCSClient
+from gcp_pipeline_builder.core.clients import GCSClient
 
 client = GCSClient(project_id="my-project")
 content = client.read_file("gs://bucket/path/file.csv")
@@ -463,7 +463,7 @@ client.write_file("gs://bucket/output/result.json", json_content)
 ### BigQuery Client Usage
 
 ```python
-from gdw_data_core.core.clients import BigQueryClient
+from gcp_pipeline_builder.core.clients import BigQueryClient
 
 client = BigQueryClient(project_id="my-project")
 rows = client.query("SELECT * FROM dataset.table LIMIT 100")
@@ -473,7 +473,7 @@ client.insert_rows("dataset.table", records)
 ### Pub/Sub Client Usage
 
 ```python
-from gdw_data_core.core.clients import PubSubClient
+from gcp_pipeline_builder.core.clients import PubSubClient
 
 client = PubSubClient(project_id="my-project")
 client.publish("topic-name", {"event": "file_ready", "path": "gs://..."})
@@ -487,7 +487,7 @@ client.publish("topic-name", {"event": "file_ready", "path": "gs://..."})
 
 ```python
 import apache_beam as beam
-from gdw_data_core.core.validators import validate_ssn
+from gcp_pipeline_builder.core.validators import validate_ssn
 
 
 class ValidateRecordDoFn(beam.DoFn):
@@ -508,7 +508,7 @@ class ValidateRecordDoFn(beam.DoFn):
 ### Pipeline Builder Pattern
 
 ```python
-from gdw_data_core.pipelines.beam import BeamPipelineBuilder
+from gcp_pipeline_builder.pipelines.beam import BeamPipelineBuilder
 
 pipeline = (
     BeamPipelineBuilder(options=pipeline_options)
@@ -529,7 +529,7 @@ result = pipeline.run()
 ### DAG Factory Pattern
 
 ```python
-from gdw_data_core.orchestration import DAGFactory, DAGConfig
+from gcp_pipeline_builder.orchestration import DAGFactory, DAGConfig
 
 factory = DAGFactory()
 dag = factory.create_dag_from_dict({
@@ -585,7 +585,7 @@ FROM {{ source('raw', 'transactions') }}
 
 ## Key Principles
 
-1. **Library vs Blueprint**: Generic reusable code goes in `gdw_data_core`. System-specific code (EM, LOA) goes in `blueprint`.
+1. **Library vs Blueprint**: Generic reusable code goes in `gcp-pipeline-builder`. System-specific code (EM, LOA) goes in `blueprint`.
 
 2. **Extend, Don't Duplicate**: Blueprint classes should extend library base classes, not copy code.
 
@@ -718,48 +718,48 @@ FROM {{ source('raw', 'transactions') }}
 
 ```python
 # Validators
-from gdw_data_core.core.validators import validate_ssn, ValidationError
+from gcp_pipeline_builder.core.validators import validate_ssn, ValidationError
 
 # Error Handling
-from gdw_data_core.core.error_handling import ErrorHandler, ErrorContext, GDWError
+from gcp_pipeline_builder.core.error_handling import ErrorHandler, ErrorContext, GDWError
 
 # Audit
-from gdw_data_core.core.audit import AuditTrail, AuditRecord
+from gcp_pipeline_builder.core.audit import AuditTrail, AuditRecord
 
 # Monitoring
-from gdw_data_core.core.monitoring import MetricsCollector, HealthChecker
+from gcp_pipeline_builder.core.monitoring import MetricsCollector, HealthChecker
 
 # Clients
-from gdw_data_core.core.clients import GCSClient, BigQueryClient, PubSubClient
+from gcp_pipeline_builder.core.clients import GCSClient, BigQueryClient, PubSubClient
 
 # Orchestration
-from gdw_data_core.orchestration import DAGFactory, DAGRouter
-from gdw_data_core.orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_builder.orchestration import DAGFactory, DAGRouter
+from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
 
 # Pipelines
-from gdw_data_core.pipelines.base import BasePipeline, PipelineConfig
-from gdw_data_core.pipelines.beam import BeamPipelineBuilder
+from gcp_pipeline_builder.pipelines.base import BasePipeline, PipelineConfig
+from gcp_pipeline_builder.pipelines.beam import BeamPipelineBuilder
 
 # Testing
-from gdw_data_core.testing import BaseGDWTest, BaseBeamTest
-from gdw_data_core.testing import DualRunComparison
-from gdw_data_core.testing import GCSClientMock, BigQueryClientMock
+from gcp_pipeline_builder.testing import BaseGDWTest, BaseBeamTest
+from gcp_pipeline_builder.testing import DualRunComparison
+from gcp_pipeline_builder.testing import GCSClientMock, BigQueryClientMock
 
 # File Management
-from gdw_data_core.core.file_management import (
+from gcp_pipeline_builder.core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,
 )
 
 # Data Quality
-from gdw_data_core.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
 
 # Job Control
-from gdw_data_core.core.job_control import JobControlRepository, JobStatus, PipelineJob
+from gcp_pipeline_builder.core.job_control import JobControlRepository, JobStatus, PipelineJob
 
 # Entity Dependencies
-from gdw_data_core.orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_builder.orchestration.dependency import EntityDependencyChecker
 ```
 
 ---
@@ -768,7 +768,7 @@ from gdw_data_core.orchestration.dependency import EntityDependencyChecker
 
 ### Golden Rule: NEVER Duplicate Library Code
 
-The library (`gdw_data_core`) provides all infrastructure. New pipelines:
+The library (`gcp-pipeline-builder`) provides all infrastructure. New pipelines:
 1. **IMPORT** library components
 2. **CONFIGURE** with system-specific values
 3. **EXTEND** base classes only when adding new behavior
@@ -836,7 +836,7 @@ JOB_CONTROL_TABLE = "pipeline_jobs"
 """
 {SYSTEM} Entity Validation.
 
-Uses gdw_data_core library components - NO DUPLICATION.
+Uses gcp-pipeline-builder library components - NO DUPLICATION.
 """
 
 from typing import Dict, List, Optional
@@ -844,13 +844,13 @@ from datetime import date
 from dataclasses import dataclass
 
 # IMPORT library components
-from gdw_data_core.core.validators import (
+from gcp_pipeline_builder.core.validators import (
     validate_ssn,
     validate_required,
     ValidationError,
 )
-from gdw_data_core.core.data_quality import validate_row_types, check_duplicate_keys
-from gdw_data_core.core.file_management import (
+from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_builder.core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,
@@ -957,7 +957,7 @@ Uses library EntityDependencyChecker with system config.
 """
 
 from datetime import date
-from gdw_data_core.orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_builder.orchestration.dependency import EntityDependencyChecker
 from .config import SYSTEM_ID, REQUIRED_ENTITIES, PROJECT_ID
 
 
@@ -994,8 +994,8 @@ Extends library transforms with system-specific logic.
 import apache_beam as beam
 from typing import Dict, Iterator
 
-from gdw_data_core.core.validators import validate_ssn
-from gdw_data_core.pipelines.beam.transforms import ParseCsvLine
+from gcp_pipeline_builder.core.validators import validate_ssn
+from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine
 
 from .schema import MY_ENTITY_HEADERS
 from .validation import MySystemValidator
@@ -1038,7 +1038,7 @@ def my_validate_row_types(file_lines):
     # ... reimplementing library logic
 
 # ✅ CORRECT - Use library function
-from gdw_data_core.core.data_quality import validate_row_types
+from gcp_pipeline_builder.core.data_quality import validate_row_types
 is_valid, msg = validate_row_types(file_lines)
 ```
 
@@ -1051,7 +1051,7 @@ class MyHDRTRLParser:
         self.hdr_pattern = ...  # Copy-pasted from library
 
 # ✅ CORRECT - Import and use library class
-from gdw_data_core.core.file_management import HDRTRLParser
+from gcp_pipeline_builder.core.file_management import HDRTRLParser
 parser = HDRTRLParser()  # Use defaults for CSV extracts
 ```
 
@@ -1059,7 +1059,7 @@ parser = HDRTRLParser()  # Use defaults for CSV extracts
 
 ```python
 # ❌ WRONG - Hardcoding in library
-# In gdw_data_core/orchestration/dependency.py
+# In gcp_pipeline_builder/orchestration/dependency.py
 SYSTEM_DEPENDENCIES = {
     "em": {"entities": ["customers", "accounts"]},  # NO!
 }
@@ -1083,9 +1083,9 @@ See `blueprint/components/em/validation.py` for the correct pattern:
 ```python
 # CORRECT PATTERN - EM uses library components
 
-from gdw_data_core.core.validators import validate_ssn, ValidationError
-from gdw_data_core.core.data_quality import validate_row_types, check_duplicate_keys
-from gdw_data_core.core.file_management import (
+from gcp_pipeline_builder.core.validators import validate_ssn, ValidationError
+from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_builder.core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,

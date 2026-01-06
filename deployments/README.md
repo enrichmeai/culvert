@@ -106,6 +106,25 @@ Implementation guides are in the [docs/](../docs/) folder:
 
 ---
 
+## Standardization Principles
+
+All deployments adhere to the **"Library Built Once, Deployments Configured Per Team"** principle.
+
+### 1. Shared dbt Macros
+To ensure consistency in auditing and data quality, all deployments link to shared macros in the `gcp-pipeline-builder` library.
+- **Audit Columns**: `add_audit_columns()`, `apply_audit_columns()`
+- **Data Quality**: `validate_record_count()`, `check_pii_masking()`
+
+Check your `dbt_project.yml` to ensure `macro-paths` includes the library path:
+```yaml
+macro-paths: ["macros", "../../../../../../libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/transformations/dbt_shared/macros"]
+```
+
+### 2. Unified Validation
+While each deployment defines its own `EntitySchema`, the orchestration of validation (HDR/TRL parsing, record validation) is standardized. Deployments should avoid duplicating logic that exists in the core library.
+
+---
+
 ## Creating a New Deployment
 
 See the [Creating a New Deployment Guide](../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) for detailed step-by-step instructions.

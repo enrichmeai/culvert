@@ -1,131 +1,71 @@
 # 🚀 Creating a New Deployment Guide
 
-This guide provides step-by-step instructions for creating a new migration pipeline deployment using the `gcp-pipeline-builder` and `gcp-pipeline-tester` libraries.
+This guide provides step-by-step instructions for creating a new migration pipeline deployment using the decoupled architecture of 4 functional libraries and 3 deployment units.
 
 ## 📋 Overview
 
-The framework follows a **library-first** approach. To create a new deployment, you don't rewrite the core logic; instead, you provide the metadata, configuration, and system-specific transformations.
+The framework follows a **decoupled, library-first** approach. To create a new deployment for a system (e.g., `mysystem`), you create three independent deployment units that consume specialized libraries.
 
-### Deployment vs. Library
+### 4 Specialized Libraries
 
-- **Shared Libraries**: Handle GCS, BigQuery, Pub/Sub, HDR/TRL validation, Error Handling, Audit Trails, and Beam base transforms.
-- **Your Deployment**: Defines System ID, Entity Schemas, dbt SQL, and Airflow orchestration.
+1.  **`gcp-pipeline-core`**: Shared models (Audit, JobControl). No Beam/Airflow dependencies.
+2.  **`gcp-pipeline-beam`**: Ingestion logic. Depends on `apache-beam`.
+3.  **`gcp-pipeline-orchestration`**: Airflow sensors and DAG factories. Depends on `apache-airflow`.
+4.  **`gcp-pipeline-transform`**: Shared dbt macros and SQL logic.
+
+### 3 Independent Deployment Units
+
+1.  **`mysystem-ingestion`**: Handles GCS → ODP load. Uses `gcp-pipeline-beam`.
+2.  **`mysystem-transformation`**: Handles ODP → FDP transformation. Uses `gcp-pipeline-transform`.
+3.  **`mysystem-orchestration`**: The "Conductor" (Airflow). Uses `gcp-pipeline-orchestration`.
 
 ---
 
 ## 🛠 Step-by-Step Instructions
 
-### 1. Copy the Template
+### 1. Create the Deployment Structure
 
-Start by copying one of the reference implementations as your base.
-- Use **EM** if you need to **JOIN** multiple entities before creating an FDP.
-- Use **LOA** if you have a single entity that **SPLITS** into multiple FDP targets.
+Create three independent folders under `deployments/` for your system.
 
 ```bash
-cp -r deployments/em deployments/my-system
-cd deployments/my-system
+mkdir -p deployments/mysystem-ingestion
+mkdir -p deployments/mysystem-transformation
+mkdir -p deployments/mysystem-orchestration
 ```
 
-### 2. Rename System-Specific Packages
+### 2. Set Up Ingestion Unit (`mysystem-ingestion`)
 
-Rename the source package to match your system ID (lowercase).
+- **Define Beam Pipeline**: Create your Beam pipeline logic, extending `BasePipeline` from `gcp-pipeline-beam`.
+- **Terraform**: Provision GCS landing buckets and ODP BigQuery datasets.
+- **CI/CD**: Configure to build a Dataflow Flex Template image.
 
-```bash
-mv src/em src/mysystem
-# Update references in pyproject.toml and source files
-```
+### 3. Set Up Transformation Unit (`mysystem-transformation`)
 
-### 3. Update Configuration (`src/{mysystem}/config/`)
+- **dbt Project**: Create a new dbt project for your system's transformations.
+- **Shared Macros**: Reference `gcp-pipeline-transform` in your `packages.yml` or macro paths.
+- **Terraform**: Provision FDP BigQuery datasets and dbt service accounts.
 
-Edit `settings.py` to define your system identity and required entities.
+### 4. Set Up Orchestration Unit (`mysystem-orchestration`)
 
-```python
-# src/mysystem/config/settings.py
-SYSTEM_ID = "MYSYSTEM"
-REQUIRED_ENTITIES = ["entity_a", "entity_b"]
-ODP_DATASET = "odp_mysystem"
-FDP_DATASET = "fdp_mysystem"
-```
+- **Define DAGs**: Create Airflow DAGs using `DAGFactory` and `BasePubSubPullSensor` from `gcp-pipeline-orchestration`.
+- **Trigger Flow**: Configure the trigger DAG to sense files, then trigger the Ingestion unit, followed by the Transformation unit.
+- **Terraform**: Provision Cloud Composer and Pub/Sub topics.
 
-### 4. Define Entity Schemas (`src/{mysystem}/schema/`)
+### 5. Shared Audit and Core Logic
 
-For each entity, create a schema definition using the library's `EntitySchema`.
-
-```python
-# src/mysystem/schema/entity_a.py
-from gcp_pipeline_builder.schema import SchemaField, EntitySchema
-
-ENTITY_A_FIELDS = [
-    SchemaField(name="id", field_type="STRING", required=True, is_primary_key=True),
-    SchemaField(name="amount", field_type="NUMERIC", required=True),
-    SchemaField(name="ssn", field_type="STRING", is_pii=True),
-]
-
-EntityASchema = EntitySchema(
-    entity_name="entity_a",
-    system_id="MYSYSTEM",
-    fields=ENTITY_A_FIELDS,
-    primary_key=["id"],
-    partition_field="created_date"
-)
-```
-
-Don't forget to update the `registry.py` to include your new schemas.
-
-### 5. Define Routing Configuration (`src/{mysystem}/orchestration/airflow/dags/routing_config.yaml`)
-
-This YAML file controls how the generic DAGs handle your specific entities, including validation rules and entity dependencies.
-
-```yaml
-# src/mysystem/orchestration/airflow/dags/routing_config.yaml
-routing_rules:
-  - pipeline_id: mysystem_entity_a_pipeline
-    entity_type: entity_a
-    file_patterns: ["*/entity_a_*"]
-    target_table: odp_mysystem.entity_a
-    validation:
-      required_columns: ["id", "amount"]
-
-entity_dependencies:
-  system_id: MYSYSTEM
-  required_entities:
-    - entity_a
-    - entity_b
-  fdp_trigger_dag: mysystem_fdp_transform_dag
-```
-
-### 6. Write dbt Transformations (`transformations/dbt/`)
-
-Create your staging views and FDP models.
-- **Staging**: Cast types and add basic validation (see `transformations/dbt/models/staging/em/`).
-- **FDP**: Implement your business logic (JOINs or SPLITs).
-
-You will need to update `dbt_project.yml` and add new profiles if necessary.
-
-### 7. Update Infrastructure (`infrastructure/terraform/`)
-
-Create a new folder for your system in `infrastructure/terraform/mysystem/` and define your system-specific variables (buckets, topics).
-
-### 8. Run Tests
-
-Update the unit tests in `tests/unit/` to match your new schemas and configuration.
-
-```bash
-bash run_tests.sh
-```
+Ensure all units use the `gcp-pipeline-core` library for consistent auditing. This allows the Orchestration unit to start an audit record that the Ingestion and Transformation units can update.
 
 ---
 
 ## ✅ Checklist for Readiness
 
-1. [ ] **System ID** is consistent across config, schemas, and dbt.
-2. [ ] **HDR/TRL** patterns match your mainframe source files.
-3. [ ] **Audit Columns** (`_run_id`, `_processed_at`) are present in BQ schemas.
-4. [ ] **PII Fields** are correctly flagged in the `EntitySchema`.
-5. [ ] **EntityDependencyChecker** is configured if using the JOIN pattern.
-6. [ ] **dbt Tests** pass for your FDP models.
+1. [ ] **System ID** is consistent across all three units.
+2. [ ] **Ingestion Unit** successfully builds a Dataflow Flex Template.
+3. [ ] **Transformation Unit** runs dbt models and passes data quality tests.
+4. [ ] **Orchestration Unit** correctly senses .ok files and triggers the child units in order.
+5. [ ] **Audit Trail** is consistent across all three units via the `core` library.
 
 ## 📚 Reference Implementations
 
-- **[EM Deployment](../deployments/em/README.md)**: JOIN pattern (3 sources → 1 target).
-- **[LOA Deployment](../deployments/loa/README.md)**: SPLIT pattern (1 source → 2 targets).
+- **[LOA System Example](../deployments/loa/README.md)**: Split pattern (1 source → 2 targets).
+- **[EM System Example](../deployments/em/README.md)**: Join pattern (3 sources → 1 target).

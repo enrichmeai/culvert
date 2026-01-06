@@ -6,7 +6,7 @@ This document describes the test organization and structure.
 ## Test Structure
 
 ```
-gdw_data_core/tests/
+gcp-pipeline-builder/tests/
 ├── __init__.py
 ├── conftest.py                      # Shared fixtures and configuration
 ├── unit/                            # Unit tests
@@ -41,34 +41,34 @@ Tests are organized by module following the project structure:
 
 ### Run all tests
 ```bash
-pytest gdw_data_core/tests/ -v
+pytest gcp-pipeline-builder/tests/ -v
 ```
 
 ### Run specific test module
 ```bash
-pytest gdw_data_core/tests/unit/core/ -v
-pytest gdw_data_core/tests/unit/orchestration/ -v
-pytest gdw_data_core/tests/unit/pipelines/ -v
+pytest gcp-pipeline-builder/tests/unit/core/ -v
+pytest gcp-pipeline-builder/tests/unit/orchestration/ -v
+pytest gcp-pipeline-builder/tests/unit/pipelines/ -v
 ```
 
 ### Run specific test class
 ```bash
-pytest gdw_data_core/tests/unit/orchestration/test_dag_factory.py::TestDAGFactory -v
+pytest gcp-pipeline-builder/tests/unit/orchestration/test_dag_factory.py::TestDAGFactory -v
 ```
 
 ### Run specific test
 ```bash
-pytest gdw_data_core/tests/unit/orchestration/test_dag_factory.py::TestDAGFactory::test_create_dag_basic -v
+pytest gcp-pipeline-builder/tests/unit/orchestration/test_dag_factory.py::TestDAGFactory::test_create_dag_basic -v
 ```
 
 ### Run with coverage
 ```bash
-pytest gdw_data_core/tests/ --cov=gdw_data_core --cov-report=html
+pytest gcp-pipeline-builder/tests/ --cov=gcp-pipeline-builder --cov-report=html
 ```
 
 ### Run with markers
 ```bash
-pytest gdw_data_core/tests/ -m "not slow" -v
+pytest gcp-pipeline-builder/tests/ -m "not slow" -v
 ```
 
 ## Shared Fixtures
@@ -104,9 +104,9 @@ When adding new tests:
 
 Example:
 ```python
-# In gdw_data_core/tests/unit/orchestration/test_my_module.py
+# In gcp-pipeline-builder/tests/unit/orchestration/test_my_module.py
 import pytest
-from gdw_data_core.orchestration import MyClass
+from gcp-pipeline-builder.orchestration import MyClass
 
 class TestMyClass:
     def test_my_feature(self):
@@ -135,7 +135,7 @@ Tests are run automatically on:
 ### Import errors in tests
 Make sure the package is installed in editable mode:
 ```bash
-cd gdw_data_core
+cd gcp-pipeline-builder
 pip install -e .
 ```
 

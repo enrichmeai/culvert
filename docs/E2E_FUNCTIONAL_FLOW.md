@@ -100,11 +100,29 @@ This document provides the complete end-to-end functional requirements for the l
 | Layer | Technology |
 |-------|------------|
 | **Ingestion** | GCS (Cloud Storage), Pub/Sub notifications |
-| **Processing** | Apache Beam on Dataflow |
-| **Orchestration** | Apache Airflow (Cloud Composer) |
-| **Transformation** | dbt (SQL), Beam DoFns (Python) |
+| **Processing** | Apache Beam on Dataflow (using `gcp-pipeline-beam`) |
+| **Orchestration** | Apache Airflow (Cloud Composer) (using `gcp-pipeline-orchestration`) |
+| **Transformation** | dbt (SQL) (using `gcp-pipeline-transform`) |
+| **Core Utilities** | Audit, Logging, Job Control (using `gcp-pipeline-core`) |
 | **Data Warehouse** | BigQuery |
 | **Monitoring** | Cloud Monitoring, custom metrics |
+
+### Functional Library Split (4-Layer Model)
+
+To ensure clean dependency management and independent scaling, the framework is split into four specialized libraries:
+
+1. **`gcp-pipeline-core`**: The lightweight foundation containing Audit Trails, Error Handling models, and Job Control interfaces. Zero dependencies on Beam or Airflow.
+2. **`gcp-pipeline-beam`**: The ingestion engine. Contains `BasePipeline` and GCS/BigQuery connectors. Used by Ingestion deployment units.
+3. **`gcp-pipeline-orchestration`**: The control plane logic. Contains `BasePubSubPullSensor`, `DAGFactory`, and Airflow operators. No dependency on Beam.
+4. **`gcp-pipeline-transform`**: The SQL logic layer. Contains shared dbt macros and SQL templates for standardized transformations.
+
+### Deployment Architecture (3-Unit Model)
+
+Each system migration (e.g., LOA, EM) is organized into three independent deployment units:
+
+1. **Ingestion Unit (`*-ingestion`)**: Handles GCS → ODP load. Packages Beam code as Dataflow Flex Templates.
+2. **Transformation Unit (`*-transformation`)**: Handles ODP → FDP transformation. Manages dbt models and SQL logic.
+3. **Orchestration Unit (`*-orchestration`)**: The "Conductor". Manages Airflow DAGs and Pub/Sub sensing logic.
 
 ### Security & Encryption
 

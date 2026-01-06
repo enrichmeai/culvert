@@ -1,0 +1,7 @@
+HDR|EM|accounts|20260101
+account_id,customer_id,account_type,balance,status,open_date
+A001,C001,CHECKING,10000.50,A,2020-06-01
+A002,C001,SAVINGS,25000.00,A,2020-06-15
+A003,C002,MONEY_MARKET,50000.00,A,2021-04-01
+TRL|RecordCount=3|Checksum=def456
+
