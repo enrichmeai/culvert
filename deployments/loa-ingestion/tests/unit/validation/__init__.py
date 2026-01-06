@@ -1,2 +1,0 @@
-"""LOA Validation Unit Tests."""
-

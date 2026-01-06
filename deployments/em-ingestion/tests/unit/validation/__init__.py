@@ -1,2 +1,0 @@
-"""Validation unit tests package."""
-
