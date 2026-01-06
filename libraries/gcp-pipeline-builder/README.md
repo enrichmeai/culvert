@@ -99,19 +99,23 @@ stats = metrics.get_statistics()
 
 ## Architecture
 
-### Layer Overview
+### Decoupled 4-Library Model
 
-```
-┌────────────────────────────────────────────────────────┐
-│ Pipeline Framework Layer                               │
-│ (Apache Beam: base pipeline, transforms, I/O ops)      │
-├────────────────────────────────────────────────────────┤
-│ Core Infrastructure Layer                              │
-│ (Validators, error handling, audit, monitoring)        │
-├────────────────────────────────────────────────────────┤
-│ Data Operations & Orchestration Layer                  │
-│ (GCS/BigQuery clients, DAG factory, utilities)         │
-└────────────────────────────────────────────────────────┘
+To ensure clean dependency management and avoid "environment bloat," this library is being refactored into four specialized functional packages:
+
+1.  **`gcp-pipeline-core`**: The lightweight base containing Audit Trails, Error Handling models, and Job Control interfaces. Zero dependencies on heavy frameworks.
+2.  **`gcp-pipeline-beam`**: The ingestion engine containing `BasePipeline` and GCS/BigQuery connectors. Used by Dataflow workers.
+3.  **`gcp-pipeline-orchestration`**: The control plane logic containing `BasePubSubPullSensor`, `DAGFactory`, and Airflow operators. No Beam dependency.
+4.  **`gcp-pipeline-transform`**: The SQL logic layer containing shared dbt macros and SQL templates.
+
+### Dependency Graph
+
+```text
+gcp-pipeline-core (Base)
+├── gcp-pipeline-beam (Ingestion)
+└── gcp-pipeline-orchestration (Control Plane)
+
+gcp-pipeline-transform (SQL - Independent)
 ```
 
 ### Component Architecture

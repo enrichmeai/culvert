@@ -47,37 +47,14 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
 ## 💡 Our Solution
 
-**Build the library once. Each team creates their deployment by defining their metadata, transformations, and infrastructure parameters.**
+**Build the core libraries once. Each team creates their specialized deployment by defining their metadata, transformations, and infrastructure parameters.**
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                                                             │
-│   TEAM'S DEPLOYMENT            SHARED LIBRARIES                             │
-│   (Built per team)             (Built once, used by all)                    │
-│                                                                             │
-│   ┌─────────────────────┐     ┌─────────────────────────────────────────┐  │
-│   │                     │     │                                         │  │
-│   │  • System ID        │     │  • Pub/Sub event handling               │  │
-│   │  • Entity schemas   │     │  • HDR/TRL file validation              │  │
-│   │  • Column mappings  │     │  • Error classification & retry         │  │
-│   │  • dbt SQL models   │  +  │  • Dead letter queue handling           │  │
-│   │  • TF Variables     │     │  • Audit trail (run_id, timestamps)     │  │
-│   │  • GCS Buckets      │     │  • Job control & status tracking        │  │
-│   │  • Pub/Sub Topics   │     │  • File archival policies               │  │
-│   │  • Airflow DAGs     │     │  • Data quality checks                  │  │
-│   │                     │     │  • CMEK encryption with KMS             │  │
-│   │                     │     │  • Beam pipeline templates              │  │
-│   │                     │     │  • Airflow DAG factories                │  │
-│   │                     │     │  • Comprehensive test framework         │  │
-│   │                     │     │                                         │  │
-│   └─────────────────────┘     └─────────────────────────────────────────┘  │
-│                                                                             │
-│                                    ▼                                        │
-│                                                                             │
-│                        PRODUCTION-READY PIPELINE                            │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### Decoupled 4-Library Architecture
+
+1.  **`gcp-pipeline-core`**: The lightweight foundation containing Audit Trails, Error Handling models, Job Control interfaces, and standardized logging. Zero dependencies on heavy frameworks like Beam or Airflow.
+2.  **`gcp-pipeline-beam`**: The ingestion engine containing `BasePipeline`, GCS/BigQuery connectors, and reusable Beam transforms. Used exclusively by Ingestion units.
+3.  **`gcp-pipeline-orchestration`**: The control plane logic containing `BasePubSubPullSensor`, `DAGFactory`, and Airflow operators. No dependency on Beam.
+4.  **`gcp-pipeline-transform`**: The SQL logic layer containing shared dbt macros and SQL templates for consistent auditing and PII masking.
 
 ---
 
@@ -91,20 +68,29 @@ Team C builds:  Extract → Load → Transform → Monitor → Error Handling �
 
                          ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐
   ┌─────────┐   CSV      │   GCS   │    │ Airflow │    │   ODP   │    │   FDP   │
-  │ Legacy  │  Extract   │ Landing │───►│  + Beam │───►│  (Raw)  │───►│ (Ready) │
+  │ Legacy  │  Extract   │ Landing │───►│ (Unit 3)│───►│  (Raw)  │───►│ (Ready) │
   │ System  │───────────►│  Zone   │    │         │    │  Copy   │    │  Data   │
-  │         │            │         │    │         │    │         │    │         │
-  └─────────┘            └─────────┘    └─────────┘    └─────────┘    └─────────┘
+  │         │            │         │    │    │    │    │         │    │         │
+  └─────────┘            └─────────┘    └────┼────┘    └────▲────┘    └────▲────┘
                               │              │              │              │
-                              ▼              ▼              ▼              ▼
-                         .ok file       Validation     1:1 schema     Business
-                         triggers       HDR/TRL        + audit        rules via
-                         Pub/Sub        checks         columns        dbt
+                              ▼              ▼              │              │
+                         .ok file        Trigger ───────► (Unit 1) ────────┘
+                         triggers        Ingestion        Dataflow
+                         Pub/Sub                          (Unit 2)
+                                                          dbt
 
   STAGE 1                STAGE 2         STAGE 3        STAGE 4
-  Mainframe Extract      Landing &       ODP Load       FDP Transform
-                         Detection       (Dataflow)     (dbt)
+  Mainframe Extract      Landing &       Orchestration  Load &
+                         Detection       (Conductor)    Transform
 ```
+
+### Deployment Architecture (The 3-Unit Model)
+
+To enable independent release cycles and minimal environment overhead, each system migration (e.g., LOA, EM) is organized into three independent deployment units:
+
+1.  **Ingestion Unit (`*-ingestion`)**: Responsible for moving data from GCS to ODP (Raw) BigQuery tables. Uses the `gcp-pipeline-beam` library.
+2.  **Transformation Unit (`*-transformation`)**: Responsible for transforming data from ODP to FDP (Foundation) BigQuery tables using dbt. Uses the `gcp-pipeline-transform` library.
+3.  **Orchestration Unit (`*-orchestration`)**: The "Conductor" responsible for sensing files, triggering the ingestion job, and then triggering the transformation job. Uses the `gcp-pipeline-orchestration` library.
 
 ### Key Concepts
 
@@ -862,17 +848,19 @@ The library implements resilience principles across all components. Each team in
 
 Every resilience principle is **implemented in code** and **verified by tests**:
 
-| Principle | Status |
-|-----------|--------|
-| **Confidentiality** | 🏗️ In Progress (PII Masking TODO) |
-| **Integrity** | ✅ Completed (HDR/TRL, Checksums) |
-| **Monitoring & Alerting** | ✅ Completed (Metrics, Job Status) |
-| **Automation** | ✅ Completed (DAG Factory, Templates) |
-| **Identifiable & Locatable** | ✅ Completed (Audit Columns, Run ID) |
-| **Governance** | 🏗️ In Progress (Schema-Driven DQ TODO) |
-| **Interdependency** | ✅ Completed (EntityDependencyChecker) |
-| **Incident Response** | ✅ Completed (DLQ, Retries, Quarantine) |
-| **Performance** | ✅ Completed (Dataflow, Partitioning) |
+| Principle | Status | Story Points |
+|-----------|--------|--------------|
+| **Confidentiality** | ✅ Completed (PII Masking & Masking Logic) | 3 SP |
+| **Integrity** | ✅ Completed (HDR/TRL, Checksums, Reconciliation) | 5 SP |
+| **Monitoring & Alerting** | ✅ Completed (Metrics, OTEL/Dynatrace Integration) | 10 SP |
+| **Automation** | ✅ Completed (DAG Factory, Templates, Routing YAML) | 8 SP |
+| **Identifiable & Locatable** | ✅ Completed (Audit Columns, Run ID) | 4 SP |
+| **Governance** | ✅ Completed (Schema-Driven Validation & DQ) | 16 SP |
+| **Interdependency** | ✅ Completed (EntityDependencyChecker) | 5 SP |
+| **Incident Response** | ✅ Completed (Error Handling, DLQ, Retries) | 10 SP |
+| **Performance** | ✅ Completed (Dataflow, Partitioning, Clustering) | 5 SP |
+| **Onboarding** | ✅ Completed (Deployment Guide & Ref Reference) | 13 SP |
+| **Total Build** | | **79 SP** |
 
 ---
 
@@ -909,11 +897,12 @@ We are evolving the `gcp-pipeline-builder` library from a utility collection int
 
 | Feature | Description | Status | Reference |
 |---------|-------------|--------|-----------|
-| **Schema-Driven Validation** | Automated record validation based on `EntitySchema` definitions (required, allowed values, lengths). | 🕒 Planned | [01_library_schema_validation.md](features/01_library_schema_validation.md) |
-| **Automated Reconciliation** | Built-in comparison between mainframe trailer record counts and BigQuery destination counts. | 🕒 Planned | [02_library_automated_reconciliation.md](features/02_library_automated_reconciliation.md) |
-| **PII Masking Transform** | Metadata-driven masking of sensitive fields using the `is_pii` flag in the schema. | 🕒 Planned | [03_library_pii_masking.md](features/03_library_pii_masking.md) |
-| **Structured JSON Logging** | Standardized machine-readable logging across all library components for Cloud Logging. | 🕒 Planned | [04_library_structured_logging.md](features/04_library_structured_logging.md) |
-| **Monitoring Metrics** | Standardized collection of migration KPIs (processed counts, failure rates) for Cloud Monitoring. | ✅ Completed | [05_library_monitoring_metrics.md](features/05_library_monitoring_metrics.md) |
+| **Schema-Driven Validation** | Automated record validation based on `EntitySchema` definitions. | ✅ Completed | [completed.md](features/completed.md) |
+| **Automated Reconciliation** | Built-in comparison between trailer record counts and BigQuery counts. | ✅ Completed | [completed.md](features/completed.md) |
+| **PII Masking Transform** | Metadata-driven masking of sensitive fields using the `is_pii` flag. | ✅ Completed | [completed.md](features/completed.md) |
+| **Structured JSON Logging** | Standardized machine-readable logging for Cloud Logging. | ✅ Completed | [completed.md](features/completed.md) |
+| **Monitoring Metrics** | Standardized collection of migration KPIs for Cloud Monitoring. | ✅ Completed | [completed.md](features/completed.md) |
+| **Global Standardization** | Uniform naming and shared macro patterns across all deployments. | ✅ Completed | [completed.md](features/completed.md) |
 
-For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed.md) and [ticketstoimplement.md](features/remaining/ticketstoimplement.md) for implementation status.
+For more details on these features, see the [features/](features/) directory or view the [completed.md](features/completed.md) and [ticketstoimplement.md](features/ticketstoimplement.md) for implementation status.
 

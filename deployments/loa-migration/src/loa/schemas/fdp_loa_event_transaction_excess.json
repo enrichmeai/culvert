@@ -1,0 +1,18 @@
+[
+    {"name": "event_key", "type": "STRING", "mode": "REQUIRED", "description": "Composite key: application_id-event_type-event_date"},
+    {"name": "application_id", "type": "STRING", "mode": "REQUIRED", "description": "Application identifier"},
+    {"name": "event_type", "type": "STRING", "mode": "NULLABLE", "description": "Event type"},
+    {"name": "event_date", "type": "DATE", "mode": "NULLABLE", "description": "Event date"},
+    {"name": "event_status", "type": "STRING", "mode": "NULLABLE", "description": "Event status"},
+    {"name": "transaction_id", "type": "STRING", "mode": "NULLABLE", "description": "Transaction identifier"},
+    {"name": "transaction_amount", "type": "NUMERIC", "mode": "NULLABLE", "description": "Transaction amount"},
+    {"name": "transaction_date", "type": "DATE", "mode": "NULLABLE", "description": "Transaction date"},
+    {"name": "transaction_type", "type": "STRING", "mode": "NULLABLE", "description": "Transaction type"},
+    {"name": "excess_amount", "type": "NUMERIC", "mode": "NULLABLE", "description": "Excess amount"},
+    {"name": "excess_reason", "type": "STRING", "mode": "NULLABLE", "description": "Reason for excess"},
+    {"name": "excess_status", "type": "STRING", "mode": "NULLABLE", "description": "Excess status"},
+    {"name": "_run_id", "type": "STRING", "mode": "REQUIRED", "description": "Pipeline run ID"},
+    {"name": "_extract_date", "type": "DATE", "mode": "REQUIRED", "description": "Extract date"},
+    {"name": "_transformed_at", "type": "TIMESTAMP", "mode": "NULLABLE", "description": "Transformation timestamp"}
+]
+

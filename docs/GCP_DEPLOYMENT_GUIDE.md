@@ -145,13 +145,30 @@ rm /tmp/gcp-sa-key.json  # Delete key after adding
 
 ---
 
-## Phase 2: Pipeline Deployment (GitHub Actions)
+## Phase 2: Pipeline Deployment (CI/CD)
+
+The pipeline follows a **3-unit deployment model** (Ingestion, Transformation, Orchestration) to enable independent release cycles and minimal environment overhead.
+
+### Step 2.1: Deploy Ingestion Unit (`*-ingestion`)
+1. Build the Dataflow Flex Template container using the `gcp-pipeline-beam` library.
+2. Publish the template JSON to GCS.
+
+### Step 2.2: Deploy Transformation Unit (`*-transformation`)
+1. Validate dbt models.
+2. Publish dbt artifacts and configurations.
+3. Uses the `gcp-pipeline-transform` library.
+
+### Step 2.3: Deploy Orchestration Unit (`*-orchestration`)
+1. Upload Airflow DAGs to the Cloud Composer DAGs bucket.
+2. Update Composer environment dependencies (requires `gcp-pipeline-orchestration`).
+3. Note: Orchestration does **not** require `apache-beam` as it only triggers jobs.
 
 ### Automatic Deployment
 Pipelines deploy automatically when you push to `main` branch with changes in:
-- `deployments/em/**` → Triggers EM deployment
-- `deployments/loa/**` → Triggers LOA deployment
-- `libraries/**` → Triggers both deployments
+- `deployments/*-ingestion/**` → Triggers ingestion deployment
+- `deployments/*-transformation/**` → Triggers transformation deployment
+- `deployments/*-orchestration/**` → Triggers orchestration deployment
+- `libraries/**` → Triggers relevant deployments
 - `infrastructure/terraform/**` → Triggers infrastructure updates
 
 ### Manual Deployment

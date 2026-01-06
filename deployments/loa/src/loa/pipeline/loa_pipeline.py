@@ -20,6 +20,7 @@ Flow:
 Library Components Used:
   - gcp_pipeline_builder.utilities.configure_structured_logging (JSON logging)
   - gcp_pipeline_builder.monitoring.MigrationMetrics (standardized metrics)
+the  - gcp_pipeline_builder.monitoring.otel (OTEL/Dynatrace integration)
   - gcp_pipeline_builder.audit.ReconciliationEngine (automated reconciliation)
   - gcp_pipeline_builder.pipelines.beam.transforms.ParseCsvLine
   - gcp_pipeline_builder.pipelines.beam.transforms.SchemaValidateRecordDoFn
@@ -30,10 +31,17 @@ Entities:
 Note: Unlike EM (which waits for 3 entities), LOA immediately triggers
       FDP transformation after ODP load (single entity, no dependency wait).
 
+OTEL Configuration:
+  Set environment variables for Dynatrace integration:
+    OTEL_EXPORTER_TYPE=dynatrace
+    DYNATRACE_OTEL_URL=https://your-env.live.dynatrace.com/api/v2/otlp
+    DYNATRACE_API_TOKEN=dt0c01.xxx
+
 Usage:
   python loa_pipeline.py --entity=applications --input_pattern=gs://bucket/loa/applications/*.csv
 """
 
+import os
 from datetime import datetime
 from typing import Dict, Any, Iterator, Optional
 
@@ -43,6 +51,15 @@ from apache_beam.options.pipeline_options import PipelineOptions
 # Library imports - structured logging and metrics
 from gcp_pipeline_builder.utilities import configure_structured_logging, generate_run_id
 from gcp_pipeline_builder.monitoring import MigrationMetrics
+
+# Library imports - OTEL integration (optional)
+from gcp_pipeline_builder.monitoring.otel import (
+    OTELConfig,
+    configure_otel,
+    OTELContext,
+    OTELMetricsBridge,
+    shutdown_otel,
+)
 
 # Library imports - reconciliation
 from gcp_pipeline_builder.audit import ReconciliationEngine, ReconciliationStatus
@@ -65,6 +82,54 @@ LOA_ENTITY_CONFIG = {
         "error_table": "odp_loa.applications_errors",
     },
 }
+
+
+def initialize_otel(run_id: str, entity_type: str, environment: str = "dev") -> bool:
+    """
+    Initialize OpenTelemetry for distributed tracing.
+
+    Checks environment variables for Dynatrace/OTEL configuration.
+    If not configured, OTEL is disabled (no-op).
+
+    Environment Variables:
+        OTEL_EXPORTER_TYPE: Exporter type (dynatrace, gcp_trace, console, none)
+        DYNATRACE_OTEL_URL: Dynatrace OTLP endpoint
+        DYNATRACE_API_TOKEN: Dynatrace API token
+
+    Args:
+        run_id: Pipeline run ID
+        entity_type: Entity being processed
+        environment: Deployment environment
+
+    Returns:
+        True if OTEL initialized successfully
+    """
+    exporter_type = os.getenv("OTEL_EXPORTER_TYPE", "none")
+
+    if exporter_type == "none":
+        return False
+
+    dynatrace_url = os.getenv("DYNATRACE_OTEL_URL")
+    dynatrace_token = os.getenv("DYNATRACE_API_TOKEN")
+
+    if exporter_type == "dynatrace" and dynatrace_url and dynatrace_token:
+        config = OTELConfig.for_dynatrace(
+            service_name="loa-pipeline",
+            dynatrace_url=dynatrace_url,
+            dynatrace_token=dynatrace_token,
+            environment=environment,
+            resource_attributes={
+                "system.id": SYSTEM_ID,
+                "entity.type": entity_type,
+                "run.id": run_id,
+            }
+        )
+    elif exporter_type == "console":
+        config = OTELConfig.for_console(service_name="loa-pipeline")
+    else:
+        config = OTELConfig.disabled()
+
+    return configure_otel(config)
 
 
 class LOAPipelineOptions(PipelineOptions):
@@ -112,6 +177,7 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
 
     Uses:
     - Structured JSON logging for Cloud Logging
+    - OTEL/Dynatrace integration for distributed tracing
     - MigrationMetrics for standardized metrics
     - ReconciliationEngine for automated reconciliation
     - Schema-driven validation - no custom validation code needed
@@ -130,6 +196,7 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
     config = LOA_ENTITY_CONFIG[entity]
     schema = config["schema"]
     run_id = loa_opts.run_id or generate_run_id(f"loa_{entity}")
+    environment = os.getenv("ENVIRONMENT", "dev")
 
     # Configure structured JSON logging
     logger = configure_structured_logging(
@@ -139,12 +206,19 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
         logger_name="loa_pipeline"
     )
 
-    # Initialize migration metrics
-    metrics = MigrationMetrics(
+    # Initialize OTEL for distributed tracing (if configured)
+    otel_enabled = initialize_otel(run_id, entity, environment)
+    if otel_enabled:
+        logger.info("OTEL tracing enabled", exporter=os.getenv("OTEL_EXPORTER_TYPE"))
+
+    # Initialize migration metrics (with OTEL bridge if enabled)
+    base_metrics = MigrationMetrics(
         run_id=run_id,
         system_id=SYSTEM_ID,
         entity_type=entity
     )
+    # Wrap with OTEL bridge to export metrics to Dynatrace/OTEL
+    metrics = OTELMetricsBridge(base_metrics) if otel_enabled else base_metrics
 
     # Initialize reconciliation engine
     reconciler = ReconciliationEngine(
@@ -160,76 +234,92 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
                 note="Single entity - immediate FDP trigger after ODP load")
 
     try:
-        with beam.Pipeline(options=options) as p:
-            # Read files
-            lines = p | 'ReadFiles' >> beam.io.ReadFromText(loa_opts.input_pattern)
+        # Wrap pipeline execution in OTEL context for distributed tracing
+        with OTELContext(run_id=run_id, system_id=SYSTEM_ID, entity_type=entity) as otel_ctx:
+            with otel_ctx.span("pipeline_execution", attributes={"input_pattern": loa_opts.input_pattern}) as span:
+                with beam.Pipeline(options=options) as p:
+                    # Read files
+                    lines = p | 'ReadFiles' >> beam.io.ReadFromText(loa_opts.input_pattern)
 
-            # Parse CSV - headers from schema, uses library ParseCsvLine
-            records = lines | 'ParseCSV' >> beam.ParDo(
-                ParseCsvLine(
-                    headers=schema.get_csv_headers(),
-                    skip_hdr_trl=True,
-                    hdr_prefix="HDR|",
-                    trl_prefix="TRL|"
-                )
-            )
+                    # Parse CSV - headers from schema, uses library ParseCsvLine
+                    records = lines | 'ParseCSV' >> beam.ParDo(
+                        ParseCsvLine(
+                            headers=schema.get_csv_headers(),
+                            skip_hdr_trl=True,
+                            hdr_prefix="HDR|",
+                            trl_prefix="TRL|"
+                        )
+                    )
 
-            # Validate using SCHEMA-DRIVEN validation from library
-            validated = records | 'Validate' >> beam.ParDo(
-                SchemaValidateRecordDoFn(schema=schema)
-            ).with_outputs('invalid', main='valid')
+                    # Validate using SCHEMA-DRIVEN validation from library
+                    validated = records | 'Validate' >> beam.ParDo(
+                        SchemaValidateRecordDoFn(schema=schema)
+                    ).with_outputs('invalid', main='valid')
 
-            # Add audit columns
-            audited = validated.valid | 'AddAudit' >> beam.ParDo(
-                AddAuditColumnsDoFn(run_id, loa_opts.input_pattern,
-                                   datetime.utcnow().strftime('%Y-%m-%d'))
-            )
+                    # Add audit columns
+                    audited = validated.valid | 'AddAudit' >> beam.ParDo(
+                        AddAuditColumnsDoFn(run_id, loa_opts.input_pattern,
+                                           datetime.utcnow().strftime('%Y-%m-%d'))
+                    )
 
-            # Write to BigQuery - schema from EntitySchema
-            audited | 'WriteODP' >> beam.io.WriteToBigQuery(
-                loa_opts.output_table,
-                schema={'fields': schema.to_bq_schema()},
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-                create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
-            )
+                    # Write to BigQuery - schema from EntitySchema
+                    audited | 'WriteODP' >> beam.io.WriteToBigQuery(
+                        loa_opts.output_table,
+                        schema={'fields': schema.to_bq_schema()},
+                        write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
+                    )
 
-            validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(
-                loa_opts.error_table,
-                write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-                create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER
-            )
+                    validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(
+                        loa_opts.error_table,
+                        write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+                        create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER
+                    )
 
-        # Log success with metrics summary
-        summary = metrics.get_summary()
-        logger.info("Pipeline completed successfully",
-                    duration_seconds=summary['duration'],
-                    counts=summary['counts'],
-                    rates=summary['rates'],
-                    note="FDP transformation can be triggered immediately")
+                # Mark pipeline execution complete
+                span.set_attribute("status", "success")
 
-        # Perform reconciliation if expected_count provided
-        if expected_count is not None and not loa_opts.skip_reconciliation:
-            logger.info("Starting reconciliation", expected_count=expected_count)
+            # Log success with metrics summary
+            summary = metrics.get_summary()
+            logger.info("Pipeline completed successfully",
+                        duration_seconds=summary['duration'],
+                        counts=summary['counts'],
+                        rates=summary['rates'],
+                        note="FDP transformation can be triggered immediately")
 
-            recon_result = reconciler.reconcile_with_bigquery(
-                expected_count=expected_count,
-                destination_table=loa_opts.output_table,
-                error_table=loa_opts.error_table
-            )
+            # Perform reconciliation if expected_count provided
+            if expected_count is not None and not loa_opts.skip_reconciliation:
+                with otel_ctx.span("reconciliation") as recon_span:
+                    logger.info("Starting reconciliation", expected_count=expected_count)
 
-            if not recon_result.is_reconciled:
-                logger.warning("Reconciliation failed",
-                              expected=recon_result.expected_count,
-                              actual=recon_result.actual_count,
-                              difference=recon_result.difference)
-            else:
-                logger.info("Reconciliation passed",
-                           expected=recon_result.expected_count,
-                           actual=recon_result.actual_count)
+                    recon_result = reconciler.reconcile_with_bigquery(
+                        expected_count=expected_count,
+                        destination_table=loa_opts.output_table,
+                        error_table=loa_opts.error_table
+                    )
+
+                    recon_span.set_attribute("expected_count", expected_count)
+                    recon_span.set_attribute("actual_count", recon_result.actual_count)
+
+                    if not recon_result.is_reconciled:
+                        recon_span.set_attribute("status", "failed")
+                        logger.warning("Reconciliation failed",
+                                      expected=recon_result.expected_count,
+                                      actual=recon_result.actual_count,
+                                      difference=recon_result.difference)
+                    else:
+                        recon_span.set_attribute("status", "passed")
+                        logger.info("Reconciliation passed",
+                                   expected=recon_result.expected_count,
+                                   actual=recon_result.actual_count)
 
     except Exception as e:
         logger.error("Pipeline failed", error=str(e), exception_type=type(e).__name__)
         raise
+    finally:
+        # Ensure OTEL is shutdown gracefully
+        if otel_enabled:
+            shutdown_otel()
 
 
 if __name__ == '__main__':

@@ -1,0 +1,110 @@
+[
+  {"name": "attribute_key", "type": "STRING", "mode": "REQUIRED", "description": "Composite primary key"},
+  {"name": "customer_id", "type": "STRING", "mode": "REQUIRED", "description": "Customer ID"},
+  {"name": "ssn_masked", "type": "STRING", "mode": "NULLABLE", "description": "Masked SSN (PII)"},
+  {"name": "first_name", "type": "STRING", "mode": "NULLABLE", "description": "First name"},
+  {"name": "last_name", "type": "STRING", "mode": "NULLABLE", "description": "Last name"},
+  {"name": "date_of_birth", "type": "DATE", "mode": "NULLABLE", "description": "Date of birth"},
+  {"name": "customer_status", "type": "STRING", "mode": "NULLABLE", "description": "Customer status"},
+  {"name": "account_id", "type": "STRING", "mode": "NULLABLE", "description": "Account ID"},
+  {"name": "account_type_desc", "type": "STRING", "mode": "NULLABLE", "description": "Account type description"},
+[
+  {"name": "attribute_key", "type": "STRING", "mode": "REQUIRED", "description": "Composite primary key"},
+  {"name": "custome_dat  {"name": "customer_id", "type": "STRING", "mode": "REQUIRED", "description": "Customer ID"},
+  {"name":yp  {"name": "ssn_masked", "type": "STRING", "mode": "NULLABLE", "description": "Masked SSN (PI",  {"name": "first_name", "type": "STRING", "mode": "NULLABLE", "description": "First name"},
+  {"at  {"name": "last_name", "type": "STRING", "mode": "NULLABLE", "description": "Last name"},
+on  {"name": "date_of_birth", "type": "DATE", "mode": "NULLABLE", "description": "Date of bme  {"name": "customer_status", "type": "STRING", "mode": "NULLABLE", "description": "Customer st    {"name": "account_id", "type": "STRING", "mode": "NULLABLE", "description": "Account ID"},
+  {"namee"  {"name": "account_type_desc", "type": "STRING", "mode": "NULLABLE", "description": "Accoun [
+  {"name": "attribute_key", "type": "STRING", "mode": "REQUIRED", "description": "Composite primary key"},
+  {emas  ls -la /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/schemas/
+echo "=== Checking for LOA references in EM deployment ===" && grep -r "loa\|LOA\|applications" /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em --include="*.py" --include="*.sql" -l 2>/dev/null | head -20
+grep -ri "loa\|LOA" /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em --include="*.py" -l 2>/dev/null
+echo "=== Files still referencing LOA ===" && grep -rl "loa\|LOA" /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em --include="*.py" --include="*.sql" --include="*.yml" --include="*.yaml" 2>/dev/null | grep -v __pycache__ | head -30
+grep -ril "loa" /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em --include="*.py" 2>/dev/null | grep -v __pycache__ | head -30
+ls /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/pipeline/
+rm /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/pipeline/loa_jcl_template.py /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/pipeline/loa_realtime_jcl_pipeline.py
+mkdir -p /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit/em
+mkdir -p /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/data
+mkdir -p /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit/pipeline /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit/domain /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit/validation /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit/config
+find /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit -type f -name "*.py" | head -30
+find /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em/tests/unit -name "*.py" 2>/dev/null | sort
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && python -c "
+from deployments.em.config import (
+    SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET,
+    CUSTOMERS_HEADERS, ACCOUNTS_HEADERS, DECISION_HEADERS,
+    ALLOWED_STATUSES, ALLOWED_ACCOUNT_TYPES, ALLOWED_DECISION_CODES,
+    SCORE_MIN, SCORE_MAX
+)
+print('✅ Config imports OK')
+print(f'   SYSTEM_ID: {SYSTEM_ID}')
+print(f'   REQUIRED_ENTITIES: {REQUIRED_ENTITIES}')
+print(f'   SCORE_RANGE: {SCORE_MIN}-{SCORE_MAX}')
+"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python -c "
+from deployments.em.config import (
+    SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET,
+    CUSTOMERS_HEADERS, ACCOUNTS_HEADERS, DECISION_HEADERS,
+    ALLOWED_STATUSES, ALLOWED_ACCOUNT_TYPES, ALLOWED_DECISION_CODES,
+    SCORE_MIN, SCORE_MAX
+)
+print('✅ Config imports OK')
+print(f'   SYSTEM_ID: {SYSTEM_ID}')
+print(f'   REQUIRED_ENTITIES: {REQUIRED_ENTITIES}')
+print(f'   SCORE_RANGE: {SCORE_MIN}-{SCORE_MAX}')
+"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python -c "
+from deployments.em.config import (
+    SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET,
+    CUSTOMERS_HEADERS, ACCOUNTS_HEADERS, DECISION_HEADERS,
+    ALLOWED_STATUSES, ALLOWED_ACCOUNT_TYPES, ALLOWED_DECISION_CODES,
+    SCORE_MIN, SCORE_MAX
+)
+print('Config imports OK')
+print('SYSTEM_ID:', SYSTEM_ID)
+print('REQUIRED_ENTITIES:', REQUIRED_ENTITIES)
+print('SCORE_RANGE:', SCORE_MIN, '-', SCORE_MAX)
+" 2>&1
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python3 -c "print('test')"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && echo "Starting tests..." && which python3
+which python3 && python3 --version
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. pytest deployments/em/tests/unit/config/test_config.py -v --tb=short 2>&1 | head -50
+pwd && ls -la
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && python3 verify_em_implementation.py 2>&1 | cat
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && python3 verify_em_implementation.py > /tmp/em_verify_output.txt 2>&1 && cat /tmp/em_verify_output.txt
+cat /tmp/em_verify_output.txt 2>/dev/null || echo "File not found"
+echo "hello world"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && grep -r "LOA\|loa" deployments/em --include="*.py" --include="*.yml" --include="*.yaml" --include="*.md" -l 2>/dev/null | head -50
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && grep -rl "LOA\|loa" deployments/em 2>/dev/null
+find /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/deployments/em -type f \( -name "*.py" -o -name "*.yml" -o -name "*.yaml" -o -name "*.sql" -o -name "*.md" \) 2>/dev/null | sort
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && python -c "
+from deployments.loa.config import SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET
+print(f'✅ Config imports OK')
+print(f'   SYSTEM_ID: {SYSTEM_ID}')
+print(f'   REQUIRED_ENTITIES: {REQUIRED_ENTITIES}')
+print(f'   ODP_DATASET: {ODP_DATASET}')
+print(f'   FDP_DATASET: {FDP_DATASET}')
+"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python -c "
+from deployments.loa.config import SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET
+print(f'✅ Config imports OK')
+print(f'   SYSTEM_ID: {SYSTEM_ID}')
+print(f'   REQUIRED_ENTITIES: {REQUIRED_ENTITIES}')
+print(f'   ODP_DATASET: {ODP_DATASET}')
+print(f'   FDP_DATASET: {FDP_DATASET}')
+"
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python3 -c "
+from deployments.loa.config import SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET
+print('Config imports OK')
+print('SYSTEM_ID:', SYSTEM_ID)
+print('REQUIRED_ENTITIES:', REQUIRED_ENTITIES)
+print('ODP_DATASET:', ODP_DATASET)
+print('FDP_DATASET:', FDP_DATASET)
+" 2>&1
+cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference && PYTHONPATH=. python3 << 'EOF'
+try:
+    from deployments.loa.config import SYSTEM_ID, REQUIRED_ENTITIES, ODP_DATASET, FDP_DATASET
+    print('Config imports OK')
+    print('SYSTEM_ID:', SYSTEM_ID)
+    print('REQUIRED_ENTITIES:', REQUIRED_ENTITIES)
+except Exception as e:
+    print('Error:', str(e))

@@ -1,0 +1,8 @@
+n branch_code,branch_name,region,state,city,zip_code,manager_name,opened_date,employee_count
+NY1234,Manhattan Main,Northeast,NY,New York,10001,Sarah Johnson,2005-01-15,45
+CA5678,San Francisco Downtown,West,CA,San Francisco,94102,Michael Chen,2008-06-20,38
+TX9012,Houston Center,Southwest,TX,Houston,77002,Robert Martinez,2010-03-10,32
+FL3456,Miami Beach,Southeast,FL,Miami,33139,Linda Garcia,2012-09-05,28
+MI5678,Detroit Central,Midwest,MI,Detroit,48226,James Wilson,2015-11-22,25
+IL9012,Chicago Loop,Midwest,IL,Chicago,60601,Patricia Brown,2007-04-18,42
+

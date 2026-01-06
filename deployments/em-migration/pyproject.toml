@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "em-migration"
+version = "1.0.0"
+description = "EM (Application A) Migration - Multi-entity JOIN pattern (3 sources → 1 target)"
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+authors = [
+    {name = "Data Platform Team", email = "data-platform@company.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = ["gcp", "pipeline", "dataflow", "bigquery", "em", "excess-management"]
+
+dependencies = [
+    "gcp-pipeline-core>=1.0.0",
+    "gcp-pipeline-beam>=1.0.0",
+    "google-cloud-bigquery>=3.0.0",
+    "google-cloud-storage>=2.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "gcp-pipeline-tester>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+    "faker>=18.0.0",
+]
+orchestration = [
+    "gcp-pipeline-orchestration>=1.0.0",
+    "apache-airflow>=2.5.0",
+    "apache-airflow-providers-google>=10.0.0",
+]
+airflow = [
+    "apache-airflow>=2.5.0",
+    "apache-airflow-providers-google>=10.0.0",
+    "apache-airflow-providers-apache-beam>=5.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
