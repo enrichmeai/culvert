@@ -1,224 +1,111 @@
 """
 LOA Record Validator.
 
-Validates individual records: required fields, data types, allowed values.
-Uses library validators.
+Validates individual records using schema-driven validation from the library.
+No business-specific validation logic - all validation is defined in the schema.
 """
 
 import logging
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any
 
+from gcp_pipeline_beam.validators import SchemaValidator
 from gcp_pipeline_core.data_quality import check_duplicate_keys
-from gcp_pipeline_core.schema import EntitySchema
 
-from ..schema import LOA_SCHEMAS
-from ..config import (
-    ALLOWED_APPLICATION_STATUSES,
-    ALLOWED_APPLICATION_TYPES,
-    ALLOWED_ACCOUNT_STATUSES,
-    ALLOWED_ACCOUNT_TYPES,
-    ALLOWED_EVENT_TYPES,
-    ALLOWED_TRANSACTION_TYPES,
-    ALLOWED_EXCESS_STATUSES,
-    LOAN_AMOUNT_MIN,
-    LOAN_AMOUNT_MAX,
-    INTEREST_RATE_MIN,
-    INTEREST_RATE_MAX,
-    LOAN_TERM_MIN,
-    LOAN_TERM_MAX,
-)
+from ..schema import LOA_SCHEMAS, get_loa_schema
 
 logger = logging.getLogger(__name__)
 
 
 class LOARecordValidator:
     """
-    Validates LOA records against schema.
+    Validates LOA records using schema-driven validation.
 
-    Uses library validators:
+    Uses library components:
+    - SchemaValidator: Validates records against EntitySchema
     - check_duplicate_keys: Duplicate detection
-
-    LOA-specific validations:
-    - Required fields (application_id, customer_id, etc.)
-    - Allowed values (application_status, application_type, etc.)
-    - Numeric ranges (loan_amount, interest_rate, loan_term)
-
-    Example:
-        >>> validator = LOARecordValidator()
-        >>> valid, invalid = validator.validate_records(records, "applications")
     """
+
+    def __init__(self):
+        """Initialize validators for each entity."""
+        self._validators = {}
+        for entity_name, schema in LOA_SCHEMAS.items():
+            self._validators[entity_name] = SchemaValidator(schema)
 
     def validate_record(
         self,
         record: Dict[str, Any],
-        schema: EntitySchema
+        entity_name: str
     ) -> List[str]:
         """
-        Validate a single record against schema.
+        Validate a single record against its schema.
 
         Args:
             record: Record dictionary
-            schema: EntitySchema to validate against
+            entity_name: Entity name (applications)
 
         Returns:
             List of error messages (empty if valid)
         """
-        errors = []
+        validator = self._validators.get(entity_name)
+        if not validator:
+            return [f"Unknown entity: {entity_name}"]
 
-        # Check required fields from schema
-        for field in schema.fields:
-            if field.required:
-                value = record.get(field.name)
-                if value is None or value == "":
-                    errors.append(f"Required field '{field.name}' is missing")
+        # SchemaValidator.validate() returns List[ValidationError]
+        validation_errors = validator.validate(record)
+        return [str(e) for e in validation_errors]
 
-        # Validate application_status
-        app_status = record.get("application_status")
-        if app_status and app_status not in ALLOWED_APPLICATION_STATUSES:
-            errors.append(
-                f"Invalid application_status: {app_status}. "
-                f"Allowed: {ALLOWED_APPLICATION_STATUSES}"
-            )
-
-        # Validate application_type
-        app_type = record.get("application_type")
-        if app_type and app_type not in ALLOWED_APPLICATION_TYPES:
-            errors.append(
-                f"Invalid application_type: {app_type}. "
-                f"Allowed: {ALLOWED_APPLICATION_TYPES}"
-            )
-
-        # Validate account_status (if present)
-        acct_status = record.get("account_status")
-        if acct_status and acct_status not in ALLOWED_ACCOUNT_STATUSES:
-            errors.append(
-                f"Invalid account_status: {acct_status}. "
-                f"Allowed: {ALLOWED_ACCOUNT_STATUSES}"
-            )
-
-        # Validate account_type (if present)
-        acct_type = record.get("account_type")
-        if acct_type and acct_type not in ALLOWED_ACCOUNT_TYPES:
-            errors.append(
-                f"Invalid account_type: {acct_type}. "
-                f"Allowed: {ALLOWED_ACCOUNT_TYPES}"
-            )
-
-        # Validate event_type (if present)
-        event_type = record.get("event_type")
-        if event_type and event_type not in ALLOWED_EVENT_TYPES:
-            errors.append(
-                f"Invalid event_type: {event_type}. "
-                f"Allowed: {ALLOWED_EVENT_TYPES}"
-            )
-
-        # Validate transaction_type (if present)
-        txn_type = record.get("transaction_type")
-        if txn_type and txn_type not in ALLOWED_TRANSACTION_TYPES:
-            errors.append(
-                f"Invalid transaction_type: {txn_type}. "
-                f"Allowed: {ALLOWED_TRANSACTION_TYPES}"
-            )
-
-        # Validate excess_status (if present)
-        excess_status = record.get("excess_status")
-        if excess_status and excess_status not in ALLOWED_EXCESS_STATUSES:
-            errors.append(
-                f"Invalid excess_status: {excess_status}. "
-                f"Allowed: {ALLOWED_EXCESS_STATUSES}"
-            )
-
-        # Validate loan_amount range
-        loan_amount = record.get("loan_amount")
-        if loan_amount is not None and loan_amount != "":
-            try:
-                amount = float(loan_amount)
-                if amount < LOAN_AMOUNT_MIN or amount > LOAN_AMOUNT_MAX:
-                    errors.append(
-                        f"Loan amount {amount} out of range "
-                        f"({LOAN_AMOUNT_MIN}-{LOAN_AMOUNT_MAX})"
-                    )
-            except (ValueError, TypeError):
-                errors.append(f"Invalid loan_amount format: {loan_amount}")
-
-        # Validate interest_rate range
-        interest_rate = record.get("interest_rate")
-        if interest_rate is not None and interest_rate != "":
-            try:
-                rate = float(interest_rate)
-                if rate < INTEREST_RATE_MIN or rate > INTEREST_RATE_MAX:
-                    errors.append(
-                        f"Interest rate {rate} out of range "
-                        f"({INTEREST_RATE_MIN}-{INTEREST_RATE_MAX})"
-                    )
-            except (ValueError, TypeError):
-                errors.append(f"Invalid interest_rate format: {interest_rate}")
-
-        # Validate loan_term range
-        loan_term = record.get("loan_term")
-        if loan_term is not None and loan_term != "":
-            try:
-                term = int(loan_term)
-                if term < LOAN_TERM_MIN or term > LOAN_TERM_MAX:
-                    errors.append(
-                        f"Loan term {term} out of range "
-                        f"({LOAN_TERM_MIN}-{LOAN_TERM_MAX})"
-                    )
-            except (ValueError, TypeError):
-                errors.append(f"Invalid loan_term format: {loan_term}")
-
-        return errors
-
-    def validate_records(
+    def validate_records_batch(
         self,
         records: List[Dict[str, Any]],
         entity_name: str
-    ) -> Tuple[List[Dict], List[Dict]]:
+    ) -> Dict[str, Any]:
         """
-        Validate multiple records.
+        Validate a batch of records.
 
         Args:
-            records: List of record dictionaries
-            entity_name: Entity name (applications)
+            records: List of records
+            entity_name: Entity name
 
         Returns:
-            Tuple of (valid_records, error_records)
+            Dict with valid_records, invalid_records, error_count
         """
-        schema = LOA_SCHEMAS.get(entity_name.lower())
-        if not schema:
-            raise ValueError(f"Unknown entity: {entity_name}")
-
         valid_records = []
-        error_records = []
+        invalid_records = []
 
         for record in records:
-            record_errors = self.validate_record(record, schema)
-
-            if record_errors:
-                error_records.append({
+            errors = self.validate_record(record, entity_name)
+            if errors:
+                invalid_records.append({
                     "record": record,
-                    "errors": record_errors,
+                    "errors": errors
                 })
             else:
                 valid_records.append(record)
 
-        return valid_records, error_records
+        return {
+            "valid_records": valid_records,
+            "invalid_records": invalid_records,
+            "valid_count": len(valid_records),
+            "invalid_count": len(invalid_records)
+        }
 
     def check_duplicates(
         self,
         records: List[Dict[str, Any]],
         entity_name: str
-    ) -> Tuple[bool, List[Dict]]:
+    ) -> List[Dict[str, Any]]:
         """
-        Check for duplicate primary keys.
+        Check for duplicate records based on primary key.
 
         Args:
-            records: List of record dictionaries
-            entity_name: Entity name (applications)
+            records: List of records
+            entity_name: Entity name
 
         Returns:
-            Tuple of (has_duplicates, duplicate_records)
+            List of duplicate records
         """
-        # LOA applications uses application_id as primary key
-        return check_duplicate_keys(records, ["application_id"])
+        schema = get_loa_schema(entity_name)
+        if not schema:
+            return []
 
+        return check_duplicate_keys(records, schema.primary_key)

@@ -1,7 +1,0 @@
-HDR|EM|customers|20260101
-customer_id,first_name,last_name,ssn,dob,status,created_date
-C001,John,Doe,123-45-6789,1980-01-15,A,2020-01-01
-C002,Jane,Smith,987-65-4321,1985-06-20,A,2021-03-15
-C003,Bob,Johnson,555-55-5555,1975-12-01,I,2019-06-01
-TRL|RecordCount=3|Checksum=abc123
-

@@ -50,8 +50,9 @@ class EMRecordValidator:
         if not validator:
             return [f"Unknown entity: {entity_name}"]
 
-        result = validator.validate(record)
-        return result.errors
+        # SchemaValidator.validate() returns List[ValidationError]
+        validation_errors = validator.validate(record)
+        return [str(e) for e in validation_errors]
 
     def validate_records_batch(
         self,
@@ -108,4 +109,3 @@ class EMRecordValidator:
             return []
 
         return check_duplicate_keys(records, schema.primary_key)
-

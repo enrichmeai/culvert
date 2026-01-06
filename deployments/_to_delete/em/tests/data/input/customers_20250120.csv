@@ -1,7 +1,0 @@
- customer_id,ssn,customer_name,account_number,email,phone,credit_score,customer_since,branch_code
-CUST001,123-45-6789,John Doe,12345678,john.doe@email.com,555-0101,750,2015-03-15,NY1234
-CUST002,234-56-7890,Jane Smith,23456789,jane.smith@email.com,555-0102,680,2018-07-22,CA5678
-CUST003,345-67-8901,Bob Johnson,34567890,bob.j@email.com,555-0103,720,2016-11-30,TX9012
-CUST004,456-78-9012,Alice Williams,45678901,alice.w@email.com,555-0104,800,2014-01-10,FL3456
-CUST005,000-00-0000,Invalid SSN,56789012,invalid@email.com,555-0105,650,2020-05-18,MI5678
-
