@@ -36,7 +36,13 @@
 
 ## 📋 EXECUTIVE SUMMARY
 
-This document provides the complete end-to-end functional requirements for the legacy mainframe-to-GCP data migration framework. The framework migrates data from two mainframe systems (EM and LOA) through a standardized pipeline into BigQuery data products.
+This document provides the complete end-to-end functional requirements for the legacy mainframe-to-GCP data migration framework. The framework migrates data from two mainframe systems (EM and LOA) through a standardized pipeline into BigQuery data products. 
+
+### Why the 3-Unit Deployment model?
+By decoupling **Ingestion**, **Transformation**, and **Orchestration** into independent units, the framework simplifies the end-to-end lifecycle:
+- **Simpler Development**: Each unit has its own source code, dependencies, and unit tests.
+- **Simpler Deployment**: Units can be deployed independently, reducing the blast radius of changes.
+- **Simpler Testing**: End-to-end flows can be validated unit-by-unit. For example, Ingestion can be tested with sample files without requiring an Airflow environment.
 
 ### High-Level E2E Flow
 
