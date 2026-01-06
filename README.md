@@ -231,12 +231,19 @@ cd ../em-ingestion && \
 
 | Guide | Description |
 |-------|-------------|
-| [E2E Functional Flow](docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
-| [Audit Integration](docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
-| [Pub/Sub & KMS](docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
-| [Error Handling](docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
-| [Data Quality](docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
-| [GCP Deployment](docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
+| [E2E Functional Flow](./docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
+| [Audit Integration](./docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
+| [Pub/Sub & KMS](./docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
+| [Error Handling](./docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
+| [Data Quality](./docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
+| [GCP Deployment](./docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
+| [GCP Deployment Config](./docs/GCP_DEPLOYMENT_CONFIGURATION.md) | Environment configuration |
+| [GCP Deployment Testing](./docs/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing deployed infrastructure |
+| [Complete Testing](./docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
+| [BDD Testing](./docs/BDD_TESTING_GUIDE.md) | Behavior-driven development tests |
+| [E2E Testing](./docs/E2E_TESTING_GUIDE.md) | End-to-end testing |
+| [Docker Compose](./docs/DOCKER_COMPOSE_GUIDE.md) | Local development with Docker |
+| [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add new system migration |
 
 ---
 
