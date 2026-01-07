@@ -47,8 +47,16 @@ mkdir -p deployments/mysystem-orchestration
 
 ### 4. Set Up Orchestration Unit (`mysystem-orchestration`)
 
-- **Define DAGs**: Create Airflow DAGs using `DAGFactory` and `BasePubSubPullSensor` from `gcp-pipeline-orchestration`.
-- **Trigger Flow**: Configure the trigger DAG to sense files, then trigger the Ingestion unit, followed by the Transformation unit.
+- **Initialize Folder**:
+  ```bash
+  mkdir -p deployments/mysystem-orchestration/dags
+  ```
+- **Copy Templates**: Use the standardized templates from the `templates/dags/` folder:
+  ```bash
+  cp templates/dags/template_*.py deployments/mysystem-orchestration/dags/
+  ```
+- **Rename & Customize**: Rename files to `mysystem_*.py` and follow the **Search and Replace** instructions in [DAG Development Guide](DAG_DEVELOPMENT_GUIDE.md).
+- **Trigger Flow**: The templates come pre-configured with the standard 3-step flow (Trigger → ODP Load → FDP Transform).
 - **Terraform**: Provision Cloud Composer and Pub/Sub topics.
 
 ### 5. Shared Audit and Core Logic

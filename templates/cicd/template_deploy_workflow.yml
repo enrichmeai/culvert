@@ -1,0 +1,81 @@
+name: Deploy <SYSTEM_ID>
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployments/<system_id>-*/**'
+      - 'libraries/**'
+      - 'infrastructure/terraform/systems/<system_id>/**'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  GCP_REGION: 'europe-west2'
+  ENVIRONMENT: 'dev'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e libraries/gcp-pipeline-core
+        pip install -e libraries/gcp-pipeline-beam
+        pip install -e libraries/gcp-pipeline-orchestration
+        pip install -e libraries/gcp-pipeline-transform
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: test
+    environment: dev
+    steps:
+    - uses: actions/checkout@v4
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+    - name: Terraform Init/Plan/Apply
+      run: |
+        cd infrastructure/terraform/systems/<system_id>
+        terraform init
+        terraform apply -auto-approve -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}"
+
+  deploy-airflow:
+    name: Deploy Airflow DAGs
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: dev
+    steps:
+    - uses: actions/checkout@v4
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+    - name: Upload DAGs to Composer
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        REGION="${{ env.GCP_REGION }}"
+        COMPOSER_ENV="<system_id>-dev-composer"
+        
+        DAGS_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
+          --location=$REGION \
+          --project=$PROJECT_ID \
+          --format='value(config.dagGcsPrefix)')
+        
+        if [ -n "$DAGS_BUCKET" ]; then
+          gsutil -m cp -r deployments/<system_id>-orchestration/dags/* ${DAGS_BUCKET}/<system_id>/
+        fi
