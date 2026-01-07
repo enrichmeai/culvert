@@ -192,10 +192,14 @@ cp -r libraries/gcp-pipeline-transform/dbt_shared/macros \
 
 ---
 
-## Run dbt
+## Run Tests
+
+Run dbt macro unit tests:
 
 ```bash
-cd deployments/em-transformation/dbt
-dbt run --profiles-dir .
+cd libraries/gcp-pipeline-transform
+pytest tests/unit/test_pii_macros.py
 ```
+
+These tests verify the compiled SQL of the dbt macros using a mock dbt project.
 

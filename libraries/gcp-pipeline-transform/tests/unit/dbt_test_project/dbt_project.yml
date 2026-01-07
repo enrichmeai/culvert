@@ -1,0 +1,19 @@
+name: 'transform_unit_tests'
+version: '1.0.0'
+config-version: 2
+
+profile: 'unit_test_profile'
+
+model-paths: ["models"]
+macro-paths: ["macros", "../../../src/gcp_pipeline_transform/dbt_shared/macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+
+vars:
+  run_id: 'test_run_123'
+  source_file: 'test_file.csv'
+  quality_completeness_threshold: 95
