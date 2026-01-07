@@ -60,7 +60,7 @@
 | [gcp-pipeline-core](gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 | ✅ |
 | [gcp-pipeline-beam](gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 | ✅ |
 | [gcp-pipeline-orchestration](gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 | ✅ |
-| [gcp-pipeline-transform](gcp-pipeline-transform/) | dbt macros for audit columns | - | ✅ |
+| [gcp-pipeline-transform](gcp-pipeline-transform/) | dbt macros for audit columns | 3 | ✅ |
 | [gcp-pipeline-tester](gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - | ✅ |
 
 ---
