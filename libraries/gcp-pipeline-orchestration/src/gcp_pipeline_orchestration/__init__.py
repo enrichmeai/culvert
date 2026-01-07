@@ -18,7 +18,7 @@ Classes Exported:
 
 Example:
     ```python
-    from gcp_pipeline_builder.orchestration import DAGFactory, DAGRouter
+    from gcp_pipeline_orchestration import DAGFactory, DAGRouter
 
     # Create a DAG
     factory = DAGFactory()

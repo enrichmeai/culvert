@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments/em/**'
+      - 'deployments/em-*/**'
       - 'libraries/**'
-      - 'infrastructure/terraform/em/**'
+      - 'infrastructure/terraform/systems/em/**'
   workflow_dispatch:
 
 env:
@@ -31,13 +31,16 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e libraries/gcp-pipeline-builder[dev]
+        pip install -e libraries/gcp-pipeline-core
+        pip install -e libraries/gcp-pipeline-beam
+        pip install -e libraries/gcp-pipeline-orchestration
+        pip install -e libraries/gcp-pipeline-transform
         pip install -e libraries/gcp-pipeline-tester
 
     - name: Run EM tests
       run: |
-        cd deployments/em
-        pip install -e .
+        cd deployments/em-ingestion
+        pip install -e .[dev]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
   deploy-infrastructure:
@@ -61,13 +64,13 @@ jobs:
 
     - name: Terraform Init
       run: |
-        cd infrastructure/terraform/em
+        cd infrastructure/terraform/systems/em
         terraform init
 
     - name: Import Existing Resources
       continue-on-error: true
       run: |
-        cd infrastructure/terraform/em
+        cd infrastructure/terraform/systems/em
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         
         # Import BigQuery datasets if they exist
@@ -102,7 +105,7 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        cd infrastructure/terraform/em
+        cd infrastructure/terraform/systems/em
         terraform plan \
           -var-file="env/dev.tfvars" \
           -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}" \
@@ -110,7 +113,7 @@ jobs:
 
     - name: Terraform Apply
       run: |
-        cd infrastructure/terraform/em
+        cd infrastructure/terraform/systems/em
         terraform apply -auto-approve tfplan
 
   deploy-dataflow:
@@ -133,12 +136,12 @@ jobs:
 
     - name: Build and Push Docker Image
       run: |
-        if [ -f "deployments/em/Dockerfile" ]; then
+        if [ -f "deployments/em-ingestion/Dockerfile" ]; then
           echo "Building Docker image..."
           gcloud builds submit \
             --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/em-pipeline:latest \
             --project ${{ secrets.GCP_PROJECT_ID }} \
-            deployments/em/
+            deployments/em-ingestion/
         else
           echo "⚠️ Dockerfile not found - skipping Docker build"
         fi
@@ -182,7 +185,7 @@ jobs:
 
     - name: Run dbt
       run: |
-        DBT_PATH="deployments/em/src/em/transformations/dbt"
+        DBT_PATH="deployments/em-transformation/dbt"
         if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
           cd "$DBT_PATH"
           dbt deps || echo "⚠️ dbt deps failed"
@@ -229,18 +232,15 @@ jobs:
             --project=$PROJECT_ID \
             --format='value(config.dagGcsPrefix)')
           
-          DAG_SOURCE="deployments/em/src/em/orchestration/airflow/dags"
-          LIBRARY_SOURCE="libraries/gcp-pipeline-builder/src/gcp_pipeline_builder"
+          DAG_SOURCE="deployments/em-orchestration/dags"
           
           if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
-            # Upload .airflowignore first (to exclude library from DAG parsing)
-            echo "gcp_pipeline_builder/" | gsutil cp - ${DAGS_BUCKET}/.airflowignore
-            echo "✅ .airflowignore uploaded"
-            
-            # Upload the library
-            echo "Uploading library to $DAGS_BUCKET/gcp_pipeline_builder/"
-            gsutil -m cp -r ${LIBRARY_SOURCE} ${DAGS_BUCKET}/
-            echo "✅ Library uploaded"
+            # Upload libraries to DAGs bucket
+            echo "Uploading libraries to $DAGS_BUCKET/..."
+            gsutil -m cp -r libraries/gcp-pipeline-core/src/gcp_pipeline_core ${DAGS_BUCKET}/
+            gsutil -m cp -r libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration ${DAGS_BUCKET}/
+            gsutil -m cp -r libraries/gcp-pipeline-beam/src/gcp_pipeline_beam ${DAGS_BUCKET}/
+            echo "✅ Libraries uploaded"
             
             # Upload DAGs
             echo "Uploading DAGs to $DAGS_BUCKET/em/"

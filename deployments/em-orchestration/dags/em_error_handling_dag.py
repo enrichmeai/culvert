@@ -33,7 +33,7 @@ from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.models import Variable
 
-# Import from gcp_pipeline_builder library
+# Import from gcp_pipeline_core library
 from gcp_pipeline_core.error_handling import (
     ErrorHandler,
     ErrorClassifier,

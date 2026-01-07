@@ -1,12 +1,12 @@
 # BDD Testing Guide - The Right Way
 
-This guide explains how to implement Behavior-Driven Development (BDD) tests in the LOA Blueprint using the standardized `gcp_pipeline_builder.testing.bdd` library.
+This guide explains how to implement Behavior-Driven Development (BDD) tests in the LOA Blueprint using the standardized `gcp_pipeline_core.testing.bdd` library.
 
 ## 🎯 Architecture
 
 We follow a tiered approach to BDD to maximize reusability:
 
-1.  **Core Library (`gcp_pipeline_builder`)**: Contains reusable step definitions and base test classes.
+1.  **Core Library (`gcp_pipeline_core`)**: Contains reusable step definitions and base test classes.
 2.  **Blueprint Features**: Human-readable `.feature` files defining business requirements.
 3.  **Blueprint Step Definitions**: Thin mapping files that link features to library steps.
 
@@ -25,7 +25,7 @@ Feature: My New Feature
 ```
 
 ### 2. Check for Reusable Steps
-Before writing new Python code, check if the steps are already available in `gcp_pipeline_builder.testing.bdd.steps`:
+Before writing new Python code, check if the steps are already available in `gcp_pipeline_core.testing.bdd.steps`:
 - `common_steps`: Basic validations (SSN, etc.)
 - `pipeline_steps`: End-to-end pipeline flow (GCS -> Dataflow -> BQ)
 - `dq_steps`: Data quality business rules
@@ -36,8 +36,8 @@ Create a `.py` file in `deployments/src/tests/bdd/step_definitions/`. Use the `G
 Example `test_my_feature.py`:
 
 ```python
-from gcp_pipeline_builder.testing import GDWScenarioTest
-from gcp_pipeline_builder.testing import *
+from gcp_pipeline_core.testing import GDWScenarioTest
+from gcp_pipeline_core.testing import *
 
 
 # Import other step modules as needed

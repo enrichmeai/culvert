@@ -63,7 +63,7 @@ pip install -e deployments/loa/
 
 # Verify installation
 python -c "
-from gcp_pipeline_builder.file_management import HDRTRLParser
+from gcp_pipeline_beam.file_management import HDRTRLParser
 from em.config import SYSTEM_ID as EM_ID
 from loa.config import SYSTEM_ID as LOA_ID
 print(f'✅ Library: OK')
@@ -296,8 +296,8 @@ TRL|RecordCount=2|Checksum=def456
 **Solution:** Set PYTHONPATH correctly:
 
 ```bash
-export PYTHONPATH=.:./gcp_pipeline_builder:./deployments
-pip install -e gcp_pipeline_builder/
+export PYTHONPATH=.:./gcp_pipeline_core:./deployments
+pip install -e gcp_pipeline_core/
 pip install -e deployments/
 ```
 
@@ -325,9 +325,9 @@ See [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md) for complete architecture.
 
 | Diagram | Purpose |
 |---------|---------|
-| [pubsub_kms_secure_trigger.mmd](../../gcp_pipeline_builder/docs/diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS |
-| [intelligent_routing_flow.mmd](../../gcp_pipeline_builder/docs/diagrams/intelligent_routing_flow.mmd) | Pipeline routing |
-| [audit_framework_flow.mmd](../../gcp_pipeline_builder/docs/diagrams/audit_framework_flow.mmd) | Audit trail |
+| [pubsub_kms_secure_trigger.mmd](../../gcp_pipeline_core/docs/diagrams/pubsub_kms_secure_trigger.mmd) | Secure Pub/Sub with KMS |
+| [intelligent_routing_flow.mmd](../../gcp_pipeline_core/docs/diagrams/intelligent_routing_flow.mmd) | Pipeline routing |
+| [audit_framework_flow.mmd](../../gcp_pipeline_core/docs/diagrams/audit_framework_flow.mmd) | Audit trail |
 
 ---
 

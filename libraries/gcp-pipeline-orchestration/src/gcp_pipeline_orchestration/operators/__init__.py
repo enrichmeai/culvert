@@ -4,7 +4,7 @@ GDW Data Core Orchestration Operators.
 Provides reusable Airflow operators for data pipelines.
 """
 
-from gcp_pipeline_orchestration.operators.dataflow import (
+from .dataflow import (
     BaseDataflowOperator,
     BatchDataflowOperator,
     StreamingDataflowOperator,

@@ -137,8 +137,8 @@ Split each deployment (EM, LOA) into three independent units:
 
 ```python
 # Before (current)
-from gcp_pipeline_builder.monitoring import MetricsCollector
-from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine
+from gcp_pipeline_core.monitoring import MetricsCollector
+from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine
 
 # After (restructured)
 from gcp_pipeline_core.monitoring import MetricsCollector

@@ -53,16 +53,16 @@ TRL|RecordCount={n}|Checksum={hash}   ← Trailer record
 ### Key Library Components
 ```python
 # File Management
-from gcp_pipeline_builder.core.file_management import HDRTRLParser, validate_record_count, validate_checksum
+from gcp_pipeline_core.file_management import HDRTRLParser, validate_record_count, validate_checksum
 
 # Job Control
-from gcp_pipeline_builder.core.job_control import JobControlRepository, JobStatus, PipelineJob
+from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 
 # Entity Dependency
-from gcp_pipeline_builder.orchestration import EntityDependencyChecker
+from gcp_pipeline_orchestration import EntityDependencyChecker
 
 # Data Quality
-from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_core.data_quality import validate_row_types, check_duplicate_keys
 ```
 
 ### Library Design: Generic with Pipeline Configuration
@@ -126,7 +126,7 @@ Organize them into a **directory (submodule)** with separate files:
 #### ✅ CORRECT - Directory Structure for Multiple Components
 
 ```
-gcp_pipeline_builder/core/validators/
+gcp_pipeline_core/core/validators/
 ├── __init__.py          # Re-exports all public API
 ├── types.py             # Shared types (ValidationError)
 ├── ssn.py               # validate_ssn()
@@ -139,7 +139,7 @@ gcp_pipeline_builder/core/validators/
 #### ❌ INCORRECT - Single Large File
 
 ```
-gcp_pipeline_builder/core/validators.py  # 500+ lines with everything
+gcp_pipeline_core/core/validators.py  # 500+ lines with everything
 ```
 
 ### Test Structure Must Mirror Source Structure
@@ -150,14 +150,14 @@ Tests MUST mirror the source module structure exactly. No backward compatibility
 
 ```
 # Source structure
-gcp_pipeline_builder/core/job_control/
+gcp_pipeline_core/core/job_control/
 ├── __init__.py
 ├── types.py
 ├── models.py
 └── repository.py
 
 # Test structure mirrors source EXACTLY
-gcp_pipeline_builder/tests/unit/core/job_control/
+gcp_pipeline_core/tests/unit/core/job_control/
 ├── __init__.py
 ├── test_types.py          # Tests for types.py
 ├── test_models.py         # Tests for models.py
@@ -167,8 +167,8 @@ gcp_pipeline_builder/tests/unit/core/job_control/
 #### ❌ INCORRECT - Single Test File or Backward Compat Files
 
 ```
-gcp_pipeline_builder/tests/unit/core/test_job_control.py  # All tests in one file - WRONG
-gcp_pipeline_builder/tests/unit/core/test_job_control.py  # Backward compat file - NOT NEEDED
+gcp_pipeline_core/tests/unit/core/test_job_control.py  # All tests in one file - WRONG
+gcp_pipeline_core/tests/unit/core/test_job_control.py  # Backward compat file - NOT NEEDED
 ```
 
 ### When Refactoring to Submodules
@@ -267,7 +267,7 @@ from enum import Enum
 from google.cloud import bigquery
 from google.cloud import storage
 
-from gcp_pipeline_builder.core.error_handling import ErrorHandler
+from gcp_pipeline_core.error_handling import ErrorHandler
 from .types import ValidationError
 
 logger = logging.getLogger(__name__)
@@ -353,7 +353,7 @@ class LOAPubSubPullSensor(BasePubSubPullSensor):
 ### Use Structured Error Types
 
 ```python
-from gcp_pipeline_builder.core.error_handling import (
+from gcp_pipeline_core.error_handling import (
     GDWError,
     GDWValidationError,
     ErrorSeverity,
@@ -371,7 +371,7 @@ raise GDWValidationError(
 ### Use Error Context Manager
 
 ```python
-from gcp_pipeline_builder.core.error_handling import ErrorContext, ErrorHandler
+from gcp_pipeline_core.error_handling import ErrorContext, ErrorHandler
 
 handler = ErrorHandler(pipeline_name="my_job", run_id="run_001")
 
@@ -387,7 +387,7 @@ with ErrorContext(handler):
 ### Test File Structure
 
 ```
-gcp_pipeline_builder/tests/
+gcp_pipeline_core/tests/
 ├── unit/
 │   ├── core/
 │   │   ├── test_validators.py
@@ -411,7 +411,7 @@ gcp_pipeline_builder/tests/
 import unittest
 from unittest.mock import MagicMock, patch
 
-from gcp_pipeline_builder.testing import (
+from gcp_pipeline_core.testing import (
     ComparisonResult,
     ComparisonReport,
     DualRunComparison,
@@ -436,7 +436,7 @@ class TestComparisonResult(unittest.TestCase):
 ### Use Base Test Classes
 
 ```python
-from gcp_pipeline_builder.testing import BaseGDWTest, BaseBeamTest
+from gcp_pipeline_core.testing import BaseGDWTest, BaseBeamTest
 
 class TestMyPipeline(BaseBeamTest):
     """Tests for my pipeline."""
@@ -453,7 +453,7 @@ class TestMyPipeline(BaseBeamTest):
 ### GCS Client Usage
 
 ```python
-from gcp_pipeline_builder.core.clients import GCSClient
+from gcp_pipeline_core.clients import GCSClient
 
 client = GCSClient(project_id="my-project")
 content = client.read_file("gs://bucket/path/file.csv")
@@ -463,7 +463,7 @@ client.write_file("gs://bucket/output/result.json", json_content)
 ### BigQuery Client Usage
 
 ```python
-from gcp_pipeline_builder.core.clients import BigQueryClient
+from gcp_pipeline_core.clients import BigQueryClient
 
 client = BigQueryClient(project_id="my-project")
 rows = client.query("SELECT * FROM dataset.table LIMIT 100")
@@ -473,7 +473,7 @@ client.insert_rows("dataset.table", records)
 ### Pub/Sub Client Usage
 
 ```python
-from gcp_pipeline_builder.core.clients import PubSubClient
+from gcp_pipeline_core.clients import PubSubClient
 
 client = PubSubClient(project_id="my-project")
 client.publish("topic-name", {"event": "file_ready", "path": "gs://..."})
@@ -487,7 +487,7 @@ client.publish("topic-name", {"event": "file_ready", "path": "gs://..."})
 
 ```python
 import apache_beam as beam
-from gcp_pipeline_builder.core.validators import validate_ssn
+from gcp_pipeline_core.validators import validate_ssn
 
 
 class ValidateRecordDoFn(beam.DoFn):
@@ -508,7 +508,7 @@ class ValidateRecordDoFn(beam.DoFn):
 ### Pipeline Builder Pattern
 
 ```python
-from gcp_pipeline_builder.pipelines.beam import BeamPipelineBuilder
+from gcp_pipeline_beam.pipelines.beam import BeamPipelineBuilder
 
 pipeline = (
     BeamPipelineBuilder(options=pipeline_options)
@@ -529,7 +529,7 @@ result = pipeline.run()
 ### DAG Factory Pattern
 
 ```python
-from gcp_pipeline_builder.orchestration import DAGFactory, DAGConfig
+from gcp_pipeline_orchestration import DAGFactory, DAGConfig
 
 factory = DAGFactory()
 dag = factory.create_dag_from_dict({
@@ -718,48 +718,48 @@ FROM {{ source('raw', 'transactions') }}
 
 ```python
 # Validators
-from gcp_pipeline_builder.core.validators import validate_ssn, ValidationError
+from gcp_pipeline_core.validators import validate_ssn, ValidationError
 
 # Error Handling
-from gcp_pipeline_builder.core.error_handling import ErrorHandler, ErrorContext, GDWError
+from gcp_pipeline_core.error_handling import ErrorHandler, ErrorContext, GDWError
 
 # Audit
-from gcp_pipeline_builder.core.audit import AuditTrail, AuditRecord
+from gcp_pipeline_core.audit import AuditTrail, AuditRecord
 
 # Monitoring
-from gcp_pipeline_builder.core.monitoring import MetricsCollector, HealthChecker
+from gcp_pipeline_core.monitoring import MetricsCollector, HealthChecker
 
 # Clients
-from gcp_pipeline_builder.core.clients import GCSClient, BigQueryClient, PubSubClient
+from gcp_pipeline_core.clients import GCSClient, BigQueryClient, PubSubClient
 
 # Orchestration
-from gcp_pipeline_builder.orchestration import DAGFactory, DAGRouter
-from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_orchestration import DAGFactory, DAGRouter
+from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
 
 # Pipelines
-from gcp_pipeline_builder.pipelines.base import BasePipeline, PipelineConfig
-from gcp_pipeline_builder.pipelines.beam import BeamPipelineBuilder
+from gcp_pipeline_beam.pipelines.base import BasePipeline, PipelineConfig
+from gcp_pipeline_beam.pipelines.beam import BeamPipelineBuilder
 
 # Testing
-from gcp_pipeline_builder.testing import BaseGDWTest, BaseBeamTest
-from gcp_pipeline_builder.testing import DualRunComparison
-from gcp_pipeline_builder.testing import GCSClientMock, BigQueryClientMock
+from gcp_pipeline_core.testing import BaseGDWTest, BaseBeamTest
+from gcp_pipeline_core.testing import DualRunComparison
+from gcp_pipeline_core.testing import GCSClientMock, BigQueryClientMock
 
 # File Management
-from gcp_pipeline_builder.core.file_management import (
+from gcp_pipeline_core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,
 )
 
 # Data Quality
-from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_core.data_quality import validate_row_types, check_duplicate_keys
 
 # Job Control
-from gcp_pipeline_builder.core.job_control import JobControlRepository, JobStatus, PipelineJob
+from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 
 # Entity Dependencies
-from gcp_pipeline_builder.orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 ```
 
 ---
@@ -844,13 +844,13 @@ from datetime import date
 from dataclasses import dataclass
 
 # IMPORT library components
-from gcp_pipeline_builder.core.validators import (
+from gcp_pipeline_core.validators import (
     validate_ssn,
     validate_required,
     ValidationError,
 )
-from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
-from gcp_pipeline_builder.core.file_management import (
+from gcp_pipeline_core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,
@@ -957,7 +957,7 @@ Uses library EntityDependencyChecker with system config.
 """
 
 from datetime import date
-from gcp_pipeline_builder.orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 from .config import SYSTEM_ID, REQUIRED_ENTITIES, PROJECT_ID
 
 
@@ -994,8 +994,8 @@ Extends library transforms with system-specific logic.
 import apache_beam as beam
 from typing import Dict, Iterator
 
-from gcp_pipeline_builder.core.validators import validate_ssn
-from gcp_pipeline_builder.pipelines.beam.transforms import ParseCsvLine
+from gcp_pipeline_core.validators import validate_ssn
+from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine
 
 from .schema import MY_ENTITY_HEADERS
 from .validation import MySystemValidator
@@ -1038,7 +1038,7 @@ def my_validate_row_types(file_lines):
     # ... reimplementing library logic
 
 # ✅ CORRECT - Use library function
-from gcp_pipeline_builder.core.data_quality import validate_row_types
+from gcp_pipeline_core.data_quality import validate_row_types
 is_valid, msg = validate_row_types(file_lines)
 ```
 
@@ -1051,7 +1051,7 @@ class MyHDRTRLParser:
         self.hdr_pattern = ...  # Copy-pasted from library
 
 # ✅ CORRECT - Import and use library class
-from gcp_pipeline_builder.core.file_management import HDRTRLParser
+from gcp_pipeline_core.file_management import HDRTRLParser
 parser = HDRTRLParser()  # Use defaults for CSV extracts
 ```
 
@@ -1059,7 +1059,7 @@ parser = HDRTRLParser()  # Use defaults for CSV extracts
 
 ```python
 # ❌ WRONG - Hardcoding in library
-# In gcp_pipeline_builder/orchestration/dependency.py
+# In gcp_pipeline_core/orchestration/dependency.py
 SYSTEM_DEPENDENCIES = {
     "em": {"entities": ["customers", "accounts"]},  # NO!
 }
@@ -1083,9 +1083,9 @@ See `blueprint/components/em/validation.py` for the correct pattern:
 ```python
 # CORRECT PATTERN - EM uses library components
 
-from gcp_pipeline_builder.core.validators import validate_ssn, ValidationError
-from gcp_pipeline_builder.core.data_quality import validate_row_types, check_duplicate_keys
-from gcp_pipeline_builder.core.file_management import (
+from gcp_pipeline_core.validators import validate_ssn, ValidationError
+from gcp_pipeline_core.data_quality import validate_row_types, check_duplicate_keys
+from gcp_pipeline_core.file_management import (
     HDRTRLParser,
     validate_record_count,
     validate_checksum,

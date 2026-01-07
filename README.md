@@ -6,22 +6,17 @@ A **library-first framework** for migrating legacy mainframe batch systems to Go
 
 ## Why This Framework?
 
-### Reusable Patterns
+### 1. Library-First Architecture
+The framework is built on a **4-Library Model** (`core`, `beam`, `orchestration`, `transform`) as detailed in our [Technical Architecture Document (TAD)](./docs/TECHNICAL_ARCHITECTURE.md). It leverages **Apache Beam** and **Cloud Composer** to provide professional-grade data integrity and operational resilience (see our [Architectural Rationale](./docs/TECHNICAL_ARCHITECTURE.md#12-architectural-rationale-why-beam--composer)).
 
-| Pattern | Description | Library |
-|---------|-------------|---------|
-| **File Validation** | HDR/TRL parsing, checksum verification, record count reconciliation | `gcp-pipeline-beam` |
-| **Split File Handling** | Reassemble files split at 25MB threshold | `gcp-pipeline-beam` |
-| **Schema Validation** | Automatic validation against entity schemas | `gcp-pipeline-beam` |
-| **Data Quality** | Row type, data type, duplicate detection | `gcp-pipeline-beam` |
-| **Audit Trail** | Run tracking, lineage, source-to-target reconciliation | `gcp-pipeline-core` |
-| **Structured Logging** | JSON logging with run_id, system_id context | `gcp-pipeline-core` |
-| **Metrics & OTEL** | Cloud Monitoring, Dynatrace integration | `gcp-pipeline-core` |
-| **Error Handling** | Classification, retry logic, dead-letter queues | `gcp-pipeline-core` |
-| **Job Control** | Pipeline status tracking and metadata | `gcp-pipeline-core` |
-| **DAG Factory** | Standardized Airflow DAG generation | `gcp-pipeline-orchestration` |
-| **Pub/Sub Sensor** | Event-driven file detection with .ok triggers | `gcp-pipeline-orchestration` |
-| **Entity Dependency** | Wait for all entities before transformation | `gcp-pipeline-orchestration` |
+### 2. Pluggable & Hybrid Ready
+The architecture is tool-agnostic. While providing reference implementations in Beam and dbt, it is designed to integrate existing in-house ingestion or transformation tools while maintaining a unified audit and control plane via the `gcp-pipeline-core` library.
+
+### 3. Operational Excellence
+The framework prioritizes observability and reliability:
+*   **Job Control & Audit:** Centralized tracking via the `job_control` table and `run_id` correlation.
+*   **Standardized Error Handling:** Built-in retry/DLQ patterns.
+*   **Structured Logging:** JSON logging with full context propagation.
 
 ### Cloud Cost Benefits
 
@@ -51,11 +46,11 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
-| `gcp-pipeline-core` | Audit, monitoring, error handling, job control | 208 |
-| `gcp-pipeline-beam` | Beam pipelines, transforms, file management | 358 |
-| `gcp-pipeline-orchestration` | Airflow DAGs, sensors, operators | 52 |
-| `gcp-pipeline-transform` | dbt macros for audit columns, PII masking | - |
-| `gcp-pipeline-tester` | Mocks, fixtures, base test classes | - |
+| [`gcp-pipeline-core`](./libraries/gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 |
+| [`gcp-pipeline-beam`](./libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
+| [`gcp-pipeline-orchestration`](./libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
+| [`gcp-pipeline-transform`](./libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
+| [`gcp-pipeline-tester`](./libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
 
 ### 3-Unit Deployment Model
 
@@ -153,19 +148,19 @@ gs://landing/em/customers/
 
 ```
 libraries/
-├── gcp-pipeline-core/           # 208 tests - Foundation
-├── gcp-pipeline-beam/           # 358 tests - Ingestion
-├── gcp-pipeline-orchestration/  # 52 tests - Control
-├── gcp-pipeline-transform/      # dbt macros
-└── gcp-pipeline-tester/         # Testing utilities
+├── [`gcp-pipeline-core/`](./libraries/gcp-pipeline-core/)           # 208 tests - Foundation
+├── [`gcp-pipeline-beam/`](./libraries/gcp-pipeline-beam/)           # 358 tests - Ingestion
+├── [`gcp-pipeline-orchestration/`](./libraries/gcp-pipeline-orchestration/)  # 52 tests - Control
+├── [`gcp-pipeline-transform/`](./libraries/gcp-pipeline-transform/)      # dbt macros
+└── [`gcp-pipeline-tester/`](./libraries/gcp-pipeline-tester/)         # Testing utilities
 
 deployments/
-├── em-ingestion/                # 44 tests (JOIN: 3→1)
-├── em-transformation/           # dbt models
-├── em-orchestration/            # Airflow DAGs
-├── loa-ingestion/               # 36 tests (SPLIT: 1→2)
-├── loa-transformation/          # dbt models
-└── loa-orchestration/           # Airflow DAGs
+├── [`em-ingestion/`](./deployments/em-ingestion/)                # 44 tests (JOIN: 3→1)
+├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models
+├── [`em-orchestration/`](./deployments/em-orchestration/)            # Airflow DAGs
+├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 36 tests (SPLIT: 1→2)
+├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models
+└── [`loa-orchestration/`](./deployments/loa-orchestration/)           # Airflow DAGs
 
 infrastructure/terraform/
 ├── systems/em/                  # EM infrastructure
@@ -232,6 +227,8 @@ cd ../em-ingestion && \
 | Guide | Description |
 |-------|-------------|
 | [E2E Functional Flow](./docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
+| [Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md) | Technical deep-dive into deployments, DAGs, and Hybrid Integration |
+| [Standard Migration Tasks](./docs/STANDARD_MIGRATION_TASKS.md) | Major tasks and ticket templates for new systems |
 | [Audit Integration](./docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
 | [Pub/Sub & KMS](./docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
 | [Error Handling](./docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |

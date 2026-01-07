@@ -1,7 +1,7 @@
 """
 Tests for Beam Transforms Module
 
-Unit tests for gcp_pipeline_builder.pipelines.beam.transforms package.
+Unit tests for gcp_pipeline_beam.pipelines.beam.transforms package.
 """
 
 import pytest

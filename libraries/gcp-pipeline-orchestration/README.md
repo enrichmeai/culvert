@@ -26,8 +26,8 @@ Control library - Airflow DAGs, sensors, operators.
   │                              ▼                                   │
   │  ┌─────────────────────────────────────────────────────────┐    │
   │  │                    Operators                             │    │
-  │  │  • TriggerDataflowOperator (start ingestion)            │    │
-  │  │  • TriggerDbtOperator (start transformation)            │    │
+  │  │  • BatchDataflowOperator (start batch ingestion)         │    │
+  │  │  • StreamingDataflowOperator (start streaming)           │    │
   │  │  • ReconciliationOperator (validate counts)             │    │
   │  └─────────────────────────────────────────────────────────┘    │
   │                              │                                   │
@@ -155,7 +155,7 @@ else:
 | Module | Purpose | Key Classes |
 |--------|---------|-------------|
 | `sensors/` | Pub/Sub sensing | `BasePubSubPullSensor` |
-| `operators/` | Custom operators | `TriggerDataflowOperator` |
+| `operators/` | Custom operators | `BatchDataflowOperator`, `StreamingDataflowOperator` |
 | `factories/` | DAG generation | `DAGFactory` |
 | `callbacks/` | Error handlers | `on_failure_callback`, `publish_to_dlq` |
 | `routing/` | Pipeline routing | `PipelineRouter` |

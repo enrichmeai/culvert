@@ -8,8 +8,8 @@ The library is GENERIC - no system-specific configuration.
 Each pipeline defines its own entity dependencies.
 
 Usage:
-    # In pipeline DAG (e.g., blueprint/components/em/dags/em_daily_load.py)
-    from gcp_pipeline_builder.orchestration import EntityDependencyChecker
+    # In pipeline DAG (e.g., deployments/em-orchestration/dags/em_fdp_transform_dag.py)
+    from gcp_pipeline_orchestration import EntityDependencyChecker
 
     # Pipeline defines its configuration
     checker = EntityDependencyChecker(

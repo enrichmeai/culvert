@@ -141,12 +141,14 @@ PII masking is configurable per schema. Define which fields to mask in the entit
 from gcp_pipeline_core.schema import EntitySchema, SchemaField
 
 CustomerSchema = EntitySchema(
-    name="customers",
+    entity_name="customers",
+    system_id="EM",
     fields=[
         SchemaField(name="customer_id", field_type="STRING", required=True),
-        SchemaField(name="ssn", field_type="STRING", pii=True, pii_type="SSN"),
-        SchemaField(name="dob", field_type="DATE", pii=True, pii_type="DOB"),
-    ]
+        SchemaField(name="ssn", field_type="STRING", is_pii=True),
+        SchemaField(name="dob", field_type="DATE", is_pii=True),
+    ],
+    primary_key=["customer_id"]
 )
 ```
 

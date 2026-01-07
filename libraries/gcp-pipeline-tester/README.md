@@ -602,7 +602,7 @@ gcp-pipeline-tester/
 
 ## Related Libraries
 
-- **[gcp-pipeline-core and gcp-pipeline-beam](../gcp-pipeline-core and gcp-pipeline-beam/README.md)**: Core pipeline building library
+- **[gcp-pipeline-core](../../libraries/gcp-pipeline-core/README.md)** and **[gcp-pipeline-beam](../../libraries/gcp-pipeline-beam/README.md)**: Core pipeline building libraries
 
 ---
 

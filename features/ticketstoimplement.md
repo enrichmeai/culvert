@@ -16,7 +16,7 @@ This document tracks the planned features and enhancements for the `gcp-pipeline
 Create a reusable `MaskPIIDoFn` Beam transform that automatically masks fields marked with `is_pii=True` in the schema before writing to BigQuery.
 
 **Technical Implementation Details:**
-- **Target File:** `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/pipelines/beam/transforms.py`.
+- **Target File:** `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/pipelines/beam/transforms.py`.
 - **Logic:** The `DoFn` will inspect the `EntitySchema`, identify fields with `is_pii=True`, and apply a masking strategy (e.g., hash or constant string) to those values in the record dictionary.
 - **Integration:** Should be optionally insertable into the `BasePipeline` before the BigQuery write step.
 - **Config:** Masking character and strategy should be configurable via pipeline options.

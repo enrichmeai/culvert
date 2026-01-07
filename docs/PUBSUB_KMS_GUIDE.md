@@ -20,12 +20,12 @@ The library provides an enhanced Pub/Sub sensor for event-driven pipeline trigge
 - **Dead Letter Queue (DLQ)**: Automatic capture of failed messages for investigation.
 
 ## Core Component
-- `BasePubSubPullSensor`: Located in `libraries/gcp-pipeline-orchestration/src/gcp_pipeline_builder/orchestration/sensors/pubsub.py`.
+- `BasePubSubPullSensor`: Located in `libraries/gcp-pipeline-orchestration/src/gcp_pipeline_core/orchestration/sensors/pubsub.py`.
 
 ## Usage Example (Airflow DAG)
 
 ```python
-from gcp_pipeline_builder.orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
 
 # In your Airflow DAG
 wait_for_file = BasePubSubPullSensor(
@@ -399,7 +399,7 @@ gsutil rm "gs://${BUCKET}/${TEST_FILE}"
 
 - [Terraform: security.tf](../../em/infrastructure/terraform/security.tf)
 - [Sensor: pubsub.py](../../em/src/orchestration/airflow/sensors/pubsub.py)
-- [PubSub Client](../../../gcp_pipeline_builder/core/clients/pubsub_client.py)
+- [PubSub Client](../../../gcp_pipeline_core/core/clients/pubsub_client.py)
 - [Google Cloud Pub/Sub Docs](https://cloud.google.com/pubsub/docs)
 - [Google Cloud KMS Docs](https://cloud.google.com/kms/docs)
 

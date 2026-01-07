@@ -120,7 +120,7 @@ def publish_to_dlq(
         return None
 
     try:
-        from gcp_pipeline_builder.clients.pubsub_client import PubSubClient
+        from gcp_pipeline_core.clients.pubsub_client import PubSubClient
 
         project_id = _get_project_id(context, cfg)
         if not project_id:

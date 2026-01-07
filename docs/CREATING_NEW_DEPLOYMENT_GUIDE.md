@@ -67,5 +67,5 @@ Ensure all units use the `gcp-pipeline-core` library for consistent auditing. Th
 
 ## 📚 Reference Implementations
 
-- **[LOA System Example](../deployments/loa/README.md)**: Split pattern (1 source → 2 targets).
-- **[EM System Example](../deployments/em/README.md)**: Join pattern (3 sources → 1 target).
+- **[LOA Orchestration Example](../deployments/loa-orchestration/README.md)**: Split pattern (1 source → 2 targets).
+- **[EM Orchestration Example](../deployments/em-orchestration/README.md)**: Join pattern (3 sources → 1 target).
