@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcp-pipeline-core"
+version = "1.0.0"
+description = "Core library for GCP data pipelines"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "google-cloud-storage",
+    "google-cloud-bigquery",
+    "google-cloud-pubsub",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "pydantic>=2.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
