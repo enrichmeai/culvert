@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcp-pipeline-beam"
+version = "1.0.0"
+description = "Beam ingestion library for GCP data pipelines"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "apache-beam[gcp]",
+    "gcp-pipeline-core",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
