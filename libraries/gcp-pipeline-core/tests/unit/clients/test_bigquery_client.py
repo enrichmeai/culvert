@@ -1,6 +1,6 @@
 """Unit tests for BigQueryClient.
 
-Tests mirror source: gcp_pipeline_builder/core/clients/bigquery_client.py
+Tests mirror source: gcp_pipeline_core/core/clients/bigquery_client.py
 Uses late imports to avoid module caching issues.
 """
 

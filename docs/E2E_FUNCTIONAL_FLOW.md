@@ -41,8 +41,9 @@ This document provides the complete end-to-end functional requirements for the l
 ### Why the 3-Unit Deployment model?
 By decoupling **Ingestion**, **Transformation**, and **Orchestration** into independent units, the framework simplifies the end-to-end lifecycle:
 - **Simpler Development**: Each unit has its own source code, dependencies, and unit tests.
-- **Simpler Deployment**: Units can be deployed independently, reducing the blast radius of changes.
+- **Simpler Deployment**: Units can be deployed independently, reducing the blast radius of changes. Ingestion (Beam) and Orchestration (Airflow) can scale and fail without affecting each other.
 - **Simpler Testing**: End-to-end flows can be validated unit-by-unit. For example, Ingestion can be tested with sample files without requiring an Airflow environment.
+- **Micro-Orchestration**: Within the Orchestration unit, logic is further split into **separate, focused DAGs** (Trigger, Load, Transform). This prevents a "monolithic DAG" where a transformation failure could accidentally re-trigger a costly ingestion job.
 
 ### High-Level E2E Flow
 
@@ -1691,7 +1692,7 @@ LOA_ENTITY_DEPENDENCIES = {
 }
 
 # Usage in DAG (pipeline code, not library)
-from gcp_pipeline_builder.orchestration import EntityDependencyChecker
+from gcp_pipeline_orchestration import EntityDependencyChecker
 
 checker = EntityDependencyChecker(
     project_id="my-project",
@@ -2505,11 +2506,12 @@ gs://error-bucket/                      # Error files (quarantine)
 | Phase | Description | Status |
 |-------|-------------|--------|
 | 1 | Requirements Gathering | ✅ COMPLETE |
-| 2 | File Ingestion & Validation | 🏗️ IN PROGRESS |
-| 3 | Beam Pipeline Processing (ODP Load) | 🏗️ IN PROGRESS |
-| 4 | dbt Transformations (FDP) | 🏗️ IN PROGRESS |
-| 5 | Reconciliation & Audit | 🏗️ IN PROGRESS |
-| 6 | Monitoring & Alerting | ✅ COMPLETE |
+| 2 | Library & Deployment Restructuring | ✅ COMPLETE |
+| 3 | File Ingestion & Validation | 🏗️ IN PROGRESS |
+| 4 | Beam Pipeline Processing (ODP Load) | 🏗️ IN PROGRESS |
+| 5 | dbt Transformations (FDP) | 🏗️ IN PROGRESS |
+| 6 | Reconciliation & Audit | 🏗️ IN PROGRESS |
+| 7 | Monitoring & Alerting | ✅ COMPLETE |
 
 ---
 

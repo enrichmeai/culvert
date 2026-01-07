@@ -24,7 +24,7 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.models import Variable
 
-# Import from gcp_pipeline_builder library
+# Import from gcp_pipeline_core library
 from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
 from gcp_pipeline_beam.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
@@ -128,7 +128,7 @@ with DAG(
 
     def validate_file(**context) -> str:
         """
-        Validate the data file using HDRTRLParser from gcp_pipeline_builder.
+        Validate the data file using HDRTRLParser from gcp_pipeline_core.
 
         Returns branch task ID:
         - 'trigger_odp_load' if valid

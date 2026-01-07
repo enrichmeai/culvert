@@ -1,10 +1,10 @@
 """
 Unit tests for GCSClient.
 
-Tests mirror source: gcp_pipeline_builder/core/clients/gcs_client.py
+Tests mirror source: gcp_pipeline_core/core/clients/gcs_client.py
 
 Run tests in isolation to avoid module caching issues:
-    pytest gcp_pipeline_builder/tests/unit/core/clients/test_gcs_client.py -v
+    pytest gcp_pipeline_core/tests/unit/core/clients/test_gcs_client.py -v
 """
 
 import pytest

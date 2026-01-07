@@ -189,7 +189,7 @@ cp deployments/loa/src/loa/schema/*.py deployments/loa-ingestion/src/loa_ingesti
 Update imports:
 ```python
 # FROM:
-from gcp_pipeline_builder.schema import EntitySchema, SchemaField
+from gcp_pipeline_core.schema import EntitySchema, SchemaField
 
 # TO:
 from gcp_pipeline_core.schema import EntitySchema, SchemaField

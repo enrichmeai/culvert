@@ -25,7 +25,7 @@ from airflow.operators.dummy import DummyOperator
 from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexTemplateOperator
 from airflow.models import Variable
 
-# Import from gcp_pipeline_builder library
+# Import from gcp_pipeline_core library
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 from gcp_pipeline_core.audit import AuditTrail
 

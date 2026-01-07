@@ -1,7 +1,7 @@
 """
 Tests for Beam I/O Module
 
-Unit tests for gcp_pipeline_builder.pipelines.beam.io package.
+Unit tests for gcp_pipeline_beam.pipelines.beam.io package.
 """
 
 import pytest

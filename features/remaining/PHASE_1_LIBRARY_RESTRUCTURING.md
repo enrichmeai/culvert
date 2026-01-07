@@ -183,15 +183,15 @@ where = ["src"]
 
 | Source Path | Destination Path |
 |-------------|------------------|
-| `gcp_pipeline_builder/audit/` | `gcp_pipeline_core/audit/` |
-| `gcp_pipeline_builder/clients/` | `gcp_pipeline_core/clients/` |
-| `gcp_pipeline_builder/data_deletion/` | `gcp_pipeline_core/data_deletion/` |
-| `gcp_pipeline_builder/data_quality/` | `gcp_pipeline_core/data_quality/` |
-| `gcp_pipeline_builder/error_handling/` | `gcp_pipeline_core/error_handling/` |
-| `gcp_pipeline_builder/job_control/` | `gcp_pipeline_core/job_control/` |
-| `gcp_pipeline_builder/monitoring/` | `gcp_pipeline_core/monitoring/` |
-| `gcp_pipeline_builder/utilities/` | `gcp_pipeline_core/utilities/` |
-| `gcp_pipeline_builder/schema.py` | `gcp_pipeline_core/schema.py` |
+| `gcp_pipeline_core/audit/` | `gcp_pipeline_core/audit/` |
+| `gcp_pipeline_core/clients/` | `gcp_pipeline_core/clients/` |
+| `gcp_pipeline_core/data_deletion/` | `gcp_pipeline_core/data_deletion/` |
+| `gcp_pipeline_core/data_quality/` | `gcp_pipeline_core/data_quality/` |
+| `gcp_pipeline_core/error_handling/` | `gcp_pipeline_core/error_handling/` |
+| `gcp_pipeline_core/job_control/` | `gcp_pipeline_core/job_control/` |
+| `gcp_pipeline_core/monitoring/` | `gcp_pipeline_core/monitoring/` |
+| `gcp_pipeline_core/utilities/` | `gcp_pipeline_core/utilities/` |
+| `gcp_pipeline_core/schema.py` | `gcp_pipeline_core/schema.py` |
 
 ### 3.2 Commands to Execute
 
@@ -199,15 +199,15 @@ where = ["src"]
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
 # Copy core modules
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/clients libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_deletion libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_quality libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/error_handling libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/job_control libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/monitoring libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/utilities libraries/gcp-pipeline-core/src/gcp_pipeline_core/
-cp libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/schema.py libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/audit libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/clients libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/data_deletion libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/data_quality libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/error_handling libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/job_control libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/monitoring libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/utilities libraries/gcp-pipeline-core/src/gcp_pipeline_core/
+cp libraries/gcp-pipeline-builder/src/gcp_pipeline_core/schema.py libraries/gcp-pipeline-core/src/gcp_pipeline_core/
 
 # Copy corresponding tests
 cp -r libraries/gcp-pipeline-builder/tests/unit/audit libraries/gcp-pipeline-core/tests/unit/
@@ -255,7 +255,7 @@ from .job_control import JobControlRepository, JobStatus, PipelineJob
 
 Search and replace in all files under `gcp-pipeline-core/src/`:
 ```
-FROM: from gcp_pipeline_builder.
+FROM: from gcp_pipeline_core.
 TO:   from gcp_pipeline_core.
 ```
 
@@ -267,9 +267,9 @@ TO:   from gcp_pipeline_core.
 
 | Source Path | Destination Path |
 |-------------|------------------|
-| `gcp_pipeline_builder/pipelines/` | `gcp_pipeline_beam/pipelines/` |
-| `gcp_pipeline_builder/file_management/` | `gcp_pipeline_beam/file_management/` |
-| `gcp_pipeline_builder/validators/` | `gcp_pipeline_beam/validators/` |
+| `gcp_pipeline_core/pipelines/` | `gcp_pipeline_beam/pipelines/` |
+| `gcp_pipeline_core/file_management/` | `gcp_pipeline_beam/file_management/` |
+| `gcp_pipeline_core/validators/` | `gcp_pipeline_beam/validators/` |
 
 ### 4.2 Commands to Execute
 
@@ -277,9 +277,9 @@ TO:   from gcp_pipeline_core.
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
 # Copy beam modules
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/pipelines libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/file_management libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/validators libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/pipelines libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/file_management libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/validators libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/
 
 # Copy corresponding tests
 cp -r libraries/gcp-pipeline-builder/tests/unit/pipelines libraries/gcp-pipeline-beam/tests/unit/
@@ -314,25 +314,25 @@ from .validators import SchemaValidator
 
 Search and replace in all files:
 ```
-FROM: from gcp_pipeline_builder.audit
+FROM: from gcp_pipeline_core.audit
 TO:   from gcp_pipeline_core.audit
 
-FROM: from gcp_pipeline_builder.monitoring
+FROM: from gcp_pipeline_core.monitoring
 TO:   from gcp_pipeline_core.monitoring
 
-FROM: from gcp_pipeline_builder.error_handling
+FROM: from gcp_pipeline_core.error_handling
 TO:   from gcp_pipeline_core.error_handling
 
-FROM: from gcp_pipeline_builder.utilities
+FROM: from gcp_pipeline_core.utilities
 TO:   from gcp_pipeline_core.utilities
 
-FROM: from gcp_pipeline_builder.pipelines
+FROM: from gcp_pipeline_beam.pipelines
 TO:   from gcp_pipeline_beam.pipelines
 
-FROM: from gcp_pipeline_builder.file_management
+FROM: from gcp_pipeline_beam.file_management
 TO:   from gcp_pipeline_beam.file_management
 
-FROM: from gcp_pipeline_builder.validators
+FROM: from gcp_pipeline_beam.validators
 TO:   from gcp_pipeline_beam.validators
 ```
 
@@ -344,7 +344,7 @@ TO:   from gcp_pipeline_beam.validators
 
 | Source Path | Destination Path |
 |-------------|------------------|
-| `gcp_pipeline_builder/orchestration/` | `gcp_pipeline_orchestration/` |
+| `gcp_pipeline_core/orchestration/` | `gcp_pipeline_orchestration/` |
 
 ### 5.2 Commands to Execute
 
@@ -352,7 +352,7 @@ TO:   from gcp_pipeline_beam.validators
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
 # Copy orchestration modules (flatten the structure)
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/orchestration/* libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/orchestration/* libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/
 
 # Copy corresponding tests
 cp -r libraries/gcp-pipeline-builder/tests/unit/orchestration/* libraries/gcp-pipeline-orchestration/tests/unit/
@@ -402,7 +402,7 @@ grep -r "import apache_beam\|from apache_beam" libraries/gcp-pipeline-orchestrat
 
 | Source Path | Destination Path |
 |-------------|------------------|
-| `gcp_pipeline_builder/transformations/` | `gcp_pipeline_transform/` |
+| `gcp_pipeline_core/transformations/` | `gcp_pipeline_transform/` |
 
 ### 6.2 Commands to Execute
 
@@ -410,7 +410,7 @@ grep -r "import apache_beam\|from apache_beam" libraries/gcp-pipeline-orchestrat
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
 # Copy dbt shared macros
-cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/transformations/* libraries/gcp-pipeline-transform/src/gcp_pipeline_transform/
+cp -r libraries/gcp-pipeline-builder/src/gcp_pipeline_core/transformations/* libraries/gcp-pipeline-transform/src/gcp_pipeline_transform/
 ```
 
 ### 6.3 Create gcp_pipeline_transform/__init__.py

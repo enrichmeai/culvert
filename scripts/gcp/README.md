@@ -62,6 +62,36 @@ gh auth login
 
 ---
 
+## Validating the 3-Unit Deployment
+The deployment scripts provide a way to verify the independence of each unit:
+
+### 1. Ingestion Testing (Unit 1)
+You can test the Dataflow ingestion without Airflow:
+```bash
+./scripts/gcp/06_test_pipeline.sh em
+# Then manually check BigQuery ODP tables
+bq query 'SELECT count(*) FROM odp_em.customers'
+```
+This proves the Ingestion unit is self-contained.
+
+### 2. Transformation Testing (Unit 2)
+You can test dbt transformations without running the full ingestion:
+```bash
+cd deployments/em-transformation/dbt
+dbt run --select fdp_em.em_attributes
+```
+This proves the Transformation unit is independent.
+
+### 3. Orchestration Testing (Unit 3)
+The `06_test_pipeline.sh` script simulates the entry point by uploading an `.ok` file and publishing a Pub/Sub message. You can then monitor the Airflow UI to see the sequence of **separate DAGs** being triggered:
+1. `loa_pubsub_trigger_dag` detects the file.
+2. `loa_odp_load_dag` starts the Dataflow job.
+3. `loa_fdp_transform_dag` starts the dbt run.
+
+This proves the **Micro-Orchestration** pattern where failure in one step doesn't force a full re-run of the entire pipeline.
+
+---
+
 ## What Gets Created
 
 ### GCP Services Enabled

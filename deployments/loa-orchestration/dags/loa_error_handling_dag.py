@@ -31,7 +31,7 @@ from airflow.utils.task_group import TaskGroup
 from airflow.utils.trigger_rule import TriggerRule
 from airflow.models import Variable
 
-# Import from gcp_pipeline_builder library
+# Import from gcp_pipeline_core library
 from gcp_pipeline_core.error_handling import (
     ErrorHandler,
     ErrorClassifier,
@@ -90,7 +90,7 @@ def check_for_errors(**context) -> str:
     """
     Check for new errors in error tables.
 
-    Uses ErrorClassifier from gcp_pipeline_builder library.
+    Uses ErrorClassifier from gcp_pipeline_core library.
     """
     from google.cloud import bigquery
 

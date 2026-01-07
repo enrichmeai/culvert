@@ -14,11 +14,11 @@ This document tracks the features and enhancements in the `gcp-pipeline-builder`
 Automated, schema-driven validation that eliminates boilerplate validation code in pipelines. The schema now defines requirements like `required`, `allowed_values`, and `max_length`.
 
 **Technical Implementation Details:**
-- **Validation Engine:** `SchemaValidator` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/validators/schema_validator.py`.
+- **Validation Engine:** `SchemaValidator` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/validators/schema_validator.py`.
     - `_validate_field` for individual field logic and `_check_type` for BigQuery-compatible type validation.
     - `custom_validators` support via a dictionary mapping field names to callables.
-- **Beam Integration:** `SchemaValidateRecordDoFn` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/pipelines/beam/transforms/validators.py`.
-- **Metadata Support:** `EntitySchema` and `SchemaField` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/schema.py`.
+- **Beam Integration:** `SchemaValidateRecordDoFn` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/pipelines/beam/transforms/validators.py`.
+- **Metadata Support:** `EntitySchema` and `SchemaField` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/schema.py`.
 - **Logic:** Parallel record validation. Invalid records routed to a side-output (tagged `invalid`) for persistence in BigQuery error tables.
 
 **Verification:**
@@ -35,7 +35,7 @@ Automated, schema-driven validation that eliminates boilerplate validation code 
 `ReconciliationEngine` to automatically compare trailer record counts with BigQuery row counts, ensuring zero data loss during ingestion.
 
 **Technical Implementation Details:**
-- **Engine Logic:** in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/audit/reconciliation.py`.
+- **Engine Logic:** in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/audit/reconciliation.py`.
 - **Query Integration:** Uses `BigQueryClient` to perform count queries on ODP tables.
 - **Result Model:** `ReconciliationResult` tracks `expected_count` (from TRL), `actual_count` (from BQ), and `drift`.
 - **Automated Trigger:** Integrated into the final stage of `BasePipeline` in the ingestion unit.
@@ -54,10 +54,10 @@ Automated, schema-driven validation that eliminates boilerplate validation code 
 PII masking is configured per-field using the `is_pii=True` flag on `SchemaField`. This ensures sensitive data is never logged in plaintext.
 
 **Technical Implementation Details:**
-- **Schema Metadata:** Updated `SchemaField` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/schema.py`.
+- **Schema Metadata:** Updated `SchemaField` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/schema.py`.
 - **Masking Logic:** `_mask_pii()` utility in `SchemaValidator`.
 - **Pattern:** Fields like `ssn` or `dob` are partially masked (e.g., `***-**-6789`) when validation errors occur, preventing PII leak in logs.
-- **dbt Support:** Complemented by dbt macros in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/transformations/dbt_shared/macros/pii_masking.sql` for masking in FDP tables.
+- **dbt Support:** Complemented by dbt macros in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/transformations/dbt_shared/macros/pii_masking.sql` for masking in FDP tables.
 
 **Verification:**
 - **Log Audit:** that logs in `test_schema_validator.py` show masked values for PII-flagged fields.
@@ -73,7 +73,7 @@ PII masking is configured per-field using the `is_pii=True` flag on `SchemaField
 Standardized JSON logging for Cloud Logging compatibility across all library modules and deployment units.
 
 **Technical Implementation Details:**
-- **Formatter:** `StructuredJsonFormatter` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/utilities/logging.py`.
+- **Formatter:** `StructuredJsonFormatter` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/utilities/logging.py`.
 - **Context Injection:** Automatically injects `run_id`, `system_id`, and `entity_type` into every log record.
 - **Log Levels:** Standardized mapping of Python logging levels to Cloud Logging severity.
 - **Usage:** Configured via `configure_structured_logging()` at the entry point of Beam pipelines and Airflow DAGs.
@@ -92,7 +92,7 @@ Standardized JSON logging for Cloud Logging compatibility across all library mod
 Collection of business-level KPIs (records processed, validation success rates, throughput) for every migration run.
 
 **Technical Implementation Details:**
-- **Core Model:** `MigrationMetrics` class in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/monitoring/metrics.py`.
+- **Core Model:** `MigrationMetrics` class in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/monitoring/metrics.py`.
 - **Collection:** Beam pipelines update metrics in real-time using side-outputs and aggregators.
 - **Persistence:** Metrics are flushed to the `pipeline_jobs` control table at the end of each run.
 - **KPIs tracked:** `records_read`, `records_validated`, `records_failed`, `records_written`, `execution_time_ms`.
@@ -111,7 +111,7 @@ Collection of business-level KPIs (records processed, validation success rates, 
 Standardized unique identifier generation for pipeline correlation and audit trail linkage.
 
 **Technical Implementation Details:**
-- **Generator:** `generate_run_id()` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/utilities/run_id.py`.
+- **Generator:** `generate_run_id()` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/utilities/run_id.py`.
 - **Format:** `{SYSTEM_ID}-{YYYYMMDD}-{UUID}`.
 - **Propagation:** The `run_id` is passed as a pipeline option and environment variable to all downstream tasks (Beam, dbt).
 
@@ -129,7 +129,7 @@ Complete removal of legacy `gdw_data_core` references and standardization of the
 
 **Technical Implementation Details:**
 - **Refactor:** Global search and replace of `gdw_data_core` to `gcp-pipeline-builder` in all documentation and configuration files.
-- **Python Package:** Renamed internal package references to `gcp_pipeline_builder`.
+- **Python Package:** Renamed internal package references to `gcp_pipeline_core`.
 - **Infrastructure:** Updated Terraform module names and variable prefixes to match the new naming convention.
 - **Deployment Alignment:** Updated EM and LOA reference implementations to consume the renamed library.
 
@@ -168,7 +168,7 @@ Comprehensive "How-To" for scaling the framework to new migration streams, reduc
 Implementation of distributed tracing and metrics export via OpenTelemetry (OTEL) with native Dynatrace OTLP support.
 
 **Technical Implementation Details:**
-- **Package:** `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/monitoring/otel/`.
+- **Package:** `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/monitoring/otel/`.
 - **Configuration:** `OTELConfig` dataclass with factory methods for Dynatrace, GCP Trace, OTLP, and Console exporters.
 - **Provider:** `OTELProvider` for singleton lifecycle management of OTEL SDK tracer and meter providers.
 - **Context Management:** `OTELContext` provides pipeline-level tracing with automatic attribute injection (run_id, system_id, entity_type).
@@ -224,9 +224,9 @@ Resilient error classification, persistence, and automated retry logic for robus
 Framework for detecting data anomalies and performing statistical quality checks during the ingestion process.
 
 **Technical Implementation Details:**
-- **Anomalies:** in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_quality/anomaly.py`.
+- **Anomalies:** in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/data_quality/anomaly.py`.
 - **Logic:** Uses Z-score and interquartile range (IQR) to detect numeric outliers in real-time.
-- **Scoring:** `ScoreCalculator` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_quality/scoring.py`.
+- **Scoring:** `ScoreCalculator` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/data_quality/scoring.py`.
     - Calculates `overall_score` (0.0 to 1.0) and assigns a letter grade (A-F).
     - Provides `dimension_scores` (Accuracy, Completeness, etc.) based on `QualityCheckResult`.
 - **Reporting:** Generates a `DQReport` persisted as a GCS artifact for every run.
@@ -246,7 +246,7 @@ Decoupled pipeline routing from code using a dynamic YAML-based configuration en
 
 **Technical Implementation Details:**
 - **Config File:** `deployments/em/src/em/orchestration/airflow/dags/routing_config.yaml`.
-- **Parser:** `RoutingEngine` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/orchestration/routing/engine.py`.
+- **Parser:** `RoutingEngine` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/orchestration/routing/engine.py`.
 - **Logic:** Maps incoming GCS file patterns to specific target datasets, tables, and Dataflow templates.
 - **Dynamic DAGs:** Airflow DAGs use this engine to determine their behavior at runtime without code changes.
 
@@ -263,7 +263,7 @@ Decoupled pipeline routing from code using a dynamic YAML-based configuration en
 Standardized framework for managing data quarantine, deletion, and automated recovery for failed file loads.
 
 **Technical Implementation Details:**
-- **Quarantine:** `QuarantineManager` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/data_deletion/quarantine.py` moves failed files to a secured GCS bucket.
+- **Quarantine:** `QuarantineManager` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/data_deletion/quarantine.py` moves failed files to a secured GCS bucket.
 - **Recovery:** `RecoveryEngine` provides a CLI and API to "replay" files from quarantine after manual fix or code update.
 - **Audit Columns:** Added `_is_deleted` and `_deleted_at` audit columns support for soft-deletes in FDP tables.
 
@@ -283,7 +283,7 @@ Standardized framework for managing data quarantine, deletion, and automated rec
 Implementation of a complex multi-entity pipeline that demonstrates the **JOIN** migration pattern, where three source entities must be synchronized before transformation.
 
 **Technical implementation:**
-- **Entity Dependencies:** Uses `EntityDependencyChecker` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_builder/orchestration/dependency.py` to wait for all 3 entities (Customers, Accounts, Decision).
+- **Entity Dependencies:** Uses `EntityDependencyChecker` in `libraries/gcp-pipeline-builder/src/gcp_pipeline_core/orchestration/dependency.py` to wait for all 3 entities (Customers, Accounts, Decision).
 - **dbt Models:** Implements joining logic in `deployments/em/src/em/transformations/dbt/models/fdp/em_attributes.sql`.
 - **Validation:** Custom `EMValidator` extending the library base classes.
 
@@ -330,7 +330,8 @@ Implementation of a pipeline demonstrating the **SPLIT** pattern, where a single
 | TICKET-114 | Deletion & Recovery | 5 | ✅ DONE |
 | TICKET-201 | EM Reference Implementation | 8 | ✅ DONE |
 | TICKET-202 | LOA Reference Implementation | 5 | ✅ DONE |
-| **TOTAL COMPLETED** | | **74 SP** | |
+| ARCH-001 | Library & Deployment Restructuring | 39 | ✅ DONE |
+| **TOTAL COMPLETED** | | **113 SP** | |
 
 ---
 
@@ -341,29 +342,31 @@ Implementation of a pipeline demonstrating the **SPLIT** pattern, where a single
 | ARCH-001 | Library & Deployment Restructuring | 39 | 📋 PLANNED |
 
 ### ARCH-001: Library & Deployment Restructuring
-**Status:** 📋 PLANNED - Not Yet Implemented  
-**Story Points:** 39  
-**Priority:** Medium (Post-MVP)  
-**Document:** `features/remaining/07_arch_library_restructuring.md`
-
+**Status:** ✅ DONE (January 7, 2026)
+**Story Points:** 39
+**Priority:** High
 **Description:**
-Split the monolithic `gcp-pipeline-builder` library into 4 independent packages to:
-- Remove `apache-beam` dependency from Airflow environments
-- Enable independent deployment of ingestion, transformation, and orchestration
-- Reduce build times and simplify dependency management
+Split the monolithic `gcp-pipeline-builder` library into 4 independent packages (`core`, `beam`, `orchestration`, `transform`) and restructured deployments into 3-unit models.
 
-**Target Libraries:**
-| Library | Purpose | Dependencies |
-|---------|---------|--------------|
-| `gcp-pipeline-core` | Foundation (audit, monitoring) | pydantic, pubsub |
-| `gcp-pipeline-beam` | Ingestion (pipelines, transforms) | apache-beam, core |
-| `gcp-pipeline-orchestration` | Control (sensors, operators) | apache-airflow, core |
-| `gcp-pipeline-transform` | SQL (dbt macros) | dbt-bigquery |
+**Technical Implementation Details:**
+- **Modular Libraries:**
+    - `gcp-pipeline-core`: Foundation (audit, monitoring, job control). Zero Beam/Airflow deps.
+    - `gcp-pipeline-beam`: Ingestion engine. Depends on Core and Apache Beam.
+    - `gcp-pipeline-orchestration`: Control plane. Depends on Core and Apache Airflow.
+    - `gcp-pipeline-transform`: SQL layer. Shared dbt macros.
+- **3-Unit Deployment Model:**
+    - Split EM and LOA into `*-ingestion`, `*-transformation`, and `*-orchestration`.
+    - Each unit is independently deployable with its own `pyproject.toml` and CI/CD workflow.
+- **Micro-Orchestration:**
+    - Converted monolithic DAGs into separate, focused DAGs (Trigger, Load, Transform).
+    - Linked DAGs via `run_id` and the `job_control` table.
+- **CI/CD Alignment:**
+    - Overhauled GitHub Actions to support multi-unit deployment and library installation.
 
-**Prerequisites:**
-- All current features complete ✅
-- All tests passing (828+) ✅
-- E2E testing complete ⏳
+**Verification:**
+- **Dependency Isolation:** Verified that `orchestration` unit no longer installs `apache-beam`.
+- **Unit Tests:** All 698+ tests passing across modular libraries and deployments.
+- **Namespace cleanup:** Replaced all legacy `gcp_pipeline_builder` references.
 
 ---
 

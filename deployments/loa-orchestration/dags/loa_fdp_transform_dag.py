@@ -25,7 +25,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.dummy import DummyOperator
 from airflow.models import Variable
 
-# Import from gcp_pipeline_builder library
+# Import from gcp_pipeline_core library
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
 from gcp_pipeline_core.audit import AuditTrail
 
