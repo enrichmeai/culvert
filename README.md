@@ -241,6 +241,7 @@ cd ../em-ingestion && \
 | [E2E Testing](./docs/E2E_TESTING_GUIDE.md) | End-to-end testing |
 | [Docker Compose](./docs/DOCKER_COMPOSE_GUIDE.md) | Local development with Docker |
 | [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add new system migration |
+| [Production Release](./docs/PRODUCTION_RELEASE_GUIDE.md) | Senior dev handover and release guide |
 
 ---
 
