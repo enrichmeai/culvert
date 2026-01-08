@@ -111,6 +111,23 @@ gcp-pipeline-trans  dbt                     beam, airflow
 
 ---
 
+## CI/CD - Harness Pipelines
+
+Each library contains its own standalone `harness-ci.yaml` for independent CI/CD. Additionally, a root pipeline is provided at the libraries level to orchestrate all library builds and apply a unified version tag.
+
+### Unified Tagging Strategy
+When changes are made across multiple libraries, the **Root Pipeline** can be used to apply a unified Git tag (e.g., `libs-1.0.x`) to the entire repository. This ensures that a specific state of the monorepo is captured as a single release point, even though libraries can still be built and deployed individually.
+
+- **Root Pipeline**: [harness-root.yaml](harness-root.yaml)
+- **Individual Pipelines**:
+  - [gcp-pipeline-core/harness-ci.yaml](gcp-pipeline-core/harness-ci.yaml)
+  - [gcp-pipeline-beam/harness-ci.yaml](gcp-pipeline-beam/harness-ci.yaml)
+  - [gcp-pipeline-orchestration/harness-ci.yaml](gcp-pipeline-orchestration/harness-ci.yaml)
+  - [gcp-pipeline-transform/harness-ci.yaml](gcp-pipeline-transform/harness-ci.yaml)
+  - [gcp-pipeline-tester/harness-ci.yaml](gcp-pipeline-tester/harness-ci.yaml)
+
+---
+
 ## Run Tests
 
 ```bash
