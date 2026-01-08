@@ -28,6 +28,28 @@ Create a reusable `MaskPIIDoFn` Beam transform that automatically masks fields m
 
 ---
 
+### TICKET-115: Split File Handling in gcp-pipeline-beam
+**Status:** 🔲 TODO
+**Story Points:** 8
+**Priority:** High
+**Description:**
+Implement the `SplitFileHandler` and associated logic in `gcp-pipeline-beam` to support processing of large files (>25MB) that have been split by the mainframe.
+
+**Technical Implementation Details:**
+- **Target File:** `libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/file_management/split_handler.py`.
+- **Logic:**
+  - Create a utility to discover all split files (`entity_*.csv`) in a GCS prefix when a `.ok` signal file arrives.
+  - Implement logic to reassemble or process these splits in a single Beam job.
+  - Ensure each split's HDR/TRL is validated.
+- **Integration:** The `BasePipeline` should be updated to accept a list of files discovered by the `SplitFileHandler`.
+
+**Success Criteria:**
+- **Discovery:** Correctly identifies all splits for a given entity.
+- **Validation:** Fails if any individual split has an invalid HDR/TRL or if record counts don't match.
+- **Atomic:** Processes all splits as a single unit of work with a shared `_run_id`.
+
+---
+
 ### TICKET-301: White Paper - Schema-First Migration Framework
 **Status:** 🔲 TODO
 **Story Points:** 8
@@ -406,6 +428,7 @@ Create a simple linear Airflow DAG for LOA to orchestrate Ingestion and Transfor
 | TICKET-201 | EM Pipeline Refactor | 8 | ✅ DONE |
 | TICKET-202 | LOA Pipeline Refactor | 5 | ✅ DONE |
 | TICKET-110 | Automated Masking Transform | 5 | 🔲 TODO |
+| TICKET-115 | Split File Handling (Beam) | 8 | 🔲 TODO |
 | TICKET-301 | White Paper | 8 | 🔲 TODO |
 | TICKET-401 | EM Infrastructure Consolidation | 5 | 🔲 TODO |
 | TICKET-402 | LOA Infrastructure Consolidation | 5 | 🔲 TODO |
