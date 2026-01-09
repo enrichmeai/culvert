@@ -15,6 +15,7 @@ dependencies = [
     "opentelemetry-api",
     "opentelemetry-sdk",
     "pydantic>=2.0.0",
+    "pandas",
 ]
 
 [tool.setuptools.packages.find]

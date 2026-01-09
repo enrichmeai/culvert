@@ -31,6 +31,28 @@ The **3-Unit Deployment Model** reduces cloud costs:
 
 ---
 
+### Local Development Setup
+
+To set up a local development environment for a specific deployment, use the provided helper script. This will create a dedicated virtual environment for the deployment and install the required libraries from the local monorepo in **editable mode**.
+
+```bash
+# Example: Setup venv for loa-ingestion
+./scripts/setup_deployment_venv.sh loa-ingestion
+
+# Activate the venv
+source deployments/loa-ingestion/venv/bin/activate
+```
+
+This approach ensures that changes made to libraries in the `libraries/` directory are immediately reflected in your local deployment environment.
+
+### CI/CD Workflow
+
+In CI/CD environments (e.g., Harness), deployments install libraries from an **Artifact Repository** (like Google Artifact Registry or Nexus) using standard `pip install`. 
+
+The libraries are built and published independently by the [Libraries Root Pipeline](./libraries/harness-root.yaml).
+
+---
+
 ## Architecture
 
 ### 4-Library Model

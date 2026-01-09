@@ -4,7 +4,11 @@ import json
 import pytest
 
 def test_pii_macros_compilation():
-    project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    # Detect if we are running from project root or library root
+    if os.path.exists("libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    else:
+        project_dir = "tests/unit/dbt_test_project"
 
     # Run dbt compile
     result = subprocess.run(
@@ -50,7 +54,11 @@ def test_pii_macros_compilation():
     assert "LAST_NAME" in compiled_sql
 
 def test_audit_macros_compilation():
-    project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    # Detect if we are running from project root or library root
+    if os.path.exists("libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    else:
+        project_dir = "tests/unit/dbt_test_project"
     
     # Run dbt compile
     subprocess.run(
@@ -58,21 +66,25 @@ def test_audit_macros_compilation():
         capture_output=True,
         text=True
     )
-    
+
     # Check compiled SQL for test_audit_output
     compiled_path = os.path.join(project_dir, "target/compiled/transform_unit_tests/models/test_audit_output.sql")
     assert os.path.exists(compiled_path), "Compiled SQL file for audit not found"
-    
+
     with open(compiled_path, 'r') as f:
         compiled_sql = f.read().upper()
-        
+
     # Verify audit columns (, 'test_run_123' as run_id, current_timestamp() as processed_timestamp, 'test_file.csv' as source_file)
     assert "'TEST_RUN_123' AS RUN_ID" in compiled_sql
     assert "CURRENT_TIMESTAMP() AS PROCESSED_TIMESTAMP" in compiled_sql
     assert "'TEST_FILE.CSV' AS SOURCE_FILE" in compiled_sql
 
 def test_dq_macros_compilation():
-    project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    # Detect if we are running from project root or library root
+    if os.path.exists("libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    else:
+        project_dir = "tests/unit/dbt_test_project"
     
     # Run dbt compile
     subprocess.run(
@@ -80,14 +92,14 @@ def test_dq_macros_compilation():
         capture_output=True,
         text=True
     )
-    
+
     # Check compiled SQL for test_dq_output
     compiled_path = os.path.join(project_dir, "target/compiled/transform_unit_tests/models/test_dq_output.sql")
     assert os.path.exists(compiled_path), "Compiled SQL file for DQ not found"
-    
+
     with open(compiled_path, 'r') as f:
         compiled_sql = f.read().upper()
-        
+
     # Verify DQ macro logic in SQL
     assert "WHERE SSN IS NULL" in compiled_sql
     assert "SELECT COUNT(DISTINCT SSN)" in compiled_sql

@@ -111,25 +111,25 @@ output "analytics_service_account_email" {
 # CLOUD RUN OUTPUTS
 # ============================================================================
 
-output "validation_api_url" {
-  value       = try(google_cloud_run_service.validation_api.status[0].url, "")
-  description = "URL of the Validation API"
-}
+# output "validation_api_url" {
+#   value       = try(google_cloud_run_service.validation_api.status[0].url, "")
+#   description = "URL of the Validation API"
+# }
 
-output "validation_api_service_name" {
-  value       = google_cloud_run_service.validation_api.name
-  description = "Name of the Validation API service"
-}
+# output "validation_api_service_name" {
+#   value       = google_cloud_run_service.validation_api.name
+#   description = "Name of the Validation API service"
+# }
 
-output "data_quality_api_url" {
-  value       = try(google_cloud_run_service.data_quality_api.status[0].url, "")
-  description = "URL of the Data Quality API"
-}
+# output "data_quality_api_url" {
+#   value       = try(google_cloud_run_service.data_quality_api.status[0].url, "")
+#   description = "URL of the Data Quality API"
+# }
 
-output "data_quality_api_service_name" {
-  value       = google_cloud_run_service.data_quality_api.name
-  description = "Name of the Data Quality API service"
-}
+# output "data_quality_api_service_name" {
+#   value       = google_cloud_run_service.data_quality_api.name
+#   description = "Name of the Data Quality API service"
+# }
 
 # ============================================================================
 # DATAFLOW OUTPUTS
@@ -200,10 +200,10 @@ output "resource_prefix" {
 output "deployment_summary" {
   value = {
     gcs_buckets = {
-      input       = google_storage_bucket.input.name
-      archive     = google_storage_bucket.archive.name
-      error       = google_storage_bucket.error.name
-      quarantine  = google_storage_bucket.quarantine.name
+      input      = google_storage_bucket.input.name
+      archive    = google_storage_bucket.archive.name
+      error      = google_storage_bucket.error.name
+      quarantine = google_storage_bucket.quarantine.name
     }
     bigquery_datasets = {
       raw     = google_bigquery_dataset.raw.dataset_id
@@ -211,8 +211,8 @@ output "deployment_summary" {
       marts   = google_bigquery_dataset.marts.dataset_id
     }
     cloud_run_services = {
-      validation_api   = try(google_cloud_run_service.validation_api.status[0].url, "")
-      data_quality_api = try(google_cloud_run_service.data_quality_api.status[0].url, "")
+      validation_api   = "not-deployed"
+      data_quality_api = "not-deployed"
     }
     service_accounts = {
       dataflow  = google_service_account.dataflow.email

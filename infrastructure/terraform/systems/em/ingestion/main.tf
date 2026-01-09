@@ -114,7 +114,7 @@ resource "google_storage_bucket" "archive" {
   uniform_bucket_level_access = true
 
   versioning {
-    enabled = true  # Always version archives
+    enabled = true # Always version archives
   }
 
   # Move to coldline after 1 year
