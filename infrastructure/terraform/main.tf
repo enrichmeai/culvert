@@ -29,12 +29,12 @@ terraform {
 
 provider "google" {
   project = var.gcp_project_id
-  region  = "europe-west2"  # London, UK
+  region  = "europe-west2" # London, UK
 }
 
 provider "google-beta" {
   project = var.gcp_project_id
-  region  = "europe-west2"  # London, UK
+  region  = "europe-west2" # London, UK
 }
 
 # ============================================================================
@@ -78,7 +78,7 @@ resource "google_storage_bucket" "input" {
       age = 90
     }
     action {
-      type = "SetStorageClass"
+      type          = "SetStorageClass"
       storage_class = "COLDLINE"
     }
   }
@@ -95,7 +95,7 @@ resource "google_storage_bucket" "archive" {
   uniform_bucket_level_access = true
 
   versioning {
-    enabled = true  # Always version archives
+    enabled = true # Always version archives
   }
 
   lifecycle_rule {
@@ -103,17 +103,17 @@ resource "google_storage_bucket" "archive" {
       age = 365
     }
     action {
-      type = "SetStorageClass"
+      type          = "SetStorageClass"
       storage_class = "COLDLINE"
     }
   }
 
   lifecycle_rule {
     condition {
-      age = 1825  # 5 years
+      age = 1825 # 5 years
     }
     action {
-      type = "SetStorageClass"
+      type          = "SetStorageClass"
       storage_class = "ARCHIVE"
     }
   }
@@ -363,10 +363,10 @@ resource "google_compute_router_nat" "main" {
 
 # Log bucket for LOA pipeline logs
 resource "google_logging_project_bucket_config" "loa_logs" {
-  project            = var.gcp_project_id
-  location           = var.gcp_region
-  bucket_id          = "loa-pipeline-logs"
-  retention_days     = var.log_retention_days
-  enable_analytics   = true
+  project          = var.gcp_project_id
+  location         = var.gcp_region
+  bucket_id        = "loa-pipeline-logs"
+  retention_days   = var.log_retention_days
+  enable_analytics = true
 }
 

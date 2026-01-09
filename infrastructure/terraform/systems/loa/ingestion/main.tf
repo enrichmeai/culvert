@@ -1,4 +1,4 @@
- # LOA (Application B Application) - Terraform Main Configuration
+# LOA (Application B Application) - Terraform Main Configuration
 #
 # Provisions complete GCP infrastructure for LOA pipeline:
 # - GCS buckets (landing, archive, error)

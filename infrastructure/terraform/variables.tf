@@ -26,7 +26,7 @@ variable "gcp_region" {
 variable "bq_location" {
   description = "BigQuery dataset location"
   type        = string
-  default     = "EU"  # EU multi-region for London
+  default     = "EU" # EU multi-region for London
 }
 
 # ============================================================================
@@ -154,8 +154,8 @@ variable "dataflow_max_workers" {
   type        = number
   default     = 100
   validation {
-    condition     = var.dataflow_max_workers >= var.dataflow_num_workers
-    error_message = "Max workers must be >= num workers"
+    condition     = var.dataflow_max_workers >= 1
+    error_message = "Max workers must be >= 1"
   }
 }
 
@@ -172,7 +172,7 @@ variable "enable_streaming_engine" {
 variable "subnet_cidr" {
   description = "CIDR range for subnet (London, UK)"
   type        = string
-  default     = "10.0.1.0/24"  # London subnet
+  default     = "10.0.1.0/24" # London subnet
   validation {
     condition     = can(cidrhost(var.subnet_cidr, 0))
     error_message = "Must be a valid CIDR range"

@@ -1,3 +1,12 @@
+locals {
+  common_labels = {
+    project     = "gcp-pipeline-builder"
+    system      = "em"
+    environment = var.environment
+    managed_by  = "terraform"
+  }
+}
+
 resource "google_bigquery_dataset" "odp_em" {
   dataset_id    = "odp_em"
   friendly_name = "ODP EM - Original Data Product"

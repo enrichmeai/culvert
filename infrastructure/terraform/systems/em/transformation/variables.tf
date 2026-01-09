@@ -16,13 +16,13 @@ variable "gcp_project_id" {
 variable "gcp_region" {
   description = "GCP region for resources"
   type        = string
-  default     = "europe-west2"  # London, UK
+  default     = "europe-west2" # London, UK
 }
 
 variable "bq_location" {
   description = "BigQuery dataset location"
   type        = string
-  default     = "EU"  # EU multi-region
+  default     = "EU" # EU multi-region
 }
 
 # ============================================================================
