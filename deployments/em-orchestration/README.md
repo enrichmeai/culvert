@@ -88,8 +88,7 @@ Key steps for this JOIN pattern:
 | DAG | Purpose |
 |-----|---------|
 | `em_pubsub_trigger_dag.py` | Triggered by Pub/Sub on .ok file arrival |
-| `em_odp_load_dag.py` | Runs Dataflow for ODP load (per entity) |
-| `em_dependency_check_dag.py` | Checks if all 3 entities are ready |
+| `em_odp_load_dag.py` | Runs Dataflow for ODP load and checks entity dependencies |
 | `em_fdp_transform_dag.py` | Runs dbt for FDP transformation |
 | `em_error_handling_dag.py` | Error handling and DLQ |
 

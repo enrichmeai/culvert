@@ -2,7 +2,7 @@
 Dimension-specific quality checkers.
 """
 
-from typing import List, Dict, Callable
+from typing import List, Dict, Callable, Any
 from datetime import datetime, timedelta
 
 from .types import QualityDimension, QualityCheckResult
@@ -12,9 +12,16 @@ class CompletenessChecker:
     """Check if all required fields are present and non-null."""
 
     @staticmethod
-    def check(records: List[Dict], required_fields: List[str]) -> QualityCheckResult:
+    def check(records: List[Dict[str, Any]], required_fields: List[str]) -> QualityCheckResult:
         """
         Check if all required fields are present and non-null.
+
+        Args:
+            records: List of record dictionaries to check
+            required_fields: List of fields that must be present
+
+        Returns:
+            QualityCheckResult containing completeness metrics
         """
         total_records = len(records)
         failed_records = 0
@@ -49,10 +56,17 @@ class ValidityChecker:
     """Check if field values meet expected formats/rules."""
 
     @staticmethod
-    def check(records: List[Dict],
+    def check(records: List[Dict[str, Any]],
              validation_rules: Dict[str, Callable]) -> QualityCheckResult:
         """
         Check if field values meet expected formats/rules.
+
+        Args:
+            records: List of record dictionaries to check
+            validation_rules: Dictionary mapping field names to validation functions
+
+        Returns:
+            QualityCheckResult containing validity metrics
         """
         total_records = len(records)
         failed_records = 0
@@ -95,6 +109,13 @@ class AccuracyChecker:
     def check_footer_count(processed_count: int, footer_count: int) -> QualityCheckResult:
         """
         Check if the number of processed records matches the count in the file footer.
+
+        Args:
+            processed_count: Actual number of records processed
+            footer_count: Number of records expected from footer
+
+        Returns:
+            QualityCheckResult containing accuracy metrics
         """
         passed = (processed_count == footer_count)
         score = 1.0 if passed else 0.0
@@ -115,9 +136,16 @@ class UniquenessChecker:
     """Check for duplicate records based on unique key."""
 
     @staticmethod
-    def check(records: List[Dict], unique_key: str) -> QualityCheckResult:
+    def check(records: List[Dict[str, Any]], unique_key: str) -> QualityCheckResult:
         """
         Check for duplicate records based on unique key.
+
+        Args:
+            records: List of record dictionaries to check
+            unique_key: Field name to use as unique identifier
+
+        Returns:
+            QualityCheckResult containing uniqueness metrics
         """
         total_records = len(records)
         seen_keys = set()
@@ -151,10 +179,18 @@ class TimelinessChecker:
     """Check if data is current (not too old)."""
 
     @staticmethod
-    def check(records: List[Dict], date_field: str,
+    def check(records: List[Dict[str, Any]], date_field: str,
              max_age_days: int = 30) -> QualityCheckResult:
         """
         Check if data is current (not too old).
+
+        Args:
+            records: List of record dictionaries to check
+            date_field: Field name containing the date to check
+            max_age_days: Maximum allowed age in days
+
+        Returns:
+            QualityCheckResult containing timeliness metrics
         """
         total_records = len(records)
         stale_records = 0

@@ -22,6 +22,13 @@ class MetricsCollector:
     """
 
     def __init__(self, pipeline_name: str, run_id: str):
+        """
+        Initialize metrics collector.
+
+        Args:
+            pipeline_name: Name of the pipeline
+            run_id: Unique identifier for the pipeline run
+        """
         self.pipeline_name = pipeline_name
         self.run_id = run_id
         self.start_time = datetime.utcnow()
@@ -35,36 +42,80 @@ class MetricsCollector:
         # Metric history for export
         self.metric_history: List[MetricValue] = []
 
-    def increment(self, metric_name: str, value: int = 1, labels: Optional[Dict[str, str]] = None):
-        """Increment a counter metric"""
+    def increment(self, metric_name: str, value: int = 1, labels: Optional[Dict[str, str]] = None) -> None:
+        """
+        Increment a counter metric.
+
+        Args:
+            metric_name: Name of the metric
+            value: Amount to increment by
+            labels: Optional labels for the metric
+        """
         self.counters[metric_name] += value
         self._record_metric(metric_name, float(self.counters[metric_name]), labels)
 
-    def set_gauge(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
-        """Set a gauge metric"""
+    def set_gauge(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None) -> None:
+        """
+        Set a gauge metric.
+
+        Args:
+            metric_name: Name of the metric
+            value: Value to set
+            labels: Optional labels for the metric
+        """
         self.gauges[metric_name] = value
         self._record_metric(metric_name, value, labels)
 
-    def record_histogram(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None):
-        """Record a histogram value (distribution)"""
+    def record_histogram(self, metric_name: str, value: float, labels: Optional[Dict[str, str]] = None) -> None:
+        """
+        Record a histogram value (distribution).
+
+        Args:
+            metric_name: Name of the metric
+            value: Value to record
+            labels: Optional labels for the metric
+        """
         self.histograms[metric_name].append(value)
         self._record_metric(metric_name, value, labels)
 
-    def record_timer(self, metric_name: str, duration_seconds: float, labels: Optional[Dict[str, str]] = None):
-        """Record a timer measurement"""
+    def record_timer(self, metric_name: str, duration_seconds: float, labels: Optional[Dict[str, str]] = None) -> None:
+        """
+        Record a timer measurement.
+
+        Args:
+            metric_name: Name of the metric
+            duration_seconds: Duration in seconds
+            labels: Optional labels for the metric
+        """
         self.timers[metric_name].append(duration_seconds)
         self._record_metric(metric_name, duration_seconds, labels)
 
     def start_timer(self) -> 'TimerContext':
-        """Create a timer context for automatic duration measurement"""
+        """
+        Create a timer context for automatic duration measurement.
+
+        Returns:
+            TimerContext to be used in a 'with' statement
+        """
         return TimerContext(self)
 
-    def record_step_duration(self, step_name: str, duration_seconds: float):
-        """Record duration of a pipeline step"""
+    def record_step_duration(self, step_name: str, duration_seconds: float) -> None:
+        """
+        Record duration of a pipeline step.
+
+        Args:
+            step_name: Name of the pipeline step
+            duration_seconds: Duration in seconds
+        """
         self.record_timer(f"step_duration_{step_name}", duration_seconds)
 
     def get_statistics(self) -> Dict[str, Any]:
-        """Get summary statistics of all metrics"""
+        """
+        Get summary statistics of all metrics.
+
+        Returns:
+            Dictionary containing summary statistics
+        """
         current_time = datetime.utcnow()
         stats = {
             'pipeline_name': self.pipeline_name,
@@ -91,7 +142,15 @@ class MetricsCollector:
         return stats
 
     def _calculate_stats(self, values: List[float]) -> Dict[str, float]:
-        """Calculate statistics for a list of values"""
+        """
+        Calculate statistics for a list of values.
+
+        Args:
+            values: List of numerical values
+
+        Returns:
+            Dictionary containing count, min, max, avg, and total
+        """
         total = sum(values)
         return {
             'count': len(values),
@@ -101,8 +160,15 @@ class MetricsCollector:
             'total': total
         }
 
-    def _record_metric(self, name: str, value: float, labels: Optional[Dict[str, str]] = None):
-        """Internal method to record metric"""
+    def _record_metric(self, name: str, value: float, labels: Optional[Dict[str, str]] = None) -> None:
+        """
+        Internal method to record metric.
+
+        Args:
+            name: Name of the metric
+            value: Numerical value
+            labels: Optional labels
+        """
         metric = MetricValue(
             name=name,
             value=value,
@@ -116,17 +182,39 @@ class TimerContext:
     Context manager for timing operations and recording to a MetricsCollector.
     """
     def __init__(self, collector: MetricsCollector, metric_name: str = "duration"):
+        """
+        Initialize timer context.
+
+        Args:
+            collector: MetricsCollector to record duration to
+            metric_name: Name of the metric to record
+        """
         self.collector = collector
         self.metric_name = metric_name
-        self.start_time = None
+        self.start_time: Optional[float] = None
 
-    def __enter__(self):
+    def __enter__(self) -> 'TimerContext':
+        """
+        Start the timer.
+
+        Returns:
+            TimerContext instance
+        """
         self.start_time = time.time()
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        duration = time.time() - self.start_time
-        self.collector.record_timer(self.metric_name, duration)
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        """
+        Stop the timer and record duration.
+
+        Args:
+            exc_type: Exception type if an exception occurred
+            exc_val: Exception value if an exception occurred
+            exc_tb: Exception traceback if an exception occurred
+        """
+        if self.start_time is not None:
+            duration = time.time() - self.start_time
+            self.collector.record_timer(self.metric_name, duration)
 
 
 class MigrationMetrics:
@@ -204,55 +292,111 @@ class MigrationMetrics:
             self._labels['entity_type'] = entity_type
 
     def _get_labels(self, extra_labels: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-        """Get labels with optional extras."""
+        """
+        Get labels with optional extras.
+
+        Args:
+            extra_labels: Optional additional labels
+
+        Returns:
+            Dictionary of merged labels
+        """
         labels = self._labels.copy()
         if extra_labels:
             labels.update(extra_labels)
         return labels
 
     # Record counting methods
-    def record_read(self, count: int = 1):
-        """Record records read from source."""
+    def record_read(self, count: int = 1) -> None:
+        """
+        Record records read from source.
+
+        Args:
+            count: Number of records read
+        """
         self._collector.increment(self.RECORDS_READ, count, self._get_labels())
 
-    def record_parsed(self, count: int = 1):
-        """Record records successfully parsed."""
+    def record_parsed(self, count: int = 1) -> None:
+        """
+        Record records successfully parsed.
+
+        Args:
+            count: Number of records parsed
+        """
         self._collector.increment(self.RECORDS_PARSED, count, self._get_labels())
 
-    def record_validated(self, count: int = 1):
-        """Record records that passed validation."""
+    def record_validated(self, count: int = 1) -> None:
+        """
+        Record records that passed validation.
+
+        Args:
+            count: Number of records validated
+        """
         self._collector.increment(self.RECORDS_VALIDATED, count, self._get_labels())
 
-    def record_failed(self, count: int = 1, error_type: Optional[str] = None):
-        """Record records that failed validation."""
+    def record_failed(self, count: int = 1, error_type: Optional[str] = None) -> None:
+        """
+        Record records that failed validation.
+
+        Args:
+            count: Number of records failed
+            error_type: Optional type of error
+        """
         labels = self._get_labels()
         if error_type:
             labels['error_type'] = error_type
         self._collector.increment(self.RECORDS_FAILED, count, labels)
 
-    def record_written(self, count: int = 1):
-        """Record records written to destination."""
+    def record_written(self, count: int = 1) -> None:
+        """
+        Record records written to destination.
+
+        Args:
+            count: Number of records written
+        """
         self._collector.increment(self.RECORDS_WRITTEN, count, self._get_labels())
 
-    def record_skipped(self, count: int = 1, reason: Optional[str] = None):
-        """Record records skipped."""
+    def record_skipped(self, count: int = 1, reason: Optional[str] = None) -> None:
+        """
+        Record records skipped.
+
+        Args:
+            count: Number of records skipped
+            reason: Optional reason for skipping
+        """
         labels = self._get_labels()
         if reason:
             labels['skip_reason'] = reason
         self._collector.increment(self.RECORDS_SKIPPED, count, labels)
 
-    def record_validation_error(self, error_type: str, count: int = 1):
-        """Record validation error by type."""
+    def record_validation_error(self, error_type: str, count: int = 1) -> None:
+        """
+        Record a specific validation error.
+
+        Args:
+            error_type: Type of validation error
+            count: Number of occurrences
+        """
         labels = self._get_labels({'error_type': error_type})
         self._collector.increment(self.VALIDATION_ERRORS, count, labels)
 
-    def record_parse_error(self, count: int = 1):
-        """Record parse error."""
+    def record_parse_error(self, count: int = 1) -> None:
+        """
+        Record a parse error.
+
+        Args:
+            count: Number of occurrences
+        """
         self._collector.increment(self.PARSE_ERRORS, count, self._get_labels())
 
     # Timing methods
-    def record_processing_time(self, duration_ms: float):
-        """Record processing duration in milliseconds."""
+    def record_processing_time(self, duration_ms: float) -> None:
+        """
+        Record processing duration in milliseconds.
+
+        Args:
+            duration_ms: Duration in milliseconds
+        """
         self._collector.record_histogram(
             self.PROCESSING_DURATION_MS,
             duration_ms,
@@ -260,7 +404,15 @@ class MigrationMetrics:
         )
 
     def start_timer(self, metric_name: str = "operation") -> TimerContext:
-        """Start a timer for an operation."""
+        """
+        Start a timer for an operation.
+
+        Args:
+            metric_name: Name of the operation to time
+
+        Returns:
+            TimerContext to be used in a 'with' statement
+        """
         return TimerContext(self._collector, f"{metric_name}_duration")
 
     # Summary methods
