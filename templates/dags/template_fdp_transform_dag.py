@@ -69,7 +69,8 @@ def verify_entities(**context) -> str:
 
 def update_job_status(status: str, **context):
     """Update job control status."""
-    run_id = context.get("run_id", "unknown")
+    # Try to get run_id from XCom or dag_run conf
+    run_id = context["ti"].xcom_pull(key="run_id") or context.get("dag_run").conf.get("run_id", "unknown")
     repo = JobControlRepository(project_id=PROJECT_ID)
     
     if status == "success":
@@ -103,7 +104,7 @@ with DAG(
         task_id='run_dbt_fdp',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt run --select fdp.{SYSTEM_ID_LOWER}_models --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
+            dbt run --select fdp.{SYSTEM_ID_LOWER} --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
         ''',
     )
 

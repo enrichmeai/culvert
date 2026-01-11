@@ -18,12 +18,12 @@ import json
 from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.providers.google.cloud.operators.gcs import GCSDeleteObjectsOperator
+from airflow.operators.dummy import DummyOperator
 from airflow.models import Variable
 
 # Import from custom libraries
-from gcp_pipeline_orchestration import BasePubSubPullSensor
-from gcp_pipeline_beam import HDRTRLParser
+from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_beam.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 
 logger = logging.getLogger(__name__)
@@ -34,10 +34,10 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_ID = "<SYSTEM_ID>"  # e.g., "EM", "LOA"
 SYSTEM_ID_LOWER = SYSTEM_ID.lower()
+ENTITIES = ["entity1", "entity2"] # List of supported entities
 
 PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
-TOPIC_NAME = f"projects/{PROJECT_ID}/topics/{SYSTEM_ID_LOWER}-file-arrivals"
-SUBSCRIPTION_NAME = f"projects/{PROJECT_ID}/subscriptions/{SYSTEM_ID_LOWER}-dag-trigger"
+PUBSUB_SUBSCRIPTION = f"{SYSTEM_ID_LOWER}-file-notifications-sub"
 
 LANDING_BUCKET = f"{PROJECT_ID}-{SYSTEM_ID_LOWER}-landing"
 ERROR_BUCKET = f"{PROJECT_ID}-{SYSTEM_ID_LOWER}-error"
@@ -56,79 +56,105 @@ default_args = {
     'start_date': datetime(2026, 1, 1),
 }
 
-def parse_pubsub_message(**context):
-    """Parse GCS event message from PubSub."""
-    messages = context.get("ti").xcom_pull(task_ids='pull_messages')
-    if not messages:
-        logger.info("No messages received")
-        return None
-
-    # Process the first message (assuming batch size 1)
-    msg = messages[0]
-    payload = json.loads(msg.get("data", "{}"))
+def parse_file_metadata(**context):
+    """
+    Refine metadata extracted by the BasePubSubPullSensor.
+    The sensor puts standardized metadata into XCom key 'file_metadata'.
+    """
+    raw_metadata = context["ti"].xcom_pull(key="file_metadata", task_ids="wait_for_file_notification")
     
-    bucket = payload.get("bucket")
-    name = payload.get("name")
-    
-    if not bucket or not name:
-        logger.error(f"Invalid message payload: {payload}")
-        return "invalid_message"
+    if not raw_metadata:
+        logger.warning("No metadata received from sensor")
+        return "skip_processing"
 
-    # Example naming: <SYSTEM_ID>_<ENTITY>_<YYYYMMDD>.csv
-    filename = os.path.basename(name)
-    parts = filename.split('_')
-    
-    if len(parts) < 3:
-        logger.error(f"Filename does not match expected pattern: {filename}")
-        return "invalid_filename"
+    file_name = raw_metadata.get("object_id", "")
+    bucket = raw_metadata.get("bucket", "")
 
-    entity = parts[1].lower()
-    extract_date = parts[2].split('.')[0]
+    # Check if this is a .ok trigger file
+    if not file_name.endswith(".ok"):
+        return "skip_processing"
 
-    file_metadata = {
-        "bucket": bucket,
-        "name": name,
+    # Detect entity from filename
+    entity = None
+    for e in ENTITIES:
+        if e in file_name.lower():
+            entity = e
+            break
+
+    # Extract date from filename (assumes YYYYMMDD pattern)
+    import re
+    date_match = re.search(r'(\d{8})', file_name)
+    extract_date = date_match.group(1) if date_match else datetime.now().strftime("%Y%m%d")
+
+    result = {
+        "ok_file": raw_metadata.get("gcs_path"),
+        "data_file": raw_metadata.get("gcs_path").replace(".ok", ".csv"),
         "entity": entity,
         "extract_date": extract_date,
-        "data_file": f"gs://{bucket}/{name}"
+        "bucket": bucket,
+        "system_id": SYSTEM_ID
     }
     
-    context["ti"].xcom_push(key="file_metadata", value=file_metadata)
+    context["ti"].xcom_push(key="refined_metadata", value=result)
     return "validate_file"
 
-def validate_file(**context):
-    """Validate header/trailer and basic structure."""
-    file_metadata = context["ti"].xcom_pull(key="file_metadata")
-    gcs_uri = file_metadata["data_file"]
+def validate_file(**context) -> str:
+    """Validate header/trailer using HDRTRLParser."""
+    from google.cloud import storage
     
-    parser = HDRTRLParser(gcs_uri)
-    if parser.is_valid():
-        logger.info(f"File {gcs_uri} is valid")
+    metadata = context["ti"].xcom_pull(key="refined_metadata")
+    data_file = metadata["data_file"]
+    bucket_name = metadata["bucket"]
+    
+    try:
+        client = storage.Client()
+        bucket = client.bucket(bucket_name)
+        blob_path = data_file.replace(f"gs://{bucket_name}/", "")
+        blob = bucket.blob(blob_path)
+
+        if not blob.exists():
+            logger.error(f"Data file not found: {data_file}")
+            return "move_to_error"
+
+        content = blob.download_as_text()
+        lines = content.strip().split("\n")
+
+        # Use library parser
+        parser = HDRTRLParser()
+        parsed = parser.parse_file_lines(lines)
+
+        # Validate system ID match
+        if parsed.header.system_id != SYSTEM_ID:
+            logger.error(f"System ID mismatch: expected {SYSTEM_ID}, got {parsed.header.system_id}")
+            return "move_to_error"
+
         return "trigger_odp_load"
-    else:
-        logger.error(f"File {gcs_uri} failed validation: {parser.errors}")
+    except Exception as e:
+        logger.error(f"Validation failed: {e}")
         return "move_to_error"
 
 with DAG(
     dag_id=f"{SYSTEM_ID_LOWER}_pubsub_trigger_dag",
     default_args=default_args,
     description=f'Trigger ODP load for {SYSTEM_ID} on file arrival',
-    schedule_interval=timedelta(minutes=1),
+    schedule_interval=None, # Triggered by Pub/Sub
     catchup=False,
     tags=[SYSTEM_ID_LOWER, 'trigger', 'pubsub'],
 ) as dag:
 
-    pull_messages = BasePubSubPullSensor(
-        task_id='pull_messages',
+    wait_for_file = BasePubSubPullSensor(
+        task_id="wait_for_file_notification",
         project_id=PROJECT_ID,
-        subscription=SUBSCRIPTION_NAME,
+        subscription=PUBSUB_SUBSCRIPTION,
         max_messages=1,
-        ack_messages=True,
+        filter_extension=".ok",
+        metadata_xcom_key="file_metadata",
+        poke_interval=30,
     )
 
-    parse_msg = BranchPythonOperator(
-        task_id='parse_message',
-        python_callable=parse_pubsub_message,
+    parse_meta = BranchPythonOperator(
+        task_id='parse_metadata',
+        python_callable=parse_file_metadata,
     )
 
     validate = BranchPythonOperator(
@@ -139,14 +165,22 @@ with DAG(
     trigger_load = TriggerDagRunOperator(
         task_id='trigger_odp_load',
         trigger_dag_id=f'{SYSTEM_ID_LOWER}_odp_load_dag',
-        conf={'file_metadata': "{{ ti.xcom_pull(key='file_metadata') }}"},
+        conf={'file_metadata': "{{ ti.xcom_pull(key='refined_metadata') }}"},
     )
 
     move_error = PythonOperator(
         task_id='move_to_error',
-        python_callable=lambda: logger.info("Moving file to error bucket..."), # Simplified for template
+        python_callable=lambda: logger.info("Moving file to error bucket..."), 
     )
 
-    pull_messages >> parse_msg
-    parse_msg >> [validate]
+    skip = DummyOperator(task_id='skip_processing')
+
+    end = DummyOperator(
+        task_id='end',
+        trigger_rule='none_failed_min_one_success',
+    )
+
+    wait_for_file >> parse_meta
+    parse_meta >> [validate, skip]
     validate >> [trigger_load, move_error]
+    [trigger_load, move_error, skip] >> end

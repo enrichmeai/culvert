@@ -1,4 +1,4 @@
- w# gcp-pipeline-core
+# gcp-pipeline-core
 
 Foundation library - audit, monitoring, error handling, job control.
 
@@ -82,6 +82,38 @@ Pipeline Start
                   │ & Complete  │
                   └─────────────┘
 ```
+
+---
+
+## Key Findings
+
+### 1. Audit Trail & Lineage
+- **AuditTrail**: Implements robust tracking of `run_id` across all pipeline stages.
+- **DuplicateDetector**: Provides idempotency by tracking seen records and preventing double-processing.
+- **Publisher**: Supports automated publishing of audit records to BigQuery for centralized monitoring.
+
+### 2. Sophisticated Error Handling
+- **ErrorClassifier**: Categorizes exceptions into:
+    - **Validation**: Data errors (no retry).
+    - **Integration**: Connection/API errors (retry with backoff).
+    - **Resource**: Quota/Rate limit errors (exponential backoff).
+- **RetryPolicy**: Configurable backoff multipliers, jitter, and maximum retry attempts.
+
+### 3. Job Control
+- **JobControlRepository**: Centralized state management for pipeline executions.
+- **State Tracking**: Granular tracking of failure stages, start/end times, and record counts.
+
+### 4. Structured Logging
+- Standardized JSON logging with automated context injection (`run_id`, `system_id`).
+- Optimized for Cloud Logging and BigQuery ingestion.
+
+---
+
+## Governance & Compliance
+
+- **Zero-Bleed Policy**: This library **MUST NOT** import `apache_beam` or `airflow`.
+- **Portability**: Must remain compatible with any Python environment (Cloud Functions, Cloud Run, local scripts, etc.).
+- **Testing**: All new features require unit tests in `tests/unit/`.
 
 ---
 

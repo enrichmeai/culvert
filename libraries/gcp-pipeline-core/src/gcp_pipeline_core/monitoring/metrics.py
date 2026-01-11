@@ -180,7 +180,7 @@ class MigrationMetrics:
 
         Args:
             run_id: Pipeline run identifier
-            system_id: System identifier (EM, LOA)
+            system_id: System identifier (e.g., EM, LOA)
             entity_type: Entity being processed (customers, accounts, etc.)
             pipeline_name: Optional pipeline name
         """

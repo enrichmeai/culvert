@@ -19,9 +19,11 @@ class SchemaField:
     max_length: Optional[int] = None
     allowed_values: Optional[List[str]] = None
     is_pii: bool = False
+    pii_type: Optional[str] = None  # e.g., SSN, EMAIL, FULL, PARTIAL
     is_primary_key: bool = False
     is_foreign_key: bool = False
     foreign_key_ref: Optional[str] = None  # e.g., "customers.customer_id"
+    enrichment_rules: Optional[List[Dict[str, Any]]] = None  # Enrichment configuration
 
 
 @dataclass

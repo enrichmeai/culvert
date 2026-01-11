@@ -16,7 +16,7 @@ class PipelineJob:
 
     Attributes:
         run_id: Unique identifier for this pipeline run
-        system_id: Source system identifier (EM, LOA)
+        system_id: Source system identifier (e.g., EM, LOA)
         entity_type: Type of entity being processed (Customer, Account, etc.)
         extract_date: Date of the source data extract
         status: Current job status

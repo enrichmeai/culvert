@@ -210,14 +210,26 @@ class SchemaValidator:
         return None
 
     def _mask_pii(self, field_name: str, value: Any) -> str:
-        """Mask PII fields in error output."""
+        """Mask PII fields in error output based on field metadata."""
         field = self._field_map.get(field_name)
-        if field and field.is_pii and value:
-            str_val = str(value)
+        if not (field and field.is_pii and value):
+            return str(value) if value is not None else ""
+
+        str_val = str(value)
+        pii_type = (field.pii_type or "").upper()
+
+        if pii_type == 'FULL':
+            return "*" * len(str_val)
+        elif pii_type == 'REDACTED':
+            return "REDACTED"
+        elif pii_type == 'PARTIAL' or field.is_pii:
+            # Generic partial masking: show last 4 if long enough, else mask all
             if len(str_val) > 4:
-                return "***" + str_val[-4:]
-            return "***"
-        return str(value) if value is not None else ""
+                return "*" * (len(str_val) - 4) + str_val[-4:]
+            else:
+                return "****"
+        
+        return "****"
 
     def get_validation_function(self) -> Callable[[Dict[str, Any]], List[str]]:
         """

@@ -53,15 +53,78 @@
 
 ---
 
-## Libraries
+## Current Capabilities vs. Prioritized Roadmap
 
-| Library | Purpose | Tests | README |
-|---------|---------|-------|--------|
-| [gcp-pipeline-core](gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 | ✅ |
-| [gcp-pipeline-beam](gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 | ✅ |
-| [gcp-pipeline-orchestration](gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 | ✅ |
-| [gcp-pipeline-transform](gcp-pipeline-transform/) | dbt macros for audit columns | 3 | ✅ |
-| [gcp-pipeline-tester](gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - | ✅ |
+This library is designed as a **Best-in-Class Foundation** for Mainframe-to-GCP migrations, prioritizing architectural integrity and operational reliability.
+
+### 🚀 What We Have (Current Capabilities)
+
+*   **Zero-Bleed Portability**: Strict separation of concerns. `gcp-pipeline-core` has zero dependencies on Beam or Airflow, making it usable in any Python environment (Cloud Functions, Cloud Run, etc.).
+*   **Idempotency by Design**: Built-in `AuditTrail` and `DuplicateDetector` ensure that pipeline restarts do not result in duplicate data, a critical requirement for financial migrations.
+*   **Local Development Stubbing**: Innovative "Airflow-free" and "Beam-free" testing stubs allow for DAG and transform validation without a live GCP environment.
+*   **Schema-Driven Governance**: Centralized `EntitySchema` definitions drive automated validation, PII masking, and BigQuery schema generation.
+*   **Metadata-Driven Enrichment**: Reusable dbt macros that interpret enrichment rules from metadata, keeping transformation logic project-agnostic.
+
+### 🔴 Absolute Must (Production Readiness)
+
+These items are critical for achieving a production-ready state and ensuring data security and operational integrity:
+
+*   **E2E Validation**: Final verification of the `run_id` lineage across all 4 libraries and 3 deployment units.
+*   **In-flight PII Masking (`MaskPIIDoFn`)**: Implementation of the automated masking transform in `gcp-pipeline-beam` to ensure sensitive data is protected before it hits BigQuery.
+*   **BigQuery Partitioning**: Mandatory implementation of partitioning in dbt models (using `extract_date`) to prevent cost overruns and ensure query performance.
+*   **Audit & Reconciliation Hardening**: Verification of source-to-target counts via the `AuditTrail` and `JobControl` repository.
+*   **Terraform & IAM Consistency**: Ensuring service account permissions are strictly aligned across all environments.
+
+### 🔮 Future Enhancements (Modernization)
+
+To evolve from an Excellent Enterprise Framework to a State-of-the-Art GCP Architecture:
+
+*   **Dataplex Integration**: Moving from manual `is_pii` flags to **GCP Dataplex** for automated data discovery and column-level security via BigQuery Policy Tags.
+*   **GCP-Native SQL (Dataform)**: Transitioning shared macros to **Google Dataform** for a more integrated experience within the Google Cloud Console.
+*   **Modern Format Support**: Expanding `BeamPipelineBuilder` to include native `read_avro()` and `read_parquet()` support.
+*   **Operational Dashboarding**: Automated generation of Looker Studio dashboards directly from the `job_control` and `audit_trail` BigQuery tables.
+*   **Enhanced DQ Shields**: Implementing advanced data quality checks (e.g., zero-byte detection, EBCDIC artifact cleanliness).
+
+---
+
+## Library Breakdown
+
+### 1. gcp-pipeline-core (The Foundation)
+*   **Purpose**: Essential utilities for auditing, error handling, monitoring, and job control.
+*   **Key Findings**:
+    *   **Audit Trail**: Implements `AuditTrail` and `DuplicateDetector` for robust data lineage and idempotent processing.
+    *   **Error Handling**: Sophisticated `ErrorClassifier` categorizing exceptions (Validation, Integration, Resource) and mapping to `RetryPolicy` (Exponential Backoff, Manual Only).
+    *   **Job Control**: Tracks pipeline execution state in BigQuery, enabling granular status updates and failure stage tracking.
+    *   **Compliance**: Strictly adheres to the "NO beam, NO airflow" rule. This ensures the foundation remains lightweight and portable.
+
+### 2. gcp-pipeline-beam (Ingestion Layer)
+*   **Purpose**: Data ingestion and record-level processing using Apache Beam.
+*   **Key Findings**:
+    *   **HDR/TRL Parser**: Highly configurable regex-based parser for mainframe headers and trailers, supporting custom patterns.
+    *   **Schema Validation**: Robust `SchemaValidator` for record validation against `EntitySchema` using global, metadata-driven PII masking (no regional assumptions like SSN).
+    *   **Fluent API**: `BeamPipelineBuilder` for a clean, chainable interface (`read` -> `validate` -> `transform` -> `write`).
+    *   **Compliance**: Depends on `core` and `beam`; avoids `airflow` dependencies.
+
+### 3. gcp-pipeline-orchestration (Control Layer)
+*   **Purpose**: Pipeline execution and event-driven triggers using Airflow.
+*   **Key Findings**:
+    *   **Dataflow Operators**: `BaseDataflowOperator` supporting Classic and Flex templates with a local development stubbing mechanism.
+    *   **Pub/Sub Sensors**: `BasePubSubPullSensor` for event-driven orchestration via GCS notifications, extracting metadata to XCom.
+    *   **Compliance**: Depends on `core` and `airflow`; avoids `beam` dependencies.
+
+### 4. gcp-pipeline-transform (SQL/dbt Layer)
+*   **Purpose**: Shared dbt macros for post-ingestion transformations and data quality.
+*   **Key Findings**:
+    *   **Audit Macros**: `add_audit_columns()` ensures consistent lineage tracking across all models.
+    *   **PII Masking**: Metadata-driven masking engine using generic strategies (`FULL`, `PARTIAL`, `REDACTED`) to protect sensitive data without making assumptions about its format.
+    *   **Enrichment**: Metadata-driven enrichment mechanism supporting date parts, bucketing, and lookups.
+    *   **Safety**: `validate_no_pii_in_export` to prevent accidental exposure of sensitive data.
+
+### 5. gcp-pipeline-tester (Testing Utility)
+*   **Purpose**: Standardized mocks and testing infrastructure.
+*   **Key Findings**:
+    *   **Mocks**: Rich set of GCS and BigQuery mocks ensuring unit tests don't require live GCP connectivity.
+    *   **Unified CI**: Integrated with `harness-root.yaml` for a unified release strategy.
 
 ---
 
@@ -83,31 +146,121 @@ gcp-pipeline-trans  dbt                     beam, airflow
 
 ---
 
+## Governance & Recommendations
+
+To maintain the integrity of the library architecture, the following rules and recommendations must be strictly followed:
+
+### 1. Dependency Enforcement (NO Cross-Pollination)
+*   **gcp-pipeline-core** is the foundation. It **MUST NOT** contain any dependencies on Apache Beam or Apache Airflow. This ensures it remains lightweight and portable for use in any environment (Cloud Functions, local scripts, etc.).
+*   **gcp-pipeline-beam** must only depend on `core` and `beam`. No Airflow logic or operators should be present here.
+*   **gcp-pipeline-orchestration** must only depend on `core` and `airflow`. No Beam pipelines or record-level transforms should be present here.
+
+### 2. Testing Standards
+*   Every new feature in a library must be accompanied by unit tests using `gcp-pipeline-tester`.
+*   **BDD Expansion**: Complex multi-stage pipelines should include BDD-style scenarios (using the `bdd/` module in `gcp-pipeline-tester`) to validate end-to-end integration logic without live GCP resources.
+
+### 3. Strict Genericity (NO Project-Specific Logic)
+*   Libraries provide **mechanisms**, not business rules. 
+*   **NEVER** hardcode values, entity names, or logic specific to a single system (e.g., "EM" or "LOA") inside the library code.
+*   Use **Metadata-Driven** patterns: Logic should be controlled by configurations (schemas, variables, or rules) passed from the deployment layer.
+*   Example: Use a generic `apply_enrichment(rules)` macro instead of an `apply_em_enrichment()` macro.
+
+### 4. Release & Tagging Strategy
+*   Use the **Unified Tagging Strategy** via the [Root Pipeline](harness-root.yaml) for cross-library changes.
+*   Version tags (e.g., `libs-1.0.x`) must be applied to the monorepo root to ensure a consistent state is captured for production deployments.
+
+---
+
+---
+
 ## Key Features
 
-### gcp-pipeline-core
-- **Audit Trail**: Track every pipeline execution with `_run_id`
-- **Reconciliation**: Compare source counts with target counts
-- **Structured Logging**: JSON logs with context (run_id, system_id)
-- **Metrics**: Cloud Monitoring, OTEL/Dynatrace integration
-- **Error Handling**: Classification, retry, dead-letter queues
+### gcp-pipeline-core (The Foundation)
+- **Audit Trail & Lineage**: Implements `AuditTrail` and `DuplicateDetector` to track `_run_id` and ensure idempotent processing.
+- **Sophisticated Error Handling**:
+    - `ErrorClassifier`: Categorizes exceptions into **Validation** (no retry), **Integration** (retry with backoff), and **Resource** (exponential backoff).
+    - `RetryPolicy`: Configurable max retries, backoff multipliers, and jitter.
+- **Job Control**: Tracks pipeline execution states in BigQuery for granular status updates and failure stage tracking.
+- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, system_id).
+- **Compliance**: Zero dependencies on Beam or Airflow.
 
-### gcp-pipeline-beam
-- **HDR/TRL Parsing**: Validate mainframe file headers and trailers
-- **Split File Handling**: Reassemble files split at 25MB threshold
-- **Schema Validation**: Validate records against EntitySchema
-- **Beam Transforms**: ParseCsvLine, ValidateRecordDoFn, AddAuditColumns
+### gcp-pipeline-beam (Ingestion Layer)
+- **Advanced HDR/TRL Parsing**: 
+    - Regex-based parser for mainframe-style headers and trailers.
+    - Support for custom patterns, prefixes, and multi-field extraction.
+- **Fluent Pipeline API**: `BeamPipelineBuilder` provides a chainable interface (`read_csv` -> `validate` -> `transform` -> `write_to_bigquery`).
+- **Schema Validation**: Robust `SchemaValidator` for record-level validation against `EntitySchema` with in-flight PII masking capabilities.
+- **Split File Handling**: Specialized logic for reassembling files split at 25MB thresholds.
 
-### gcp-pipeline-orchestration
-- **Pub/Sub Sensor**: Event-driven detection of .ok files
-- **Entity Dependency**: Wait for all entities before transformation (EM)
-- **DAG Factory**: Generate DAGs from configuration
-- **Error Callbacks**: DLQ publishing on failure
+### gcp-pipeline-orchestration (Control Layer)
+- **Dataflow Operators**: `BaseDataflowOperator` supporting both **Classic and Flex** templates with local execution stubs.
+- **Pub/Sub Sensors**: `BasePubSubPullSensor` for event-driven detection of `.ok` files, featuring automated metadata extraction to XCom.
+- **Entity Dependency Management**: Smart sensors to wait for all dependent entities before triggering transformations.
+- **Error Callbacks**: Global failure handlers that publish to DLQs for centralized alerting.
 
-### gcp-pipeline-transform
-- **Audit Macros**: `add_audit_columns()` for every FDP table
-- **PII Masking**: `mask_ssn()`, `mask_dob()` for compliance
-- **SQL Templates**: Staging and FDP model templates
+### gcp-pipeline-transform (SQL/dbt Layer)
+- **Audit Macros**: `add_audit_columns()` for automated lineage tracking across all dbt models.
+- **Metadata-Driven PII Masking**:
+    - **Generic Strategies**: Uses `mask_full`, `mask_partial`, and `mask_redacted` to decouple masking from specific data formats.
+    - **Configurable**: Strategies are assigned via `pii_type` in `EntitySchema` (e.g., `SSN` uses a specific pattern, but `PARTIAL` can be used for any unknown ID).
+    - **Environment-Aware**: Full masking in Prod, Partial in Staging, No masking in Dev.
+- **Safety Validations**: `validate_no_pii_in_export` macro to prevent accidental leakage in final data outputs.
+- **SQL Templates**: Standardized patterns for Staging and FDP (Final Data Product) models.
+
+---
+
+## Separate Repository Migration Guide
+
+If you decide to move these libraries to separate repositories, follow these steps to maintain integrity and ensure proper integration.
+
+### 1. Repository Structure
+Each library is already self-contained with its own `pyproject.toml`, `src/` directory, and `tests/`.
+*   Initialize your new Git repository: `gcp-pipeline-libraries`.
+*   You can choose to keep them in one repo (as you have done with `gcp-pipeline-libraries`) or move them to individual repos.
+*   Move the contents of the library folders to the root or designated subdirectories of the new repository.
+
+### 2. Dependency Management
+*   Update `pyproject.toml` to include internal library dependencies via private PyPI (Artifact Registry) or direct Git URLs.
+*   Example for `gcp-pipeline-beam` in its new repo:
+    ```toml
+    dependencies = [
+        "gcp-pipeline-core @ git+https://github.com/your-org/gcp-pipeline-libraries.git#subdirectory=gcp-pipeline-core",
+        "apache-beam[gcp]>=2.50.0",
+    ]
+    ```
+
+### 3. Harness CI/CD Adjustments
+Update the following fields in each `harness-ci.yaml`:
+*   `orgIdentifier`: Update from `default` to your specific Harness Org ID.
+*   `projectIdentifier`: Update to your specific Harness Project ID.
+*   `connectorRef: github_connector`: Point to your `gcp-pipeline-libraries` repository connector.
+*   `repoName`: Set to `gcp-pipeline-libraries`.
+
+### 4. dbt Integration (for Transform Library)
+When `gcp-pipeline-transform` moves to a separate repo, update `packages.yml` in deployment projects:
+```yaml
+packages:
+  - git: "https://github.com/your-org/gcp-pipeline-transform.git"
+    revision: v1.0.0
+```
+
+---
+
+## Contribution & Future Development
+
+To contribute to this framework, please adhere to the following guidelines:
+
+### 1. Zero-Bleed Compliance
+Every PR must be audited to ensure no dependency leakage occurs between layers (e.g., ensuring no Airflow imports in Beam transforms).
+
+### 2. Generic-First Implementation
+Before adding a new validator or macro, ask: "Can this be used by any system in any region?".
+*   Avoid US-specific or UK-specific logic in the library core.
+*   Use parameters and metadata-driven patterns to handle regional variations.
+
+### 3. Testing Mandate
+*   New features must have >90% test coverage.
+*   Use `gcp-pipeline-tester` mocks to ensure tests are fast and environment-independent.
 
 ---
 

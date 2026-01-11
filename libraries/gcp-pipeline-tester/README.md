@@ -512,6 +512,32 @@ PYTHONPATH=src pytest tests/unit -v --cov=src/gcp_pipeline_tester --cov-report=h
 
 ---
 
+## Key Findings
+
+### 1. Robust Mocking Infrastructure
+- **Comprehensive Mocks**: Provides high-fidelity mock implementations for GCS, BigQuery, and Pub/Sub.
+- **Stateless Testing**: Ensures that unit tests across the entire monorepo can run in isolated CI environments without requiring live GCP credentials or connectivity.
+
+### 2. Standardized Base Classes
+- **Foundational Support**: Includes `BaseGDWTest`, `BaseBeamTest`, and `BaseValidationTest` to enforce consistent testing patterns and provide common assertions.
+
+### 3. BDD-Style Integration Testing
+- **Complex Scenarios**: Supports Behavior-Driven Development (BDD) using Gherkin-style steps.
+- **End-to-End Validation**: Facilitates testing of multi-stage pipelines (e.g., Discovery -> Ingestion -> Transformation) in a single scenario.
+
+### 4. Dual-Run Comparison
+- **Migration Verification**: Specialized utilities to compare outputs from legacy systems against GCP-processed results, ensuring parity.
+
+---
+
+## Governance & Compliance
+
+- **Unified Strategy**: Integrated with `harness-root.yaml` for a unified release and tagging strategy (`libs-1.0.x`).
+- **Standardized Mocking**: Developers MUST use `tester` mocks instead of custom `unittest.mock.Mock` objects for GCP services to ensure consistency.
+- **BDD Expansion**: Encouraged use of BDD scenarios for any new multi-stage orchestration or processing logic.
+
+---
+
 ## Project Structure
 
 ```

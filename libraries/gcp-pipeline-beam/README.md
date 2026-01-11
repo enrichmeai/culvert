@@ -172,6 +172,37 @@ Files larger than 25MB are split by mainframe. The `.ok` file signals ALL splits
 
 ---
 
+## Key Findings
+
+### 1. Advanced HDR/TRL Parsing
+- **Configurable Parser**: Highly flexible regex-based parsing for mainframe-style headers and trailers.
+- **Support**: Handles custom patterns, prefixes, and multi-field extraction for diverse source systems.
+- **Validation**: Automated record count and checksum verification against trailer values.
+
+### 2. Fluent Pipeline API
+- **BeamPipelineBuilder**: Provides a clean, chainable interface for building pipelines:
+    - `read_csv()` / `read_avro()`
+    - `validate()` (Schema-driven)
+    - `transform()` (Custom business logic)
+    - `write_to_bigquery()` / `write_to_gcs()`
+
+### 3. Schema Validation & PII Masking
+- **SchemaValidator**: Validates records against `EntitySchema` definitions from `core`.
+- **In-flight Masking**: Supports PII masking during the ingestion process, ensuring sensitive data is protected before landing in BigQuery.
+
+### 4. Split File Handling
+- Specialized logic for reassembling and processing files split at 25MB thresholds by mainframe systems.
+
+---
+
+## Governance & Compliance
+
+- **Domain Isolation**: Depends on `core` and `beam`; **MUST NOT** import `airflow`.
+- **Testing**: Every transform and pipeline component requires unit tests using `gcp-pipeline-tester`.
+- **Reuse**: Prefer using `BeamPipelineBuilder` for consistent pipeline construction.
+
+---
+
 ## Usage
 
 ```python

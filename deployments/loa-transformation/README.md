@@ -53,6 +53,28 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 ---
 
+## Library-Driven Ease of Use
+
+The LOA transformation unit showcases how the `gcp-pipeline-transform` library simplifies system-agnostic transformation:
+
+1.  **Macro Reusability**: Uses `add_audit_columns` and `mask_pii` exactly like EM, proving the library's "Zero-Bleed" and "Generic-First" implementation.
+2.  **Schema Alignment**: The staging models align with the `EntitySchema` defined in the ingestion layer, ensuring no type mismatches during the SPLIT transformation.
+3.  **Governance**: Leverages the library's `validate_no_pii_in_export` to ensure that even after splitting data into multiple FDPs, no sensitive data is leaked.
+
+---
+
+## How to Replicate this SPLIT Transformation (1-to-2)
+
+To create a new transformation unit that splits a single source, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
+
+Key steps for this SPLIT pattern:
+1.  **Macro Paths**: Register the library macros in your `dbt_project.yml`.
+2.  **Clean Staging**: Create a single staging view for your ODP source.
+3.  **FDP Partitioning**: Create multiple FDP models referencing the same staging view. Use `WHERE` clauses to split the data.
+4.  **Audit**: Ensure all FDP models use `add_audit_columns` to track their common origin.
+
+---
+
 ## Dependencies
 
 | Library | Purpose |

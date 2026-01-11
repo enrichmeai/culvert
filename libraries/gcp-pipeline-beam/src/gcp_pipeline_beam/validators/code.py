@@ -15,8 +15,9 @@ def validate_branch_code(branch_code: str) -> List[ValidationError]:
         errors.append(ValidationError("branch_code", branch_code, "Branch code is required"))
         return errors
 
-    if not re.match(r'^[A-Z]{1,2}\d{4,6}$', branch_code.upper()):
-        errors.append(ValidationError("branch_code", branch_code, "Branch code must be 6-8 alphanumeric chars (e.g., NY1234)"))
+    # Generic alphanumeric branch code validation (e.g., 4-10 characters)
+    if not re.match(r'^[A-Z0-9]{4,10}$', branch_code.upper()):
+        errors.append(ValidationError("branch_code", branch_code, "Branch code must be 4-10 alphanumeric characters"))
 
     return errors
 

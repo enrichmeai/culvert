@@ -54,6 +54,27 @@ Airflow DAGs for pipeline coordination and scheduling.
 
 ---
 
+## Library-Driven Ease of Use
+
+The LOA orchestration unit highlights the flexibility of the `gcp-pipeline-orchestration` library:
+
+1.  **Lightweight Control**: Bypasses the `EntityDependencyChecker` since LOA is a single-entity system, demonstrating how the library components are optional and modular.
+2.  **Standardized Sensors**: Uses the same `BasePubSubPullSensor` as EM, ensuring a consistent event-driven interface across the entire migration platform.
+3.  **Local Validation**: Like all orchestration units, DAGs are testable without GCP connectivity by leveraging the library's local execution stubs.
+
+---
+
+## How to Replicate this SPLIT Orchestration
+
+To create a new orchestration unit for a single-entity system, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) and use the standardized [DAG Templates](../../templates/dags/).
+
+Key steps for this SPLIT pattern:
+1.  **Notification Sensor**: Set up `BasePubSubPullSensor` for your .ok file.
+2.  **Direct Triggering**: Chain your Ingestion DAG directly to your Transformation DAG once the load is complete.
+3.  **Template Usage**: Copy the `template_pubsub_trigger_dag.py` and `template_odp_load_dag.py` and remove the dependency check logic.
+
+---
+
 ## DAGs
 
 | DAG | Purpose |

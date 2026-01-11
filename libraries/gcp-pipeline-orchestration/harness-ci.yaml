@@ -1,8 +1,8 @@
 pipeline:
   name: gcp-pipeline-orchestration CI
   identifier: gcp_pipeline_orchestration_ci
-  projectIdentifier: legacy_migration_reference
-  orgIdentifier: default
+  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
+  orgIdentifier: default # UPDATE to your Org ID
   tags:
     library: orchestration
     type: python
@@ -10,8 +10,8 @@ pipeline:
   properties:
     ci:
       codebase:
-        connectorRef: github_connector
-        repoName: gcp-pipeline-orchestration
+        connectorRef: github_connector # UPDATE to your Github Connector
+        repoName: gcp-pipeline-libraries # Name of the new libraries repository
         build:
           type: branch
           spec:

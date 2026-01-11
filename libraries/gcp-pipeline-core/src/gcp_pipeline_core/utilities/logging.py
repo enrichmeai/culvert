@@ -48,7 +48,7 @@ class StructuredJsonFormatter(logging.Formatter):
     - logger: Logger name
     - module: Source module
     - run_id: Pipeline run ID (from context)
-    - system_id: System identifier (EM, LOA)
+    - system_id: System identifier (e.g., EM, LOA)
     - entity_type: Entity being processed
     - Additional fields passed as extras
     """
@@ -120,8 +120,8 @@ class StructuredLogger:
         Args:
             name: Logger name
             run_id: Pipeline run identifier
-            system_id: System identifier (EM, LOA)
-            entity_type: Entity being processed (customers, accounts, etc.)
+            system_id: System identifier (e.g., EM, LOA)
+            entity_type: Entity being processed (e.g., customers, accounts)
             level: Logging level (default: INFO)
         """
         self.name = name

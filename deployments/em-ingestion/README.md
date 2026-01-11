@@ -56,6 +56,28 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 ---
 
+## Library-Driven Ease of Use
+
+The EM ingestion pipeline is a **Lean Consumer** of the library framework. It achieves complex mainframe ingestion with minimal custom code by leveraging:
+
+1.  **Metadata-Driven Schema**: `em_ingestion/schema/customers.py` simply defines an `EntitySchema`. The library's `SchemaValidator` handles all type checking and PII masking automatically.
+2.  **Standardized Parsing**: Uses the `HDRTRLParser` from `gcp-pipeline-beam` to validate mainframe headers/trailers without regex boilerplate.
+3.  **Audit Integrity**: Automatically injects `_run_id` and `_processed_at` using the `AddAuditColumnsDoFn` library transform.
+
+---
+
+## How to Replicate this JOIN Ingestion (3-to-3)
+
+To create a new ingestion unit for a multi-entity system, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
+
+Key steps for this JOIN pattern:
+1.  **Define Schema**: Create a new schema file using `gcp_pipeline_core.schema.EntitySchema`.
+2.  **Configure Pipeline**: Inherit from `gcp_pipeline_beam.pipelines.base.BasePipeline`.
+3.  **Plug in Transforms**: Use the fluent `BeamPipelineBuilder` to chain `read_csv` -> `validate` -> `write_to_bigquery`.
+4.  **Harness Config**: Update `harness-ci.yaml` with your project and org identifiers.
+
+---
+
 ## Dependencies
 
 | Library | Purpose |

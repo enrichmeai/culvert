@@ -25,43 +25,51 @@ The framework follows a **decoupled, library-first** approach. To create a new d
 
 ### 1. Create the Deployment Structure
 
-Create three independent folders under `deployments/` for your system.
+The easiest way to start is by copying the structure of an existing deployment or using the provided templates.
 
 ```bash
-mkdir -p deployments/mysystem-ingestion
-mkdir -p deployments/mysystem-transformation
-mkdir -p deployments/mysystem-orchestration
+SYSTEM="mysystem"
+mkdir -p deployments/${SYSTEM}-ingestion
+mkdir -p deployments/${SYSTEM}-transformation/dbt
+mkdir -p deployments/${SYSTEM}-orchestration/dags
 ```
 
 ### 2. Set Up Ingestion Unit (`mysystem-ingestion`)
 
-- **Define Beam Pipeline**: Create your Beam pipeline logic, extending `BasePipeline` from `gcp-pipeline-beam`.
-- **Terraform**: Provision GCS landing buckets and ODP BigQuery datasets.
-- **CI/CD**: Configure to build a Dataflow Flex Template image.
+- **Define Schema**: Create `mysystem_ingestion/schema/your_entity.py` using `gcp_pipeline_core.schema.EntitySchema`. This is the single source of truth for validation and PII.
+- **Pipeline**: Inherit from `gcp_pipeline_beam.pipelines.base.BasePipeline`. Use the `BeamPipelineBuilder` for a fluent, easy-to-read configuration.
+- **Ease of Use**: The library handles HDR/TRL parsing, PII masking, and audit injection automatically if you use the standard `DoFns`.
 
 ### 3. Set Up Transformation Unit (`mysystem-transformation`)
 
-- **dbt Project**: Create a new dbt project for your system's transformations.
-- **Shared Macros**: Reference `gcp-pipeline-transform` in your `packages.yml` or macro paths.
-- **Terraform**: Provision FDP BigQuery datasets and dbt service accounts.
+- **dbt Project**: Initialize your dbt project in `dbt/`.
+- **Macro Integration**: In `dbt_project.yml`, add:
+  ```yaml
+  macro-paths: ["macros", "../../libraries/gcp-pipeline-transform/dbt_shared/macros"]
+  ```
+- **Generic Macros**: Use `{{ add_audit_columns() }}` in your staging models and `{{ mask_pii(col, 'PII_TYPE') }}` in your FDP models. This ensures you follow the "Generic-First" and "Zero-Bleed" policies without writing custom SQL.
 
 ### 4. Set Up Orchestration Unit (`mysystem-orchestration`)
 
-- **Initialize Folder**:
+- **Leverage Templates**: Use the standardized templates from `templates/dags/` to jumpstart your DAG development:
   ```bash
-  mkdir -p deployments/mysystem-orchestration/dags
+  cp templates/dags/template_pubsub_trigger_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_trigger_dag.py
+  cp templates/dags/template_odp_load_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
+  cp templates/dags/template_fdp_transform_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
   ```
-- **Copy Templates**: Use the standardized templates from the `templates/dags/` folder:
-  ```bash
-  cp templates/dags/template_*.py deployments/mysystem-orchestration/dags/
-  ```
-- **Rename & Customize**: Rename files to `mysystem_*.py` and follow the **Search and Replace** instructions in [DAG Development Guide](DAG_DEVELOPMENT_GUIDE.md).
-- **Trigger Flow**: The templates come pre-configured with the standard 3-step flow (Trigger → ODP Load → FDP Transform).
-- **Terraform**: Provision Cloud Composer and Pub/Sub topics.
+- **Customization**:
+  - **JOIN Pattern**: For multi-entity joins, use `EntityDependencyChecker` in your load DAG to wait for all entities.
+  - **SPLIT Pattern**: For single-entity splits, bypass the dependency check and trigger the transformation immediately.
+- **Ease of Customization**: The templates use a modular design. Simply update the `<SYSTEM_ID>` and `<ENTITY>` placeholders.
 
-### 5. Shared Audit and Core Logic
+---
 
-Ensure all units use the `gcp-pipeline-core` library for consistent auditing. This allows the Orchestration unit to start an audit record that the Ingestion and Transformation units can update.
+## 🏗 Using the Templates
+
+The `templates/` directory provides more than just DAGs:
+
+- **`templates/dags/`**: Standardized, library-integrated Airflow DAGs.
+- **`templates/cicd/`**: Template Harness/GitHub Actions workflows for deploying each unit.
 
 ---
 

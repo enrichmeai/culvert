@@ -1,8 +1,8 @@
 pipeline:
   name: gcp-pipeline-core CI
   identifier: gcp_pipeline_core_ci
-  projectIdentifier: legacy_migration_reference
-  orgIdentifier: default
+  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
+  orgIdentifier: default # UPDATE to your Org ID
   tags:
     library: core
     type: python
@@ -10,8 +10,8 @@ pipeline:
   properties:
     ci:
       codebase:
-        connectorRef: github_connector
-        repoName: gcp-pipeline-core
+        connectorRef: github_connector # UPDATE to your Github Connector
+        repoName: gcp-pipeline-libraries # Name of the new libraries repository
         build:
           type: branch
           spec:

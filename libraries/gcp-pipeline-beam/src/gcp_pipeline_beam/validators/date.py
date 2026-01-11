@@ -30,4 +30,3 @@ def validate_date(field: str, date_str: str, fmt: str = "%Y-%m-%d", allow_future
             errors.append(ValidationError(field, date_str, f"{field} cannot be more than {max_age_years} years old"))
 
     return date_str if not errors else None, errors
-
