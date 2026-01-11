@@ -27,4 +27,3 @@ def validate_numeric_range(field: str, value_str: str, min_val: float, max_val: 
         errors.append(ValidationError(field, str(val), f"{field} must be <= {max_val}"))
 
     return val if not errors else None, errors
-

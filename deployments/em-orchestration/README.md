@@ -61,6 +61,28 @@ Airflow DAGs for pipeline coordination and scheduling.
 
 ---
 
+## Library-Driven Ease of Use
+
+The EM orchestration unit leverages the `gcp-pipeline-orchestration` library to coordinate a complex multi-entity arrival pattern:
+
+1.  **Event-Driven Triggering**: Uses `BasePubSubPullSensor` with built-in `.ok` file filtering and metadata extraction to XCom.
+2.  **Cross-Entity Coordination**: Uses `EntityDependencyChecker` to verify that all 3 entities (Customers, Accounts, Decision) are loaded before triggering the FDP transformation.
+3.  **Local Development**: All DAGs can be parsed and validated without a live Airflow environment thanks to the library's `AIRFLOW_AVAILABLE` stubbing mechanism.
+
+---
+
+## How to Replicate this JOIN Orchestration
+
+To create a new orchestration unit for a multi-entity system, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) and use the standardized [DAG Templates](../../templates/dags/).
+
+Key steps for this JOIN pattern:
+1.  **Pub/Sub Sensor**: Configure `BasePubSubPullSensor` for your system's notification topic.
+2.  **Job Control**: Use `JobControlRepository` from `core` to track the state of each entity load.
+3.  **Dependency Check**: Initialize `EntityDependencyChecker` with your list of `REQUIRED_ENTITIES`.
+4.  **DAG Triggering**: Use `TriggerDagRunOperator` to chain the Ingestion and Transformation units.
+
+---
+
 ## DAGs
 
 | DAG | Purpose |

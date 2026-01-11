@@ -1,8 +1,8 @@
 pipeline:
   name: Libraries Root Pipeline
   identifier: libraries_root_pipeline
-  projectIdentifier: legacy_migration_reference
-  orgIdentifier: default
+  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
+  orgIdentifier: default # UPDATE to your Org ID
   description: Root pipeline to orchestrate CI for all libraries
 
   stages:
@@ -12,12 +12,11 @@ pipeline:
         type: CI
         spec:
           cloneCodebase: true
-          platform:
-            os: Linux
-            arch: Amd64
-          runtime:
-            type: Cloud
-            spec: {}
+          infrastructure: # Use infrastructure if cloud runtime is not enough
+            type: KubernetesDirect
+            spec:
+              connectorRef: <+input>
+              namespace: <+input>
           execution:
             steps:
               - step:
@@ -25,7 +24,7 @@ pipeline:
                   name: Create Monorepo Tag
                   identifier: create_tag
                   spec:
-                    connectorRef: github_connector
+                    connectorRef: github_connector # UPDATE to your Github Connector
                     image: alpine/git:latest
                     shell: Bash
                     command: |

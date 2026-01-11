@@ -154,6 +154,43 @@ CustomerSchema = EntitySchema(
 
 ---
 
+## Key Findings
+
+### 1. Standardized Audit Macros
+- **`add_audit_columns()`**: Ensures consistent lineage tracking across all models by adding `run_id`, `processed_timestamp`, and `source_file`.
+- **`apply_audit_columns()`**: Utility to retroactively add audit columns to existing tables.
+
+### 2. Metadata-Driven PII Masking
+- **Generic Masking Engine**: Focuses on the *shape* of masking rather than the *type* of data.
+- **Core Strategies**:
+    - `mask_full()`: Complete masking based on field length.
+    - `mask_partial_last4()`: Preserves utility (last 4) while protecting privacy.
+    - `mask_redacted()`: Replaces sensitive values with a constant "REDACTED" label.
+- **Metadata-Powered**: Selection is driven by `pii_type` in the schema metadata (e.g., `pii_type: PARTIAL`), ensuring the library doesn't make blind assumptions about data content.
+- **Environment-Aware**: Automatically adjusts depth (Full vs. Partial vs. None) based on the target environment (Prod vs. Staging vs. Dev).
+
+### 3. Configurable Data Enrichment
+- **Generic Macro**: `apply_enrichment(rules)`
+- **Rule Types**:
+    - `DATE_PARTS`: Automatically extracts year, month, day, and day name.
+    - `BUCKET`: Categorizes numeric values into ranges (e.g., credit scores).
+    - `LOOKUP`: Maps legacy codes to human-readable statuses.
+    - `EXPRESSION`: Applies custom SQL expressions for complex logic.
+- **Config-Driven**: Enrichment is defined via metadata, keeping the library code generic and reusable across systems.
+
+### 4. Data Safety & Validation
+- **`validate_no_pii_in_export`**: Safety macro that checks for unmasked PII patterns before data export, preventing accidental exposure of sensitive information.
+
+---
+
+## Governance & Compliance
+
+- **SQL Only**: This library is strictly for dbt/SQL logic. **NO** Python dependencies (Beam/Airflow) allowed.
+- **Consistency**: All transformation models must use `add_audit_columns()` to maintain data lineage.
+- **Privacy**: High-risk PII fields (SSN, etc.) MUST be masked using the provided macros in all non-production exports.
+
+---
+
 ## Directory Structure
 
 ```

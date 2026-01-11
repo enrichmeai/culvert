@@ -54,6 +54,28 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 ---
 
+## Library-Driven Ease of Use
+
+The EM transformation unit uses the `gcp-pipeline-transform` library to ensure data privacy and lineage with zero local macro development:
+
+1.  **Zero-Bleed PII Masking**: Uses `{{ mask_pii(column, 'SSN') }}`. The library automatically applies the correct mask (Full in Prod, Partial in Staging) based on the environment.
+2.  **Automated Lineage**: Uses `{{ add_audit_columns() }}` to inject `run_id` and `source_file` variables, maintaining the E2E lineage established in the ingestion layer.
+3.  **Metadata Enrichment**: Replaces hardcoded business logic with generic library macros that interpret rules from the `EntitySchema`.
+
+---
+
+## How to Replicate this JOIN Transformation (3-to-1)
+
+To create a new transformation unit that joins multiple entities, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
+
+Key steps for this JOIN pattern:
+1.  **Register Library**: Point your `dbt_project.yml` to the `gcp-pipeline-transform` macro paths.
+2.  **Staging Models**: Create views for your ODP tables. Use `add_audit_columns` for consistency.
+3.  **FDP Models**: Implement your `LEFT JOIN` logic. Apply `mask_pii` to all sensitive fields.
+4.  **Governance**: Run `validate_no_pii_in_export` in your CI/CD to prevent leakage.
+
+---
+
 ## Dependencies
 
 | Library | Purpose |

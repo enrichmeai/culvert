@@ -53,6 +53,18 @@ The libraries are built and published independently by the [Libraries Root Pipel
 
 ---
 
+## 🚀 Getting Started
+
+The framework is designed for **Ease of Use**. You can create a new system migration in minutes by leveraging our library-first architecture and standardized templates.
+
+| Resource | Description |
+| :--- | :--- |
+| **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
+| **[DAG Templates](./templates/dags/)** | Standardized templates for quick orchestration setup. |
+| **[Library Feature Guide](./libraries/README.md)** | Deep dive into the available mechanisms (Audit, PII, DQ). |
+
+---
+
 ## Architecture
 
 ### 4-Library Model

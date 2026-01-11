@@ -147,7 +147,10 @@ with DAG(
     trigger_fdp = TriggerDagRunOperator(
         task_id='trigger_fdp_transform',
         trigger_dag_id=f'{SYSTEM_ID_LOWER}_fdp_transform_dag',
-        conf={'extract_date': '{{ dag_run.conf.file_metadata.extract_date }}'},
+        conf={
+            'extract_date': '{{ dag_run.conf.file_metadata.extract_date }}',
+            'triggered_by': f'{SYSTEM_ID_LOWER}_odp_load_dag'
+        },
     )
 
     wait = DummyOperator(task_id='wait_for_entities')

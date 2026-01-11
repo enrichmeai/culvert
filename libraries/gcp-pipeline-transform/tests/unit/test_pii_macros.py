@@ -26,32 +26,28 @@ def test_pii_macros_compilation():
     with open(compiled_path, 'r') as f:
         compiled_sql = f.read().upper()
 
-    # Verify ssn masking (CONCAT(SUBSTRING(ssn, 1, 5), '-', SUBSTRING(ssn, -4)))
-    assert "SUBSTRING(SSN, 1, 5)" in compiled_sql
-    assert "'-'" in compiled_sql
-    assert "SUBSTRING(SSN, -4)" in compiled_sql
+    # Verify ssn masking (CONCAT('XXX-XX-', SUBSTRING(CAST(ssn AS STRING), -4)))
+    assert "'XXX-XX-'" in compiled_sql
+    assert "SUBSTRING(CAST(SSN AS STRING), -4)" in compiled_sql
 
-    # Verify ssn full masking ('XXX-XX-XXXX')
-    assert "'XXX-XX-XXXX'" in compiled_sql
+    # Verify ssn full masking (RPAD('', LENGTH(CAST(ssn AS STRING)), '*'))
+    assert "RPAD('', LENGTH(CAST(SSN AS STRING)), '*')" in compiled_sql
 
-    # Verify account masking (CONCAT(RPAD('*', LENGTH(account_number) - 4, '*'), SUBSTRING(account_number, -4)))
-    assert "RPAD('*', LENGTH(ACCOUNT_NUMBER) - 4, '*')" in compiled_sql
-    assert "SUBSTRING(ACCOUNT_NUMBER, -4)" in compiled_sql
+    # Verify account masking (SUBSTRING(CAST(account_number AS STRING), -4))
+    assert "SUBSTRING(CAST(ACCOUNT_NUMBER AS STRING), -4)" in compiled_sql
 
-    # Verify email masking (CONCAT('****', SUBSTRING(email, POSITION('@' IN email))))
+    # Verify email masking (CONCAT('****', SUBSTRING(CAST(email AS STRING), POSITION('@' IN CAST(email AS STRING)))))
     assert "'****'" in compiled_sql
-    assert "SUBSTRING(EMAIL, POSITION('@' IN EMAIL))" in compiled_sql
+    assert "SUBSTRING(CAST(EMAIL AS STRING), POSITION('@' IN CAST(EMAIL AS STRING)))" in compiled_sql
 
-    # Verify phone masking (CONCAT(SUBSTRING(phone, 1, 3), '-***-', SUBSTRING(phone, -4)))
-    assert "SUBSTRING(PHONE, 1, 3)" in compiled_sql
+    # Verify phone masking (CONCAT(SUBSTRING(CAST(phone AS STRING), 1, 3), '-***-', SUBSTRING(CAST(phone AS STRING), -4)))
+    assert "SUBSTRING(CAST(PHONE AS STRING), 1, 3)" in compiled_sql
     assert "'-***-'" in compiled_sql
-    assert "SUBSTRING(PHONE, -4)" in compiled_sql
+    assert "SUBSTRING(CAST(PHONE AS STRING), -4)" in compiled_sql
 
-    # Verify name masking (CONCAT(SUBSTRING(first_name, 1, 1), '****', ' ', last_name))
-    assert "SUBSTRING(FIRST_NAME, 1, 1)" in compiled_sql
-    assert "'****'" in compiled_sql
-    assert "' '" in compiled_sql
-    assert "LAST_NAME" in compiled_sql
+    # Verify name masking (SUBSTRING(CAST(first_name AS STRING), 1, 1))
+    assert "SUBSTRING(CAST(FIRST_NAME AS STRING), 1, 1)" in compiled_sql
+    assert "RPAD('', LENGTH(CAST(FIRST_NAME AS STRING)) - 1, '*')" in compiled_sql
 
 def test_audit_macros_compilation():
     # Detect if we are running from project root or library root
@@ -59,7 +55,7 @@ def test_audit_macros_compilation():
         project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
-    
+
     # Run dbt compile
     subprocess.run(
         ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
@@ -85,7 +81,7 @@ def test_dq_macros_compilation():
         project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
-    
+
     # Run dbt compile
     subprocess.run(
         ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
@@ -104,7 +100,46 @@ def test_dq_macros_compilation():
     assert "WHERE SSN IS NULL" in compiled_sql
     assert "SELECT COUNT(DISTINCT SSN)" in compiled_sql
 
+def test_enrichment_macros_compilation():
+    # Detect if we are running from project root or library root
+    if os.path.exists("libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    else:
+        project_dir = "tests/unit/dbt_test_project"
+
+    # Run dbt compile
+    subprocess.run(
+        ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
+        capture_output=True,
+        text=True
+    )
+
+    # Check compiled SQL for test_enrichment_output
+    compiled_path = os.path.join(project_dir, "target/compiled/transform_unit_tests/models/test_enrichment_output.sql")
+    assert os.path.exists(compiled_path), "Compiled SQL file for enrichment not found"
+
+    with open(compiled_path, 'r') as f:
+        compiled_sql = f.read().upper()
+
+    # Verify date enrichment
+    assert "EXTRACT(YEAR FROM APPLICATION_DATE) AS APP_YEAR" in compiled_sql
+    assert "FORMAT_DATE('%A', APPLICATION_DATE) AS APP_DAY_NAME" in compiled_sql
+
+    # Verify bucketing enrichment
+    assert "WHEN LOAN_AMOUNT <100000 THEN 'SMALL'" in compiled_sql
+    assert "WHEN LOAN_AMOUNT BETWEEN 100000 AND 500000 THEN 'MEDIUM'" in compiled_sql
+    assert "END AS AMOUNT_CATEGORY" in compiled_sql
+
+    # Verify lookup enrichment
+    assert "CASE STATUS" in compiled_sql
+    assert "WHEN 'A' THEN 'ACTIVE'" in compiled_sql
+    assert "END AS STATUS_DESC" in compiled_sql
+
+    # Verify expression enrichment
+    assert "CASE WHEN CREDIT_SCORE >= 700 THEN \"GOOD\" ELSE \"BAD\" END AS CREDIT_QUALITY" in compiled_sql
+
 if __name__ == "__main__":
     test_pii_macros_compilation()
     test_audit_macros_compilation()
     test_dq_macros_compilation()
+    test_enrichment_macros_compilation()

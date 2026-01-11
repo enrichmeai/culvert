@@ -1,83 +1,106 @@
 -- dbt Macro: PII Masking
 -- Generic PII masking for sensitive data across all migration projects
 --
--- Masks Personally Identifiable Information (PII) for:
--- - SSN: Social Security Numbers
--- - Account Numbers
--- - Sensitive data
+-- Prioritizes generic masking strategies (Full, Partial, Redacted) to handle
+-- cases where exact data formats are unknown. Metadata-driven via pii_type.
 --
 -- Usage:
 --   SELECT
---       {{ mask_ssn('ssn') }} as ssn_masked,
---       {{ mask_account_number('account_number') }} as account_masked,
---       customer_name
---   FROM customers
+--       {{ mask_pii('sensitive_column', 'PARTIAL') }} as masked,
+--       {{ mask_full('secret_key') }} as key_masked
+--   FROM my_table
 --
 
--- Mask SSN: XXX-XX-XXXX format becomes XXX-XX-6789
-{% macro mask_ssn(column) %}
-    CONCAT(
-        SUBSTRING({{ column }}, 1, 5),  -- Keep XXX-XX
-        '-',
-        SUBSTRING({{ column }}, -4)     -- Show last 4 digits
-    )
+-- Generic: Full masking (replaces with constant)
+{% macro mask_full(column, mask_char='*') %}
+    RPAD('', LENGTH(CAST({{ column }} AS STRING)), '{{ mask_char }}')
 {% endmacro %}
 
 
--- Alternative: Full masking (no digits visible)
-{% macro mask_ssn_full(column) %}
-    'XXX-XX-XXXX'
+-- Generic: Redact (constant value regardless of input length)
+{% macro mask_redacted(column) %}
+    'REDACTED'
 {% endmacro %}
 
 
--- Mask account number: Show only last 4 digits
-{% macro mask_account_number(column) %}
-    CONCAT(
-        RPAD('*', LENGTH({{ column }}) - 4, '*'),  -- Asterisks for all but last 4
-        SUBSTRING({{ column }}, -4)                 -- Last 4 digits
-    )
+-- Generic: Partial masking (shows last 4, masks rest)
+{% macro mask_partial_last4(column, mask_char='*') %}
+    CASE
+        WHEN LENGTH(CAST({{ column }} AS STRING)) <= 4 THEN CAST({{ column }} AS STRING)
+        ELSE CONCAT(
+            RPAD('', LENGTH(CAST({{ column }} AS STRING)) - 4, '{{ mask_char }}'),
+            SUBSTRING(CAST({{ column }} AS STRING), -4)
+        )
+    END
 {% endmacro %}
 
 
--- Mask email: Show domain only
-{% macro mask_email(column) %}
-    CONCAT(
-        '****',
-        SUBSTRING({{ column }}, POSITION('@' IN {{ column }}))
-    )
+-- Generic: Partial masking (shows first character, masks rest)
+{% macro mask_partial_first1(column, mask_char='*') %}
+    CASE
+        WHEN LENGTH(CAST({{ column }} AS STRING)) <= 1 THEN CAST({{ column }} AS STRING)
+        ELSE CONCAT(
+            SUBSTRING(CAST({{ column }} AS STRING), 1, 1),
+            RPAD('', LENGTH(CAST({{ column }} AS STRING)) - 1, '{{ mask_char }}')
+        )
+    END
 {% endmacro %}
 
 
--- Mask phone number: Show country and last 4 digits
-{% macro mask_phone(column) %}
-    CONCAT(
-        SUBSTRING({{ column }}, 1, 3),    -- Area code
-        '-***-',
-        SUBSTRING({{ column }}, -4)       -- Last 4 digits
-    )
+-- Supporting Specific Macros (Optional)
+-- Use these when data format is known and standard (e.g. ID with suffix visible)
+
+-- Generic: Mask with suffix visible (e.g. XXX-XX-6789)
+{% macro mask_with_suffix(column, suffix_length=4, mask_pattern='XXX-XX-') %}
+    CASE
+        WHEN {{ column }} IS NULL THEN NULL
+        ELSE CONCAT('{{ mask_pattern }}', SUBSTRING(CAST({{ column }} AS STRING), -{{ suffix_length }}))
+    END
 {% endmacro %}
 
 
--- Mask name: Show first letter and last name
-{% macro mask_name(first_name, last_name) %}
-    CONCAT(
-        SUBSTRING({{ first_name }}, 1, 1),  -- First initial
-        '****',
-        ' ',
-        {{ last_name }}                     -- Full last name
-    )
+-- Generic: Mask Email (e.g. ****@domain.com)
+{% macro mask_email(column, mask_prefix='****') %}
+    CASE
+        WHEN {{ column }} IS NULL THEN NULL
+        ELSE CONCAT(
+            '{{ mask_prefix }}',
+            SUBSTRING(CAST({{ column }} AS STRING), POSITION('@' IN CAST({{ column }} AS STRING)))
+        )
+    END
+{% endmacro %}
+
+
+-- Generic: Mask with prefix visible (e.g. +44-****-6789)
+{% macro mask_phone_generic(column, prefix_length=3, suffix_length=4, mask_middle='-***-') %}
+    CASE
+        WHEN {{ column }} IS NULL THEN NULL
+        ELSE CONCAT(
+            SUBSTRING(CAST({{ column }} AS STRING), 1, {{ prefix_length }}),
+            '{{ mask_middle }}',
+            SUBSTRING(CAST({{ column }} AS STRING), -{{ suffix_length }})
+        )
+    END
 {% endmacro %}
 
 
 -- Generic PII masking function
 {% macro mask_pii(column, pii_type) %}
-    CASE
-        WHEN '{{ pii_type }}' = 'SSN' THEN {{ mask_ssn(column) }}
-        WHEN '{{ pii_type }}' = 'ACCOUNT' THEN {{ mask_account_number(column) }}
-        WHEN '{{ pii_type }}' = 'EMAIL' THEN {{ mask_email(column) }}
-        WHEN '{{ pii_type }}' = 'PHONE' THEN {{ mask_phone(column) }}
-        ELSE {{ column }}
-    END
+    {% set level = get_masking_level() %}
+
+    {% if level == 'NONE' %}
+        {{ column }}
+    {% else %}
+        CASE
+            WHEN '{{ pii_type }}' IN ('SSN', 'ID_SUFFIX') THEN {{ mask_with_suffix(column) }}
+            WHEN '{{ pii_type }}' = 'EMAIL' THEN {{ mask_email(column) }}
+            WHEN '{{ pii_type }}' = 'PHONE' THEN {{ mask_phone_generic(column) }}
+            WHEN '{{ pii_type }}' = 'FULL' THEN {{ mask_full(column) }}
+            WHEN '{{ pii_type }}' = 'REDACTED' THEN {{ mask_redacted(column) }}
+            WHEN '{{ pii_type }}' = 'PARTIAL' THEN {{ mask_partial_last4(column) }}
+            ELSE {{ column }}
+        END
+    {% endif %}
 {% endmacro %}
 
 
@@ -103,30 +126,37 @@
 
 
 -- Validate PII hasn't been exposed
-{% macro validate_no_pii_in_export(table) %}
-    {% set ssn_check %}
-        SELECT COUNT(*) as ssn_count
-        FROM {{ table }}
-        WHERE ssn NOT REGEXP '^XXX-XX-' AND ssn IS NOT NULL
-    {% endset %}
-
-    {% set account_check %}
-        SELECT COUNT(*) as account_count
-        FROM {{ table }}
-        WHERE account_number NOT LIKE '%****%' AND account_number IS NOT NULL
-    {% endset %}
+{% macro validate_no_pii_in_export(table, checks=None) %}
+    {% if checks is none %}
+        {% set checks = [
+            {'column': 'masked_id', 'pattern': '.*[*].*'},
+            {'column': 'email_address', 'pattern': '.*@.*'}
+        ] %}
+    {% endif %}
 
     {% if execute %}
-        {% set ssn_result = run_query(ssn_check) %}
-        {% set account_result = run_query(account_check) %}
+        {% for check in checks %}
+            {% set query %}
+                SELECT COUNT(*) as count
+                FROM {{ table }}
+                WHERE {{ check.column }} NOT LIKE '{{ check.pattern }}'
+                AND {{ check.column }} IS NOT NULL
+            {% endset %}
 
-        {% if ssn_result.columns[0].values()[0] > 0 %}
-            {% do exceptions.raise_compiler_error("Unmasked SSN values found in " ~ table) %}
-        {% endif %}
+            {% if 'REGEXP' in check.pattern or '^' in check.pattern %}
+                 {% set query %}
+                    SELECT COUNT(*) as count
+                    FROM {{ table }}
+                    WHERE NOT REGEXP_CONTAINS(CAST({{ check.column }} AS STRING), '{{ check.pattern }}')
+                    AND {{ check.column }} IS NOT NULL
+                {% endset %}
+            {% endif %}
 
-        {% if account_result.columns[0].values()[0] > 0 %}
-            {% do exceptions.raise_compiler_error("Unmasked account numbers found in " ~ table) %}
-        {% endif %}
+            {% set result = run_query(query) %}
+            {% if result.columns[0].values()[0] > 0 %}
+                {% do exceptions.raise_compiler_error("Unmasked values found in " ~ table ~ "." ~ check.column) %}
+            {% endif %}
+        {% endfor %}
 
         {% do log("PII validation passed for " ~ table, info=true) %}
     {% endif %}
@@ -134,8 +164,13 @@
 
 
 -- Configuration for environments (dev vs prod)
+-- Can be overridden by project variables
 {% macro get_masking_level() %}
-    {% if target.name == 'prod' %}
+    {% set env_level = var('masking_level', 'AUTO') %}
+
+    {% if env_level != 'AUTO' %}
+        {{ env_level }}
+    {% elif target.name == 'prod' %}
         'FULL'  -- Full masking in production
     {% elif target.name == 'staging' %}
         'PARTIAL'  -- Show last 4 digits in staging

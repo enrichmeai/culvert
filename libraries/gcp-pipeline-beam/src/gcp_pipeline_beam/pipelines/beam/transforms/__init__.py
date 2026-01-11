@@ -28,6 +28,7 @@ Example (Schema-driven validation):
 """
 
 from .parsers import ParseCsvLine
+from .pii import MaskPIIDoFn
 from .validators import ValidateRecordDoFn, SchemaValidateRecordDoFn
 from .filters import FilterRecordsDoFn
 from .transformers import TransformRecordDoFn
@@ -36,6 +37,7 @@ from .deduplicators import DeduplicateRecordsDoFn
 
 __all__ = [
     'ParseCsvLine',
+    'MaskPIIDoFn',
     'ValidateRecordDoFn',
     'SchemaValidateRecordDoFn',
     'FilterRecordsDoFn',

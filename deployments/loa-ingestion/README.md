@@ -53,6 +53,28 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 ---
 
+## Library-Driven Ease of Use
+
+The LOA ingestion pipeline demonstrates the **Global Portability** of the library framework. Even with a simple 1:1 mapping, it leverages:
+
+1.  **Generic-First Validators**: Uses the library's `validate_branch_code` which provides a generic alphanumeric pattern (4-10 chars), making it compatible with both US and UK branch formats without code changes.
+2.  **Schema-Driven Ingestion**: Uses `LOAApplicationSchema` to drive the ingestion. The library's `BeamPipelineBuilder` handles the entire flow (`read` -> `validate` -> `write`) with just a few lines of configuration.
+3.  **Audit Consistency**: Ensures the `run_id` is propagated to BigQuery using the standardized library `DoFns`.
+
+---
+
+## How to Replicate this SPLIT Ingestion (1-to-1)
+
+To create a new ingestion unit for a single-entity system, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
+
+Key steps for this SPLIT pattern:
+1.  **Define Schema**: Create an `EntitySchema` from `gcp_pipeline_core.schema`.
+2.  **Fluent Pipeline**: Use `BeamPipelineBuilder` to build your pipeline in `src/loa_ingestion/pipeline/`.
+3.  **Regional Logic**: Rely on generic validators from `gcp-pipeline-beam.validators` to ensure global compatibility.
+4.  **Local Test**: Run tests using the `gcp-pipeline-tester` mocks to verify logic before deploying.
+
+---
+
 ## Dependencies
 
 | Library | Purpose |

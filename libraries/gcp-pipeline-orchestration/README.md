@@ -163,6 +163,32 @@ else:
 
 ---
 
+## Key Findings
+
+### 1. Unified Dataflow Operators
+- **BaseDataflowOperator**: Supports both **Classic and Flex** templates.
+- **Development Stubbing**: Features a clever mechanism to allow DAG parsing and testing without a live Airflow/GCP environment (`BaseOperator if AIRFLOW_AVAILABLE else object`).
+
+### 2. Event-Driven Pub/Sub Sensors
+- **BasePubSubPullSensor**: Monitors GCS notifications (e.g., waiting for `.ok` files).
+- **Metadata Extraction**: Automated extraction of file paths, entity types, and timestamps into XCom for downstream use.
+
+### 3. Entity Dependency Management
+- **EntityDependencyChecker**: Coordinates multi-entity systems (like EM) by ensuring all required datasets (customers, accounts, decision) are present before triggering transformations.
+
+### 4. Global Error Callbacks
+- Standardized failure handlers that publish metadata to DLQs (Dead Letter Queues) for automated alerting and manual intervention.
+
+---
+
+## Governance & Compliance
+
+- **Domain Isolation**: Depends on `core` and `airflow`; **MUST NOT** import `beam`.
+- **Testing**: All custom operators and sensors must be tested using the `tester` mocks.
+- **Safety**: Operators must support idempotency by passing `run_id` to underlying Dataflow jobs.
+
+---
+
 ## Usage
 
 ```python
