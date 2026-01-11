@@ -62,6 +62,15 @@ mkdir -p deployments/${SYSTEM}-orchestration/dags
   - **SPLIT Pattern**: For single-entity splits, bypass the dependency check and trigger the transformation immediately.
 - **Ease of Customization**: The templates use a modular design. Simply update the `<SYSTEM_ID>` and `<ENTITY>` placeholders.
 
+### 5. Verify Execution
+
+Before submitting your PR, verify that your new deployment works correctly:
+
+1.  **Unit Tests**: Run `python -m pytest tests/unit/` in each unit directory.
+2.  **Local Beam Run**: Run your pipeline with the `DirectRunner` using sample data.
+3.  **dbt Compile**: Run `dbt compile` in your transformation unit.
+4.  **DAG Parse**: Run `python dags/*.py` to ensure no syntax errors.
+
 ---
 
 ## 🏗 Using the Templates

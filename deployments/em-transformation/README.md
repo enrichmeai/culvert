@@ -97,12 +97,36 @@ Key steps for this JOIN pattern:
 
 ---
 
-## Run
+## Execution & Testing
 
+### 1. Local Development Setup
+Initialize the virtual environment:
 ```bash
-cd deployments/em-transformation/dbt
-dbt run --profiles-dir .
+./scripts/setup_deployment_venv.sh em-transformation
+source deployments/em-transformation/venv/bin/activate
 ```
+
+### 2. Local dbt Execution
+Run dbt models locally against the development BigQuery dataset:
+```bash
+cd dbt
+dbt run --profiles-dir . --target dev
+```
+
+### 3. Data Quality Validation
+Run dbt tests to verify transformation logic and PII masking:
+```bash
+dbt test --profiles-dir . --target dev
+```
+
+### 4. Governance Verification
+Use the library macro to ensure no unmasked PII exists in your models before deployment:
+```sql
+{{ validate_no_pii_in_export('fdp_em.em_attributes') }}
+```
+
+### 5. Cloud Execution
+In production, this unit is triggered by the `em_odp_load_dag` once ingestion is successful. The transformation is executed via a `BashOperator` running `dbt run`.
 
 ---
 

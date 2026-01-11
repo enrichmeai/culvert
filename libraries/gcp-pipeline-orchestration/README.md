@@ -84,8 +84,14 @@ Control library - Airflow DAGs, sensors, operators.
                │  │ Trigger      │───►│ Dataflow     │               │
                │  │ Dataflow     │    │ Job          │               │
                │  └──────────────┘    └──────┬───────┘               │
+               │                             │ (Failure)             │
+               │                             ▼                       │
+               │                      ┌──────────────┐               │
+               │                      │ Error Log    │               │
+               │                      │ (BigQuery)   │               │
+               │                      └──────┬───────┘               │
                │                             │                       │
-               │         ┌───────────────────┘                       │
+               │         ┌───────────────────┘ (Success)             │
                │         │                                           │
                │         ▼                                           │
                │  ┌──────────────┐                                   │
@@ -98,6 +104,21 @@ Control library - Airflow DAGs, sensors, operators.
                │  │ Trigger      │───►│ dbt          │               │
                │  │ dbt          │    │ Transform    │               │
                │  └──────────────┘    └──────────────┘               │
+               │                                                     │
+               │  ┌──────────────────────────────────────────────────┐
+               │  │  PERIODIC MONITORING                             │
+               │  │                                                  │
+               │  │  ┌──────────────┐        ┌──────────────┐        │
+               │  │  │ Error        │◄───────┤ Error Log    │        │
+               │  │  │ Handling DAG │        │ (BigQuery)   │        │
+               │  │  └──────┬───────┘        └──────────────┘        │
+               │  │         │                                        │
+               │  │         ▼                                        │
+               │  │  ┌──────────────┐        ┌──────────────┐        │
+               │  │  │ Automatic    │───Retry──► Target     │        │
+               │  │  │ Reprocessing │        │ Pipeline     │        │
+               │  │  └──────────────┘        └──────────────┘        │
+               │  └──────────────────────────────────────────────────┘
                │                                                     │
                └─────────────────────────────────────────────────────┘
 ```
@@ -131,6 +152,7 @@ For systems with multiple entities (like EM with 3 entities), the checker waits 
 ### How It Works
 
 ```python
+from datetime import date
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 
 # Configure for EM system
@@ -142,7 +164,8 @@ checker = EntityDependencyChecker(
 
 # Check if all entities are loaded for today
 if checker.all_entities_loaded(extract_date=date.today()):
-    trigger_dbt_transformation()
+    # Logic to trigger dbt
+    print("Triggering dbt...")
 else:
     # Wait - some entities not yet loaded
     pass
@@ -178,6 +201,48 @@ else:
 
 ### 4. Global Error Callbacks
 - Standardized failure handlers that publish metadata to DLQs (Dead Letter Queues) for automated alerting and manual intervention.
+
+---
+
+## Error Handling & Reprocessing
+
+The framework implements a two-tier error handling strategy: **Immediate Capture** and **Periodic Recovery**.
+
+### 1. Immediate Capture (Callbacks)
+When a task fails, the `on_failure_callback` from the library is triggered. 
+- **DLQ Publishing**: Standardized task metadata (run_id, system_id, exception) is published to a Pub/Sub DLQ.
+- **Audit Logging**: The error is logged to the BigQuery `error_log` table for centralized tracking.
+
+### 2. Periodic Recovery (Error Handling DAG)
+A dedicated **Error Handling DAG** (e.g., `em_error_handling_dag.py`) runs every 30 minutes to manage the lifecycle of failed records.
+
+#### Automated Reprocessing Flow
+```
+  BigQuery Error Log          Error Handling DAG              Target Pipeline
+  ──────────────────          ──────────────────              ───────────────
+
+  [Error Record] ───►  1. Scan for unresolved  ───►  3. Transient? ───► Trigger Rerun
+                          errors (<30m)                (Backoff applied)
+
+                       2. Classify (via core)  ───►  4. Permanent? ───► Alert Team
+                          (Validation vs Int)          (Manual Review)
+```
+
+#### Classification Logic
+The Error Handling DAG uses the `ErrorClassifier` from `gcp-pipeline-core` to determine the next step:
+
+| Category | Strategy | Example |
+| :--- | :--- | :--- |
+| **INTEGRATION** | Automated Retry | Temporary connection timeout to GCS/BQ |
+| **RESOURCE** | Exponential Backoff | Quota exceeded or Rate limiting |
+| **VALIDATION** | Manual Review | Schema mismatch, invalid data types |
+| **CONFIGURATION** | Manual Review | Missing Airflow variables or IAM permissions |
+
+### Manual Intervention
+For non-retryable errors (e.g., `VALIDATION`), the Error Handling DAG:
+1.  **Quarantines** the failed records/files.
+2.  **Alerts** the data engineering team via Email/Slack.
+3.  **Audit Trail**: Once a developer fixes the data and marks it as `RETRY_READY` in the `error_log`, the DAG will automatically pick it up in the next run.
 
 ---
 
