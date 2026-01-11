@@ -98,3 +98,6 @@ profiles.yml
 *.pyc
 *.pyo
 
+# Local prompts
+NEXT_PROMPT.md
+

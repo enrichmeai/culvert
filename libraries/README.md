@@ -301,3 +301,37 @@ PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 
 ## Total: 618 tests passing ✅
 
+---
+
+## 🛠 Execution Guide
+
+### 1. Running Library Tests
+You can run tests for all libraries from the project root:
+```bash
+./scripts/run_library_tests.sh
+```
+
+Or for an individual library:
+```bash
+cd libraries/gcp-pipeline-core
+PYTHONPATH=src pytest tests/unit/
+```
+
+### 2. Local DAG/Transform Validation
+The libraries are designed for "Local-First" development. You can validate DAG syntax and Beam transforms without a GCP environment by using the built-in mocks and stubs.
+
+**Example: Validate DAG syntax**
+```bash
+cd deployments/em-orchestration
+python dags/em_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
+```
+
+**Example: Test Beam transform with mocks**
+```bash
+cd libraries/gcp-pipeline-beam
+PYTHONPATH=src pytest tests/unit/transforms/test_parsers.py
+```
+
+### 3. Integrated Testing
+To test the integration between libraries, use the `Dual-Run` comparison utility in `gcp-pipeline-tester` which allows you to compare outputs from different pipeline versions.
+

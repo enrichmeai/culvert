@@ -105,8 +105,35 @@ Key steps for this JOIN pattern:
 
 ---
 
-## Deploy to Composer
+## Execution & Testing
 
+### 1. Local DAG Validation
+Since the orchestration unit uses the `AIRFLOW_AVAILABLE` stub from `gcp-pipeline-orchestration`, you can validate DAG syntax locally without an Airflow environment:
+
+```bash
+# Setup venv
+./scripts/setup_deployment_venv.sh em-orchestration
+source deployments/em-orchestration/venv/bin/activate
+
+# Validate syntax
+python dags/em_pubsub_trigger_dag.py
+```
+
+### 2. Testing End-to-End Flow
+Use the simulation script to trigger the full EM flow:
+```bash
+./scripts/gcp/06_test_pipeline.sh em
+```
+
+### 3. Manual Pub/Sub Trigger
+Alternatively, you can manually publish a notification to trigger the DAG:
+```bash
+gcloud pubsub topics publish em-file-notifications \
+    --message='{"name": "em/customers/customers_20260101.ok", "bucket": "my-landing-bucket"}'
+```
+
+### 4. Deployment to Composer
+Deploy the DAGs to your Cloud Composer environment:
 ```bash
 gsutil cp dags/*.py gs://<composer-bucket>/dags/
 ```

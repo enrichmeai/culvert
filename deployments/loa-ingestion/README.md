@@ -48,8 +48,24 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 |-----------|---------|
 | `loa_ingestion/pipeline/` | Beam pipeline and transforms |
 | `loa_ingestion/config/` | System configuration |
-| `loa_ingestion/schema/` | Entity schemas |
+| `loa_ingestion/schema/` | **Python Schemas**: Source-of-truth `EntitySchema` definitions used for validation and PII masking logic. |
+| `loa_ingestion/schemas/` | **JSON Schemas**: Physical BigQuery table schemas used for manual loads, recovery, and external tool integration. |
 | `loa_ingestion/validation/` | File and record validators |
+
+---
+
+## Schema Architecture
+
+The ingestion unit maintains two types of schemas to separate logical rules from physical storage contracts:
+
+1.  **Logical Engine (`schema/` Python)**:
+    *   **Purpose**: Used by the Beam pipeline for runtime CSV parsing, record-level validation, and in-flight PII masking.
+    *   **Feature**: Can dynamically generate BigQuery schemas during job execution (`CREATE_IF_NEEDED`).
+2.  **Physical Contract (`schemas/` JSON)**:
+    *   **Purpose**: Provides a tool-agnostic representation of the BigQuery tables.
+    *   **Usage**: Consumed by Terraform to pre-provision infrastructure (with partitioning/clustering) and used for manual `bq load` recovery operations.
+
+This dual-schema approach ensures that **Infrastructure builds the container, but Ingestion carries the blueprint.**
 
 ---
 
@@ -86,13 +102,35 @@ Key steps for this SPLIT pattern:
 
 ---
 
-## Test
+## Execution & Testing
 
+### 1. Local Development Setup
+Initialize the virtual environment:
 ```bash
-cd deployments/loa-ingestion
+./scripts/setup_deployment_venv.sh loa-ingestion
+source deployments/loa-ingestion/venv/bin/activate
+```
+
+### 2. Unit Testing
+Run the ingestion unit tests using library mocks:
+```bash
 PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v
 ```
 
-**Tests:** 20 passed
+### 3. Local Execution (DirectRunner)
+Run the Beam pipeline locally to validate parsing and schema:
+```bash
+python -m loa_ingestion.pipeline.main \
+    --input_file=tests/data/sample_applications.csv \
+    --output_table=my-project:odp_loa.applications \
+    --runner=DirectRunner \
+    --temp_location=/tmp/beam-temp
+```
+
+### 4. Cloud Execution
+The ingestion unit is typically triggered by Airflow. To trigger it manually for testing on GCP:
+1.  Upload a data file to GCS.
+2.  Upload a corresponding `.ok` file.
+3.  The `loa_pubsub_trigger_dag` will detect the file and launch a Dataflow job using this ingestion code.
 

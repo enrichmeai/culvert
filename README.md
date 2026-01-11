@@ -31,20 +31,6 @@ The **3-Unit Deployment Model** reduces cloud costs:
 
 ---
 
-### Local Development Setup
-
-To set up a local development environment for a specific deployment, use the provided helper script. This will create a dedicated virtual environment for the deployment and install the required libraries from the local monorepo in **editable mode**.
-
-```bash
-# Example: Setup venv for loa-ingestion
-./scripts/setup_deployment_venv.sh loa-ingestion
-
-# Activate the venv
-source deployments/loa-ingestion/venv/bin/activate
-```
-
-This approach ensures that changes made to libraries in the `libraries/` directory are immediately reflected in your local deployment environment.
-
 ### CI/CD Workflow
 
 In CI/CD environments (e.g., Harness), deployments install libraries from an **Artifact Repository** (like Google Artifact Registry or Nexus) using standard `pip install`. 
@@ -60,8 +46,86 @@ The framework is designed for **Ease of Use**. You can create a new system migra
 | Resource | Description |
 | :--- | :--- |
 | **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
+| **[Execution Guide](#-execution-guide)** | Detailed instructions on how to run tests and pipelines. |
 | **[DAG Templates](./templates/dags/)** | Standardized templates for quick orchestration setup. |
 | **[Library Feature Guide](./libraries/README.md)** | Deep dive into the available mechanisms (Audit, PII, DQ). |
+
+---
+
+## 🛠 Execution Guide
+
+The framework supports multiple execution modes: local unit testing, local component execution, and end-to-end cloud validation.
+
+### 1. Local Environment Setup
+
+Every deployment unit has its own virtual environment to ensure isolation. Use the setup script to initialize a unit:
+
+```bash
+# Example: Setup venv for em-ingestion
+./scripts/setup_deployment_venv.sh em-ingestion
+
+# Activate the venv
+source deployments/em-ingestion/venv/bin/activate
+```
+
+This script automatically installs the shared libraries from the `libraries/` directory in **editable mode**.
+
+### 2. Running Unit Tests
+
+#### Library Tests
+To run all library tests (618+ tests):
+```bash
+./scripts/run_library_tests.sh
+```
+
+#### Deployment Tests
+To run tests for a specific deployment unit:
+```bash
+cd deployments/em-ingestion
+PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
+  python -m pytest tests/unit/
+```
+
+### 3. Local Component Execution
+
+#### Running Ingestion (Beam) Locally
+You can run the ingestion pipeline locally using the `DirectRunner`. This is useful for validating HDR/TRL parsing and schema validation without deploying to Dataflow.
+
+```bash
+# Activate em-ingestion venv
+cd deployments/em-ingestion
+python -m em_ingestion.pipeline.main \
+    --input_file=path/to/local/file.csv \
+    --output_table=project:dataset.table \
+    --runner=DirectRunner \
+    --temp_location=/tmp/beam-temp
+```
+
+#### Running Transformation (dbt) Locally
+To run dbt models locally against BigQuery:
+
+```bash
+cd deployments/em-transformation/dbt
+dbt run --profiles-dir . --target dev
+```
+
+### 4. End-to-End Cloud Validation
+
+To test the entire event-driven flow on real GCP infrastructure, use the test script which simulates a mainframe file upload:
+
+```bash
+# Simulates EM file arrival (uploads CSV + .ok file + publishes notification)
+./scripts/gcp/06_test_pipeline.sh em
+
+# Simulates LOA file arrival
+./scripts/gcp/06_test_pipeline.sh loa
+```
+
+This script performs the following actions:
+1.  Generates sample CSV data with valid HDR/TRL records.
+2.  Uploads the data files to the Landing Bucket.
+3.  Uploads the `.ok` trigger file.
+4.  Publishes a message to the Pub/Sub topic to trigger the Airflow DAG.
 
 ---
 
