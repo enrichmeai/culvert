@@ -33,6 +33,18 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 **SPLIT**: 1 ODP source → 2 FDP targets
 
+| Step | Description |
+|------|-------------|
+| 1 | Staging model cleans and type-casts raw ODP applications data |
+| 2 | `add_audit_columns` macro injects `run_id` and `source_file` |
+| 3 | FDP model 1 filters by `event_type` for `event_transaction_excess` |
+| 4 | FDP model 2 filters by `account_type` for `portfolio_account_excess` |
+| 5 | `mask_pii` macro handles sensitive fields in both targets |
+
+---
+
+## Data Mapping
+
 | Source Table | Description |
 |--------------|-------------|
 | `odp_loa.applications` | All loan applications |

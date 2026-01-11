@@ -33,6 +33,18 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 **JOIN**: 3 ODP sources → 1 FDP target
 
+| Step | Description |
+|------|-------------|
+| 1 | Staging models clean and type-cast raw ODP data |
+| 2 | `add_audit_columns` macro injects `run_id` and `source_file` |
+| 3 | `mask_pii` macro applies environment-aware masking to SSN |
+| 4 | FDP model performs `LEFT JOIN` across Customers, Accounts, and Decision |
+| 5 | Output persisted to `fdp_em.em_attributes` |
+
+---
+
+## Data Mapping
+
 | Source Table | Key Fields |
 |--------------|------------|
 | `odp_em.customers` | customer_id, ssn, name |

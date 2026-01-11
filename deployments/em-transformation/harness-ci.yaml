@@ -1,7 +1,7 @@
 pipeline:
   name: em-transformation CI/CD
   identifier: em_transformation_cicd
-  projectIdentifier: legacy_migration_reference
+  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
   orgIdentifier: default
   tags:
     service: em-transformation

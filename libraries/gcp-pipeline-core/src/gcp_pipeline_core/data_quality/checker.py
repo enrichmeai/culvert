@@ -22,20 +22,40 @@ class DataQualityChecker:
     """
 
     def __init__(self, entity_type: str):
+        """
+        Initialize data quality checker.
+
+        Args:
+            entity_type: Type of entity being checked
+        """
         self.entity_type = entity_type
         self.check_results: List[QualityCheckResult] = []
 
-    def check_completeness(self, records: List[Dict], required_fields: List[str]) -> QualityCheckResult:
+    def check_completeness(self, records: List[Dict[str, Any]], required_fields: List[str]) -> QualityCheckResult:
         """
         Check if all required fields are present and non-null.
+
+        Args:
+            records: List of record dictionaries to check
+            required_fields: List of fields that must be present
+
+        Returns:
+            QualityCheckResult containing findings
         """
         result = CompletenessChecker.check(records, required_fields)
         self.check_results.append(result)
         return result
 
-    def check_validity(self, records: List[Dict], validation_rules: Dict[str, callable]) -> QualityCheckResult:
+    def check_validity(self, records: List[Dict[str, Any]], validation_rules: Dict[str, Any]) -> QualityCheckResult:
         """
         Check if field values meet expected formats/rules.
+
+        Args:
+            records: List of record dictionaries to check
+            validation_rules: Dictionary mapping field names to validation functions
+
+        Returns:
+            QualityCheckResult containing findings
         """
         result = ValidityChecker.check(records, validation_rules)
         self.check_results.append(result)
@@ -44,23 +64,45 @@ class DataQualityChecker:
     def check_footer_count(self, processed_count: int, footer_count: int) -> QualityCheckResult:
         """
         Check if the number of processed records matches the count in the file footer.
+
+        Args:
+            processed_count: Actual number of records processed
+            footer_count: Number of records expected from footer
+
+        Returns:
+            QualityCheckResult containing findings
         """
         result = AccuracyChecker.check_footer_count(processed_count, footer_count)
         self.check_results.append(result)
         return result
 
-    def check_uniqueness(self, records: List[Dict], unique_key: str) -> QualityCheckResult:
+    def check_uniqueness(self, records: List[Dict[str, Any]], unique_key: str) -> QualityCheckResult:
         """
         Check for duplicate records based on unique key.
+
+        Args:
+            records: List of record dictionaries to check
+            unique_key: Field name to use as unique identifier
+
+        Returns:
+            QualityCheckResult containing findings
         """
         result = UniquenessChecker.check(records, unique_key)
         self.check_results.append(result)
         return result
 
-    def check_timeliness(self, records: List[Dict], date_field: str,
+    def check_timeliness(self, records: List[Dict[str, Any]], date_field: str,
                         max_age_days: int = 30) -> QualityCheckResult:
         """
         Check if data is current (not too old).
+
+        Args:
+            records: List of record dictionaries to check
+            date_field: Field name containing the date to check
+            max_age_days: Maximum allowed age in days
+
+        Returns:
+            QualityCheckResult containing findings
         """
         result = TimelinessChecker.check(records, date_field, max_age_days)
         self.check_results.append(result)
@@ -69,23 +111,37 @@ class DataQualityChecker:
     def calculate_overall_quality_score(self) -> float:
         """
         Calculate overall data quality score (0.0 to 1.0).
+
+        Returns:
+            Calculated quality score
         """
         return ScoreCalculator.calculate_overall_score(self.check_results)
 
     def get_quality_report(self) -> Dict[str, Any]:
         """
         Generate comprehensive quality report.
+
+        Returns:
+            Dictionary containing the quality report
         """
         report = ReportGenerator.generate_report(self.entity_type, self.check_results)
         return report.to_dict()
 
-    def print_quality_report(self):
+    def print_quality_report(self) -> None:
         """Print human-readable quality report"""
         report = ReportGenerator.generate_report(self.entity_type, self.check_results)
         ReportGenerator.print_report(report)
 
     def _get_grade(self, score: float) -> str:
-        """Convert score to letter grade"""
+        """
+        Convert score to letter grade.
+
+        Args:
+            score: Quality score (0.0 to 1.0)
+
+        Returns:
+            Letter grade (A, B, C, D, F)
+        """
         return ScoreCalculator.get_grade(score)
 
 

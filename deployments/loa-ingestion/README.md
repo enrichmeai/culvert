@@ -15,19 +15,19 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
   GCS Landing                  Beam Pipeline                    BigQuery ODP
   ───────────                  ─────────────                    ────────────
 
-  applications.csv    ─────►  ┌─────────────────┐
-  applications.csv.ok         │ 1. Read CSV     │
-                              │ 2. Parse HDR/TRL│
-                              │ 3. Validate     │─────────► odp_loa.applications
-                              │ 4. Add Audit    │
-                              │ 5. Write to BQ  │
-                              └─────────────────┘
-                                    │
-                                    ▼
-                             ┌─────────────┐
-                             │ Archive to  │
-                             │ GCS Archive │
-                             └─────────────┘
+  1. .csv splits ──┐
+  2. .ok file    ──┼──► Pub/Sub ──► Orchestration ──► 1. Read CSV      ┌──────────────┐
+                   │      Event      (Unit 3)         2. Parse HDR/TRL │ odp_loa.     │
+                   │                                  3. Validate      │ - applicat.  │
+                   │                                  4. Add Audit ──► │              │
+                   │                                  5. Write to BQ   │              │
+                   └──────────────────────────────────┘                └──────────────┘
+                               │
+                               ▼
+                        ┌─────────────┐
+                        │ Archive to  │
+                        │ GCS Archive │
+                        └─────────────┘
 ```
 
 ---
