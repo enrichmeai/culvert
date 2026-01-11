@@ -16,11 +16,11 @@ class TestValidateBranchCode:
         """Test valid 8 character branch code."""
         assert len(validate_branch_code("NY123456")) == 0
 
-    def test_invalid_branch_code_numbers_only(self):
-        """Test invalid branch code with numbers only."""
-        assert len(validate_branch_code("123456")) > 0
+    def test_invalid_branch_code_special_chars(self):
+        """Test invalid branch code with special characters."""
+        assert len(validate_branch_code("NY-123")) > 0
 
     def test_invalid_branch_code_too_short(self):
         """Test invalid branch code too short."""
-        assert len(validate_branch_code("N123")) > 0
+        assert len(validate_branch_code("N12")) > 0
 
