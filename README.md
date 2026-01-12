@@ -1,98 +1,98 @@
 # Legacy Mainframe to GCP Data Migration Framework
 
-A **library-first framework** for migrating legacy mainframe batch systems to Google Cloud Platform. Shared libraries provide reusable patterns; deployments configure them per system.
+A **standardized framework** for moving data from legacy mainframe systems to Google Cloud Platform. It uses shared libraries to handle common tasks like audit, security, and error handling, while allowing each system to have its own specific configuration.
 
 ---
 
-## Why This Framework?
+## Why Use This Framework?
 
-### 1. Library-First Architecture
-The framework is built on a **4-Library Model** (`core`, `beam`, `orchestration`, `transform`) as detailed in our [Technical Architecture Document (TAD)](./docs/TECHNICAL_ARCHITECTURE.md). It leverages **Apache Beam** and **Cloud Composer** to provide professional-grade data integrity and operational resilience (see our [Architectural Rationale](./docs/TECHNICAL_ARCHITECTURE.md#12-architectural-rationale-why-beam--composer)).
+### 1. Shared Library Foundation
+Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity and security. Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
-### 2. Pluggable & Hybrid Ready
-The architecture is tool-agnostic. While providing reference implementations in Beam and dbt, it is designed to integrate existing in-house ingestion or transformation tools while maintaining a unified audit and control plane via the `gcp-pipeline-core` library.
+### 2. Flexible and Extensible
+The architecture is designed to work with different tools. While we provide ready-to-use patterns for **Apache Beam** (ingestion) and **dbt** (transformation), you can plug in your own tools if needed. 
 
-### 3. Operational Excellence
-The framework prioritizes observability and reliability:
-*   **Job Control & Audit:** Centralized tracking via the `job_control` table and `run_id` correlation.
-*   **Standardized Error Handling:** Built-in retry/DLQ patterns.
-*   **Structured Logging:** JSON logging with full context propagation.
+**Community Driven Standards:** Anyone can contribute a new standardized pattern (called a "paved path") as long as it follows our [Core Governance Rules](./docs/TECHNICAL_ARCHITECTURE.md#106-governance-for-custom-paved-paths). This model is supported by multiple teams across the **the enterprise platform**, encouraging shared ownership and consistent quality.
 
-### Cloud Cost Benefits
+### 3. Reliability and Visibility
+The framework makes it easy to track and fix issues:
+*   **Job Tracking:** Every run has a unique ID, making it easy to see exactly what happened to a specific file.
+*   **Automatic Error Handling:** Built-in systems to retry failed tasks and move bad data to a "Dead Letter Queue" for investigation.
+*   **Clear Logs:** Standardized logging that is easy to search in the Google Cloud console.
 
-The **3-Unit Deployment Model** reduces cloud costs:
+### Cloud Cost Savings
 
-| Benefit | Description |
+By splitting each system into three independent parts (Ingestion, Transformation, and Orchestration), we reduce infrastructure costs:
+
+| Benefit | How it saves money |
 |---------|-------------|
-| **Smaller Airflow Environment** | Orchestration unit has NO Apache Beam dependency → faster builds, less memory |
-| **Smaller Dataflow Images** | Ingestion unit has NO Airflow dependency → smaller container images |
-| **Independent Scaling** | Scale ingestion workers without affecting orchestration |
-| **Faster Deployments** | Smaller units = faster CI/CD pipelines |
+| **Smaller Orchestration** | The scheduler (Airflow) doesn't need heavy data processing tools installed. |
+| **Efficient Ingestion** | Ingestion jobs (Dataflow) only use the resources they need for a specific task. |
+| **Independent Scaling** | You can scale up ingestion for a large file without affecting the rest of the system. |
+| **Faster Builds** | Smaller, focused components are faster to test and deploy. |
 
 ---
 
-### CI/CD Workflow
+### Deployment Workflow
 
-In CI/CD environments (e.g., Harness), deployments install libraries from an **Artifact Repository** (like Google Artifact Registry or Nexus) using standard `pip install`. 
-
-The libraries are built and published independently by the [Libraries Root Pipeline](./libraries/harness-root.yaml).
+In a production environment (using tools like **Harness**), libraries are installed from a central repository. The libraries are managed independently to ensure stability across all systems using them.
 
 ---
 
 ## 🚀 Getting Started
 
-The framework is designed for **Ease of Use**. You can create a new system migration in minutes by leveraging our library-first architecture and standardized templates.
+The framework is designed to be simple to use. You can set up a new migration by following our guides and using our pre-built templates.
 
 | Resource | Description |
 | :--- | :--- |
 | **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
-| **[Execution Guide](#-execution-guide)** | Detailed instructions on how to run tests and pipelines. |
-| **[DAG Templates](./templates/dags/)** | Standardized templates for quick orchestration setup. |
-| **[Library Feature Guide](./libraries/README.md)** | Deep dive into the available mechanisms (Audit, PII, DQ). |
+| **[Execution Guide](#-execution-guide)** | How to run tests and pipelines. |
+| **[DAG Templates](./templates/dags/)** | Pre-built templates for scheduling your jobs. |
+| **[Library Features](./libraries/README.md)** | Overview of built-in features like Audit, PII Masking, and Data Quality. |
 
 ---
 
 ## 🛠 Execution Guide
 
-The framework supports multiple execution modes: local unit testing, local component execution, and end-to-end cloud validation.
+The framework supports local testing and cloud-based validation.
 
 ### 1. Local Environment Setup
 
-Every deployment unit has its own virtual environment to ensure isolation. Use the setup script to initialize a unit:
+Each part of a system has its own isolated environment. Use the setup script to get started:
 
 ```bash
-# Example: Setup venv for em-ingestion
+# Example: Setup the ingestion part for the EM system
 ./scripts/setup_deployment_venv.sh em-ingestion
 
-# Activate the venv
+# Activate the environment
 source deployments/em-ingestion/venv/bin/activate
 ```
 
-This script automatically installs the shared libraries from the `libraries/` directory in **editable mode**.
+This script sets up everything you need to develop and test locally.
 
-### 2. Running Unit Tests
+### 2. Running Tests
 
 #### Library Tests
-To run all library tests (618+ tests):
+To run all shared library tests (700+ tests):
 ```bash
 ./scripts/run_library_tests.sh
 ```
 
-#### Deployment Tests
-To run tests for a specific deployment unit:
+#### System-Specific Tests
+To run tests for a specific system component:
 ```bash
 cd deployments/em-ingestion
 PYTHONPATH=src:../../libraries/gcp-pipeline-core/src:../../libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/
 ```
 
-### 3. Local Component Execution
+### 3. Local Execution
 
-#### Running Ingestion (Beam) Locally
-You can run the ingestion pipeline locally using the `DirectRunner`. This is useful for validating HDR/TRL parsing and schema validation without deploying to Dataflow.
+#### Running Ingestion Locally
+You can test ingestion on your own machine without using Google Cloud. This is great for checking if your file parsing and data rules are working correctly.
 
 ```bash
-# Activate em-ingestion venv
+# Activate the ingestion environment
 cd deployments/em-ingestion
 python -m em_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
@@ -101,20 +101,20 @@ python -m em_ingestion.pipeline.main \
     --temp_location=/tmp/beam-temp
 ```
 
-#### Running Transformation (dbt) Locally
-To run dbt models locally against BigQuery:
+#### Running Transformation Locally
+You can also run your data transformation rules (dbt) locally:
 
 ```bash
 cd deployments/em-transformation/dbt
 dbt run --profiles-dir . --target dev
 ```
 
-### 4. End-to-End Cloud Validation
+### 4. Cloud Validation
 
-To test the entire event-driven flow on real GCP infrastructure, use the test script which simulates a mainframe file upload:
+To test the full flow on Google Cloud, use the simulation script. This mimics a file arriving from a mainframe:
 
 ```bash
-# Simulates EM file arrival (uploads CSV + .ok file + publishes notification)
+# Simulates a file arrival for the EM system
 ./scripts/gcp/06_test_pipeline.sh em
 
 # Simulates LOA file arrival
