@@ -1,36 +1,36 @@
 # Project Context Summary
 
 ## Overview
-This project is a mainframe-to-GCP data migration framework. It is built on a **Library-First** philosophy, where reusable infrastructure is decoupled from system-specific logic.
+This project is a framework for migrating data from legacy mainframe systems to Google Cloud Platform. It uses a **shared library** approach, where common infrastructure is separated from system-specific logic. This approach is officially supported by multiple teams across the **the enterprise platform**, providing a standardized way (called "paved paths") to move data reliably.
 
 ## Project Structure
 - `libraries/`: Reusable Python libraries and dbt macros.
-  - `gcp-pipeline-core`: Foundation (Audit, Job Control, Error Handling). **Portable & Engine-Agnostic.**
-  - `gcp-pipeline-beam`: Ingestion (Header/Trailer Parsing, Beam Transforms).
-  - `gcp-pipeline-orchestration`: Control (Airflow Sensors, Operators, Dependency Management).
-  - `gcp-pipeline-transform`: SQL (dbt macros for lineage and PII).
-  - `gcp-pipeline-tester`: Testing utilities (Mocks, BDD fixtures).
-- `deployments/`: System-specific implementations using the libraries.
-  - `em-*`: Application A (JOIN pattern: 3 sources -> 1 target).
-  - `loa-*`: Application B Application (SPLIT pattern: 1 source -> 2 targets).
-- `templates/`: Standardized DAG and CI/CD templates for new deployments.
-- `docs/`: Technical Architecture (TAD) and User Guides.
+  - `gcp-pipeline-core`: Foundation (Audit, Job Tracking, Error Handling). Works with any engine.
+  - `gcp-pipeline-beam`: Ingestion (File parsing and validation using Apache Beam).
+  - `gcp-pipeline-orchestration`: Coordination (Scheduling and dependency management using Airflow).
+  - `gcp-pipeline-transform`: Data Modeling (SQL macros for tracking and data privacy using dbt).
+  - `gcp-pipeline-tester`: Testing tools (Mocks and test helpers).
+- `deployments/`: System-specific settings using the libraries.
+  - `em-*`: Application A (Joins 3 sources into 1 target).
+  - `loa-*`: Application B (Splits 1 source into 2 targets).
+- `templates/`: Pre-built templates for new systems.
+- `docs/`: Technical Architecture and User Guides.
 
 ## Core Governance Rules
-1. **Zero-Bleed Dependency**: 
-   - `core` library MUST NOT depend on Beam or Airflow.
-   - `beam` and `orchestration` must remain functionally isolated.
-2. **Strict Genericity**: 
-   - Libraries provide the **Engine** (mechanisms).
-   - Deployments provide the **Fuel** (configuration/metadata).
-   - No project-specific IDs or regional biases in libraries.
-3. **3-Unit Deployment**: Every system is split into independent `-ingestion`, `-transformation`, and `-orchestration` units to optimize scaling and costs.
+1. **Separation of Concerns**: 
+   - The `core` library must not depend on specific processing engines like Beam or Airflow.
+   - Ingestion and Scheduling logic must stay separate.
+2. **Generic Tools, Specific Data**: 
+   - Libraries provide the mechanisms (how to move data).
+   - Deployments provide the configuration (what data to move).
+3. **3-Unit Model**: Every system is split into independent `-ingestion`, `-transformation`, and `-orchestration` parts to save costs and improve speed.
+4. **Standardized Patterns**: Anyone can create a new migration pattern, but it must follow the mandatory rules in the [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md#106-governance-for-custom-paved-paths).
 
 ## Technical Patterns
-- **Audit Lineage**: All records track `_run_id` from arrival to final FDP table.
-- **Idempotency**: `AuditTrail` and `JobControl` ensure jobs can be safely restarted.
-- **Metadata-Driven PII**: PII masking is controlled by `EntitySchema` definitions, not hardcoded SQL.
-- **Local Validation**: Airflow DAGs and Dataflow logic use stubs/mocks for testing without live GCP.
+- **Full Tracking**: Every record is tracked from source to target using a unique `run_id`.
+- **Safety First**: Systems are designed so they can be safely restarted without creating duplicate data.
+- **Privacy by Design**: Sensitive data (PII) is masked based on clear rules, not hidden in complex SQL.
+- **Local Testing**: Logic can be tested on a developer's machine without needing a live cloud environment.
 
 ## Development Workflow
 1. Use `scripts/setup_deployment_venv.sh` for local dev.

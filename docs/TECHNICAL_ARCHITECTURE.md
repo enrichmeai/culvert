@@ -61,22 +61,22 @@ This table manages the state machine for every migration run.
 
 ## 5. Technical Implementation (Proof of Design)
 
-### 5.1 Micro-Orchestration (Multi-DAG Pattern)
-Instead of a single monolithic DAG, each system's orchestration is split into three or more focused DAGs.
+### 5.1 Orchestration Strategy (Multi-DAG Pattern)
+Instead of a single large DAG (monolithic), each system's scheduling is split into several smaller, focused DAGs.
 
 #### 5.1.1 The DAG Roles
-1.  **Trigger DAG**: Listens for external events (e.g., Pub/Sub message for a `.ok` file). It performs lightweight validation (HDR/TRL check) and triggers the next stage.
-2.  **Load DAG (ODP)**: Manages the Dataflow job. It handles job control state updates (PENDING → RUNNING → SUCCESS) and ensures data is loaded to the ODP layer.
-3.  **Transform DAG (FDP)**: Executes dbt models to transform ODP data into FDP data. It is triggered only after the Load DAG succeeds.
+1.  **Trigger DAG**: Listens for a notification (like a `.ok` file). It checks the file's header and trailer and then starts the next stage.
+2.  **Load DAG**: Manages the data ingestion. it updates the job status (Pending → Running → Success) and ensures data is loaded into the raw (ODP) layer.
+3.  **Transform DAG**: Runs the transformation rules to create the final (FDP) data. It only starts after the Load DAG finishes successfully.
 
 #### 5.1.2 Why Separate DAGs?
-| Consideration | Monolithic DAG | Micro-Orchestration (Multi-DAG) |
+| Consideration | Single Large DAG | Multiple Focused DAGs |
 | :--- | :--- | :--- |
-| **Blast Radius** | Failure in transformation might require re-running the entire DAG, risking expensive ingestion re-runs. | Failures are isolated. You can retry the Transform DAG without touching the Ingestion layer. |
-| **Cost** | DAGs stay "active" while waiting for files, consuming Airflow worker slots. | Trigger DAGs are "fire-and-forget". Resources are only consumed when there is actual work. |
-| **Scaling** | Hard to scale when one DAG manages hundreds of entities. | Each entity/stage is independent, allowing Airflow to schedule tasks more efficiently. |
-| **Maintenance** | Massive DAG files are hard to read, test, and update. | Focused DAGs are easier to maintain and allow independent deployment of logic. |
-| **Complexity** | Simple linear dependencies. | Requires a robust metadata layer (Job Control) to coordinate state across DAGs. |
+| **Failure Isolation** | A failure in one part might require re-running everything, which is expensive. | Failures are contained. You can retry the transformation without re-ingesting the data. |
+| **Cost** | Keeps resources active while waiting, increasing costs. | "Fire-and-forget" triggers only use resources when there is actual work. |
+| **Scaling** | Hard to manage when one DAG handles many entities. | Each part is independent, allowing for more efficient scheduling. |
+| **Maintenance** | Large files are hard to read and test. | Smaller files are easier to maintain and update. |
+| **Complexity** | Simple but rigid. | Uses a shared status table to coordinate between parts. |
 
 ### 5.2 Ingestion (Unit 1)
 *   **Pattern**: Shared-Nothing Ingestion.
@@ -100,9 +100,9 @@ The pipeline follows a strict reactive pattern:
 3.  **Validation**: Trigger DAG validates the file envelope (HDR/TRL).
 4.  **Execution**: Load DAG runs Dataflow; Transform DAG runs dbt.
 
-### 6.2 Idempotency and Replayability
-*   **Idempotency**: Every unit is designed to be re-run safely. BigQuery `WRITE_TRUNCATE` or partition-level overwrites ensure that duplicate runs don't duplicate data.
-*   **Replayability**: If a job fails at the Transform stage, an operator can simply "Clear" the Transform DAG. It will pick up the existing `run_id` from the metadata and re-process the ODP data.
+### 6.2 Reliability and Repeatability
+*   **Safety**: Every part of the system is designed to be re-run safely. Using specific BigQuery settings ensures that duplicate runs don't create duplicate data.
+*   **Repeatability**: If a job fails during transformation, you can simply restart that stage. It will use the existing tracking ID and re-process the raw data.
 
 ### 6.3 State Management (Job Control)
 The `job_control` table acts as the "Brain" of the platform. DAGs do not pass large amounts of data between themselves; instead, they pass the `run_id`. Each DAG queries the `job_control` table to understand the current state of the world before proceeding.
@@ -216,6 +216,38 @@ The core library enforces **Structured JSON Logging** and **Standardized Metrics
 #### 4. Data Integrity & Auditability
 The `AuditTrail` and `ReconciliationEngine` are tool-agnostic. By including the core library in hybrid units, teams can leverage built-in source-to-target reconciliation and lineage tracking. This provides a single source of truth for data quality and compliance, regardless of which technology performed the actual data movement.
 
+### 10.5 Alignment with Enterprise paved paths
+The enterprise data team provides standardized "paved paths" for common patterns. This framework is designed to align with these paths while providing the missing orchestration and ingestion layers.
+
+#### 1. Transformation (dbt on Cloud Run)
+The Enterprise Transformation paved path (currently **under test**) enables teams to run dbt on Cloud Run, providing a dedicated repo and a Harness pipeline to push dbt projects to GCS.
+*   **Our Strategy**: While Cloud Run is excellent for hosting the dbt execution environment, it is a "passive" component that requires an external invoker.
+*   **Framework Value-Add**: Our **Orchestration Unit (Unit 3)** acts as that invoker. It ensures that dbt is triggered *only* after all upstream ingestion units (Unit 1) have successfully updated the `job_control` table. This prevents the "partial data" problem inherent in simple time-based triggers.
+*   **Integration**: Teams can use the Enterprise Harness pipeline to deploy their dbt code, while using this framework's Airflow DAGs to trigger the execution via Cloud Run (instead of the default BashOperator), maintaining the unified `run_id` lineage.
+
+#### 2. Ingestion Gap-Filling
+As the Enterprise Ingestion Framework is currently not yet started, this framework's **Ingestion Unit (Unit 1: Beam)** serves as the production-ready "paved path" for mainframe-to-GCP ingestion.
+*   **Immediate Capability**: It provides the HDR/TRL validation, split-file reassembly, and ODP audit columns that are critical for legacy migrations but not yet available in the enterprise toolkit.
+*   **Future Proofing**: Because our architecture is decoupled (Unit 1 is independent of Unit 2/3), systems started on this framework can easily migrate to the Enterprise Ingestion Framework once it matures, simply by swapping the Unit 1 implementation while keeping the Orchestration and Transformation logic intact.
+
+### 10.6 Governance for Custom paved paths
+While the framework encourages the creation of system-specific "paved paths" to handle unique legacy patterns, all paths must adhere to the following mandatory governance rules to maintain platform integrity. This approach has broad support from multiple teams across the **the enterprise platform**, ensuring that decentralized innovation remains consistent with enterprise standards.
+
+#### 10.6.1 The Pathway to "Official" paved path Status
+A custom pattern developed by a team can be promoted to an official "paved path" if it:
+1.  **Demonstrates Reusability**: Solves a pattern common to at least two different systems.
+2.  **Passes Peer Review**: Is reviewed and approved by the the enterprise platform architecture guild.
+3.  **Includes Templates**: Provides scaffolding/templates in the `templates/` directory for other teams to adopt.
+4.  **Maintains Documentation**: Includes comprehensive READMEs and architectural diagrams.
+
+#### 10.6.2 Mandatory Rules
+1.  **Mandatory Core Integration**: Every paved path MUST use the `gcp-pipeline-core` library. It is the only source of truth for `PipelineJob` models and `AuditTrail` logic.
+2.  **Metadata Contract Compliance**: Every unit must accept a `run_id` as its primary correlation key and must update the `job_control` table state (PENDING → RUNNING → SUCCESS/FAILED) using the `JobControlRepository`.
+3.  **Strict Audit Lineage**: All data written to BigQuery (ODP or FDP) MUST include the `_run_id` and a processing timestamp (`_processed_at` or `_transformed_at`).
+4.  **Functional Decoupling**: paved paths must respect the **3-Unit Deployment Model**. Ingestion logic must not be embedded in Transformation scripts, and Orchestration must remain engine-agnostic.
+5.  **Standardized Observability**: All components must implement Structured JSON Logging and export standardized metrics as defined in the `core` library.
+6.  **Security Isolation**: Each functional unit within a paved path must run under a dedicated Service Account with Principle of Least Privilege (PoLP) permissions.
+
 ## 11. Summary
 The framework is a production-hardened implementation of a library-first architecture. By enforcing strict decoupling through the 3-Unit Deployment model, the Micro-Orchestration pattern, and the Job Control metadata contract, it delivers a scalable, cost-effective, and tool-agnostic solution for enterprise data migrations.
 
@@ -243,12 +275,12 @@ Lightweight tools like Cloud Workflows are excellent for simple linear sequences
 
 ### 12.3 Summary of Trade-offs
 
-| Aspect | BQ Load + Workflows | Beam + Composer (Reference) |
+| Aspect | Basic Cloud Tools | Framework Reference (Beam + Composer) |
 | :--- | :--- | :--- |
-| **Cost** | Lower (Pay per run/load) | Higher (Fixed environment cost) |
-| **Parsing** | Rigid (Standard CSV only) | Powerful (Custom HDR/TRL, Fixed-width) |
-| **Validation** | Basic (Type check only) | Advanced (Logic, Quarantining) |
-| **Ops** | Harder (Less visibility) | Professional (Visual, Detailed) |
-| **Scaling** | Limited by BQ Load jobs | Virtually unlimited (Horizontal) |
+| **Cost** | Lower (Pay per run) | Higher (Fixed environment cost) |
+| **Parsing** | Rigid (Standard files only) | Powerful (Custom headers/trailers) |
+| **Validation** | Basic (Type check only) | Advanced (Custom rules and quarantining) |
+| **Operations** | Harder (Less visibility) | Professional (Visual tools, detailed logs) |
+| **Scaling** | Limited by tool capacity | Virtually unlimited |
 
-**Conclusion**: For a small, self-contained migration, lightweight tools may suffice. However, for a production-grade enterprise platform that requires **data integrity (Audit)**, **resilience (Retries)**, and **scale**, the Beam and Composer stack provides the necessary "insurance" against operational failure.
+**Conclusion**: For a small, simple migration, basic tools might be enough. However, for a professional enterprise platform that requires **data integrity**, **resilience**, and **scale**, the Beam and Composer stack provides the necessary "insurance" against failure.
