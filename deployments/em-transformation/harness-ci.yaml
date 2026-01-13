@@ -11,7 +11,7 @@ pipeline:
     ci:
       codebase:
         connectorRef: github_connector
-        repoName: em-transformation
+        repoName: em-transformation # Separate repository for this deployment
         build:
           type: branch
           spec:
@@ -33,9 +33,7 @@ pipeline:
                 branch:
                   include:
                     - main
-                paths:
-                  include:
-                    - deployments/em-transformation/**
+                # Path filter removed as this is now a standalone repository
 
   variables:
     - name: gcp_project_id

@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'deployments/<system_id>-*/**'
-      - 'libraries/**'
+      - 'gcp-pipeline-gcp-pipeline-libraries/**'
       - 'infrastructure/terraform/systems/<system_id>/**'
   workflow_dispatch:
 
@@ -28,10 +28,10 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e libraries/gcp-pipeline-core
-        pip install -e libraries/gcp-pipeline-beam
-        pip install -e libraries/gcp-pipeline-orchestration
-        pip install -e libraries/gcp-pipeline-transform
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform
 
   deploy-infrastructure:
     name: Deploy Infrastructure

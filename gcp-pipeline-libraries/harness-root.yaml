@@ -42,7 +42,7 @@ pipeline:
         spec:
           pipelineRef: gcp_pipeline_core_ci
           isTriggeredPipeline: true
-          # The individual pipeline is located at libraries/gcp-pipeline-core/harness-ci.yaml
+          # The individual pipeline is located at gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/harness-ci.yaml
 
     - stage:
         name: Beam Library CI
@@ -51,7 +51,7 @@ pipeline:
         spec:
           pipelineRef: gcp_pipeline_beam_ci
           isTriggeredPipeline: true
-          # The individual pipeline is located at libraries/gcp-pipeline-beam/harness-ci.yaml
+          # The individual pipeline is located at gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/harness-ci.yaml
 
     - stage:
         name: Orchestration Library CI
@@ -60,7 +60,7 @@ pipeline:
         spec:
           pipelineRef: gcp_pipeline_orchestration_ci
           isTriggeredPipeline: true
-          # The individual pipeline is located at libraries/gcp-pipeline-orchestration/harness-ci.yaml
+          # The individual pipeline is located at gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/harness-ci.yaml
 
     - stage:
         name: Transform Library CI
@@ -69,7 +69,7 @@ pipeline:
         spec:
           pipelineRef: gcp_pipeline_transform_ci
           isTriggeredPipeline: true
-          # The individual pipeline is located at libraries/gcp-pipeline-transform/harness-ci.yaml
+          # The individual pipeline is located at gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/harness-ci.yaml
 
     - stage:
         name: Tester Library CI
@@ -78,4 +78,4 @@ pipeline:
         spec:
           pipelineRef: gcp_pipeline_tester_ci
           isTriggeredPipeline: true
-          # The individual pipeline is located at libraries/gcp-pipeline-tester/harness-ci.yaml
+          # The individual pipeline is located at gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/harness-ci.yaml

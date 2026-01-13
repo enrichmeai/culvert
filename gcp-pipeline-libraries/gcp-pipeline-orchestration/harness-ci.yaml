@@ -1,10 +1,10 @@
 pipeline:
-  name: gcp-pipeline-core CI
-  identifier: gcp_pipeline_core_ci
+  name: gcp-pipeline-orchestration CI
+  identifier: gcp_pipeline_orchestration_ci
   projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
   orgIdentifier: default # UPDATE to your Org ID
   tags:
-    library: core
+    library: orchestration
     type: python
 
   properties:
@@ -19,8 +19,8 @@ pipeline:
 
   triggers:
     - trigger:
-        name: On Core Change
-        identifier: on_core_change
+        name: On Orchestration Change
+        identifier: on_orchestration_change
         type: Webhook
         spec:
           type: Github
@@ -35,7 +35,7 @@ pipeline:
                     - main
                 paths:
                   include:
-                    - libraries/gcp-pipeline-core/**
+                    - gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/**
 
   stages:
     - stage:
@@ -61,5 +61,8 @@ pipeline:
                     image: python:3.11
                     shell: Bash
                     command: |
+                      # Install core library dependency (assumes available in Artifact Registry or git)
+                      pip install gcp-pipeline-core
+                      
                       pip install -e .[dev]
                       PYTHONPATH=src pytest tests/unit/ -v --tb=short

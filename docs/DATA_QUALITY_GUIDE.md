@@ -104,7 +104,7 @@ report = checker.get_quality_report()
 ## 📚 Official Documentation
 - [Google Cloud Dataplex Overview](https://cloud.google.com/dataplex/docs/introduction)
 - [Dataplex Auto DQ Guide](https://cloud.google.com/dataplex/docs/data-quality-overview)
-- [GDW Data Core: Data Quality Module](../libraries/gcp-pipeline-core/src/gcp_pipeline_core/data_quality/)
+- [GDW Data Core: Data Quality Module](../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/data_quality/)
 
 ---
 

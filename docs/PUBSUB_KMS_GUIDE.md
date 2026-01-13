@@ -20,7 +20,7 @@ The library provides an enhanced Pub/Sub sensor for event-driven pipeline trigge
 - **Dead Letter Queue (DLQ)**: Automatic capture of failed messages for investigation.
 
 ## Core Component
-- `BasePubSubPullSensor`: Located in `libraries/gcp-pipeline-orchestration/src/gcp_pipeline_core/orchestration/sensors/pubsub.py`.
+- `BasePubSubPullSensor`: Located in `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_core/orchestration/sensors/pubsub.py`.
 
 ## Usage Example (Airflow DAG)
 

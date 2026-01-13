@@ -4,7 +4,7 @@
 This project is a framework for migrating data from legacy mainframe systems to Google Cloud Platform. It uses a **shared library** approach, where common infrastructure is separated from system-specific logic. This approach is officially supported by multiple teams across the **the enterprise platform**, providing a standardized way (called "paved paths") to move data reliably.
 
 ## Project Structure
-- `libraries/`: Reusable Python libraries and dbt macros.
+- `gcp-pipeline-gcp-pipeline-libraries/`: Reusable Python libraries and dbt macros.
   - `gcp-pipeline-core`: Foundation (Audit, Job Tracking, Error Handling). Works with any engine.
   - `gcp-pipeline-beam`: Ingestion (File parsing and validation using Apache Beam).
   - `gcp-pipeline-orchestration`: Coordination (Scheduling and dependency management using Airflow).

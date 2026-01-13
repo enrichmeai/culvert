@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'deployments/em-*/**'
-      - 'libraries/**'
+      - 'gcp-pipeline-gcp-pipeline-libraries/**'
       - 'infrastructure/terraform/systems/em/**'
   workflow_dispatch:
 
@@ -31,11 +31,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e libraries/gcp-pipeline-core
-        pip install -e libraries/gcp-pipeline-beam
-        pip install -e libraries/gcp-pipeline-orchestration
-        pip install -e libraries/gcp-pipeline-transform
-        pip install -e libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform
+        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester
 
     - name: Run EM tests
       run: |
@@ -237,9 +237,9 @@ jobs:
           if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
             # Upload libraries to DAGs bucket
             echo "Uploading libraries to $DAGS_BUCKET/..."
-            gsutil -m cp -r libraries/gcp-pipeline-core/src/gcp_pipeline_core ${DAGS_BUCKET}/
-            gsutil -m cp -r libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration ${DAGS_BUCKET}/
-            gsutil -m cp -r libraries/gcp-pipeline-beam/src/gcp_pipeline_beam ${DAGS_BUCKET}/
+            gsutil -m cp -r gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core ${DAGS_BUCKET}/
+            gsutil -m cp -r gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration ${DAGS_BUCKET}/
+            gsutil -m cp -r gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam ${DAGS_BUCKET}/
             echo "✅ Libraries uploaded"
             
             # Upload DAGs
