@@ -25,10 +25,10 @@ Example:
 
 from datetime import datetime, timezone
 from typing import Callable, Dict, Any, Optional, Tuple, List, TYPE_CHECKING
-import logging
 
 from google.cloud import storage
 
+from gcp_pipeline_core.utilities.logging import get_logger
 from .validator import FileValidator
 from .archiver import FileArchiver
 from .metadata import FileMetadataExtractor
@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     from .policy import ArchivePolicyEngine
     from gcp_pipeline_core.audit import AuditTrail
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class FileLifecycleManager:
@@ -153,7 +153,7 @@ class FileLifecycleManager:
                 self.monitoring.metrics.increment('files_processed', 1)
 
             return True
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except (ValueError, TypeError, RuntimeError) as exc:
             logger.error("Error processing file: %s", exc, exc_info=True)
 
             if self.error_handler:
@@ -189,7 +189,7 @@ class FileLifecycleManager:
                 self.monitoring.metrics.increment('files_archived', 1)
 
             return result if result.success else None
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except (IOError, RuntimeError) as exc:
             logger.error("Error archiving file: %s", exc, exc_info=True)
 
             if self.error_handler:
@@ -264,7 +264,7 @@ class FileLifecycleManager:
 
             return error_path
 
-        except Exception as exc:  # pylint: disable=broad-exception-caught
+        except (IOError, ValueError, RuntimeError) as exc:
             logger.error(f"Error moving file to error bucket: {exc}", exc_info=True)
             return None
 

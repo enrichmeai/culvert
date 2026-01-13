@@ -170,9 +170,9 @@
 
     {% if env_level != 'AUTO' %}
         {{ env_level }}
-    {% elif target.name == 'prod' %}
+    {% elif target.name == var('prod_target_name', 'prod') %}
         'FULL'  -- Full masking in production
-    {% elif target.name == 'staging' %}
+    {% elif target.name == var('staging_target_name', 'staging') %}
         'PARTIAL'  -- Show last 4 digits in staging
     {% else %}
         'NONE'  -- No masking in development

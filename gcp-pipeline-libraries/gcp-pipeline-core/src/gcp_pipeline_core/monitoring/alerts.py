@@ -4,15 +4,15 @@ Alert management and backends.
 Creates, sends, and tracks alerts based on metrics and events.
 """
 
-import logging
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, List
 
 from .types import Alert, AlertLevel
+from ..utilities.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class AlertManager:
@@ -117,7 +117,12 @@ class CloudMonitoringBackend(AlertBackend):
 
 
 class DatadogAlertBackend(AlertBackend):
-    """Sends alerts to Datadog"""
+    """
+    Sends alerts to Datadog.
+    
+    SECURITY NOTE: Do not hardcode api_key or app_key. 
+    Use GCP Secret Manager or environment variables to inject them.
+    """
 
     def __init__(self, api_key: str, app_key: str):
         self.api_key = api_key
@@ -135,7 +140,12 @@ class DatadogAlertBackend(AlertBackend):
 
 
 class SlackAlertBackend(AlertBackend):
-    """Sends alerts to Slack"""
+    """
+    Sends alerts to Slack.
+    
+    SECURITY NOTE: Do not hardcode webhook_url. 
+    Use GCP Secret Manager or environment variables to inject it.
+    """
 
     def __init__(self, webhook_url: str, channel: Optional[str] = None):
         self.webhook_url = webhook_url

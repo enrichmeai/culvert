@@ -50,3 +50,28 @@
 - Use incremental materialization with `merge` strategy where applicable.
 - Ensure Terraform table definitions exactly match the dbt model outputs.
 - Maintain flow diagrams in the system's `README.md`.
+
+---
+
+### Sonar Compliance Guidelines & Prompt
+
+**Objective**: Ensure all Python libraries and dbt macros in the GCP Pipeline framework maintain high code quality, security, and maintainability standards, avoiding common "Sonar" issues.
+
+#### 1. Python Code Quality Standards
+- **Completeness**: No "TODO" stubs or unfinished methods in production-bound classes (e.g., `SafeDataDeletion`, `ErrorStorageBackend`).
+- **Standardized Logging**: Use the framework's `StructuredLogger` (`gcp_pipeline_core.utilities.logging.get_logger`) instead of the standard Python `logging` module to ensure consistent JSON formatting and context injection in Cloud Logging.
+- **Robust Error Handling**:
+    - Avoid broad `except Exception:` blocks. Use specific exceptions (e.g., `ValueError`, `IOError`, `RuntimeError`).
+    - Never use empty `pass` blocks in critical logic paths (DLQ, OTEL, Deletion).
+- **Security**: Never hardcode or pass secrets (API keys) as plain text in constructors. Use GCP Secret Manager or environment variables.
+
+#### 2. dbt & SQL Standards
+- **Environment Agnostic**: Avoid hardcoding environment names (e.g., `target.name == 'prod'`) in core macros. Use dbt variables for environment-specific logic.
+- **Audit Compliance**: All FDP models must include audit injection and PII masking.
+
+#### 3. Prompt for Sonar Compliance
+When reviewing or generating code for `gcp-pipeline-libraries`, use the following checklist:
+1. "Does this method have a complete implementation, or is it a stub?"
+2. "Is it using `get_logger(__name__)` from the core utilities?"
+3. "Are exceptions specific, and is the handling logic robust (not just `pass`)?"
+4. "Are there any hardcoded credentials or environment-specific strings?"

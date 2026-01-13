@@ -6,11 +6,10 @@ Provides span context propagation and pipeline context tracking.
 
 from contextlib import contextmanager
 from typing import Dict, Any, Optional
-import logging
-
 from .tracing import get_tracer
+from ...utilities.logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SpanContext:
@@ -31,8 +30,8 @@ class SpanContext:
         if self._span:
             try:
                 self._span.set_attribute(key, value)
-            except Exception:
-                pass  # Silently ignore if OTEL fails
+            except Exception as e:
+                logger.debug(f"Failed to set span attribute {key}: {e}")
 
     def set_attributes(self, attributes: Dict[str, Any]):
         """Set multiple span attributes."""
@@ -45,16 +44,16 @@ class SpanContext:
         if self._span:
             try:
                 self._span.add_event(name, attributes)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to add span event {name}: {e}")
 
     def record_exception(self, exception: Exception):
         """Record an exception on the span."""
         if self._span:
             try:
                 self._span.record_exception(exception)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to record exception on span: {e}")
 
     def set_status_ok(self):
         """Set span status to OK."""
@@ -62,8 +61,8 @@ class SpanContext:
             try:
                 from opentelemetry.trace import StatusCode
                 self._span.set_status(StatusCode.OK)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to set span status OK: {e}")
 
     def set_status_error(self, message: str = ""):
         """Set span status to ERROR."""
@@ -71,8 +70,8 @@ class SpanContext:
             try:
                 from opentelemetry.trace import StatusCode
                 self._span.set_status(StatusCode.ERROR, message)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Failed to set span status ERROR: {e}")
 
 
 class OTELContext:
@@ -180,29 +179,30 @@ class OTELContext:
                 try:
                     from opentelemetry.trace import StatusCode
                     span.set_status(StatusCode.OK)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to set span status OK: {e}")
         except Exception as e:
             if span:
                 try:
                     from opentelemetry.trace import StatusCode
                     span.record_exception(e)
                     span.set_status(StatusCode.ERROR, str(e))
-                except Exception:
-                    pass
+                except Exception as ex:
+                    logger.debug(f"Failed to set span status ERROR: {ex}")
             raise
         finally:
             if span:
                 try:
                     span.end()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug(f"Failed to end span: {e}")
 
     def _get_context(self):
         """Get current trace context."""
         try:
             from opentelemetry import context
             return context.get_current()
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Failed to get current context: {e}")
             return None
 

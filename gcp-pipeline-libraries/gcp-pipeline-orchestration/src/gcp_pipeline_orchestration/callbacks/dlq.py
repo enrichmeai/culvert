@@ -4,13 +4,13 @@ DLQ (Dead Letter Queue) Publishing Utilities.
 Functions for publishing error messages to Pub/Sub DLQ.
 """
 
-import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
+from gcp_pipeline_core.utilities.logging import get_logger
 
 from .types import ErrorHandlerConfig, ErrorType, get_default_config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def _get_project_id(
@@ -83,8 +83,8 @@ def _build_error_payload(
                         payload["file_path"] = routing_metadata.get("gcs_path")
                         payload["entity_type"] = routing_metadata.get("entity_type")
                         payload["system_id"] = routing_metadata.get("system_id")
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning(f"Error pulling routing metadata from XCom: {e}")
         except Exception as e:
             logger.warning(f"Error extracting context info: {e}")
 

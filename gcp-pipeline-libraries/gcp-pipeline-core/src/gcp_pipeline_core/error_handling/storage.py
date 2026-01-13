@@ -6,10 +6,12 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, TYPE_CHECKING
 import logging
 
+from ..utilities.logging import get_logger
+
 if TYPE_CHECKING:
     from .models import PipelineError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class ErrorStorageBackend(ABC):
@@ -80,14 +82,49 @@ class GCSErrorStorage(ErrorStorageBackend):
 
     def retrieve_errors(self, run_id: str) -> List['PipelineError']:
         """Retrieve errors for a run from GCS"""
-        # Implement GCS listing and JSON deserialization
-        # This is a stub for production implementation
-        logger.info(f"Retrieving errors for run {run_id} from GCS")
-        return []
+        from .models import PipelineError
+        from google.cloud import storage
+        
+        errors = []
+        try:
+            client = storage.Client()
+            bucket = client.bucket(self.gcs_bucket)
+            prefix = f"{self.gcs_prefix}/{run_id}/"
+            
+            blobs = bucket.list_blobs(prefix=prefix)
+            for blob in blobs:
+                if blob.name.endswith(".json"):
+                    content = blob.download_as_text()
+                    errors.append(PipelineError.from_json(content))
+            
+            logger.info(f"Retrieved {len(errors)} errors for run {run_id} from GCS")
+        except Exception as e:
+            logger.error(f"Failed to retrieve errors from GCS: {e}")
+            
+        return errors
 
     def retrieve_retryable(self) -> List['PipelineError']:
         """Retrieve all retryable errors from GCS"""
-        # Implement GCS scanning for unresolved errors
-        logger.info("Retrieving retryable errors from GCS")
-        return []
+        from .models import PipelineError
+        from google.cloud import storage
+        
+        errors = []
+        try:
+            client = storage.Client()
+            bucket = client.bucket(self.gcs_bucket)
+            
+            # Note: This could be expensive for large buckets
+            blobs = bucket.list_blobs(prefix=self.gcs_prefix)
+            for blob in blobs:
+                if blob.name.endswith(".json"):
+                    content = blob.download_as_text()
+                    error = PipelineError.from_json(content)
+                    if not error.resolved:
+                        errors.append(error)
+            
+            logger.info(f"Retrieved {len(errors)} retryable errors from GCS")
+        except Exception as e:
+            logger.error(f"Failed to retrieve retryable errors from GCS: {e}")
+            
+        return errors
 

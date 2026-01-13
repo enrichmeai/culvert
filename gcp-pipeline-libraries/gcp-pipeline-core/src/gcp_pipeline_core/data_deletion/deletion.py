@@ -2,12 +2,12 @@
 Safe data deletion with audit trail and approval workflows.
 """
 
-import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
+from ..utilities.logging import get_logger
 from .types import MalformedRecord, QuarantineLevel
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class DeletionPolicy:
@@ -167,5 +167,30 @@ class SafeDataDeletion:
             "errors": []
         }
 
-        batch_size = min(len(records), self.policy.max_batch_size)
+        # Apply batch size limit from policy
+        records_to_process = records[:self.policy.max_batch_size]
+        results["skipped"] = len(records) - len(records_to_process)
+
+        for record in records_to_process:
+            try:
+                if self.delete_record(record, run_id=run_id):
+                    results["deleted"] += 1
+                else:
+                    results["failed"] += 1
+                    results["errors"].append({
+                        "record_id": record.record_id,
+                        "error": "Record not approved for deletion"
+                    })
+            except Exception as exc:
+                results["failed"] += 1
+                results["errors"].append({
+                    "record_id": record.record_id,
+                    "error": str(exc)
+                })
+
+        logger.info(
+            "Batch deletion completed: %d deleted, %d failed, %d skipped",
+            results["deleted"], results["failed"], results["skipped"]
+        )
+        return results
 
