@@ -3,33 +3,24 @@ pipeline:
   identifier: gcp_pipeline_libraries_unified_ci
   projectIdentifier: default_project
   orgIdentifier: default_org
-  tags: {}
-  properties:
-    ci:
-      codebase:
-        connectorRef: YOUR_GIT_CONNECTOR_ID # Change this to your Harness Git Connector ID
-        repoName: legacy-migration-reference
-        build: <+input>
   stages:
     - stage:
-        name: Core Library
-        identifier: core_library
+        name: Unified Libraries Build
+        identifier: unified_libraries_build
         type: CI
         spec:
           cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID # Change this to your K8S Connector ID
-              namespace: harness-builds
+          runtime:
+            type: Cloud
+            spec: {}
           execution:
             steps:
               - step:
-                  name: Build and Test Core
+                  name: Core Library
                   identifier: build_test_core
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID # Change this to your Docker Connector ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
@@ -37,25 +28,12 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
-    - stage:
-        name: Beam Library
-        identifier: beam_library
-        type: CI
-        spec:
-          cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
-          execution:
-            steps:
               - step:
-                  name: Build and Test Beam
+                  name: Beam Library
                   identifier: build_test_beam
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
@@ -63,25 +41,12 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
-    - stage:
-        name: Orchestration Library
-        identifier: orchestration_library
-        type: CI
-        spec:
-          cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
-          execution:
-            steps:
               - step:
-                  name: Build and Test Orchestration
+                  name: Orchestration Library
                   identifier: build_test_orchestration
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
@@ -89,25 +54,12 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
-    - stage:
-        name: Transform Library
-        identifier: transform_library
-        type: CI
-        spec:
-          cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
-          execution:
-            steps:
               - step:
-                  name: Build and Test Transform
+                  name: Transform Library
                   identifier: build_test_transform
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
@@ -115,25 +67,12 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
-    - stage:
-        name: Tester Library
-        identifier: tester_library
-        type: CI
-        spec:
-          cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
-          execution:
-            steps:
               - step:
-                  name: Build and Test Tester
+                  name: Tester Library
                   identifier: build_test_tester
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
@@ -141,19 +80,15 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
-
-
     - stage:
         name: Publish to Nexus
         identifier: publish_nexus
         type: CI
         spec:
           cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
+          runtime:
+            type: Cloud
+            spec: {}
           execution:
             steps:
               - step:
@@ -161,12 +96,12 @@ pipeline:
                   identifier: publish_libraries
                   type: Run
                   spec:
-                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    connectorRef: docker_hub
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
                       echo "enable nexus"
-                      # To enable publishing, uncomment the lines below and replace YOUR_NEXUS_CONNECTOR_ID
+                      # To enable publishing, uncomment the lines below
                       # pip install twine build
                       
                       # Publish Core
