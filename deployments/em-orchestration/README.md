@@ -17,8 +17,8 @@ Airflow DAGs for pipeline coordination and scheduling.
 
   .ok file     ┌─────────────────────────────────────────────────────────┐
   arrives      │                                                         │
-      │        │  ┌──────────────┐                                       │
-      └───────►│  │ PubSub       │                                       │
+  │        │  ┌──────────────┐                                       │
+  └───────►│  │ PubSub       │                                       │
                │  │ Sensor       │                                       │
                │  └──────┬───────┘                                       │
                │         │                                               │
@@ -50,14 +50,14 @@ Airflow DAGs for pipeline coordination and scheduling.
 
 ## Pattern
 
-**JOIN**: Orchestrates ingestion of 3 entities → waits for all → triggers transformation
+**MULTI-TARGET**: Orchestrates ingestion of 3 entities → waits for all → triggers transformation to 2 FDP targets
 
 | Step | Description |
 |------|-------------|
 | 1 | Pub/Sub sensor detects `.ok` file |
 | 2 | Triggers Dataflow ingestion job |
 | 3 | EntityDependencyChecker waits for all 3 entities |
-| 4 | When all ready, triggers dbt transformation |
+| 4 | When all ready, triggers dbt transformation to `event_transaction_excess` and `portfolio_account_excess` |
 
 ---
 

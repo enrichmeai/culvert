@@ -156,7 +156,7 @@ Implement the EM ingestion pipeline loading Customers, Accounts, and Decision en
 **Story Points:** 8
 **Priority:** High
 **Description:**
-Develop dbt models to join the 3 ODP entities into the final `em_attributes` FDP table.
+Develop dbt models to transform ODP entities into final FDP tables: `event_transaction_excess` (joining customers/accounts) and `portfolio_account_excess` (mapping decision).
 
 ---
 

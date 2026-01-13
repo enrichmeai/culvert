@@ -11,8 +11,8 @@ This project is a framework for migrating data from legacy mainframe systems to 
   - `gcp-pipeline-transform`: Data Modeling (SQL macros for tracking and data privacy using dbt).
   - `gcp-pipeline-tester`: Testing tools (Mocks and test helpers).
 - `deployments/`: System-specific settings using the libraries.
-  - `em-*`: Application A (Joins 3 sources into 1 target).
-  - `loa-*`: Application B (Splits 1 source into 2 targets).
+  - `em-*`: Application A (Multi-target transformation: 3 sources -> 2 targets).
+  - `loa-*`: Application B (Single-target transformation: 1 source -> 1 target).
 - `templates/`: Pre-built templates for new systems.
 - `docs/`: Technical Architecture and User Guides.
 

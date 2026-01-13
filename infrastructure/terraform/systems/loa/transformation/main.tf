@@ -15,7 +15,7 @@ resource "google_bigquery_dataset" "odp_loa" {
 resource "google_bigquery_dataset" "fdp_loa" {
   dataset_id    = "fdp_loa"
   friendly_name = "LOA Foundation Data Product"
-  description   = "Transformed LOA data - event_transaction_excess and portfolio_account_excess tables"
+  description   = "Transformed LOA data - portfolio_account_facility table"
   location      = var.gcp_region
 
 
@@ -63,60 +63,37 @@ resource "google_bigquery_table" "odp_applications" {
 }
 
 # ============================================================================
-# BIGQUERY - FDP TABLES (Split transformation: 1 source → 2 targets)
+# BIGQUERY - FDP TABLES (MAP transformation: 1 source → 1 target)
 # ============================================================================
 
-# FDP Event Transaction Excess table
-resource "google_bigquery_table" "fdp_event_transaction_excess" {
+# FDP Portfolio Account Facility table
+resource "google_bigquery_table" "fdp_portfolio_account_facility" {
   dataset_id          = google_bigquery_dataset.fdp_loa.dataset_id
-  table_id            = "event_transaction_excess"
+  table_id            = "portfolio_account_facility"
   deletion_protection = !var.force_destroy
 
   time_partitioning {
     type  = "DAY"
-    field = "event_date"
+    field = "application_date"
   }
 
-  clustering = ["application_id", "event_type"]
+  clustering = ["application_id", "customer_id"]
 
   schema = jsonencode([
-    { name = "event_id", type = "STRING", mode = "REQUIRED", description = "Unique event identifier" },
-    { name = "application_id", type = "STRING", mode = "REQUIRED", description = "Source application ID" },
-    { name = "event_type", type = "STRING", mode = "REQUIRED", description = "Type of event" },
-    { name = "event_date", type = "DATE", mode = "REQUIRED", description = "Event date" },
-    { name = "transaction_amount", type = "NUMERIC", mode = "NULLABLE", description = "Transaction amount" },
-    { name = "excess_amount", type = "NUMERIC", mode = "NULLABLE", description = "Excess amount" },
+    { name = "facility_key", type = "STRING", mode = "REQUIRED", description = "Unique facility identifier" },
+    { name = "application_id", type = "STRING", mode = "REQUIRED", description = "Unique application identifier" },
+    { name = "customer_id", type = "STRING", mode = "REQUIRED", description = "Customer identifier" },
+    { name = "loan_amount", type = "NUMERIC", mode = "REQUIRED", description = "Requested loan amount" },
+    { name = "interest_rate", type = "NUMERIC", mode = "NULLABLE", description = "Interest rate" },
+    { name = "term_months", type = "INTEGER", mode = "NULLABLE", description = "Loan term in months" },
+    { name = "application_date", type = "DATE", mode = "REQUIRED", description = "Application submission date" },
+    { name = "application_status", type = "STRING", mode = "REQUIRED", description = "Current application status" },
+    { name = "branch_code", type = "STRING", mode = "NULLABLE", description = "Branch code" },
+    { name = "product_type", type = "STRING", mode = "NULLABLE", description = "Loan product type" },
     # Audit columns
     { name = "_run_id", type = "STRING", mode = "REQUIRED", description = "Pipeline run identifier" },
-    { name = "_source_application_id", type = "STRING", mode = "REQUIRED", description = "Source application ID" },
-    { name = "_transformed_ts", type = "TIMESTAMP", mode = "REQUIRED", description = "Transformation timestamp" },
-  ])
-
-  labels = local.common_labels
-}
-
-# FDP Portfolio Account Excess table
-resource "google_bigquery_table" "fdp_portfolio_account_excess" {
-  dataset_id          = google_bigquery_dataset.fdp_loa.dataset_id
-  table_id            = "portfolio_account_excess"
-  deletion_protection = !var.force_destroy
-
-  time_partitioning {
-    type  = "DAY"
-    field = "reporting_date"
-  }
-
-  clustering = ["portfolio_id", "account_type"]
-
-  schema = jsonencode([
-    { name = "portfolio_id", type = "STRING", mode = "REQUIRED", description = "Portfolio identifier" },
-    { name = "account_type", type = "STRING", mode = "REQUIRED", description = "Account type" },
-    { name = "reporting_date", type = "DATE", mode = "REQUIRED", description = "Reporting date" },
-    { name = "total_excess", type = "NUMERIC", mode = "NULLABLE", description = "Total excess amount" },
-    { name = "application_count", type = "INTEGER", mode = "NULLABLE", description = "Number of applications" },
-    # Audit columns
-    { name = "_run_id", type = "STRING", mode = "REQUIRED", description = "Pipeline run identifier" },
-    { name = "_transformed_ts", type = "TIMESTAMP", mode = "REQUIRED", description = "Transformation timestamp" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED", description = "Extract date" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED", description = "Transformation timestamp" },
   ])
 
   labels = local.common_labels

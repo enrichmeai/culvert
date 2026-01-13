@@ -99,8 +99,8 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 | **Extract Schedule** | Customers/Accounts: 4 PM, Decision: 5 AM | Daily (TBD) |
 | **Dependency Wait** | Yes - wait for all 3 entities | No - immediate trigger |
 | **ODP Tables** | 3 tables | 1 table |
-| **FDP Tables** | 1 (em_attributes) | 2 (event_transaction_excess, portfolio_account_excess) |
-| **Transformation** | Join 3 sources → 1 target | Split 1 source → 2 targets |
+| **FDP Tables** | 2 (event_transaction_excess, portfolio_account_excess) | 1 (portfolio_account_facility) |
+| **Transformation** | MULTI-TARGET (JOIN/MAP) | MAP 1 source → 1 target |
 
 ### Technology Stack
 
@@ -269,18 +269,17 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │    │           EM FLOW                │    │           LOA FLOW               │       │
 │    │                                  │    │                                  │       │
 │    │  odp_em.customers ──┐            │    │  odp_loa.applications            │       │
-│    │  odp_em.accounts  ──┼──► JOIN    │    │           │                      │       │
-│    │  odp_em.decision  ──┘     │      │    │           ├────────┬─────────┐   │       │
-│    │                           ▼      │    │           │        │         │   │       │
-│    │               ┌──────────────┐   │    │           ▼        ▼         │   │       │
-│    │               │fdp_em.       │   │    │    ┌──────────┐ ┌──────────┐ │   │       │
-│    │               │em_attributes │   │    │    │fdp_loa.  │ │fdp_loa.  │ │   │       │
-│    │               └──────────────┘   │    │    │event_    │ │portfolio_│ │   │       │
-│    │                                  │    │    │transact- │ │account_  │ │   │       │
-│    │  3 Sources → 1 Target (JOIN)     │    │    │ion_excess│ │excess    │ │   │       │
-│    │                                  │    │    └──────────┘ └──────────┘ │   │       │
-│    │                                  │    │                              │   │       │
-│    │                                  │    │  1 Source → 2 Targets (SPLIT)│   │       │
+│    │  odp_em.accounts  ──┼──► JOIN ──┐│    │           │                      │       │
+│    │  odp_em.decision  ──┼──► MAP  ──┤│    │           │                      │       │
+│    │                     │           ││    │           ▼                      │       │
+│    │                     ▼           ││    │    ┌───────────────────┐         │       │
+│    │    ┌───────────────────────────┐││    │    │ FDP:              │         │       │
+│    │    │fdp_em.                    │││    │    │ PortfolioAccount- │         │       │
+│    │    │event_transaction_excess   │││    │    │ Facility          │         │       │
+│    │    │portfolio_account_excess   │││    │    └───────────────────┘         │       │
+│    │    └───────────────────────────┘││    │                                  │       │
+│    │                                 ││    │                                  │       │
+│    │  3 Sources → 2 Targets (MULTI)  ││    │  1 Source → 1 Target (MAP)       │       │
 │    └──────────────────────────────────┘    └──────────────────────────────────┘       │
 │                         │                                  │                            │
 │                         └────────────────┬─────────────────┘                            │
@@ -451,14 +450,14 @@ LOA has a **simpler flow** compared to EM:
 │  │                                                      │   │
 │  │  odp_loa.applications                                │   │
 │  │           │                                          │   │
-│  │           ├──────────────────┐                       │   │
-│  │           │                  │                       │   │
-│  │           ▼                  ▼                       │   │
-│  │  ┌───────────────┐  ┌───────────────────┐           │   │
-│  │  │ FDP 1:        │  │ FDP 2:            │           │   │
-│  │  │ EventTrans-   │  │ PortfolioAccount- │           │   │
-│  │  │ actionExcess  │  │ Excess            │           │   │
-│  │  └───────────────┘  └───────────────────┘           │   │
+│  │           └──────────────────┐                       │   │
+│  │                              │                       │   │
+│  │                              ▼                       │   │
+│  │                    ┌───────────────────┐             │   │
+│  │                    │ FDP:              │             │   │
+│  │                    │ PortfolioAccount- │             │   │
+│  │                    │ Facility          │             │   │
+│  │                    └───────────────────┘             │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -508,7 +507,7 @@ SYSTEM_ENTITY_DEPENDENCIES = {
 [run_dbt_staging]  ──► dbt run --select staging.stg_loa_applications
         │
         ▼
-[run_dbt_fdp]  ──► dbt run --select fdp_loa.event_transaction_excess fdp_loa.portfolio_account_excess
+[run_dbt_fdp]  ──► dbt run --select fdp_loa.portfolio_account_facility
         │
         ▼
 [run_dbt_tests]  ──► dbt test --select fdp_loa.*
@@ -704,8 +703,8 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 | **Extract Schedule** | Customers/Accounts: 4 PM, Decision: 5 AM | TBD |
 | **Dependency Wait** | Yes - wait for all 3 entities | No - immediate trigger |
 | **ODP Tables** | 3 tables | 1 table |
-| **FDP Tables** | 1 (em_attributes) | 2 (event_transaction_excess, portfolio_account_excess) |
-| **Transformation Type** | Join 3 sources → 1 target | Split 1 source → 2 targets |
+| **FDP Tables** | 2 (event_transaction_excess, portfolio_account_excess) | 1 (portfolio_account_facility) |
+| **Transformation Type** | MULTI-TARGET (JOIN/MAP) | MAP 1 source → 1 target |
 
 ---
 
@@ -1905,13 +1904,14 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 │  │ DBT TRANSFORMATION                                   │   │
 │  │ ──────────────────                                   │   │
 │  │                                                      │   │
-│  │  dbt run --select fdp_em.em_attributes               │   │
+│  │  dbt run --select fdp.em                          │   │
 │  │                                                      │   │
 │  │  Transformations Applied:                            │   │
-│  │    1. Join customers + accounts + decision           │   │
-│  │    2. Apply attribute mappings                       │   │
-│  │    3. Transform data types                           │   │
-│  │    4. Calculate derived fields                       │   │
+│  │    1. event_transaction_excess: Join customers +     │   │
+│  │       accounts                                       │   │
+│  │    2. portfolio_account_excess: Map decision         │   │
+│  │    3. Apply attribute mappings                       │   │
+│  │    4. Transform data types                           │   │
 │  │    5. Apply business rules                           │   │
 │  │    6. Add audit columns                              │   │
 │  │                                                      │   │
@@ -1920,11 +1920,11 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 │                         ▼                                   │
 │  Output: Foundation Data Product                            │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ fdp_em.em_attributes                                 │   │
-│  │ ────────────────────                                 │   │
+│  │ fdp_em.event_transaction_excess                    │   │
+│  │ fdp_em.portfolio_account_excess                    │   │
+│  │ ─────────────────────────────────                    │   │
 │  │                                                      │   │
-│  │  Consolidated, transformed, business-ready data      │   │
-│  │  from all 3 source entities                          │   │
+│  │  Transformed, business-ready data targets            │   │
 │  │                                                      │   │
 │  └─────────────────────────────────────────────────────┘   │
 │                                                             │
@@ -1942,7 +1942,8 @@ BigQuery Project: {project_id}
 │   └── decision                    # 1:1 mapping of EM.DECISION
 │
 ├── fdp_em                          # FDP: Foundation Data Product (Transformed)
-│   └── em_attributes               # Consolidated EMAttributes table
+│   ├── event_transaction_excess    # Joined customer-account view
+│   └── portfolio_account_excess    # Decision-based portfolio view
 │
 └── odp_loa                         # LOA system (similar pattern)
     └── ...
@@ -2019,15 +2020,14 @@ INSERT INTO reference.code_mappings VALUES
 ('em', 'decision', 'decision_code', 'REV', 'REVIEW', 'Pending review', '2020-01-01', NULL);
 ```
 
-#### dbt Model: em_attributes
+#### dbt Model: event_transaction_excess (JOIN)
 
-**File:** `transformations/dbt/models/fdp_em/em_attributes.sql`
+**File:** `deployments/em-transformation/dbt/models/fdp/event_transaction_excess.sql`
 
 ```sql
 {{
     config(
-        materialized='incremental',
-        unique_key='attribute_key',
+        materialized='table',
         partition_by={
             "field": "_extract_date",
             "data_type": "date"
@@ -2036,66 +2036,49 @@ INSERT INTO reference.code_mappings VALUES
     )
 }}
 
-WITH customers AS (
-    SELECT * FROM {{ ref('stg_em_customers') }}
-    {% if is_incremental() %}
-    WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
-    {% endif %}
-),
+SELECT
+    c.customer_id,
+    {{ mask_ssn('c.ssn') }} AS ssn_masked,
+    UPPER(c.first_name) AS first_name,
+    UPPER(c.last_name) AS last_name,
+    a.account_id,
+    {{ map_code('em', 'accounts', 'account_type', 'a.account_type') }} AS account_type_desc,
+    a.balance AS current_balance,
+    -- Audit columns
+    c._run_id,
+    c._extract_date,
+    CURRENT_TIMESTAMP() AS _transformed_at
+FROM {{ ref('stg_em_customers') }} c
+JOIN {{ ref('stg_em_accounts') }} a ON c.customer_id = a.customer_id
+    AND c._extract_date = a._extract_date
+```
 
-accounts AS (
-    SELECT * FROM {{ ref('stg_em_accounts') }}
-    {% if is_incremental() %}
-    WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
-    {% endif %}
-),
+#### dbt Model: portfolio_account_excess (MAP)
 
-decision AS (
-    SELECT * FROM {{ ref('stg_em_decision') }}
-    {% if is_incremental() %}
-    WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
-    {% endif %}
-),
+**File:** `deployments/em-transformation/dbt/models/fdp/portfolio_account_excess.sql`
 
--- Join all entities
-joined AS (
-    SELECT
-        -- Generate unique key
-        {{ dbt_utils.generate_surrogate_key(['c.customer_id', 'a.account_id', 'd.decision_id']) }} AS attribute_key,
-        
-        -- Customer attributes
-        c.customer_id,
-        {{ mask_ssn('c.ssn') }} AS ssn_masked,
-        UPPER(c.first_name) AS first_name,
-        UPPER(c.last_name) AS last_name,
-        c.date_of_birth,
-        {{ map_code('em', 'customers', 'status', 'c.status') }} AS customer_status,
-        
-        -- Account attributes
-        a.account_id,
-        {{ map_code('em', 'accounts', 'account_type', 'a.account_type') }} AS account_type_desc,
-        a.balance AS current_balance,
-        a.open_date AS account_open_date,
-        
-        -- Decision attributes
-        d.decision_id,
-        {{ map_code('em', 'decision', 'decision_code', 'd.decision_code') }} AS decision_outcome,
-        d.decision_date,
-        d.decision_reason,
-        
-        -- Audit columns
-        c._run_id,
-        c._extract_date,
-        CURRENT_TIMESTAMP() AS _transformed_ts
-        
-    FROM customers c
-    LEFT JOIN accounts a ON c.customer_id = a.customer_id
-        AND c._extract_date = a._extract_date
-    LEFT JOIN decision d ON a.account_id = d.account_id
-        AND a._extract_date = d._extract_date
-)
+```sql
+{{
+    config(
+        materialized='table',
+        partition_by={
+            "field": "_extract_date",
+            "data_type": "date"
+        },
+        cluster_by=['customer_id', '_run_id']
+    )
+}}
 
-SELECT * FROM joined
+SELECT
+    decision_id,
+    customer_id,
+    {{ map_code('em', 'decision', 'decision_code', 'decision_code') }} AS decision_outcome,
+    score,
+    -- Audit columns
+    _run_id,
+    _extract_date,
+    CURRENT_TIMESTAMP() AS _transformed_at
+FROM {{ ref('stg_em_decision') }}
 ```
 
 #### dbt Macros for Transformation
@@ -2140,10 +2123,10 @@ SELECT * FROM joined
 [run_dbt_staging]  ──► dbt run --select staging.stg_em_*
         │
         ▼
-[run_dbt_fdp]  ──► dbt run --select fdp_em.em_attributes
+[run_dbt_fdp]  ──► dbt run --select fdp_em.event_transaction_excess fdp_em.portfolio_account_excess
         │
         ▼
-[run_dbt_tests]  ──► dbt test --select fdp_em.em_attributes
+[run_dbt_tests]  ──► dbt test --select fdp_em.*
         │
         ├── On Success ──► [update_transform_status] ──► [update_audit_table] ──► [trigger_reconciliation]
         │
@@ -2185,7 +2168,7 @@ CREATE TABLE audit.transformation_audit (
     transformation_type     STRING NOT NULL,        -- ODP_TO_FDP, FDP_TO_CDP, etc.
     source_dataset          STRING NOT NULL,        -- odp_em
     target_dataset          STRING NOT NULL,        -- fdp_em
-    target_table            STRING NOT NULL,        -- em_attributes
+    target_table            STRING NOT NULL,        -- event_transaction_excess
     
     -- Source entity details
     source_entities         ARRAY<STRUCT<
@@ -2338,7 +2321,7 @@ def record_fdp_audit(**context):
   "transformation_type": "ODP_TO_FDP",
   "source_dataset": "odp_em",
   "target_dataset": "fdp_em",
-  "target_table": "em_attributes",
+  "target_table": "event_transaction_excess",
   "source_entities": [
     {"entity_name": "customers", "record_count": 5000, "odp_run_id": "em_customers_20260101_160500"},
     {"entity_name": "accounts", "record_count": 8500, "odp_run_id": "em_accounts_20260101_160510"},
@@ -2353,48 +2336,63 @@ def record_fdp_audit(**context):
   "duration_seconds": 330,
   "status": "SUCCESS",
   "dbt_run_id": "dbt_run_12345",
-  "dbt_model_name": "fdp_em.em_attributes",
+  "dbt_model_name": "fdp_em.event_transaction_excess",
   "warnings": [],
   "created_at": "2026-01-01T17:05:31.000Z"
 }
 ```
 
-#### FDP Table Schema: em_attributes
+#### FDP Table Schema: event_transaction_excess (JOIN)
 
 ```sql
--- Table: fdp_em.em_attributes
+-- Table: fdp_em.event_transaction_excess
+-- Transformed customer and account data (JOIN pattern)
 
-CREATE TABLE fdp_em.em_attributes (
-    -- Primary key
-    attribute_key       STRING NOT NULL,
+CREATE TABLE fdp_em.event_transaction_excess (
+    -- Primary Keys
+    customer_id             STRING NOT NULL,
+    account_id              STRING NOT NULL,
     
-    -- Customer attributes
-    customer_id         STRING NOT NULL,
-    ssn_masked          STRING,
-    first_name          STRING,
-    last_name           STRING,
-    date_of_birth       DATE,
-    customer_status     STRING,
+    -- Customer Attributes
+    ssn_masked              STRING,
+    first_name              STRING,
+    last_name               STRING,
     
-    -- Account attributes
-    account_id          STRING,
-    account_type_desc   STRING,
-    current_balance     NUMERIC,
-    account_open_date   DATE,
+    -- Account Attributes
+    account_type_desc       STRING,
+    current_balance         NUMERIC,
     
-    -- Decision attributes
-    decision_id         STRING,
-    decision_outcome    STRING,
-    decision_date       DATE,
-    decision_reason     STRING,
-    
-    -- Audit columns
-    _run_id             STRING,
-    _extract_date       DATE,
-    _transformed_ts     TIMESTAMP
+    -- Audit Columns
+    _run_id                 STRING NOT NULL,
+    _extract_date           DATE NOT NULL,
+    _transformed_at         TIMESTAMP NOT NULL
 )
 PARTITION BY _extract_date
 CLUSTER BY customer_id, account_id;
+```
+
+#### FDP Table Schema: portfolio_account_excess (MAP)
+
+```sql
+-- Table: fdp_em.portfolio_account_excess
+-- Transformed decision data (MAP pattern)
+
+CREATE TABLE fdp_em.portfolio_account_excess (
+    -- Primary Keys
+    decision_id             STRING NOT NULL,
+    customer_id             STRING NOT NULL,
+    
+    -- Attributes
+    decision_outcome        STRING,
+    score                   INT64,
+    
+    -- Audit Columns
+    _run_id                 STRING NOT NULL,
+    _extract_date           DATE NOT NULL,
+    _transformed_at         TIMESTAMP NOT NULL
+)
+PARTITION BY _extract_date
+CLUSTER BY customer_id, _run_id;
 ```
 
 ---
@@ -2427,8 +2425,8 @@ CLUSTER BY customer_id, account_id;
 - dbt transformation using attribute mapping
 - Code translations (mainframe codes → business values)
 - PII masking applied
-- EM: Join 3 ODP tables → 1 FDP table (em_attributes)
-- LOA: Split 1 ODP table → 2 FDP tables (event_transaction_excess, portfolio_account_excess)
+- EM: Join customers + accounts ODP tables → event_transaction_excess FDP, Map decision ODP → portfolio_account_excess FDP
+- LOA: Map applications ODP → portfolio_account_facility FDP
 - Update audit table on completion
 
 ---
@@ -2444,14 +2442,14 @@ BigQuery Project: {project_id}
 │   └── decision                        # 1:1 mapping of EM.DECISION
 │
 ├── fdp_em                              # EM FDP (Foundation Data Product)
-│   └── em_attributes                   # Joined/transformed EM data
+│   ├── event_transaction_excess        # Joined customer-account view
+│   └── portfolio_account_excess        # Decision-based portfolio view
 │
 ├── odp_loa                             # LOA ODP (Original Data Product)
 │   └── applications                    # 1:1 mapping of LOA.APPLICATIONS
 │
 ├── fdp_loa                             # LOA FDP (Foundation Data Product)
-│   ├── event_transaction_excess        # Event/Transaction focused view
-│   └── portfolio_account_excess        # Portfolio/Account focused view
+│   └── portfolio_account_facility      # Loan facility records
 │
 ├── job_control                         # Pipeline control tables
 │   ├── pipeline_jobs                   # Job status tracking

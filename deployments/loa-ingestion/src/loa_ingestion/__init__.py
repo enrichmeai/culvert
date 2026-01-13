@@ -2,7 +2,7 @@
 LOA Ingestion Unit - ODP Producer
 
 Reads mainframe extracts from GCS and loads to BigQuery ODP tables.
-Pattern: SPLIT - Single entity (Applications) → Single ODP table
+Pattern: MAP - Single entity (Applications) → Single ODP table
 
 Pipeline Flow:
     1. Read CSV from GCS landing zone

@@ -16,30 +16,25 @@ FDP Transformation - dbt models for ODP → FDP transformation.
   ────────────                    ───                      ────────────
 
                              ┌─────────────────┐
-                             │  SPLIT Logic    │
-                             │                 │
-  odp_loa.applications ─────►│  Filter by:     │────┬──► fdp_loa.event_transaction_excess
-                             │  - event_type   │    │
-                             │  - account_type │    │
-                             │                 │    └──► fdp_loa.portfolio_account_excess
+                             │   MAP Logic     │
+  odp_loa.applications ─────►│                 │────► fdp_loa.portfolio_account_facility
                              └─────────────────┘
 
-  1 ODP Source ─────────────────────────────────────────► 2 FDP Targets
+  1 ODP Source ─────────────────────────────────────────► 1 FDP Target
 ```
 
 ---
 
 ## Pattern
 
-**SPLIT**: 1 ODP source → 2 FDP targets
+**MAP**: 1 ODP source → 1 FDP target
 
 | Step | Description |
 |------|-------------|
 | 1 | Staging model cleans and type-casts raw ODP applications data |
 | 2 | `add_audit_columns` macro injects `run_id` and `source_file` |
-| 3 | FDP model 1 filters by `event_type` for `event_transaction_excess` |
-| 4 | FDP model 2 filters by `account_type` for `portfolio_account_excess` |
-| 5 | `mask_pii` macro handles sensitive fields in both targets |
+| 3 | FDP model maps applications to `portfolio_account_facility` |
+| 4 | `mask_pii` macro handles sensitive fields |
 
 ---
 
@@ -51,8 +46,7 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 | Target Table | Description |
 |--------------|-------------|
-| `fdp_loa.event_transaction_excess` | Event-based transactions |
-| `fdp_loa.portfolio_account_excess` | Portfolio account records |
+| `fdp_loa.portfolio_account_facility` | Loan facility records |
 
 ---
 
@@ -61,7 +55,7 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 | Directory | Purpose |
 |-----------|---------|
 | `dbt/models/staging/loa/` | Staging models (clean raw data) |
-| `dbt/models/fdp/` | FDP models (SPLIT logic) |
+| `dbt/models/fdp/` | FDP models (MAP logic) |
 
 ---
 
@@ -70,20 +64,20 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 The LOA transformation unit showcases how the `gcp-pipeline-transform` library simplifies system-agnostic transformation:
 
 1.  **Macro Reusability**: Uses `add_audit_columns` and `mask_pii` exactly like EM, proving the library's "Zero-Bleed" and "Generic-First" implementation.
-2.  **Schema Alignment**: The staging models align with the `EntitySchema` defined in the ingestion layer, ensuring no type mismatches during the SPLIT transformation.
-3.  **Governance**: Leverages the library's `validate_no_pii_in_export` to ensure that even after splitting data into multiple FDPs, no sensitive data is leaked.
+2.  **Schema Alignment**: The staging models align with the `EntitySchema` defined in the ingestion layer, ensuring no type mismatches during the MAP transformation.
+3.  **Governance**: Leverages the library's `validate_no_pii_in_export` to ensure that even after transforming data, no sensitive data is leaked.
 
 ---
 
-## How to Replicate this SPLIT Transformation (1-to-2)
+## How to Replicate this MAP Transformation (1-to-1)
 
-To create a new transformation unit that splits a single source, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
+To create a new transformation unit that maps a single source to a single target, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
 
-Key steps for this SPLIT pattern:
+Key steps for this MAP pattern:
 1.  **Macro Paths**: Register the library macros in your `dbt_project.yml`.
 2.  **Clean Staging**: Create a single staging view for your ODP source.
-3.  **FDP Partitioning**: Create multiple FDP models referencing the same staging view. Use `WHERE` clauses to split the data.
-4.  **Audit**: Ensure all FDP models use `add_audit_columns` to track their common origin.
+3.  **FDP Mapping**: Create an FDP model referencing the staging view.
+4.  **Audit**: Use `add_audit_columns` to track origin.
 
 ---
 
@@ -113,7 +107,7 @@ dbt run --profiles-dir . --target dev
 ```
 
 ### 3. Data Quality Validation
-Run dbt tests to verify transformation logic and SPLIT pattern:
+Run dbt tests to verify transformation logic and MAP pattern:
 ```bash
 dbt test --profiles-dir . --target dev
 ```
@@ -121,7 +115,7 @@ dbt test --profiles-dir . --target dev
 ### 4. Governance Verification
 Use the library macro to ensure no unmasked PII exists in your models before deployment:
 ```sql
-{{ validate_no_pii_in_export('fdp_loa.event_transaction_excess') }}
+{{ validate_no_pii_in_export('fdp_loa.portfolio_account_facility') }}
 ```
 
 ### 5. Cloud Execution
@@ -132,30 +126,16 @@ In production, this unit is triggered by the `loa_odp_load_dag` once ingestion i
 ## SQL Example
 
 ```sql
--- fdp_loa.event_transaction_excess
+-- fdp_loa.portfolio_account_facility
 SELECT
     application_id,
     customer_id,
     loan_amount,
     application_date,
-    event_type,
+    application_status,
     -- Audit columns
     _run_id,
     CURRENT_TIMESTAMP() as _transformed_at
 FROM {{ ref('stg_loa_applications') }}
-WHERE event_type IS NOT NULL
-
--- fdp_loa.portfolio_account_excess
-SELECT
-    application_id,
-    customer_id,
-    account_type,
-    loan_amount,
-    interest_rate,
-    -- Audit columns
-    _run_id,
-    CURRENT_TIMESTAMP() as _transformed_at
-FROM {{ ref('stg_loa_applications') }}
-WHERE account_type IN ('PORTFOLIO', 'EXCESS')
 ```
 

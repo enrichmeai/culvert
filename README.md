@@ -17,6 +17,7 @@ The architecture is designed to work with different tools. While we provide read
 ### 3. Reliability and Visibility
 The framework makes it easy to track and fix issues:
 *   **Job Tracking:** Every run has a unique ID, making it easy to see exactly what happened to a specific file.
+*   **FinOps & Cost Visibility:** Built-in cost estimation for BigQuery, GCS, and Pub/Sub, with automated labeling for precise cost allocation and budget management.
 *   **Automatic Error Handling:** Built-in systems to retry failed tasks and move bad data to a "Dead Letter Queue" for investigation.
 *   **Clear Logs:** Standardized logging that is easy to search in the Google Cloud console.
 
@@ -48,7 +49,8 @@ The framework is designed to be simple to use. You can set up a new migration by
 | **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
 | **[Execution Guide](#-execution-guide)** | How to run tests and pipelines. |
 | **[DAG Templates](./templates/dags/)** | Pre-built templates for scheduling your jobs. |
-| **[Library Features](./libraries/README.md)** | Overview of built-in features like Audit, PII Masking, and Data Quality. |
+| **[Library Features](./libraries/README.md)** | Overview of built-in features like Audit, FinOps, PII Masking, and Data Quality. |
+| **[FinOps Guide](./libraries/gcp-pipeline-core/README.md#5-finops--cost-tracking)** | Detailed guide for cost tracking and labeling. |
 
 ---
 
@@ -144,7 +146,7 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
-| [`gcp-pipeline-core`](./libraries/gcp-pipeline-core/) | Audit, monitoring, error handling, job control | 208 |
+| [`gcp-pipeline-core`](./libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 208 |
 | [`gcp-pipeline-beam`](./libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
 | [`gcp-pipeline-orchestration`](./libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
 | [`gcp-pipeline-transform`](./libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
@@ -222,22 +224,22 @@ gs://landing/em/customers/
 
 ## Reference Implementations
 
-### EM (Application A) - JOIN Pattern
+### EM (Application A) - MULTI-TARGET Pattern
 
 | Aspect | Value |
 |--------|-------|
 | Source Entities | 3 (Customers, Accounts, Decision) |
 | ODP Tables | 3 |
-| FDP Tables | 1 (`em_attributes`) |
+| FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
 | Dependency | Wait for all 3 entities before FDP transformation |
 
-### LOA (Application B) - SPLIT Pattern
+### LOA (Application B) - MAP Pattern
 
 | Aspect | Value |
 |--------|-------|
 | Source Entities | 1 (Applications) |
 | ODP Tables | 1 |
-| FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
+| FDP Tables | 1 (`portfolio_account_facility`) |
 | Dependency | Immediate trigger after ODP load |
 
 ---
@@ -253,11 +255,11 @@ libraries/
 └── [`gcp-pipeline-tester/`](./libraries/gcp-pipeline-tester/)         # Testing utilities
 
 deployments/
-├── [`em-ingestion/`](./deployments/em-ingestion/)                # 44 tests (JOIN: 3→1)
-├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models
+├── [`em-ingestion/`](./deployments/em-ingestion/)                # 44 tests (3 sources)
+├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models (2 targets)
 ├── [`em-orchestration/`](./deployments/em-orchestration/)            # Airflow DAGs
-├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 36 tests (SPLIT: 1→2)
-├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models
+├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 36 tests (1 source)
+├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models (1 target)
 └── [`loa-orchestration/`](./deployments/loa-orchestration/)           # Airflow DAGs
 
 infrastructure/terraform/

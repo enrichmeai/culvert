@@ -30,18 +30,18 @@ deployments/
 
 | System | Pattern | Ingestion | Transformation | Orchestration |
 |--------|---------|-----------|----------------|---------------|
-| **EM** | JOIN (3→1) | [em-ingestion](em-ingestion/) | [em-transformation](em-transformation/) | [em-orchestration](em-orchestration/) |
-| **LOA** | SPLIT (1→2) | [loa-ingestion](loa-ingestion/) | [loa-transformation](loa-transformation/) | [loa-orchestration](loa-orchestration/) |
+| **EM** | MULTI-TARGET (3→2) | [em-ingestion](em-ingestion/) | [em-transformation](em-transformation/) | [em-orchestration](em-orchestration/) |
+| **LOA** | MAP (1→1) | [loa-ingestion](loa-ingestion/) | [loa-transformation](loa-transformation/) | [loa-orchestration](loa-orchestration/) |
 
 ---
 
 ## Pattern Comparison
 
-| Aspect | EM (JOIN) | LOA (SPLIT) |
+| Aspect | EM (JOIN) | LOA (MAP) |
 |--------|-----------|-------------|
 | Source Entities | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | ODP Tables | 3 | 1 |
-| FDP Tables | 1 (`em_attributes`) | 2 (`event_transaction`, `portfolio_account`) |
+| FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) | 1 (`portfolio_account_facility`) |
 | Dependency | Wait for all 3 entities | Immediate trigger |
 
 ---

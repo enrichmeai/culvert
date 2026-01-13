@@ -48,6 +48,7 @@ Foundation library - audit, monitoring, error handling, job control.
 |--------|---------|-------------|
 | `audit/` | Lineage tracking, reconciliation | `AuditTrail`, `ReconciliationEngine` |
 | `monitoring/` | Metrics, OTEL/Dynatrace | `MetricsCollector`, `OTELExporter` |
+| `finops/` | Cost tracking and labeling | `BigQueryCostTracker`, `FinOpsLabels` |
 | `error_handling/` | Error classification, retry | `ErrorHandler`, `RetryPolicy` |
 | `job_control/` | Pipeline status tracking | `JobControlRepository`, `PipelineJob` |
 | `clients/` | GCP service wrappers | `GCSClient`, `BigQueryClient`, `PubSubClient` |
@@ -107,6 +108,16 @@ Pipeline Start
 - Standardized JSON logging with automated context injection (`run_id`, `system_id`).
 - Optimized for Cloud Logging and BigQuery ingestion.
 
+### 5. FinOps & Cost Tracking
+- **Cost Estimation**: Automated cost estimation for BigQuery (Query/Load), GCS (Storage/Upload), and Pub/Sub (Publishing).
+- **FinOpsLabels**: Standardized GCP resource labeling for precise cost allocation.
+- **Monitoring Integration**: Seamless integration with `MigrationMetrics` for real-time cost visibility in audit logs.
+- **Trackers**:
+    - `BigQueryCostTracker`: Estimates costs based on bytes billed and slot usage.
+    - `CloudStorageCostTracker`: Estimates storage costs and upload fees.
+    - `PubSubCostTracker`: Estimates throughput costs with 1KB minimum billing awareness.
+- **Decorators**: `@track_bq_cost` for automated tracking of BigQuery jobs.
+
 ---
 
 ## Governance & Compliance
@@ -126,6 +137,7 @@ from gcp_pipeline_core.utilities import configure_structured_logging, generate_r
 from gcp_pipeline_core.schema import EntitySchema, SchemaField
 from gcp_pipeline_core.job_control import JobControlRepository
 from gcp_pipeline_core.error_handling import ErrorHandler
+from gcp_pipeline_core.finops import BigQueryCostTracker, FinOpsLabels, track_bq_cost
 ```
 
 ---

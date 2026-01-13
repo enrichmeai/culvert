@@ -57,6 +57,11 @@ class PipelineJob:
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: Optional[datetime] = None
 
+    # FinOps
+    estimated_cost_usd: Optional[float] = None
+    billed_bytes_scanned: Optional[int] = None
+    billed_bytes_written: Optional[int] = None
+
 
 __all__ = [
     'PipelineJob',

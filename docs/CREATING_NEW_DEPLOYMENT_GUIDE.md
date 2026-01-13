@@ -59,7 +59,7 @@ mkdir -p deployments/${SYSTEM}-orchestration/dags
   ```
 - **Customization**:
   - **JOIN Pattern**: For multi-entity joins, use `EntityDependencyChecker` in your load DAG to wait for all entities.
-  - **SPLIT Pattern**: For single-entity splits, bypass the dependency check and trigger the transformation immediately.
+  - **MAP Pattern**: For single-entity systems, bypass the dependency check and trigger the transformation immediately.
 - **Ease of Customization**: The templates use a modular design. Simply update the `<SYSTEM_ID>` and `<ENTITY>` placeholders.
 
 ### 5. Verify Execution

@@ -34,7 +34,7 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 ## Pattern
 
-**SPLIT**: 1 entity (Applications) → 1 ODP table
+**MAP**: 1 entity (Applications) → 1 ODP table
 
 | Entity | ODP Table |
 |--------|-----------|
@@ -79,11 +79,11 @@ The LOA ingestion pipeline demonstrates the **Global Portability** of the librar
 
 ---
 
-## How to Replicate this SPLIT Ingestion (1-to-1)
+## How to Replicate this MAP Ingestion (1-to-1)
 
 To create a new ingestion unit for a single-entity system, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
 
-Key steps for this SPLIT pattern:
+Key steps for this MAP pattern:
 1.  **Define Schema**: Create an `EntitySchema` from `gcp_pipeline_core.schema`.
 2.  **Fluent Pipeline**: Use `BeamPipelineBuilder` to build your pipeline in `src/loa_ingestion/pipeline/`.
 3.  **Regional Logic**: Rely on generic validators from `gcp-pipeline-beam.validators` to ensure global compatibility.
