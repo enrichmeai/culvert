@@ -1,6 +1,8 @@
 pipeline:
   name: Libraries Root Pipeline
   identifier: libraries_root_pipeline
+  projectIdentifier: legacy_migration_reference
+  orgIdentifier: default
   description: Root pipeline to orchestrate CI for all libraries
   stages:
     - stage:
