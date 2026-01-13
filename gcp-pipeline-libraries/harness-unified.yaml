@@ -1,17 +1,17 @@
 pipeline:
   name: GCP Pipeline Libraries Unified CI
   identifier: gcp_pipeline_libraries_unified_ci
-  projectIdentifier: legacy_migration_reference
-  orgIdentifier: default
+  projectIdentifier: <+input>
+  orgIdentifier: <+input>
   properties:
     ci:
       codebase:
         connectorRef: <+input>
-        repoName: legacy-migration-reference
+        repoName: <+input>
         build:
           type: branch
           spec:
-            branch: main
+            branch: <+input>
   stages:
     - stage:
         name: Unified Libraries Build
