@@ -42,7 +42,7 @@ Each system (e.g., EM, LOA) is implemented as three independent units:
 
 ### 2. Strict Genericity (Anti-Pollution)
 - **Library vs Deployment**: Libraries provide **mechanisms** (engine); Deployments provide **configuration** (fuel).
-- **NO Hardcoding**: Never hardcode project-specific IDs (e.g., "EM", "LOA") or regional biases (e.g., US-only SSN patterns) in the `libraries/` directory.
+- **NO Hardcoding**: Never hardcode project-specific IDs (e.g., "EM", "LOA") or regional biases (e.g., US-only SSN patterns) in the `gcp-pipeline-gcp-pipeline-libraries/` directory.
 - **Metadata-Driven**: Use `EntitySchema` and dbt variables to drive logic.
 
 ### 3. Global-First Logic

@@ -217,13 +217,13 @@ name: 'em_transformation'
 
 # Reference shared macros
 packages:
-  - local: ../../libraries/gcp-pipeline-transform/dbt_shared
+  - local: ../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared
 ```
 
 Or copy macros to your project:
 
 ```bash
-cp -r libraries/gcp-pipeline-transform/dbt_shared/macros \
+cp -r gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros \
       deployments/em-transformation/dbt/macros/shared/
 ```
 
@@ -234,7 +234,7 @@ cp -r libraries/gcp-pipeline-transform/dbt_shared/macros \
 Run dbt macro unit tests:
 
 ```bash
-cd libraries/gcp-pipeline-transform
+cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform
 pytest tests/unit/test_pii_macros.py
 ```
 

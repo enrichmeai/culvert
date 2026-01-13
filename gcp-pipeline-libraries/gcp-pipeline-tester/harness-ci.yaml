@@ -35,7 +35,7 @@ pipeline:
                     - main
                 paths:
                   include:
-                    - libraries/gcp-pipeline-tester/**
+                    - gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/**
 
   stages:
     - stage:

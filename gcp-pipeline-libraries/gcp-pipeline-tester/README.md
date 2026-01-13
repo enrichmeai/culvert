@@ -46,7 +46,7 @@ A comprehensive testing framework for GCP data pipelines, providing mocks, fixtu
 
 ```bash
 # Install from source
-cd libraries/gcp-pipeline-tester
+cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester
 pip install -e .
 
 # Or with dev dependencies
@@ -628,7 +628,7 @@ gcp-pipeline-tester/
 
 ## Related Libraries
 
-- **[gcp-pipeline-core](../../libraries/gcp-pipeline-core/README.md)** and **[gcp-pipeline-beam](../../libraries/gcp-pipeline-beam/README.md)**: Core pipeline building libraries
+- **[gcp-pipeline-core](../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/README.md)** and **[gcp-pipeline-beam](../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/README.md)**: Core pipeline building libraries
 
 ---
 

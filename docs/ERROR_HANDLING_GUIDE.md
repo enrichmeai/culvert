@@ -42,5 +42,5 @@ with ErrorContext(handler, operation_name="dataflow_execution"):
 - **GCS Quarantine**: Files that cannot be parsed at all are moved to a quarantine bucket.
 
 ## References
-- [GDW Data Core - Error Handling](../libraries/gcp-pipeline-core/README.md#error-handling)
+- [GDW Data Core - Error Handling](../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/README.md#error-handling)
 - [Testing Strategy](./COMPLETE_TESTING_GUIDE.md)

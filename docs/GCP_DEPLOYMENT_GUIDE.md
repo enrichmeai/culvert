@@ -168,7 +168,7 @@ Pipelines deploy automatically when you push to `main` branch with changes in:
 - `deployments/*-ingestion/**` → Triggers ingestion deployment
 - `deployments/*-transformation/**` → Triggers transformation deployment
 - `deployments/*-orchestration/**` → Triggers orchestration deployment
-- `libraries/**` → Triggers relevant deployments
+- `gcp-pipeline-gcp-pipeline-libraries/**` → Triggers relevant deployments
 - `infrastructure/terraform/**` → Triggers infrastructure updates
 
 ### Manual Deployment

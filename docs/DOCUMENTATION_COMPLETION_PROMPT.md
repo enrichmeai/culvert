@@ -298,7 +298,7 @@ After completing documentation:
 # Verify all tests still pass
 cd /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference
 
-echo "=== LIBRARY ===" && cd libraries/gcp-pipeline-core && python -m pytest tests/ --tb=no -q
+echo "=== LIBRARY ===" && cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core && python -m pytest tests/ --tb=no -q
 echo "=== EM ===" && cd ../../deployments/em && PYTHONPATH=src python -m pytest tests/unit/ --tb=no -q
 echo "=== LOA ===" && cd ../loa && PYTHONPATH=src python -m pytest tests/unit/ --tb=no -q
 ```
