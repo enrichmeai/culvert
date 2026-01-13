@@ -12,11 +12,12 @@ pipeline:
         type: CI
         spec:
           cloneCodebase: true
-          infrastructure: # Use infrastructure if cloud runtime is not enough
-            type: KubernetesDirect
-            spec:
-              connectorRef: <+input>
-              namespace: <+input>
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
           execution:
             steps:
               - step:
@@ -24,7 +25,7 @@ pipeline:
                   name: Create Monorepo Tag
                   identifier: create_tag
                   spec:
-                    connectorRef: github_connector # UPDATE to your Github Connector
+                    connectorRef: docker_hub
                     image: alpine/git:latest
                     shell: Bash
                     command: |
