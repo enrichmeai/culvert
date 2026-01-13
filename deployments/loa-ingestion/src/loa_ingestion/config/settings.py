@@ -28,6 +28,8 @@ ODP_APPLICATIONS_ERRORS_TABLE = "applications_errors"
 
 # FDP Tables (MAP: 1 source → 1 target)
 FDP_PORTFOLIO_ACCOUNT_FACILITY_TABLE = "portfolio_account_facility"
+FDP_EVENT_TRANSACTION_EXCESS_TABLE = "event_transaction_excess"
+FDP_PORTFOLIO_ACCOUNT_EXCESS_TABLE = "portfolio_account_excess"
 
 # Job control
 JOB_CONTROL_DATASET = "job_control"
