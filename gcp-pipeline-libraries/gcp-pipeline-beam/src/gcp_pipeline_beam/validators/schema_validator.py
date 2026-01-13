@@ -25,14 +25,14 @@ Example:
     errors = validator.validate(record)
 """
 
-import logging
 from typing import Dict, List, Any, Optional, Callable
 from datetime import datetime
+from gcp_pipeline_core.utilities.logging import get_logger
 
 from gcp_pipeline_core.schema import EntitySchema, SchemaField
 from .types import ValidationError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class SchemaValidator:
