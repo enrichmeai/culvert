@@ -25,8 +25,8 @@ Per the [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md), we have two pipeline s
 
 | System | Entities | ODP Tables | FDP Tables | Pattern |
 |--------|----------|------------|------------|---------|
-| **EM** (Application A) | 3 (Customers, Accounts, Decision) | 3 | 1 (`em_attributes`) | JOIN 3→1 |
-| **LOA** (Application B) | 1 (Applications) | 1 | 2 (`event_transaction_excess`, `portfolio_account_excess`) | SPLIT 1→2 |
+| **EM** (Application A) | 3 (Customers, Accounts, Decision) | 3 | 2 (`event_transaction_excess`, `portfolio_account_excess`) | MULTI-TARGET |
+| **LOA** (Application B) | 1 (Applications) | 1 | 1 (`portfolio_account_facility`) | MAP |
 
 ### File Format (Both Systems)
 

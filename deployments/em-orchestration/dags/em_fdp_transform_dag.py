@@ -1,13 +1,13 @@
 """
 EM FDP Transform DAG.
 
-Runs dbt transformation to create FDP (em_attributes) after all 3 ODP entities are loaded.
+Runs dbt transformation to create FDPs (event_transaction_excess and portfolio_account_excess) after all 3 ODP entities are loaded.
 Triggered when all entities (customers, accounts, decision) are ready.
 
 Flow:
 1. Verify all entities loaded using EntityDependencyChecker
 2. Run dbt staging models
-3. Run dbt FDP model (JOIN 3 sources → em_attributes)
+3. Run dbt FDP models (JOIN and MAP targets)
 4. Update job control status
 
 Tags: em, fdp, dbt, transformation
@@ -98,7 +98,7 @@ def update_job_status(status: str, **context):
 with DAG(
     dag_id='em_fdp_transform_dag',
     default_args=default_args,
-    description='Transform EM ODP to FDP (JOIN 3 sources to em_attributes)',
+    description='Transform EM ODP to FDP (event_transaction_excess and portfolio_account_excess)',
     schedule_interval=None,  # Triggered after all entities loaded
     catchup=False,
     tags=['em', 'fdp', 'dbt', 'transformation'],
@@ -119,12 +119,12 @@ with DAG(
         ''',
     )
 
-    # Task 3: Run dbt FDP model (JOIN 3 sources → em_attributes)
+    # Task 3: Run dbt FDP models
     fdp = BashOperator(
         task_id='run_dbt_fdp',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt run --select fdp.em_attributes --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
+            dbt run --select fdp.em --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
         ''',
     )
 
@@ -133,7 +133,7 @@ with DAG(
         task_id='run_dbt_tests',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt test --select fdp.em_attributes --target prod
+            dbt test --select fdp.em --target prod
         ''',
     )
 

@@ -9,9 +9,9 @@
 # LOA System Overview:
 # - 1 source entity: Applications
 # - 1 ODP table: odp_loa.applications
-# - 2 FDP tables: fdp_loa.event_transaction_excess, fdp_loa.portfolio_account_excess
+# - 1 FDP table: fdp_loa.portfolio_account_facility
 # - No dependency wait: Immediate trigger after ODP load
-# - Transformation: SPLIT 1 source → 2 targets
+# - Transformation: MAP 1 source → 1 target
 
 terraform {
   required_version = ">= 1.0"

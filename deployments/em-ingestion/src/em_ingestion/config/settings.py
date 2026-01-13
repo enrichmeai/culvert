@@ -30,8 +30,9 @@ ODP_CUSTOMERS_ERRORS_TABLE = "customers_errors"
 ODP_ACCOUNTS_ERRORS_TABLE = "accounts_errors"
 ODP_DECISION_ERRORS_TABLE = "decision_errors"
 
-# FDP Tables (JOIN: 3 sources → 1 target)
-FDP_EM_ATTRIBUTES_TABLE = "em_attributes"
+# FDP Tables (MULTI-TARGET)
+FDP_EVENT_TRANSACTION_EXCESS_TABLE = "event_transaction_excess"
+FDP_PORTFOLIO_ACCOUNT_EXCESS_TABLE = "portfolio_account_excess"
 
 # Job control
 JOB_CONTROL_DATASET = "job_control"

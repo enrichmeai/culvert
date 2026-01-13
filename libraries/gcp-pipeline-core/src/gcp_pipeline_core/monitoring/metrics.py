@@ -256,6 +256,13 @@ class MigrationMetrics:
     VALIDATION_ERRORS = "validation_errors"
     PARSE_ERRORS = "parse_errors"
 
+    # FinOps Metrics
+    ESTIMATED_COST_USD = "finops_estimated_cost_usd"
+    BILLED_BYTES_SCANNED = "finops_billed_bytes_scanned"
+    BILLED_BYTES_WRITTEN = "finops_billed_bytes_written"
+    BILLED_BYTES_STORED = "finops_billed_bytes_stored"
+    BILLED_MESSAGES_COUNT = "finops_billed_messages_count"
+
     def __init__(
         self,
         run_id: str,
@@ -389,6 +396,52 @@ class MigrationMetrics:
         """
         self._collector.increment(self.PARSE_ERRORS, count, self._get_labels())
 
+    # FinOps methods
+    def record_cost(self, cost_usd: float) -> None:
+        """
+        Record estimated cost in USD.
+
+        Args:
+            cost_usd: The estimated cost to record.
+        """
+        self._collector.set_gauge(self.ESTIMATED_COST_USD, cost_usd, self._get_labels())
+
+    def record_bytes_scanned(self, bytes_count: int) -> None:
+        """
+        Record billed bytes scanned.
+
+        Args:
+            bytes_count: Number of bytes scanned.
+        """
+        self._collector.increment(self.BILLED_BYTES_SCANNED, bytes_count, self._get_labels())
+
+    def record_bytes_written(self, bytes_count: int) -> None:
+        """
+        Record billed bytes written.
+
+        Args:
+            bytes_count: Number of bytes written.
+        """
+        self._collector.increment(self.BILLED_BYTES_WRITTEN, bytes_count, self._get_labels())
+
+    def record_bytes_stored(self, bytes_count: int) -> None:
+        """
+        Record billed bytes stored.
+
+        Args:
+            bytes_count: Number of bytes stored.
+        """
+        self._collector.increment(self.BILLED_BYTES_STORED, bytes_count, self._get_labels())
+
+    def record_messages_count(self, count: int = 1) -> None:
+        """
+        Record billed messages count.
+
+        Args:
+            count: Number of messages.
+        """
+        self._collector.increment(self.BILLED_MESSAGES_COUNT, count, self._get_labels())
+
     # Timing methods
     def record_processing_time(self, duration_ms: float) -> None:
         """
@@ -448,6 +501,13 @@ class MigrationMetrics:
             },
             'duration': stats.get('uptime_seconds', 0),
             'start_time': stats.get('start_time'),
+            'finops': {
+                'estimated_cost_usd': stats['gauges'].get(self.ESTIMATED_COST_USD, 0.0),
+                'billed_bytes_scanned': stats['counters'].get(self.BILLED_BYTES_SCANNED, 0),
+                'billed_bytes_written': stats['counters'].get(self.BILLED_BYTES_WRITTEN, 0),
+                'billed_bytes_stored': stats['counters'].get(self.BILLED_BYTES_STORED, 0),
+                'billed_messages_count': stats['counters'].get(self.BILLED_MESSAGES_COUNT, 0),
+            }
         }
 
         return summary
@@ -470,6 +530,11 @@ class MigrationMetrics:
             'records_written': summary['counts']['written'],
             'validation_success_rate': summary['rates']['validation_success_rate'],
             'processing_duration_seconds': summary['duration'],
+            'estimated_cost_usd': summary['finops']['estimated_cost_usd'],
+            'billed_bytes_scanned': summary['finops']['billed_bytes_scanned'],
+            'billed_bytes_written': summary['finops']['billed_bytes_written'],
+            'billed_bytes_stored': summary['finops']['billed_bytes_stored'],
+            'billed_messages_count': summary['finops']['billed_messages_count'],
         }
 
 

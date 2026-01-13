@@ -9,7 +9,7 @@
 # EM System Overview:
 # - 3 source entities: Customers, Accounts, Decision
 # - 3 ODP tables: odp_em.customers, odp_em.accounts, odp_em.decision
-# - 1 FDP table: fdp_em.em_attributes (JOIN of 3 sources)
+# - FDP tables: fdp_em.event_transaction_excess and fdp_em.portfolio_account_excess
 # - Dependency wait: All 3 entities must be loaded before FDP transformation
 
 terraform {

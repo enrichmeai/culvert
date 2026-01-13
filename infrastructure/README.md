@@ -60,16 +60,14 @@ infrastructure/terraform/
 
 | ODP Tables | FDP Tables |
 |------------|------------|
-| `odp_em.customers` | `fdp_em.em_attributes` |
-| `odp_em.accounts` | |
-| `odp_em.decision` | |
+| `odp_em.customers`, `odp_em.accounts` | `fdp_em.event_transaction_excess` |
+| `odp_em.decision` | `fdp_em.portfolio_account_excess` |
 
 ## LOA Resources
 
 | ODP Tables | FDP Tables |
 |------------|------------|
-| `odp_loa.applications` | `fdp_loa.event_transaction_excess` |
-| | `fdp_loa.portfolio_account_excess` |
+| `odp_loa.applications` | `fdp_loa.portfolio_account_facility` |
 
 ---
 

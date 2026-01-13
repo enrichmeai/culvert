@@ -1,15 +1,14 @@
 """
 LOA FDP Transform DAG.
 
-Runs dbt transformation to SPLIT applications into 2 FDP tables:
-- fdp_loa.event_transaction_excess
-- fdp_loa.portfolio_account_excess
+Runs dbt transformation to map applications into FDP table:
+- fdp_loa.portfolio_account_facility
 
-LOA Pattern: 1 source → 2 targets (SPLIT, not JOIN like EM)
+LOA Pattern: 1 source → 1 target (MAP)
 
 Flow:
 1. Run dbt staging model (stg_loa_applications)
-2. Run dbt FDP models (SPLIT to 2 tables)
+2. Run dbt FDP model (MAP to target)
 3. Update job control status
 
 Tags: loa, fdp, dbt, transformation
@@ -38,10 +37,9 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "LOA"
 ENTITY = "applications"
 
-# FDP tables - LOA splits 1 source into 2 targets
+# FDP tables - LOA maps 1 source into 1 target
 FDP_TABLES = [
-    "event_transaction_excess",
-    "portfolio_account_excess",
+    "portfolio_account_facility",
 ]
 
 PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
@@ -117,7 +115,7 @@ def update_job_status(status: str, **context):
 with DAG(
     dag_id='loa_fdp_transform_dag',
     default_args=default_args,
-    description='Transform LOA ODP to FDP (SPLIT 1 source to 2 tables)',
+    description='Transform LOA ODP to FDP (MAP 1 source to 1 table)',
     schedule_interval=None,  # Triggered immediately after ODP load
     catchup=False,
     tags=['loa', 'fdp', 'dbt', 'transformation'],
@@ -138,45 +136,36 @@ with DAG(
         ''',
     )
 
-    # Task 3: Run dbt FDP model - event_transaction_excess
-    fdp_event = BashOperator(
-        task_id='run_dbt_event_transaction',
+    # Task 3: Run dbt FDP model - portfolio_account_facility
+    fdp_facility = BashOperator(
+        task_id='run_dbt_portfolio_account_facility',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt run --select fdp.event_transaction_excess --vars '{{"extract_date": "{{{{ dag_run.conf.extract_date }}}}"}}' --target prod
+            dbt run --select fdp.portfolio_account_facility --vars '{{"extract_date": "{{{{ dag_run.conf.extract_date }}}}"}}' --target prod
         ''',
     )
 
-    # Task 4: Run dbt FDP model - portfolio_account_excess
-    fdp_portfolio = BashOperator(
-        task_id='run_dbt_portfolio_account',
-        bash_command=f'''
-            cd {DBT_PROJECT_PATH} && \
-            dbt run --select fdp.portfolio_account_excess --vars '{{"extract_date": "{{{{ dag_run.conf.extract_date }}}}"}}' --target prod
-        ''',
-    )
-
-    # Task 5: Run dbt tests
+    # Task 4: Run dbt tests
     tests = BashOperator(
         task_id='run_dbt_tests',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt test --select fdp.event_transaction_excess fdp.portfolio_account_excess --target prod
+            dbt test --select fdp.portfolio_account_facility --target prod
         ''',
     )
 
-    # Task 6: Mark success
+    # Task 5: Mark success
     mark_success = PythonOperator(
         task_id='mark_success',
         python_callable=update_job_status,
         op_kwargs={'status': 'success'},
     )
 
-    # Task 7: End
+    # Task 6: End
     end = DummyOperator(
         task_id='end',
     )
 
-    # Task flow - SPLIT pattern: staging → 2 FDP tables in parallel → tests
-    log_start >> staging >> [fdp_event, fdp_portfolio] >> tests >> mark_success >> end
+    # Task flow - MAP pattern: staging → FDP target → tests
+    log_start >> staging >> fdp_facility >> tests >> mark_success >> end
 

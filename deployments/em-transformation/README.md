@@ -17,29 +17,29 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
   odp_em.customers ─────┐
                         │    ┌─────────────────┐
-  odp_em.accounts  ─────┼───►│   JOIN Logic    │────────► fdp_em.em_attributes
-                        │    │                 │
-  odp_em.decision  ─────┘    │  - Customer ID  │
-                             │  - Account ID   │
-                             │  - Decision ID  │
-                             └─────────────────┘
-
-  3 ODP Sources ────────────────────────────────────────► 1 FDP Target
+  odp_em.accounts  ─────┼───►│   JOIN Logic    │────────► fdp_em.event_transaction_excess
+                        │    └─────────────────┘
+                        │
+  odp_em.decision  ─────┼───────────────────────────────► fdp_em.portfolio_account_excess
+                        │
+                        └───────────────────────
 ```
 
 ---
 
 ## Pattern
 
-**JOIN**: 3 ODP sources → 1 FDP target
+**MULTI-TARGET**:
+1. **JOIN**: 2 ODP sources (customers, accounts) → 1 FDP target (`event_transaction_excess`)
+2. **MAP**: 1 ODP source (decision) → 1 FDP target (`portfolio_account_excess`)
 
 | Step | Description |
 |------|-------------|
 | 1 | Staging models clean and type-cast raw ODP data |
 | 2 | `add_audit_columns` macro injects `run_id` and `source_file` |
-| 3 | `mask_pii` macro applies environment-aware masking to SSN |
-| 4 | FDP model performs `LEFT JOIN` across Customers, Accounts, and Decision |
-| 5 | Output persisted to `fdp_em.em_attributes` |
+| 3 | `mask_pii` macro applies environment-aware masking to sensitive fields |
+| 4 | `event_transaction_excess` performs `INNER JOIN` between Customers and Accounts |
+| 5 | `portfolio_account_excess` maps Decision ODP 1:1 to FDP |
 
 ---
 
@@ -53,7 +53,8 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 | Target Table | Description |
 |--------------|-------------|
-| `fdp_em.em_attributes` | Joined customer-account-decision view |
+| `fdp_em.event_transaction_excess` | Joined customer-account view |
+| `fdp_em.portfolio_account_excess` | Decision-based portfolio view |
 
 ---
 
@@ -62,7 +63,7 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 | Directory | Purpose |
 |-----------|---------|
 | `dbt/models/staging/em/` | Staging models (clean raw data) |
-| `dbt/models/fdp/` | FDP models (JOIN logic) |
+| `dbt/models/fdp/` | FDP models (JOIN and MAP logic) |
 
 ---
 
@@ -122,7 +123,7 @@ dbt test --profiles-dir . --target dev
 ### 4. Governance Verification
 Use the library macro to ensure no unmasked PII exists in your models before deployment:
 ```sql
-{{ validate_no_pii_in_export('fdp_em.em_attributes') }}
+{{ validate_no_pii_in_export('fdp_em.event_transaction_excess') }}
 ```
 
 ### 5. Cloud Execution
@@ -133,22 +134,18 @@ In production, this unit is triggered by the `em_odp_load_dag` once ingestion is
 ## SQL Example
 
 ```sql
--- fdp_em.em_attributes
+-- fdp_em.event_transaction_excess
 SELECT
     c.customer_id,
     c.first_name,
     c.last_name,
     a.account_id,
     a.current_balance,
-    d.decision_outcome,
-    d.decision_date,
     -- Audit columns
     c._run_id,
     CURRENT_TIMESTAMP() as _transformed_at
 FROM {{ ref('stg_em_customers') }} c
-LEFT JOIN {{ ref('stg_em_accounts') }} a 
+JOIN {{ ref('stg_em_accounts') }} a 
     ON c.customer_id = a.customer_id
-LEFT JOIN {{ ref('stg_em_decision') }} d 
-    ON c.customer_id = d.customer_id
 ```
 

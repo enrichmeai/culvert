@@ -127,7 +127,7 @@ bq query --project_id=${PROJECT_ID} \
 
 # Check FDP table  
 bq query --project_id=${PROJECT_ID} \
-  "SELECT * FROM fdp_em.em_attributes LIMIT 10"
+  "SELECT * FROM fdp_em.event_transaction_excess LIMIT 10"
 
 # Check job control
 bq query --project_id=${PROJECT_ID} \

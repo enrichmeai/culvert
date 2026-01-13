@@ -12,8 +12,8 @@
     Purpose: Clean view over ODP applications table.
     Source: odp_loa.applications (raw 1:1 mainframe copy)
 
-    Note: Unlike EM (JOIN 3 sources), LOA will SPLIT this single source
-          into 2 FDP tables (event_transaction_excess, portfolio_account_excess)
+    Note: Unlike EM (JOIN 2 sources), LOA will MAP this single source
+          into 1 FDP table (portfolio_account_facility)
 */
 
 SELECT

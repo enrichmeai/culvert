@@ -4,7 +4,7 @@ EM Pipeline Router - Dynamic File Type Routing
 Routes incoming files to appropriate pipeline based on file type and content.
 Handles EM entity types: Customers, Accounts, Decision.
 
-EM Flow: 3 entities → ODP tables → JOIN → 1 FDP table (em_attributes)
+EM Flow: 3 entities → ODP tables → Transformation → 2 FDP tables
 
 Usage: Identify file type → Select pipeline → Route for processing
 """

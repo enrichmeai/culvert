@@ -1,6 +1,7 @@
-resource "google_bigquery_table" "fdp_em_attributes" {
-  dataset_id = google_bigquery_dataset.fdp_em.dataset_id
-  table_id   = "em_attributes"
+resource "google_bigquery_table" "fdp_event_transaction_excess" {
+  dataset_id          = google_bigquery_dataset.fdp_em.dataset_id
+  table_id            = "event_transaction_excess"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -10,33 +11,41 @@ resource "google_bigquery_table" "fdp_em_attributes" {
   clustering = ["customer_id", "account_id"]
 
   schema = jsonencode([
-    # Primary key
-    { name = "attribute_key", type = "STRING", mode = "REQUIRED", description = "Composite primary key" },
-
-    # Customer attributes
-    { name = "customer_id", type = "STRING", mode = "REQUIRED", description = "Customer ID" },
-    { name = "ssn_masked", type = "STRING", mode = "NULLABLE", description = "Masked SSN (PII)" },
+    { name = "customer_id", type = "STRING", mode = "REQUIRED", description = "Primary key" },
     { name = "first_name", type = "STRING", mode = "NULLABLE", description = "First name" },
     { name = "last_name", type = "STRING", mode = "NULLABLE", description = "Last name" },
-    { name = "date_of_birth", type = "DATE", mode = "NULLABLE", description = "Date of birth" },
-    { name = "customer_status", type = "STRING", mode = "NULLABLE", description = "Customer status" },
-
-    # Account attributes
-    { name = "account_id", type = "STRING", mode = "NULLABLE", description = "Account ID" },
-    { name = "account_type_desc", type = "STRING", mode = "NULLABLE", description = "Account type description" },
+    { name = "account_id", type = "STRING", mode = "REQUIRED", description = "Account ID" },
     { name = "current_balance", type = "NUMERIC", mode = "NULLABLE", description = "Current balance" },
-    { name = "account_open_date", type = "DATE", mode = "NULLABLE", description = "Account open date" },
-
-    # Decision attributes
-    { name = "decision_id", type = "STRING", mode = "NULLABLE", description = "Decision ID" },
-    { name = "decision_outcome", type = "STRING", mode = "NULLABLE", description = "Decision outcome" },
-    { name = "decision_date", type = "DATE", mode = "NULLABLE", description = "Decision date" },
-    { name = "decision_reason", type = "STRING", mode = "NULLABLE", description = "Decision reason" },
-
     # Audit columns
     { name = "_run_id", type = "STRING", mode = "REQUIRED", description = "Pipeline run identifier" },
-    { name = "_extract_date", type = "DATE", mode = "REQUIRED", description = "Extract date" },
-    { name = "_transformed_at", type = "TIMESTAMP", mode = "NULLABLE", description = "Transformation timestamp" }
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED", description = "Transformation timestamp" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED", description = "Extract date" }
+  ])
+
+  labels = local.common_labels
+}
+
+resource "google_bigquery_table" "fdp_portfolio_account_excess" {
+  dataset_id          = google_bigquery_dataset.fdp_em.dataset_id
+  table_id            = "portfolio_account_excess"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "_extract_date"
+  }
+
+  clustering = ["customer_id", "_run_id"]
+
+  schema = jsonencode([
+    { name = "decision_id", type = "STRING", mode = "REQUIRED", description = "Decision ID" },
+    { name = "customer_id", type = "STRING", mode = "REQUIRED", description = "Customer ID" },
+    { name = "decision_code", type = "STRING", mode = "REQUIRED", description = "Decision code" },
+    { name = "score", type = "INTEGER", mode = "NULLABLE", description = "Credit score" },
+    # Audit columns
+    { name = "_run_id", type = "STRING", mode = "REQUIRED", description = "Pipeline run identifier" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED", description = "Transformation timestamp" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED", description = "Extract date" }
   ])
 
   labels = local.common_labels

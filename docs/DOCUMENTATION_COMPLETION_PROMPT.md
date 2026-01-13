@@ -217,12 +217,12 @@ CustomerSchema = EntitySchema(
 ## 5. Reference Implementations
 
 ### 5.1 EM (Application A)
-- Pattern: JOIN (3 entities → 1 FDP table)
+- Pattern: MULTI-TARGET (3 entities → 2 FDP tables)
 - Entities: customers, accounts, decision
 - Dependency: Wait for all 3 before FDP transformation
 
 ### 5.2 LOA (Application B Application)
-- Pattern: SPLIT (1 entity → 2 FDP tables)
+- Pattern: MAP (1 entity → 1 FDP table)
 - Entities: applications
 - Dependency: None (immediate FDP trigger)
 
