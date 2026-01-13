@@ -1,6 +1,8 @@
 pipeline:
   name: GCP Pipeline Libraries Unified CI
   identifier: gcp_pipeline_libraries_unified_ci
+  projectIdentifier: legacy_migration_reference
+  orgIdentifier: default
   stages:
     - stage:
         name: Unified Libraries Build
