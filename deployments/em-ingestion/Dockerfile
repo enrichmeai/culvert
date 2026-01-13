@@ -17,8 +17,7 @@ RUN pip install --no-cache-dir \
     google-cloud-pubsub
 
 # Install shared libraries from Nexus
-# Replace YOUR_NEXUS_URL and YOUR_NEXUS_REPO with your actual Nexus details
-# It's recommended to use an index-url or extra-index-url pointing to Nexus
+# Integrated Nexus connector provides these credentials and URL
 ARG NEXUS_USER
 ARG NEXUS_PASSWORD
 ARG NEXUS_URL

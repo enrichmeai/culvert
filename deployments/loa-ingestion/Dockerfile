@@ -17,6 +17,7 @@ RUN pip install --no-cache-dir \
     google-cloud-pubsub
 
 # Install shared libraries from Nexus
+# Integrated Nexus connector provides these credentials and URL
 ARG NEXUS_USER
 ARG NEXUS_PASSWORD
 ARG NEXUS_URL

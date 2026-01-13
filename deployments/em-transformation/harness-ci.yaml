@@ -42,6 +42,9 @@ pipeline:
     - name: environment
       type: String
       default: "dev"
+    - name: nexus_url
+      type: String
+      default: <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>
 
   stages:
     - stage:
