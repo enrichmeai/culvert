@@ -114,7 +114,7 @@ source deployments/loa-ingestion/venv/bin/activate
 ### 2. Unit Testing
 Run the ingestion unit tests using library mocks:
 ```bash
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v
 ```
 

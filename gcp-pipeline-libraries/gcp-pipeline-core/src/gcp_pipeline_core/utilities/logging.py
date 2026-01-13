@@ -171,7 +171,9 @@ class StructuredLogger:
 
     def _log(self, level: int, message: str, **kwargs):
         """Log with extra fields."""
-        self._logger.log(level, message, extra=kwargs)
+        extra = kwargs.copy()
+        exc_info = extra.pop('exc_info', None)
+        self._logger.log(level, message, extra=extra, exc_info=exc_info)
 
     def debug(self, message: str, **kwargs):
         """Log debug message with optional extra fields."""
@@ -195,7 +197,9 @@ class StructuredLogger:
 
     def exception(self, message: str, **kwargs):
         """Log exception with traceback."""
-        self._logger.exception(message, extra=kwargs)
+        extra = kwargs.copy()
+        exc_info = extra.pop('exc_info', True)  # Default to True for exception
+        self._logger.exception(message, extra=extra, exc_info=exc_info)
 
 
 def configure_structured_logging(

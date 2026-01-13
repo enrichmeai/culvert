@@ -7,11 +7,11 @@ The library provides built-in audit trail capabilities for data lineage and reco
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| `AuditTrail` | `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py` | Track pipeline executions |
-| `AuditRecord` | `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/records.py` | Structured audit entries |
-| `AuditPublisher` | `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/publisher.py` | Publish audit events |
-| `LineageTracker` | `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/lineage.py` | Data lineage tracking |
-| `Reconciliation` | `gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py` | Source-to-target reconciliation |
+| `AuditTrail` | `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py` | Track pipeline executions |
+| `AuditRecord` | `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/records.py` | Structured audit entries |
+| `AuditPublisher` | `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/publisher.py` | Publish audit events |
+| `LineageTracker` | `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/lineage.py` | Data lineage tracking |
+| `Reconciliation` | `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py` | Source-to-target reconciliation |
 
 ## Audit Columns Added to Every Record
 

@@ -1,0 +1,207 @@
+pipeline:
+  name: GCP Pipeline Libraries Unified CI
+  identifier: gcp_pipeline_libraries_unified_ci
+  projectIdentifier: default_project
+  orgIdentifier: default_org
+  tags: {}
+  properties:
+    ci:
+      codebase:
+        connectorRef: YOUR_GIT_CONNECTOR_ID # Change this to your Harness Git Connector ID
+        repoName: legacy-migration-reference
+        build: <+input>
+  stages:
+    - stage:
+        name: Core Library
+        identifier: core_library
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID # Change this to your K8S Connector ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Test Core
+                  identifier: build_test_core
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID # Change this to your Docker Connector ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      cd gcp-pipeline-libraries/gcp-pipeline-core
+                      pip install -e .[dev]
+                      pytest tests/unit
+
+    - stage:
+        name: Beam Library
+        identifier: beam_library
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Test Beam
+                  identifier: build_test_beam
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      cd gcp-pipeline-libraries/gcp-pipeline-beam
+                      pip install -e .[dev]
+                      pytest tests/unit
+
+    - stage:
+        name: Orchestration Library
+        identifier: orchestration_library
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Test Orchestration
+                  identifier: build_test_orchestration
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      cd gcp-pipeline-libraries/gcp-pipeline-orchestration
+                      pip install -e .[dev]
+                      pytest tests/unit
+
+    - stage:
+        name: Transform Library
+        identifier: transform_library
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Test Transform
+                  identifier: build_test_transform
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      cd gcp-pipeline-libraries/gcp-pipeline-transform
+                      pip install -e .[dev]
+                      pytest tests/unit
+
+    - stage:
+        name: Tester Library
+        identifier: tester_library
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Test Tester
+                  identifier: build_test_tester
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      cd gcp-pipeline-libraries/gcp-pipeline-tester
+                      pip install -e .[dev]
+                      pytest tests/unit
+
+    - stage:
+        name: Publish to Nexus
+        identifier: publish_nexus
+        type: CI
+        spec:
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Publish Libraries
+                  identifier: publish_libraries
+                  type: Run
+                  spec:
+                    connectorRef: YOUR_DOCKER_CONNECTOR_ID
+                    image: python:3.9-slim
+                    shell: Sh
+                    command: |-
+                      pip install twine build
+                      
+                      # Publish Core
+                      cd gcp-pipeline-libraries/gcp-pipeline-core
+                      python -m build
+                      TWINE_USERNAME=<+secrets.getValue("nexus_user")> TWINE_PASSWORD=<+secrets.getValue("nexus_password")> python -m twine upload --repository-url https://<+input>/repository/pypi-internal/ dist/*
+                      
+                      # Repeat for other libraries as needed
+                      cd ../gcp-pipeline-beam
+                      python -m build
+                      TWINE_USERNAME=<+secrets.getValue("nexus_user")> TWINE_PASSWORD=<+secrets.getValue("nexus_password")> python -m twine upload --repository-url https://<+input>/repository/pypi-internal/ dist/*
+
+    - stage:
+        name: Deployment Artifacts
+        identifier: deployment_artifacts
+        type: CI
+        spec:
+          # This stage is for illustrative purposes. 
+          # In your environment, each deployment has its own separate repository and Harness Pipeline.
+          cloneCodebase: true
+          infrastructure:
+            type: KubernetesDirect
+            spec:
+              connectorRef: YOUR_K8S_CONNECTOR_ID
+              namespace: harness-builds
+          execution:
+            steps:
+              - step:
+                  name: Build and Push Ingestion Image
+                  identifier: build_push_ingestion
+                  type: BuildAndPushDockerRegistry
+                  spec:
+                    connectorRef: YOUR_DOCKER_REGISTRY_CONNECTOR_ID
+                    repo: your-project/your-repo/ingestion-service
+                    tags:
+                      - <+pipeline.sequenceId>
+                    dockerfile: Dockerfile
+                    buildArgs:
+                      NEXUS_USER: <+secrets.getValue("nexus_user")>
+                      NEXUS_PASSWORD: <+secrets.getValue("nexus_password")>
+                      NEXUS_URL: <+input>
+                    context: .

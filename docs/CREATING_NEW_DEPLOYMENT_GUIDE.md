@@ -45,7 +45,7 @@ mkdir -p deployments/${SYSTEM}-orchestration/dags
 - **dbt Project**: Initialize your dbt project in `dbt/`.
 - **Macro Integration**: In `dbt_project.yml`, add:
   ```yaml
-  macro-paths: ["macros", "../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros"]
+  macro-paths: ["macros", "../../gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros"]
   ```
 - **Generic Macros**: Use `{{ add_audit_columns() }}` in your staging models and `{{ mask_pii(col, 'PII_TYPE') }}` in your FDP models. This ensures you follow the "Generic-First" and "Zero-Bleed" policies without writing custom SQL.
 

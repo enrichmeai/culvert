@@ -35,7 +35,7 @@ pipeline:
                     - main
                 paths:
                   include:
-                    - gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/**
+                    - gcp-pipeline-libraries/gcp-pipeline-orchestration/**
 
   stages:
     - stage:

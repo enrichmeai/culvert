@@ -35,13 +35,13 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         # Core is needed by beam and orchestration
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
-        cd gcp-pipeline-gcp-pipeline-libraries/${{ matrix.library }}
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+        cd gcp-pipeline-libraries/${{ matrix.library }}
         pip install -e .[dev] || pip install -e .
 
     - name: Run tests
       run: |
-        cd gcp-pipeline-gcp-pipeline-libraries/${{ matrix.library }}
+        cd gcp-pipeline-libraries/${{ matrix.library }}
         if [ -d "tests" ]; then
           pytest tests/ -v --tb=short
         else
@@ -68,9 +68,9 @@ jobs:
     - name: Install libraries
       run: |
         python -m pip install --upgrade pip
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
 
     - name: Install EM deployment
       run: |
@@ -102,9 +102,9 @@ jobs:
     - name: Install libraries
       run: |
         python -m pip install --upgrade pip
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
 
     - name: Install LOA deployment
       run: |

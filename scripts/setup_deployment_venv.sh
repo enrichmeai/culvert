@@ -46,7 +46,7 @@ ALL_LIBS=("gcp-pipeline-core" "gcp-pipeline-beam" "gcp-pipeline-orchestration" "
 for lib in "${ALL_LIBS[@]}"; do
     if grep -q "$lib" pyproject.toml; then
         echo "Detected dependency: $lib. Installing from local monorepo..."
-        pip install -e "$PROJECT_ROOT/gcp-pipeline-gcp-pipeline-libraries/$lib"
+        pip install -e "$PROJECT_ROOT/gcp-pipeline-libraries/$lib"
     fi
 done
 

@@ -313,7 +313,7 @@ You can run tests for all libraries from the project root:
 
 Or for an individual library:
 ```bash
-cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
+cd gcp-pipeline-libraries/gcp-pipeline-core
 PYTHONPATH=src pytest tests/unit/
 ```
 
@@ -328,7 +328,7 @@ python dags/em_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
 
 **Example: Test Beam transform with mocks**
 ```bash
-cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam
+cd gcp-pipeline-libraries/gcp-pipeline-beam
 PYTHONPATH=src pytest tests/unit/transforms/test_parsers.py
 ```
 

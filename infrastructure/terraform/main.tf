@@ -216,6 +216,24 @@ resource "google_bigquery_dataset" "marts" {
 }
 
 # ============================================================================
+# ARTIFACT REGISTRY
+# ============================================================================
+
+# Repository for pipeline container images
+resource "google_artifact_registry_repository" "pipeline_repo" {
+  location      = var.gcp_region
+  repository_id = "pipeline-images"
+  description   = "Docker repository for migration pipeline images"
+  format        = "DOCKER"
+
+  docker_config {
+    immutable_tags = false
+  }
+
+  labels = local.common_labels
+}
+
+# ============================================================================
 # SERVICE ACCOUNTS
 # ============================================================================
 
@@ -256,6 +274,14 @@ resource "google_project_iam_member" "dataflow_worker" {
   project = var.gcp_project_id
   role    = "roles/dataflow.worker"
   member  = "serviceAccount:${google_service_account.dataflow.email}"
+}
+
+# Allow Dataflow to pull images from Artifact Registry
+resource "google_artifact_registry_repository_iam_member" "dataflow_puller" {
+  location   = google_artifact_registry_repository.pipeline_repo.location
+  repository = google_artifact_registry_repository.pipeline_repo.name
+  role       = "roles/artifactregistry.reader"
+  member     = "serviceAccount:${google_service_account.dataflow.email}"
 }
 
 resource "google_storage_bucket_iam_member" "dataflow_input" {

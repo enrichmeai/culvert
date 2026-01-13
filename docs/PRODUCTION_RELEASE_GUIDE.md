@@ -19,9 +19,9 @@ The framework uses a **4-library model**. Libraries must be released and version
 2.  **Validation**: Ensure all 618+ library tests pass.
     ```bash
     # Run all library tests
-    pytest gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit
-    pytest gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit
-    pytest gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit
+    pytest gcp-pipeline-libraries/gcp-pipeline-core/tests/unit
+    pytest gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit
+    pytest gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit
     ```
 3.  **Publishing**:
     - Build: `python -m build`

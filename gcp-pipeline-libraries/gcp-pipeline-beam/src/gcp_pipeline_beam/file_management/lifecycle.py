@@ -147,14 +147,14 @@ class FileLifecycleManager:
         """
         try:
             processing_fn(gcs_path)
-            logger.info("Successfully processed %s", gcs_path)
+            logger.info(f"Successfully processed {gcs_path}")
 
             if self.monitoring:
                 self.monitoring.metrics.increment('files_processed', 1)
 
             return True
-        except (ValueError, TypeError, RuntimeError) as exc:
-            logger.error("Error processing file: %s", exc, exc_info=True)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error(f"Error processing file: {exc}", exc_info=True)
 
             if self.error_handler:
                 self.error_handler.handle_exception(exc, source_file=gcs_path)
@@ -189,8 +189,8 @@ class FileLifecycleManager:
                 self.monitoring.metrics.increment('files_archived', 1)
 
             return result if result.success else None
-        except (IOError, RuntimeError) as exc:
-            logger.error("Error archiving file: %s", exc, exc_info=True)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            logger.error(f"Error archiving file: {exc}", exc_info=True)
 
             if self.error_handler:
                 self.error_handler.handle_exception(exc, source_file=gcs_path)
@@ -264,7 +264,7 @@ class FileLifecycleManager:
 
             return error_path
 
-        except (IOError, ValueError, RuntimeError) as exc:
+        except Exception as exc:  # pylint: disable=broad-exception-caught
             logger.error(f"Error moving file to error bucket: {exc}", exc_info=True)
             return None
 
@@ -344,7 +344,7 @@ class FileLifecycleManager:
             lifecycle['archive_path'] = archive_result.archive_path
 
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            logger.error("Unexpected error in lifecycle: %s", exc, exc_info=True)
+            logger.error(f"Unexpected error in lifecycle: {exc}", exc_info=True)
             lifecycle['status'] = 'FAILED'
             lifecycle['error'] = str(exc)
 
