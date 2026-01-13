@@ -1,10 +1,7 @@
 pipeline:
   name: Libraries Root Pipeline
   identifier: libraries_root_pipeline
-  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
-  orgIdentifier: default # UPDATE to your Org ID
   description: Root pipeline to orchestrate CI for all libraries
-
   stages:
     - stage:
         name: Unified Tagging

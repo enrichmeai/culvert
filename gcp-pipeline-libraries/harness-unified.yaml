@@ -1,8 +1,6 @@
 pipeline:
   name: GCP Pipeline Libraries Unified CI
   identifier: gcp_pipeline_libraries_unified_ci
-  projectIdentifier: default_project
-  orgIdentifier: default_org
   stages:
     - stage:
         name: Unified Libraries Build
