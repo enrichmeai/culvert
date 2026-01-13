@@ -67,7 +67,9 @@ pipeline:
                     image: python:3.11
                     shell: Bash
                     command: |
-                      pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-tester
+                      # Use integrated Nexus connector for library installation
+                      pip install --extra-index-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/simple \
+                        gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-tester
                       pip install -e .
                       PYTHONPATH=src pytest tests/ -v --tb=short
 
@@ -111,4 +113,7 @@ pipeline:
                     command: |
                       gcloud dataflow flex-template build gs://<+pipeline.variables.gcp_project_id>-templates/em-ingestion.json \
                         --image-gcr-path gcr.io/<+pipeline.variables.gcp_project_id>/em-ingestion:latest \
-                        --sdk-language PYTHON
+                        --sdk-language PYTHON \
+                        --build-arg NEXUS_USER=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                        --build-arg NEXUS_PASSWORD=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> \
+                        --build-arg NEXUS_URL=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>

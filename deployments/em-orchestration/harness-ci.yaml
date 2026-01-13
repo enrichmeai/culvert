@@ -70,7 +70,9 @@ pipeline:
                     image: python:3.11
                     shell: Bash
                     command: |
-                      pip install apache-airflow gcp-pipeline-core gcp-pipeline-orchestration
+                      # Use integrated Nexus connector for library installation
+                      pip install --extra-index-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/simple \
+                        apache-airflow gcp-pipeline-core gcp-pipeline-orchestration
                       pytest tests/ -v --tb=short
 
     - stage:

@@ -141,6 +141,8 @@ pipeline:
                       pip install -e .[dev]
                       pytest tests/unit
 
+
+
     - stage:
         name: Publish to Nexus
         identifier: publish_nexus
@@ -163,45 +165,46 @@ pipeline:
                     image: python:3.9-slim
                     shell: Sh
                     command: |-
-                      pip install twine build
+                      echo "enable nexus"
+                      # To enable publishing, uncomment the lines below and replace YOUR_NEXUS_CONNECTOR_ID
+                      # pip install twine build
                       
                       # Publish Core
-                      cd gcp-pipeline-libraries/gcp-pipeline-core
-                      python -m build
-                      TWINE_USERNAME=<+secrets.getValue("nexus_user")> TWINE_PASSWORD=<+secrets.getValue("nexus_password")> python -m twine upload --repository-url https://<+input>/repository/pypi-internal/ dist/*
+                      # cd gcp-pipeline-libraries/gcp-pipeline-core
+                      # python -m build
+                      # twine upload --repository-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/ \
+                      #   -u <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                      #   -p <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> dist/*
+                      # cd ../..
                       
-                      # Repeat for other libraries as needed
-                      cd ../gcp-pipeline-beam
-                      python -m build
-                      TWINE_USERNAME=<+secrets.getValue("nexus_user")> TWINE_PASSWORD=<+secrets.getValue("nexus_password")> python -m twine upload --repository-url https://<+input>/repository/pypi-internal/ dist/*
-
-    - stage:
-        name: Deployment Artifacts
-        identifier: deployment_artifacts
-        type: CI
-        spec:
-          # This stage is for illustrative purposes. 
-          # In your environment, each deployment has its own separate repository and Harness Pipeline.
-          cloneCodebase: true
-          infrastructure:
-            type: KubernetesDirect
-            spec:
-              connectorRef: YOUR_K8S_CONNECTOR_ID
-              namespace: harness-builds
-          execution:
-            steps:
-              - step:
-                  name: Build and Push Ingestion Image
-                  identifier: build_push_ingestion
-                  type: BuildAndPushDockerRegistry
-                  spec:
-                    connectorRef: YOUR_DOCKER_REGISTRY_CONNECTOR_ID
-                    repo: your-project/your-repo/ingestion-service
-                    tags:
-                      - <+pipeline.sequenceId>
-                    dockerfile: Dockerfile
-                    buildArgs:
-                      NEXUS_USER: <+secrets.getValue("nexus_user")>
-                      NEXUS_PASSWORD: <+secrets.getValue("nexus_password")>
-                      NEXUS_URL: <+input>
-                    context: .
+                      # Publish Beam
+                      # cd gcp-pipeline-libraries/gcp-pipeline-beam
+                      # python -m build
+                      # twine upload --repository-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/ \
+                      #   -u <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                      #   -p <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> dist/*
+                      # cd ../..
+                      
+                      # Publish Orchestration
+                      # cd gcp-pipeline-libraries/gcp-pipeline-orchestration
+                      # python -m build
+                      # twine upload --repository-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/ \
+                      #   -u <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                      #   -p <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> dist/*
+                      # cd ../..
+                      
+                      # Publish Transform
+                      # cd gcp-pipeline-libraries/gcp-pipeline-transform
+                      # python -m build
+                      # twine upload --repository-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/ \
+                      #   -u <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                      #   -p <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> dist/*
+                      # cd ../..
+                      
+                      # Publish Tester
+                      # cd gcp-pipeline-libraries/gcp-pipeline-tester
+                      # python -m build
+                      # twine upload --repository-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/ \
+                      #   -u <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                      #   -p <+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> dist/*
+                      # cd ../..

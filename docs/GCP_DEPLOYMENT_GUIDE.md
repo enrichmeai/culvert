@@ -153,6 +153,7 @@ The pipeline follows a **3-unit deployment model** (Ingestion, Transformation, O
 The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) are managed as Python packages in **Nexus**. 
 - They must be published to Nexus before deploying the application units.
 - Use the [harness-unified.yaml](../gcp-pipeline-libraries/harness-unified.yaml) to automate the publishing.
+- The pipeline uses an **Integrated Nexus Connector** (`YOUR_NEXUS_CONNECTOR_ID`) to handle authentication and URLs automatically.
 
 ### Containerization Strategy
 | Deployment Unit | Requires Docker? | Reason |
@@ -163,7 +164,8 @@ The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) are manage
 
 ### Step 2.1: Deploy Ingestion Unit (`*-ingestion`)
 1. Build the Dataflow Flex Template container.
-   - The Dockerfile pulls the shared libraries from **Nexus** using credentials passed as build arguments.
+   - The Dockerfile pulls the shared libraries from **Nexus**.
+   - Credentials and URLs are provided by the Harness **Nexus Connector**.
 2. Publish the template JSON to GCS and the image to GCR/GAR.
 
 ### Step 2.2: Deploy Transformation Unit (`*-transformation`)
