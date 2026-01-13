@@ -57,7 +57,7 @@ pip install -r deployments/setup/requirements.txt
 pip install -r deployments/setup/requirements-test.txt
 
 # Install packages in editable mode
-pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/
+pip install -e gcp-pipeline-libraries/gcp-pipeline-core/
 pip install -e deployments/em/
 pip install -e deployments/loa/
 
@@ -114,7 +114,7 @@ To avoid Python module caching conflicts, run tests for each component **separat
 cd /path/to/legacy-migration-reference
 
 # Core library tests (208 tests)
-cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core
+cd gcp-pipeline-libraries/gcp-pipeline-core
 PYTHONPATH=src python -m pytest tests/unit/ -v --tb=short
 
 # Beam library tests (358 tests)
@@ -127,12 +127,12 @@ PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v --tb=sho
 
 # LOA Ingestion tests (36 tests)
 cd ../../deployments/loa-ingestion
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v --tb=short
 
 # EM Ingestion tests (44 tests)
 cd ../em-ingestion
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v --tb=short
 ```
 

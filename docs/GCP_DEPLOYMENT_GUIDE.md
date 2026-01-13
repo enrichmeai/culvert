@@ -149,18 +149,31 @@ rm /tmp/gcp-sa-key.json  # Delete key after adding
 
 The pipeline follows a **3-unit deployment model** (Ingestion, Transformation, Orchestration) to enable independent release cycles and minimal environment overhead.
 
+### Shared Libraries (Nexus Packages)
+The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) are managed as Python packages in **Nexus**. 
+- They must be published to Nexus before deploying the application units.
+- Use the [harness-unified.yaml](../gcp-pipeline-libraries/harness-unified.yaml) to automate the publishing.
+
+### Containerization Strategy
+| Deployment Unit | Requires Docker? | Reason |
+| :--- | :--- | :--- |
+| **Ingestion** (`*-ingestion`) | **Yes** | Dataflow Flex Templates require a custom Docker image to be registered in GCR/GAR. |
+| **Transformation** (`*-transformation`) | **No** | Executed as dbt code; uses standard dbt-bigquery runners. |
+| **Orchestration** (`*-orchestration`) | **No** | Deployed as Python DAG files to Cloud Composer (GCS bucket). |
+
 ### Step 2.1: Deploy Ingestion Unit (`*-ingestion`)
-1. Build the Dataflow Flex Template container using the `gcp-pipeline-beam` library.
-2. Publish the template JSON to GCS.
+1. Build the Dataflow Flex Template container.
+   - The Dockerfile pulls the shared libraries from **Nexus** using credentials passed as build arguments.
+2. Publish the template JSON to GCS and the image to GCR/GAR.
 
 ### Step 2.2: Deploy Transformation Unit (`*-transformation`)
 1. Validate dbt models.
 2. Publish dbt artifacts and configurations.
-3. Uses the `gcp-pipeline-transform` library.
+3. Consumes shared dbt macros from the library repository or local references.
 
 ### Step 2.3: Deploy Orchestration Unit (`*-orchestration`)
-1. Upload Airflow DAGs to the Cloud Composer DAGs bucket.
-2. Update Composer environment dependencies (requires `gcp-pipeline-orchestration`).
+1. Upload Airflow DAGs to the Cloud Composer DAGs bucket (`gs://<composer-bucket>/dags/`).
+2. Update Composer environment dependencies (PyPI packages) to point to the shared libraries in Nexus.
 3. Note: Orchestration does **not** require `apache-beam` as it only triggers jobs.
 
 ### Automatic Deployment
@@ -168,7 +181,7 @@ Pipelines deploy automatically when you push to `main` branch with changes in:
 - `deployments/*-ingestion/**` → Triggers ingestion deployment
 - `deployments/*-transformation/**` → Triggers transformation deployment
 - `deployments/*-orchestration/**` → Triggers orchestration deployment
-- `gcp-pipeline-gcp-pipeline-libraries/**` → Triggers relevant deployments
+- `gcp-pipeline-libraries/**` → Triggers relevant deployments
 - `infrastructure/terraform/**` → Triggers infrastructure updates
 
 ### Manual Deployment

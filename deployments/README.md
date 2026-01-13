@@ -61,12 +61,12 @@ deployments/
 ```bash
 # LOA Ingestion
 cd loa-ingestion
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v
 
 # EM Ingestion  
 cd ../em-ingestion
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v
 ```
 

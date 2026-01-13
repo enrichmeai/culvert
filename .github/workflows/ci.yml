@@ -29,12 +29,12 @@ jobs:
 
     - name: Lint gcp-pipeline-builder
       run: |
-        flake8 gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-builder/src --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-builder/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
 
     - name: Lint gcp-pipeline-tester
       run: |
-        flake8 gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-tester/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Lint EM deployment
       run: |
@@ -46,8 +46,8 @@ jobs:
 
     - name: Check formatting (black)
       run: |
-        black --check gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-builder/src || true
-        black --check gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-builder/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-tester/src || true
         black --check deployments/em/src || true
         black --check deployments/loa/src || true
 
@@ -68,17 +68,17 @@ jobs:
     - name: Install all dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-builder[dev]
-        pip install -e gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-builder[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester[dev]
 
     - name: Test gcp-pipeline-builder
       run: |
-        cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-builder
+        cd gcp-pipeline-libraries/gcp-pipeline-builder
         pytest tests/ -v --tb=short
 
     - name: Test gcp-pipeline-tester
       run: |
-        cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester
+        cd gcp-pipeline-libraries/gcp-pipeline-tester
         pytest tests/ -v --tb=short
 
     - name: Test EM deployment

@@ -38,7 +38,7 @@ By splitting each system into three independent parts (Ingestion, Transformation
 
 In a production environment (using tools like **Harness**), the framework follows a decoupled multi-repository strategy:
 
-1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository uses `gcp-pipeline-gcp-pipeline-libraries/harness-root.yaml` to orchestrate unified tagging and CI for all libraries.
+1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository uses `gcp-pipeline-libraries/harness-root.yaml` to orchestrate unified tagging and CI for all libraries.
 2.  **Independent Deployment Repositories**: Each system component (e.g., `em-ingestion`, `em-transformation`) resides in its own dedicated repository. Each has its own `harness-ci.yaml` for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
 
 This structure provides global stability for shared components while maintaining local agility for specific data pipelines.
@@ -54,8 +54,8 @@ The framework is designed to be simple to use. You can set up a new migration by
 | **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
 | **[Execution Guide](#-execution-guide)** | How to run tests and pipelines. |
 | **[DAG Templates](./templates/dags/)** | Pre-built templates for scheduling your jobs. |
-| **[Library Features](./gcp-pipeline-gcp-pipeline-libraries/README.md)** | Overview of built-in features like Audit, FinOps, PII Masking, and Data Quality. |
-| **[FinOps Guide](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/README.md#5-finops--cost-tracking)** | Detailed guide for cost tracking and labeling. |
+| **[Library Features](./gcp-pipeline-libraries/README.md)** | Overview of built-in features like Audit, FinOps, PII Masking, and Data Quality. |
+| **[FinOps Guide](./gcp-pipeline-libraries/gcp-pipeline-core/README.md#5-finops--cost-tracking)** | Detailed guide for cost tracking and labeling. |
 
 ---
 
@@ -89,7 +89,7 @@ To run all shared library tests (700+ tests):
 To run tests for a specific system component:
 ```bash
 cd deployments/em-ingestion
-PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/
 ```
 
@@ -151,11 +151,11 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
-| [`gcp-pipeline-core`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 208 |
-| [`gcp-pipeline-beam`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
-| [`gcp-pipeline-orchestration`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
-| [`gcp-pipeline-transform`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
-| [`gcp-pipeline-tester`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
+| [`gcp-pipeline-core`](./gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 208 |
+| [`gcp-pipeline-beam`](./gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
+| [`gcp-pipeline-orchestration`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
+| [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
+| [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
 
 ### 3-Unit Deployment Model
 
@@ -252,12 +252,12 @@ gs://landing/em/customers/
 ## Project Structure
 
 ```
-gcp-pipeline-gcp-pipeline-libraries/
-├── [`gcp-pipeline-core/`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/)           # 208 tests - Foundation
-├── [`gcp-pipeline-beam/`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/)           # 358 tests - Ingestion
-├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # 52 tests - Control
-├── [`gcp-pipeline-transform/`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
-└── [`gcp-pipeline-tester/`](./gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
+gcp-pipeline-libraries/
+├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # 208 tests - Foundation
+├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # 358 tests - Ingestion
+├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # 52 tests - Control
+├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
+└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
 
 deployments/
 ├── [`em-ingestion/`](./deployments/em-ingestion/)                # 44 tests (3 sources)
@@ -298,17 +298,17 @@ infrastructure/terraform/
 
 ```bash
 # Libraries (618 tests)
-cd gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
+cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 
 # Deployments (80 tests)
 cd ../../deployments/loa-ingestion && \
-  PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+  PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -q
 
 cd ../em-ingestion && \
-  PYTHONPATH=src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-beam/src \
+  PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -q
 ```
 

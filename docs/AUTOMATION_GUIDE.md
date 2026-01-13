@@ -48,9 +48,9 @@ To verify the entire pipeline in a GCP environment:
 
 The framework uses a decoupled, multi-repository Harness configuration to manage shared dependencies and independent system lifecycles.
 
-### Libraries Monorepo Pipeline (`gcp-pipeline-gcp-pipeline-libraries/harness-root.yaml`)
+### Libraries Monorepo Pipeline (`gcp-pipeline-libraries/harness-root.yaml`)
 Shared libraries are managed in a single monorepo to ensure consistency.
-- **Root Orchestrator**: `gcp-pipeline-gcp-pipeline-libraries/harness-root.yaml` acts as the master controller for the library repository.
+- **Root Orchestrator**: `gcp-pipeline-libraries/harness-root.yaml` acts as the master controller for the library repository.
 - **Unified Tagging**: It creates a synchronized version tag (e.g., `libs-1.0.42`) across all libraries when changes are merged.
 - **Library CI**: Triggers individual pipelines (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) to guarantee stability.
 

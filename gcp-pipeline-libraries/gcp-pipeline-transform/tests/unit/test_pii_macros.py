@@ -5,8 +5,8 @@ import pytest
 
 def test_pii_macros_compilation():
     # Detect if we are running from project root or library root
-    if os.path.exists("gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
-        project_dir = "gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    if os.path.exists("gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
 
@@ -51,8 +51,8 @@ def test_pii_macros_compilation():
 
 def test_audit_macros_compilation():
     # Detect if we are running from project root or library root
-    if os.path.exists("gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
-        project_dir = "gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    if os.path.exists("gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
 
@@ -77,8 +77,8 @@ def test_audit_macros_compilation():
 
 def test_dq_macros_compilation():
     # Detect if we are running from project root or library root
-    if os.path.exists("gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
-        project_dir = "gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    if os.path.exists("gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
 
@@ -102,8 +102,8 @@ def test_dq_macros_compilation():
 
 def test_enrichment_macros_compilation():
     # Detect if we are running from project root or library root
-    if os.path.exists("gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
-        project_dir = "gcp-pipeline-gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
+    if os.path.exists("gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"):
+        project_dir = "gcp-pipeline-libraries/gcp-pipeline-transform/tests/unit/dbt_test_project"
     else:
         project_dir = "tests/unit/dbt_test_project"
 
