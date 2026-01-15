@@ -72,7 +72,7 @@ Each part of a system has its own isolated environment. Use the setup script to 
 ./scripts/setup_deployment_venv.sh em-ingestion
 
 # Activate the environment
-source deployments/em-ingestion/venv/bin/activate
+source deployments_embedded/em-ingestion/venv/bin/activate
 ```
 
 This script sets up everything you need to develop and test locally.
@@ -86,11 +86,10 @@ To run all shared library tests (700+ tests):
 ```
 
 #### System-Specific Tests
-To run tests for a specific system component:
+To run tests for a specific system component (using embedded libraries):
 ```bash
-cd deployments/em-ingestion
-PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
-  python -m pytest tests/unit/
+cd deployments_embedded/em-ingestion
+python -m pytest tests/unit/
 ```
 
 ### 3. Local Execution
@@ -100,7 +99,7 @@ You can test ingestion on your own machine without using Google Cloud. This is g
 
 ```bash
 # Activate the ingestion environment
-cd deployments/em-ingestion
+cd deployments_embedded/em-ingestion
 python -m em_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
     --output_table=project:dataset.table \
@@ -112,7 +111,7 @@ python -m em_ingestion.pipeline.main \
 You can also run your data transformation rules (dbt) locally:
 
 ```bash
-cd deployments/em-transformation/dbt
+cd deployments_embedded/em-transformation/dbt
 dbt run --profiles-dir . --target dev
 ```
 
@@ -259,13 +258,13 @@ gcp-pipeline-libraries/
 ├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
 └── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
 
-deployments/
-├── [`em-ingestion/`](./deployments/em-ingestion/)                # 44 tests (3 sources)
-├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models (2 targets)
-├── [`em-orchestration/`](./deployments/em-orchestration/)            # Airflow DAGs
-├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 36 tests (1 source)
-├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models (1 target)
-└── [`loa-orchestration/`](./deployments/loa-orchestration/)           # Airflow DAGs
+deployments_embedded/
+├── [`em-ingestion/`](./deployments_embedded/em-ingestion/)                # 44 tests (3 sources)
+├── [`em-transformation/`](./deployments_embedded/em-transformation/)           # dbt models (2 targets)
+├── [`em-orchestration/`](./deployments_embedded/em-orchestration/)            # Airflow DAGs
+├── [`loa-ingestion/`](./deployments_embedded/loa-ingestion/)               # 36 tests (1 source)
+├── [`loa-transformation/`](./deployments_embedded/loa-transformation/)          # dbt models (1 target)
+└── [`loa-orchestration/`](./deployments_embedded/loa-orchestration/)           # Airflow DAGs
 
 infrastructure/terraform/
 ├── systems/em/                  # EM infrastructure
@@ -302,13 +301,11 @@ cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest t
 cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 
-# Deployments (80 tests)
-cd ../../deployments/loa-ingestion && \
-  PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
+# Embedded Deployments (46 tests)
+cd ../../deployments_embedded/loa-ingestion && \
   python -m pytest tests/unit/ -q
 
 cd ../em-ingestion && \
-  PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -q
 ```
 
@@ -321,9 +318,9 @@ cd ../em-ingestion && \
 | gcp-pipeline-core | 208 |
 | gcp-pipeline-beam | 358 |
 | gcp-pipeline-orchestration | 52 |
-| loa-ingestion | 36 |
-| em-ingestion | 44 |
-| **Total** | **698** |
+| loa-ingestion (embedded) | 20 |
+| em-ingestion (embedded) | 26 |
+| **Total** | **664** |
 
 ---
 

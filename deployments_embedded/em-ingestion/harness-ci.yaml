@@ -1,0 +1,119 @@
+pipeline:
+  name: em-ingestion CI/CD
+  identifier: em_ingestion_cicd
+  projectIdentifier: legacy_migration_reference # UPDATE to your Project ID
+  orgIdentifier: default
+  tags:
+    service: em-ingestion
+    type: apache-beam
+
+  properties:
+    ci:
+      codebase:
+        connectorRef: github_connector
+        repoName: em-ingestion # Separate repository for this deployment
+        build:
+          type: branch
+          spec:
+            branch: main
+
+  triggers:
+    - trigger:
+        name: On EM Ingestion Change
+        identifier: on_em_ingestion_change
+        type: Webhook
+        spec:
+          type: Github
+          spec:
+            type: Push
+            spec:
+              connectorRef: github_connector
+              autoAbortPreviousExecutions: true
+              filter:
+                branch:
+                  include:
+                    - main
+                # Path filter removed as this is now a standalone repository
+
+  variables:
+    - name: gcp_project_id
+      type: String
+      default: ""
+    - name: environment
+      type: String
+      default: "dev"
+
+  stages:
+    - stage:
+        name: Build and Test
+        identifier: build_test
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Run Unit Tests
+                  identifier: run_tests
+                  spec:
+                    connectorRef: docker_hub
+                    image: python:3.11
+                    shell: Bash
+                    command: |
+                      # Use integrated Nexus connector for library installation
+                      pip install --extra-index-url <+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>/repository/pypi-all/simple \
+                        gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-tester
+                      pip install -e .
+                      PYTHONPATH=src pytest tests/ -v --tb=short
+
+    - stage:
+        name: Deploy Infrastructure
+        identifier: deploy_infra
+        type: CI
+        spec:
+          cloneCodebase: true
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Terraform Apply
+                  identifier: tf_apply
+                  spec:
+                    connectorRef: docker_hub
+                    image: hashicorp/terraform:latest
+                    shell: Bash
+                    command: |
+                      cd infrastructure/terraform/systems/em/ingestion
+                      terraform init
+                      terraform apply -auto-approve -var="project_id=<+pipeline.variables.gcp_project_id>"
+
+    - stage:
+        name: Deploy Pipeline
+        identifier: deploy_pipeline
+        type: CI
+        spec:
+          cloneCodebase: true
+          execution:
+            steps:
+              - step:
+                  type: Run
+                  name: Deploy Dataflow Template
+                  identifier: deploy_dataflow
+                  spec:
+                    connectorRef: gcp_connector
+                    image: google/cloud-sdk:latest
+                    shell: Bash
+                    command: |
+                      gcloud dataflow flex-template build gs://<+pipeline.variables.gcp_project_id>-templates/em-ingestion.json \
+                        --image-gcr-path gcr.io/<+pipeline.variables.gcp_project_id>/em-ingestion:latest \
+                        --sdk-language PYTHON \
+                        --build-arg NEXUS_USER=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.username> \
+                        --build-arg NEXUS_PASSWORD=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").credentials.password> \
+                        --build-arg NEXUS_URL=<+config.connector("YOUR_NEXUS_CONNECTOR_ID").url>
