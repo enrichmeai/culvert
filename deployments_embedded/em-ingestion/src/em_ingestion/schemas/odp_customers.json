@@ -1,0 +1,13 @@
+[
+  {"name": "customer_id", "type": "STRING", "mode": "REQUIRED", "description": "Primary key"},
+  {"name": "first_name", "type": "STRING", "mode": "NULLABLE", "description": "First name"},
+  {"name": "last_name", "type": "STRING", "mode": "NULLABLE", "description": "Last name"},
+  {"name": "ssn", "type": "STRING", "mode": "NULLABLE", "description": "Social Security Number (PII)"},
+  {"name": "dob", "type": "DATE", "mode": "NULLABLE", "description": "Date of birth (PII)"},
+  {"name": "status", "type": "STRING", "mode": "NULLABLE", "description": "A=Active, I=Inactive, C=Closed"},
+  {"name": "created_date", "type": "DATE", "mode": "NULLABLE", "description": "Customer creation date"},
+  {"name": "_run_id", "type": "STRING", "mode": "REQUIRED", "description": "Pipeline run identifier"},
+  {"name": "_source_file", "type": "STRING", "mode": "NULLABLE", "description": "Source file path"},
+  {"name": "_processed_at", "type": "TIMESTAMP", "mode": "NULLABLE", "description": "Processing timestamp"},
+  {"name": "_extract_date", "type": "DATE", "mode": "REQUIRED", "description": "Extract date from HDR"}
+]
