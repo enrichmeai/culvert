@@ -64,13 +64,13 @@ jobs:
 
     - name: Terraform Init
       run: |
-        cd infrastructure/terraform/systems/em
+        cd infrastructure/terraform/systems/em/ingestion
         terraform init
 
     - name: Import Existing Resources
       continue-on-error: true
       run: |
-        cd infrastructure/terraform/systems/em
+        cd infrastructure/terraform/systems/em/ingestion
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         
         # Import BigQuery datasets if they exist
@@ -105,15 +105,15 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        cd infrastructure/terraform/systems/em
+        cd infrastructure/terraform/systems/em/ingestion
         terraform plan \
-          -var-file="env/dev.tfvars" \
+          -var-file="../env/dev.tfvars" \
           -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}" \
           -out=tfplan
 
     - name: Terraform Apply
       run: |
-        cd infrastructure/terraform/systems/em
+        cd infrastructure/terraform/systems/em/ingestion
         terraform apply -auto-approve tfplan
 
   deploy-dataflow:
