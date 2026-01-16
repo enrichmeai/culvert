@@ -80,7 +80,7 @@ class GDWPipelineOptions(PipelineOptions):
 
         # GCP Configuration
         parser.add_value_provider_argument(
-            '--project',
+            '--gcp_project',
             type=str,
             default='',
             help='GCP Project ID for resources'
@@ -88,7 +88,7 @@ class GDWPipelineOptions(PipelineOptions):
 
         # Autoscaling and worker configuration
         parser.add_argument(
-            '--autoscaling_algorithm',
+            '--gcp_autoscaling_algorithm',
             type=str,
             default='THROUGHPUT_BASED',
             choices=['THROUGHPUT_BASED', 'NONE'],
@@ -96,7 +96,7 @@ class GDWPipelineOptions(PipelineOptions):
         )
 
         parser.add_argument(
-            '--num_workers',
+            '--gcp_num_workers',
             type=int,
             default=1,
             help='Number of worker machines (used when autoscaling_algorithm=NONE)'
@@ -104,7 +104,7 @@ class GDWPipelineOptions(PipelineOptions):
 
         # Additional configuration
         parser.add_argument(
-            '--max_num_workers',
+            '--gcp_max_num_workers',
             type=int,
             default=10,
             help='Maximum number of worker machines when autoscaling is enabled'

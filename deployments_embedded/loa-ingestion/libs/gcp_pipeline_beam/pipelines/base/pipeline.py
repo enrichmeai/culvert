@@ -100,8 +100,19 @@ class BasePipeline(ABC):
             self.config = config
             self._config_dict = config.to_dict()
         elif isinstance(config, dict):
-            self.config = PipelineConfig(**config) if 'run_id' in config else None
-            self._config_dict = config or {}
+            # Extract known fields for PipelineConfig
+            known_fields = ['run_id', 'pipeline_name', 'entity_type', 'source_file', 'gcp_project_id', 'bigquery_dataset']
+            config_params = {k: v for k, v in config.items() if k in known_fields}
+            extra_params = {k: v for k, v in config.items() if k not in known_fields}
+
+            if 'run_id' not in config_params:
+                config_params['run_id'] = generate_run_id(config_params.get('pipeline_name', 'pipeline'))
+
+            if 'pipeline_name' not in config_params:
+                config_params['pipeline_name'] = 'unnamed_pipeline'
+
+            self.config = PipelineConfig(additional_config=extra_params, **config_params)
+            self._config_dict = self.config.to_dict()
         else:
             self.config = None
             self._config_dict = {}
@@ -260,6 +271,22 @@ class BasePipeline(ABC):
                 self.run_id
             )
 
+            # Phase 2.3: Publish "Job Finished" message to Pub/Sub upon batch completion
+            if not self.is_streaming:
+                completion_topic = self.config.get('completion_topic')
+                if completion_topic:
+                    logger.info(f"Publishing completion message to {completion_topic}")
+                    from google.cloud import pubsub_v1
+                    import json
+                    publisher = pubsub_v1.PublisherClient()
+                    topic_path = publisher.topic_path(self.config.get('gcp_project_id'), completion_topic)
+                    message = {
+                        'run_id': self.run_id,
+                        'pipeline_name': self.config.get('pipeline_name'),
+                        'status': 'SUCCESS'
+                    }
+                    publisher.publish(topic_path, json.dumps(message).encode('utf-8'))
+
             logger.info(f"Pipeline execution completed successfully: {self.run_id}")
 
         except Exception as e:
@@ -359,10 +386,14 @@ class BasePipeline(ABC):
         table_spec: str,
         schema: Any,
         write_disposition: beam.io.BigQueryDisposition = beam.io.BigQueryDisposition.WRITE_APPEND,
-        create_disposition: beam.io.BigQueryDisposition = beam.io.BigQueryDisposition.CREATE_IF_NEEDED
+        create_disposition: beam.io.BigQueryDisposition = beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+        dlq_path: Optional[str] = None,
+        dlq_topic: Optional[str] = None,
+        label: Optional[str] = None
     ) -> beam.io.WriteToBigQuery:
         """
         Helper to write to BigQuery, using Storage Write API for streaming.
+        Implements DLQ pattern for failed rows.
 
         Args:
             pcoll: PCollection to write
@@ -370,23 +401,54 @@ class BasePipeline(ABC):
             schema: Table schema
             write_disposition: Write disposition
             create_disposition: Create disposition
+            dlq_path: GCS path for failed records
+            dlq_topic: Pub/Sub topic for failed records
+            label: Unique label for this transform
 
         Returns:
             WriteToBigQuery transform result
         """
+        additional_kwargs = {}
         if self.is_streaming:
-            return pcoll | "WriteToBQStreaming" >> beam.io.WriteToBigQuery(
-                table_spec,
-                schema=schema,
-                write_disposition=write_disposition,
-                create_disposition=create_disposition,
-                method=beam.io.WriteToBigQuery.Method.STORAGE_WRITE_API
-            )
-        else:
-            return pcoll | "WriteToBQBatch" >> beam.io.WriteToBigQuery(
-                table_spec,
-                schema=schema,
-                write_disposition=write_disposition,
-                create_disposition=create_disposition
-            )
+            additional_kwargs['method'] = beam.io.WriteToBigQuery.Method.STORAGE_WRITE_API
+
+        effective_label = label
+        if not effective_label:
+            try:
+                table_name = str(table_spec).split('.')[-1]
+                effective_label = f"WriteToBQ_{table_name}"
+            except Exception:
+                effective_label = "WriteToBQ"
+
+        write_result = pcoll | effective_label >> beam.io.WriteToBigQuery(
+            table_spec,
+            schema=schema,
+            write_disposition=write_disposition,
+            create_disposition=create_disposition,
+            insert_retry_strategy=beam.io.gcp.bigquery_tools.RetryStrategy.RETRY_NEVER if dlq_path or dlq_topic else None,
+            **additional_kwargs
+        )
+
+        if hasattr(write_result, 'failed_rows'):
+            failed_rows = write_result.failed_rows
+
+            if dlq_path:
+                failed_rows | f"WriteToDLQGCS_{effective_label}" >> beam.io.WriteToText(
+                    dlq_path,
+                    file_name_suffix=".json",
+                    append_trailing_newlines=True,
+                    coder=beam.coders.StrUtf8Coder()
+                )
+
+            if dlq_topic:
+                from ..beam.pubsub.publishers import PublishToPubSubDoFn
+                # Extract project from topic or use config
+                project = self.config.get('gcp_project_id')
+                # Assuming dlq_topic is just the name, or needs parsing
+                failed_rows | f"WriteToDLQPubSub_{effective_label}" >> beam.ParDo(PublishToPubSubDoFn(
+                    project=project,
+                    topic=dlq_topic
+                ))
+
+        return write_result
 

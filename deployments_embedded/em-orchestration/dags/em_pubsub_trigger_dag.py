@@ -25,7 +25,7 @@ from airflow.operators.dummy import DummyOperator
 from airflow.models import Variable
 
 # Import from gcp_pipeline_core library
-from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
+from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor, PubSubCompletionSensor
 from gcp_pipeline_beam.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 

@@ -64,7 +64,10 @@ from gcp_pipeline_core.monitoring.otel import (
 # Library imports - reconciliation
 from gcp_pipeline_core.audit import ReconciliationEngine, ReconciliationStatus
 
-# Library imports - schema-driven validation
+from loa_ingestion.pipeline.options import LOAPipelineOptions
+
+# Library imports - base pipeline and components
+from gcp_pipeline_beam.pipelines.base import BasePipeline, GDWPipelineOptions
 from gcp_pipeline_beam.file_management import HDRTRLParser
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine, SchemaValidateRecordDoFn
@@ -82,6 +85,67 @@ LOA_ENTITY_CONFIG = {
         "error_table": "odp_loa.applications_errors",
     },
 }
+
+
+class LOAPipeline(BasePipeline):
+    """
+    LOA (Application B Application) ODP Load Pipeline.
+    Refactored to use library BasePipeline for enhanced maturity features.
+    """
+
+    def __init__(self, options, config, entity_schema):
+        super().__init__(options=options, config=config)
+        self.entity_schema = entity_schema
+
+    def build(self, pipeline: beam.Pipeline):
+        """Build the LOA pipeline logic."""
+        gdw_opts = self.options.view_as(GDWPipelineOptions)
+
+        # Read files
+        lines = pipeline | 'ReadFiles' >> beam.io.ReadFromText(gdw_opts.input_pattern)
+
+        # Parse CSV - headers from schema, uses library ParseCsvLine
+        records = lines | 'ParseCSV' >> beam.ParDo(
+            ParseCsvLine(
+                field_names=self.entity_schema.get_csv_headers(),
+                skip_hdr_trl=True,
+                hdr_prefix="HDR|",
+                trl_prefix="TRL|"
+            )
+        )
+
+        # Validate using SCHEMA-DRIVEN validation from library
+        validated = records | 'Validate' >> beam.ParDo(
+            SchemaValidateRecordDoFn(schema=self.entity_schema)
+        ).with_outputs('invalid', main='valid')
+
+        # Add audit columns
+        audited = validated.valid | 'AddAudit' >> beam.ParDo(
+            AddAuditColumnsDoFn(
+                self.run_id,
+                gdw_opts.input_pattern,
+                datetime.utcnow().strftime('%Y-%m-%d')
+            )
+        )
+
+        # Write to BigQuery - using BasePipeline helper with DLQ support
+        # Valid records
+        self.write_to_bigquery(
+            audited,
+            gdw_opts.output_table,
+            schema={'fields': self.entity_schema.to_bq_schema()},
+            dlq_path=f"gs://{self.config.get('gcp_project_id')}-dlq/loa/{self.run_id}/valid_failures"
+        )
+
+        # Invalid records (Validation errors)
+        self.write_to_bigquery(
+            validated.invalid,
+            gdw_opts.error_table,
+            schema=None,
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
+            create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
+            dlq_path=f"gs://{self.config.get('gcp_project_id')}-dlq/loa/{self.run_id}/validation_failures"
+        )
 
 
 def initialize_otel(run_id: str, entity_type: str, environment: str = "dev") -> bool:
@@ -137,21 +201,9 @@ class LOAPipelineOptions(PipelineOptions):
 
     @classmethod
     def _add_argparse_args(cls, parser):
-        parser.add_argument('--entity', type=str, required=True,
-                          choices=['applications'],
-                          help='Entity to process')
-        parser.add_argument('--input_pattern', type=str, required=True,
-                          help='GCS pattern for input files')
-        parser.add_argument('--output_table', type=str, required=True,
-                          help='BigQuery output table')
-        parser.add_argument('--error_table', type=str, required=True,
-                          help='BigQuery error table')
-        parser.add_argument('--run_id', type=str, default=None,
-                          help='Pipeline run ID')
-        parser.add_argument('--project_id', type=str, required=True,
-                          help='GCP project ID')
-        parser.add_argument('--skip_reconciliation', action='store_true',
-                          help='Skip reconciliation check')
+        # parser.add_argument('--skip_reconciliation', action='store_true',
+        #                   help='Skip reconciliation check')
+        pass
 
 
 class AddAuditColumnsDoFn(beam.DoFn):
@@ -174,28 +226,17 @@ class AddAuditColumnsDoFn(beam.DoFn):
 def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
     """
     Run the LOA ODP load pipeline.
-
-    Uses:
-    - Structured JSON logging for Cloud Logging
-    - OTEL/Dynatrace integration for distributed tracing
-    - MigrationMetrics for standardized metrics
-    - ReconciliationEngine for automated reconciliation
-    - Schema-driven validation - no custom validation code needed
-
-    After completion, triggers FDP transformation immediately
-    (no dependency wait - single entity).
-
-    Args:
-        argv: Command line arguments
-        expected_count: Expected record count (from trailer) for reconciliation
+    Updated to use LOAPipeline class which inherits from BasePipeline.
     """
-    options = LOAPipelineOptions(argv)
+    options = GDWPipelineOptions(argv)
     loa_opts = options.view_as(LOAPipelineOptions)
+    gdw_opts = options.view_as(GDWPipelineOptions)
 
-    entity = loa_opts.entity
-    config = LOA_ENTITY_CONFIG[entity]
-    schema = config["schema"]
-    run_id = loa_opts.run_id or generate_run_id(f"loa_{entity}")
+    # entity = loa_opts.entity
+    entity = getattr(loa_opts, 'entity', None) or 'applications'
+    config_entry = LOA_ENTITY_CONFIG[entity]
+    schema = config_entry["schema"]
+    run_id = gdw_opts.run_id or generate_run_id(f"loa_{entity}")
     environment = os.getenv("ENVIRONMENT", "dev")
 
     # Configure structured JSON logging
@@ -205,6 +246,15 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
         entity_type=entity,
         logger_name="loa_pipeline"
     )
+
+    # Prepare configuration for BasePipeline
+    pipeline_config = {
+        'run_id': gdw_opts.run_id,
+        'pipeline_name': f"loa_{entity}_load",
+        'entity_type': entity,
+        'gcp_project_id': gdw_opts.gcp_project,
+        'source_file': gdw_opts.input_pattern
+    }
 
     # Initialize OTEL for distributed tracing (if configured)
     otel_enabled = initialize_otel(run_id, entity, environment)
@@ -224,57 +274,22 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
     reconciler = ReconciliationEngine(
         entity_type=entity,
         run_id=run_id,
-        project_id=loa_opts.project_id,
+        project_id=gdw_opts.gcp_project,
         logger=logger
     )
 
     logger.info("Pipeline starting",
-                input_pattern=loa_opts.input_pattern,
-                output_table=loa_opts.output_table,
+                input_pattern=gdw_opts.input_pattern,
+                output_table=gdw_opts.output_table,
                 note="Single entity - immediate FDP trigger after ODP load")
 
     try:
         # Wrap pipeline execution in OTEL context for distributed tracing
         with OTELContext(run_id=run_id, system_id=SYSTEM_ID, entity_type=entity) as otel_ctx:
-            with otel_ctx.span("pipeline_execution", attributes={"input_pattern": loa_opts.input_pattern}) as span:
-                with beam.Pipeline(options=options) as p:
-                    # Read files
-                    lines = p | 'ReadFiles' >> beam.io.ReadFromText(loa_opts.input_pattern)
-
-                    # Parse CSV - headers from schema, uses library ParseCsvLine
-                    records = lines | 'ParseCSV' >> beam.ParDo(
-                        ParseCsvLine(
-                            headers=schema.get_csv_headers(),
-                            skip_hdr_trl=True,
-                            hdr_prefix="HDR|",
-                            trl_prefix="TRL|"
-                        )
-                    )
-
-                    # Validate using SCHEMA-DRIVEN validation from library
-                    validated = records | 'Validate' >> beam.ParDo(
-                        SchemaValidateRecordDoFn(schema=schema)
-                    ).with_outputs('invalid', main='valid')
-
-                    # Add audit columns
-                    audited = validated.valid | 'AddAudit' >> beam.ParDo(
-                        AddAuditColumnsDoFn(run_id, loa_opts.input_pattern,
-                                           datetime.utcnow().strftime('%Y-%m-%d'))
-                    )
-
-                    # Write to BigQuery - schema from EntitySchema
-                    audited | 'WriteODP' >> beam.io.WriteToBigQuery(
-                        loa_opts.output_table,
-                        schema={'fields': schema.to_bq_schema()},
-                        write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-                        create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED
-                    )
-
-                    validated.invalid | 'WriteErrors' >> beam.io.WriteToBigQuery(
-                        loa_opts.error_table,
-                        write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
-                        create_disposition=beam.io.BigQueryDisposition.CREATE_NEVER
-                    )
+            with otel_ctx.span("pipeline_execution", attributes={"input_pattern": gdw_opts.input_pattern}) as span:
+                # Instantiate and run the library-based pipeline
+                pipeline = LOAPipeline(options, pipeline_config, schema)
+                pipeline.run()
 
                 # Mark pipeline execution complete
                 span.set_attribute("status", "success")
@@ -288,7 +303,8 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
                         note="FDP transformation can be triggered immediately")
 
             # Perform reconciliation if expected_count provided
-            if expected_count is not None and not loa_opts.skip_reconciliation:
+            # if expected_count is not None and not loa_opts.skip_reconciliation:
+            if expected_count is not None:
                 with otel_ctx.span("reconciliation") as recon_span:
                     logger.info("Starting reconciliation", expected_count=expected_count)
 
