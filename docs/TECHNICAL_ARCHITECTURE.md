@@ -156,6 +156,8 @@ The 3-unit model enforces a **Shared-Nothing** architecture at the runtime level
 ## 10. Pluggable & Hybrid Architecture
 The framework is designed as a **Pluggable Architecture**. While it provides reference implementations for Ingestion (Beam) and Transformation (dbt), these can be replaced by in-house tools (Spark, Stored Procedures, etc.) without redesigning the Orchestration or Audit layers.
 
+For a detailed comparison of components used in the "paved path" (specifically Pub/Sub vs. Cloud Run), see the [Architectural Guide: Pub/Sub vs. Cloud Run](./PUB_SUB_VS_CLOUD_RUN.md).
+
 ### 10.1 The Metadata Contract as the Integration Point
 The 3-Unit Deployment model is decoupled via the **Metadata Contract** (`job_control` table and `run_id`). Any tool that respects this contract can be integrated into the pipeline.
 

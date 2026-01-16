@@ -1,6 +1,13 @@
-# Pipeline Deployments
+# Pipeline Deployments (Embedded)
 
 3-Unit deployments for mainframe-to-GCP data migration using the split library architecture.
+
+### ⚠️ IMPORTANT: Embedded Libraries Status
+**The libraries in this folder are currently EMBEDDED (`libs/` folders) because they are not yet published to an internal package repository (like Nexus).**
+
+*   **Source of Truth:** The original source for these libraries is the `gcp-pipeline-libraries` directory at the project root.
+*   **Current State:** The code in each deployment unit's `libs/` folder has been synchronized from the main library source to ensure functionality.
+*   **Future Action:** Once the libraries are published, these embedded folders **will be removed** and replaced by standard package dependencies in `pyproject.toml`.
 
 ### The Advantage of Isolation
 The decoupled architecture ensures that **our E2E deployment and testing will be much simpler**:

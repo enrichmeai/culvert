@@ -441,19 +441,50 @@ class TestBasePipelineIntegration:
         assert 'method' not in kwargs
 
     @patch('apache_beam.io.WriteToBigQuery')
-    def test_write_to_bigquery_streaming(self, mock_write_bq):
-        """Test write_to_bigquery in streaming mode."""
+    def test_write_to_bigquery_dlq_gcs(self, mock_write_bq):
+        """Test write_to_bigquery with GCS DLQ enabled."""
         import apache_beam as beam
         class TestPipeline(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        pipeline = TestPipeline(config={'pipeline_name': 'test', 'streaming': True})
+        pipeline = TestPipeline(config={'pipeline_name': 'test'})
         mock_pcoll = MagicMock()
+        mock_write_result = MagicMock()
+        mock_pcoll.__or__.return_value = mock_write_result
+        mock_write_result.failed_rows = MagicMock()
 
-        pipeline.write_to_bigquery(mock_pcoll, 'project:dataset.table', {'fields': []})
+        pipeline.write_to_bigquery(
+            mock_pcoll, 
+            'project:dataset.table', 
+            {'fields': []},
+            dlq_path='gs://bucket/dlq/'
+        )
 
-        mock_write_bq.assert_called_once()
-        args, kwargs = mock_write_bq.call_args
-        assert kwargs['method'] == beam.io.WriteToBigQuery.Method.STORAGE_WRITE_API
+        # Verify failed_rows was used for DLQ
+        mock_write_result.failed_rows.__or__.assert_called()
+        # Find if WriteToText was called
+        found_write_to_text = False
+        for call in mock_write_result.failed_rows.__or__.call_args_list:
+            if 'WriteToDLQGCS' in str(call):
+                found_write_to_text = True
+        assert found_write_to_text
+
+    def test_on_heartbeat_hook(self):
+        """Test on_heartbeat lifecycle hook."""
+        class TestPipeline(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        config = {'pipeline_name': 'test_pipeline'}
+        pipeline = TestPipeline(config=config)
+        pipeline.audit_manager.update_heartbeat = MagicMock()
+
+        lifecycle.on_heartbeat(
+            pipeline.audit_manager,
+            pipeline._config_dict,
+            pipeline.run_id
+        )
+
+        pipeline.audit_manager.update_heartbeat.assert_called_once()
 

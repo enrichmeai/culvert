@@ -21,11 +21,10 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator, BranchPythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.operators.dummy import DummyOperator
-from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexTemplateOperator
 from airflow.models import Variable
 
 # Import from gcp_pipeline_core library
-from gcp_pipeline_orchestration import EntityDependencyChecker
+from gcp_pipeline_orchestration import EntityDependencyChecker, BaseDataflowOperator
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 
 logger = logging.getLogger(__name__)
@@ -137,21 +136,25 @@ with DAG(
         python_callable=create_job_record,
     )
 
-    # Task 2: Run Dataflow pipeline
-    run_dataflow = DataflowStartFlexTemplateOperator(
+    # Task 2: Run Dataflow pipeline - Using library BaseDataflowOperator
+    # This operator now supports:
+    # 1. Automatic routing metadata from XCom (file_metadata from trigger dag)
+    # 2. Template-based or Direct Python execution (use_template=True/False)
+    # 3. Standardized parameter mapping
+    run_dataflow = BaseDataflowOperator(
         task_id='run_dataflow_pipeline',
+        pipeline_name='em-odp-load',
         project_id=PROJECT_ID,
-        location=REGION,
-        body={
-            'launchParameter': {
-                'jobName': 'em-odp-load-{{ ds_nodash }}',
-                'containerSpecGcsPath': f'gs://{DATAFLOW_TEMPLATE_BUCKET}/templates/em_pipeline.json',
-                'parameters': {
-                    'input_file': '{{ dag_run.conf.file_metadata.data_file }}',
-                    'output_table': f'{PROJECT_ID}:odp_em.{{{{ dag_run.conf.file_metadata.entity }}}}',
-                    'run_id': '{{ ti.xcom_pull(key="run_id") }}',
-                },
-            }
+        region=REGION,
+        # source_type/processing_mode handled by defaults or overridden
+        source_type='gcs',
+        processing_mode='batch',
+        input_path='{{ dag_run.conf.file_metadata.data_file }}',
+        output_table=f'{PROJECT_ID}:odp_em.{{{{ dag_run.conf.file_metadata.entity }}}}',
+        template_path=f'gs://{DATAFLOW_TEMPLATE_BUCKET}/templates/em_pipeline.json',
+        use_template=True, # Set to False to run em_pipeline.py directly from GCS
+        additional_params={
+            'run_id': '{{ ti.xcom_pull(key="run_id") }}',
         },
     )
 

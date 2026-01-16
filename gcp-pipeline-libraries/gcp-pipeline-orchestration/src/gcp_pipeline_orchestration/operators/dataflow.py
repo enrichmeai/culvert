@@ -44,6 +44,7 @@ try:
     from airflow.providers.google.cloud.operators.dataflow import (
         DataflowTemplatedJobStartOperator,
         DataflowStartFlexTemplateOperator,
+        DataflowCreatePythonJobOperator,
     )
     from airflow.utils.context import Context
     AIRFLOW_AVAILABLE = True
@@ -169,6 +170,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         "output_table",
         "error_table",
         "template_path",
+        "job_code_path",
         "temp_location",
         "service_account",
         "network",
@@ -189,6 +191,8 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         output_table: str = "",
         error_table: Optional[str] = None,
         template_path: str = "{{ var.value.dataflow_template }}",
+        use_template: bool = True,
+        job_code_path: Optional[str] = None,
         temp_location: str = "{{ var.value.gcp_temp_location }}",
         max_workers: int = 10,
         machine_type: str = "n1-standard-4",
@@ -211,6 +215,8 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         self.output_table = output_table
         self.error_table = error_table
         self.template_path = template_path
+        self.use_template = use_template
+        self.job_code_path = job_code_path
         self.temp_location = temp_location
         self.max_workers = max_workers
         self.machine_type = machine_type
@@ -328,7 +334,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
 
         return env_config
 
-    def execute(self, context: 'Context') -> str:
+    def execute(self, context: 'Context') -> Any:
         """
         Execute the Dataflow job.
 
@@ -352,8 +358,10 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         logger.info(f"Generated job name: {job_name}")
         logger.debug(f"Job parameters: {parameters}")
 
+        if not self.use_template:
+            result = self._execute_python_job(context, job_name)
         # Use appropriate operator based on mode
-        if self.processing_mode == ProcessingMode.STREAMING:
+        elif self.processing_mode == ProcessingMode.STREAMING:
             # Streaming uses Flex Templates
             result = self._execute_flex_template(context, job_name, parameters)
         else:
@@ -362,6 +370,43 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
 
         logger.info(f"Dataflow job submitted successfully: {job_name}")
         return result
+
+    def _execute_python_job(self, context: 'Context', job_name: str) -> Any:
+        """Execute a non-templated Python Dataflow job."""
+        if not self.job_code_path:
+            raise ValueError("job_code_path is required for non-template execution")
+
+        # Map additional_params to command line flags
+        options = {
+            "project": self.project_id,
+            "region": self.region,
+            "temp_location": self.temp_location,
+            "max_num_workers": str(self.max_workers),
+            "worker_machine_type": self.machine_type,
+            "service_account_email": self.service_account,
+            "network": self.network,
+            "subnetwork": self.subnetwork,
+            "streaming": str(self.processing_mode == ProcessingMode.STREAMING).lower(),
+        }
+
+        # Filter out None values
+        options = {k: v for k, v in options.items() if v is not None}
+
+        # Add additional params
+        if self.additional_params:
+            options.update(self.additional_params)
+
+        operator = DataflowCreatePythonJobOperator(
+            task_id=f"python_job_{self.task_id}",
+            job_name=job_name,
+            py_file=self.job_code_path,
+            options=options,
+            dataflow_default_options={
+                "project": self.project_id,
+                "region": self.region,
+            },
+        )
+        return operator.execute(context)
 
     def _execute_classic_template(
         self, context: 'Context', job_name: str, parameters: Dict[str, str]

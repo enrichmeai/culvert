@@ -97,6 +97,32 @@ def on_success(
         raise
 
 
+def on_heartbeat(
+    audit_manager: Any,
+    config: dict,
+    run_id: str
+) -> None:
+    """
+    Hook: Periodically updates a "last_seen" timestamp in the BigQuery Audit Trail.
+
+    Args:
+        audit_manager: AuditTrail instance
+        config: Configuration dictionary
+        run_id: Pipeline run identifier
+    """
+    try:
+        # Update heartbeat in audit trail
+        audit_manager.update_heartbeat(
+            metadata={
+                'pipeline_name': config.get('pipeline_name'),
+                'run_id': run_id,
+            }
+        )
+        logger.debug(f"Heartbeat updated for run_id={run_id}")
+    except Exception as e:
+        logger.error(f"Error in on_heartbeat lifecycle hook: {str(e)}")
+
+
 def on_failure(
     exception: Exception,
     audit_manager: Any,

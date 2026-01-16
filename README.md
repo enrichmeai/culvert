@@ -135,7 +135,7 @@ This script performs the following actions:
 
 ---
 
-## Architecture
+## [Architecture](./docs/TECHNICAL_ARCHITECTURE.md)
 
 ### 4-Library Model
 
@@ -156,9 +156,9 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 | [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
 | [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
 
-### 3-Unit Deployment Model
+### [3-Unit Deployment Model (Embedded)](./deployments_embedded/)
 
-Each system is split into 3 independent units:
+Each system is split into 3 independent units. **Note:** In the `deployments_embedded` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
 
 | Unit | Purpose | Dependencies |
 |------|---------|--------------|
@@ -258,7 +258,7 @@ gcp-pipeline-libraries/
 ├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
 └── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
 
-deployments_embedded/
+[deployments_embedded/](./deployments_embedded/)
 ├── [`em-ingestion/`](./deployments_embedded/em-ingestion/)                # 44 tests (3 sources)
 ├── [`em-transformation/`](./deployments_embedded/em-transformation/)           # dbt models (2 targets)
 ├── [`em-orchestration/`](./deployments_embedded/em-orchestration/)            # Airflow DAGs

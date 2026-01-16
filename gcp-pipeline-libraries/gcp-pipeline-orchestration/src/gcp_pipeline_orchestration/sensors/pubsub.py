@@ -185,5 +185,42 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
         }
 
 
-__all__ = ['BasePubSubPullSensor', 'AIRFLOW_AVAILABLE']
+class PubSubCompletionSensor(BasePubSubPullSensor):
+    """
+    Sensor that waits for a "Job Finished" message in Pub/Sub.
+
+    Allows downstream tasks to trigger instantly upon batch completion.
+    """
+
+    def __init__(
+        self,
+        *args,
+        expected_status: str = "SUCCESS",
+        **kwargs
+    ):
+        super().__init__(*args, **kwargs)
+        self.expected_status = expected_status
+
+    def execute(self, context: Dict[str, Any]) -> Optional[List[Dict]]:
+        messages = super().execute(context)
+        if not messages:
+            return None
+
+        filtered_messages = []
+        for msg in messages:
+            payload = msg.get('message', {})
+            attributes = payload.get('attributes', {})
+            
+            # Check for completion status
+            status = attributes.get('status')
+            if status == self.expected_status:
+                filtered_messages.append(msg)
+                logger.info(f"Received expected completion status: {status}")
+            else:
+                logger.debug(f"Ignoring message with status: {status}")
+
+        return filtered_messages if filtered_messages else None
+
+
+__all__ = ['BasePubSubPullSensor', 'PubSubCompletionSensor', 'AIRFLOW_AVAILABLE']
 

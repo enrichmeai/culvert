@@ -26,6 +26,7 @@ from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexT
 from airflow.models import Variable
 
 # Import from gcp_pipeline_core library
+from gcp_pipeline_orchestration import BaseDataflowOperator
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 from gcp_pipeline_core.audit import AuditTrail
 
@@ -126,21 +127,20 @@ with DAG(
         python_callable=create_job_record,
     )
 
-    # Task 2: Run Dataflow pipeline
-    run_dataflow = DataflowStartFlexTemplateOperator(
+    # Task 2: Run Dataflow pipeline - Using library BaseDataflowOperator
+    run_dataflow = BaseDataflowOperator(
         task_id='run_dataflow_pipeline',
+        pipeline_name='loa-odp-load',
         project_id=PROJECT_ID,
-        location=REGION,
-        body={
-            'launchParameter': {
-                'jobName': 'loa-odp-load-{{ ds_nodash }}',
-                'containerSpecGcsPath': f'gs://{DATAFLOW_TEMPLATE_BUCKET}/templates/loa_pipeline.json',
-                'parameters': {
-                    'input_file': '{{ dag_run.conf.file_metadata.data_file }}',
-                    'output_table': f'{PROJECT_ID}:odp_loa.applications',
-                    'run_id': '{{ ti.xcom_pull(key="run_id") }}',
-                },
-            }
+        region=REGION,
+        source_type='gcs',
+        processing_mode='batch',
+        input_path='{{ dag_run.conf.file_metadata.data_file }}',
+        output_table=f'{PROJECT_ID}:odp_loa.applications',
+        template_path=f'gs://{DATAFLOW_TEMPLATE_BUCKET}/templates/loa_pipeline.json',
+        use_template=True, # Set to False to run loa_pipeline.py directly from GCS
+        additional_params={
+            'run_id': '{{ ti.xcom_pull(key="run_id") }}',
         },
     )
 
