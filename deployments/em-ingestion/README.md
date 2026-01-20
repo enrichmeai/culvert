@@ -36,11 +36,11 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 **JOIN**: 3 entities (Customers, Accounts, Decision) → 3 ODP tables
 
-| Entity | ODP Table |
-|--------|-----------|
-| Customers | `odp_em.customers` |
-| Accounts | `odp_em.accounts` |
-| Decision | `odp_em.decision` |
+| Entity | ODP Table | Key Fields |
+|--------|-----------|------------|
+| Customers | `odp_em.customers` | customer_id, ssn, status, created_date |
+| Accounts | `odp_em.accounts` | account_id, customer_id, account_type, balance, open_date |
+| Decision | `odp_em.decision` | decision_id, customer_id, decision_code, score, decision_date |
 
 ---
 
