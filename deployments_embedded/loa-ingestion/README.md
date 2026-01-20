@@ -102,24 +102,27 @@ This deployment requires the following GCP infrastructure, provisioned via Terra
 
 For detailed infrastructure definitions, see [infrastructure/terraform/systems/loa/ingestion/](../../infrastructure/terraform/systems/loa/ingestion/).
 
-### Pipeline Configuration (GDWPipelineOptions)
+### Pipeline Configuration (GDWPipelineOptions & LOAPipelineOptions)
 The ingestion pipeline accepts several command-line arguments to control its behavior:
 
-| Argument | Alias | Description | Required |
-|----------|-------|-------------|----------|
-| `--input_pattern` | `--input_path`, `--input_file` | GCS pattern for input CSV files | Yes |
-| `--output_table` | `--destination_table` | Target BigQuery table (`project.dataset.table`) | Yes |
-| `--error_table` | - | BQ table for failed records | Yes |
-| `--run_id` | - | Unique identifier for tracking/auditing | Yes |
-| `--gcp_project` | `--project_id` | GCP Project ID | Yes |
-| `--skip_reconciliation` | - | Boolean flag to skip reconciliation check | No |
-| `--gcp_num_workers` | - | Number of Dataflow workers (if autoscaling is NONE) | No |
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `--entity` | Entity to process (`applications`) | Yes |
+| `--input_pattern` | GCS pattern for input CSV files | Yes |
+| `--output_table` | Target BigQuery table (`project:dataset.table`) | Yes |
+| `--error_table` | BQ table for failed records | Yes |
+| `--run_id` | Unique identifier for tracking/auditing | Yes |
+| `--gcp_project` | GCP Project ID | Yes |
+| `--extract_date` | Extract date in `YYYY-MM-DD` format | No |
+| `--skip_reconciliation` | Boolean flag to skip reconciliation check | No |
+| `--trigger_fdp` | Whether to trigger FDP transformation after ODP load | No (Default: True) |
 
-### GCP Documentation Links
-- [Cloud Dataflow Documentation](https://cloud.google.com/dataflow/docs)
-- [Apache Beam Python SDK Quickstart](https://beam.apache.org/get-started/quickstart-py/)
-- [BigQuery I/O in Apache Beam](https://beam.apache.org/documentation/io/built-in/google-bigquery/)
-- [Cloud Storage Notifications for Pub/Sub](https://cloud.google.com/storage/docs/pubsub-notifications)
+### Technology Stack & Documentation
+- [Google Cloud Dataflow](https://cloud.google.com/dataflow/docs) - Managed Apache Beam service
+- [Apache Beam Python SDK](https://beam.apache.org/documentation/sdks/python/) - Programming model for data processing
+- [Google BigQuery](https://cloud.google.com/bigquery/docs) - Data warehouse target
+- [OpenTelemetry (OTEL)](https://opentelemetry.io/docs/) - Distributed tracing and metrics
+- [Dynatrace](https://www.dynatrace.com/support/help/how-to-use-dynatrace/opentelemetry) - Observability platform integration
 
 ---
 

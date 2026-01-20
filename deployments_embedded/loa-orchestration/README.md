@@ -91,16 +91,20 @@ The DAGs use several Airflow variables and connections:
 
 | Type | Name | Description |
 |------|------|-------------|
-| **Variable** | `gcp_project_id` | Target GCP Project ID |
-| **Variable** | `loa_ingestion_bucket` | GCS bucket for ingestion code |
-| **Connection** | `google_cloud_default` | Connection for GCP resources |
-| **Connection** | `bigquery_default` | Connection for BigQuery |
+| **Variable** | `gcp_project_id` | Target GCP Project ID | `GCP_PROJECT_ID` env var |
+| **Variable** | `gcp_region` | GCP Region for Dataflow | `europe-west2` |
+| **Variable** | `loa_pubsub_subscription` | Pub/Sub subscription for file alerts | `loa-file-notifications-sub` |
+| **Variable** | `loa_landing_bucket` | GCS bucket for landing files | `<project>-loa-dev-landing` |
+| **Variable** | `loa_error_bucket` | GCS bucket for error files | `<project>-loa-dev-error` |
+| **Connection** | `google_cloud_default` | Connection for GCP resources | - |
+| **Connection** | `bigquery_default` | Connection for BigQuery | - |
 
-### GCP Documentation Links
-- [Cloud Composer Documentation](https://cloud.google.com/composer/docs)
-- [Apache Airflow Documentation](https://airflow.apache.org/docs/)
-- [Airflow Google Cloud Operators](https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/index.html)
-- [Cloud Pub/Sub Sensors in Airflow](https://airflow.apache.org/docs/apache-airflow-providers-google/stable/_api/apache_airflow/providers/google/cloud/sensors/pubsub/index.html)
+### Technology Stack & Documentation
+- [Google Cloud Composer](https://cloud.google.com/composer/docs) - Managed Apache Airflow
+- [Apache Airflow](https://airflow.apache.org/docs/) - Workflow orchestration
+- [Airflow Google Cloud Operators](https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/index.html) - GCP integration
+- [Cloud Pub/Sub](https://cloud.google.com/pubsub/docs) - Messaging service for event triggers
+- [Airflow Cross-DAG Dependencies](https://airflow.apache.org/docs/apache-airflow/stable/howto/operator/external_task_sensor.html) - Orchestrating complex flows
 
 ---
 

@@ -93,18 +93,20 @@ For detailed infrastructure definitions, see [infrastructure/terraform/systems/l
 ### dbt Configuration (`dbt_project.yml`)
 The transformation behavior is controlled by variables and configurations in `dbt_project.yml`:
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `gcp_project_id` | Target GCP Project | From `GCP_PROJECT_ID` env var |
+| Variable | Description | Default / Source |
+|----------|-------------|------------------|
+| `gcp_project_id` | Target GCP Project | `GCP_PROJECT_ID` env var |
 | `source_dataset` | Source ODP dataset | `odp_loa` |
 | `staging_dataset` | Intermediate staging dataset | `stg_loa` |
 | `fdp_dataset` | Target FDP dataset | `fdp_loa` |
+| `extract_date` | Date of data extract | `null` (optional filter) |
 | `masking_level` | PII masking strategy (`FULL`, `PARTIAL`, `NONE`) | `AUTO` |
 
-### GCP Documentation Links
-- [BigQuery Documentation](https://cloud.google.com/bigquery/docs)
-- [dbt Documentation](https://docs.getdbt.com/docs/introduction)
-- [dbt-bigquery Adapter](https://docs.getdbt.com/reference/warehouse-setups/bigquery-setup)
+### Technology Stack & Documentation
+- [Google BigQuery](https://cloud.google.com/bigquery/docs) - Serverless data warehouse
+- [dbt (data build tool)](https://docs.getdbt.com/docs/introduction) - Transformation workflow
+- [dbt-bigquery Adapter](https://docs.getdbt.com/reference/warehouse-setups/bigquery-setup) - dbt to BigQuery connector
+- [Data Modeling in dbt](https://docs.getdbt.com/docs/build/models) - Best practices for models
 
 ---
 
