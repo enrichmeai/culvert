@@ -47,9 +47,9 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 | Source Table | Key Fields |
 |--------------|------------|
-| `odp_em.customers` | customer_id, ssn, name |
-| `odp_em.accounts` | account_id, customer_id, balance |
-| `odp_em.decision` | decision_id, customer_id, outcome |
+| `odp_em.customers` | customer_id, ssn, first_name, last_name, dob, status |
+| `odp_em.accounts` | account_id, customer_id, account_type, balance, open_date |
+| `odp_em.decision` | decision_id, customer_id, application_id, decision_code, score, decision_date |
 
 | Target Table | Description |
 |--------------|-------------|

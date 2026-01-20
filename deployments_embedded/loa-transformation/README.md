@@ -40,9 +40,9 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 ## Data Mapping
 
-| Source Table | Description |
-|--------------|-------------|
-| `odp_loa.applications` | All loan applications |
+| Source Table | Key Fields |
+|--------------|------------|
+| `odp_loa.applications` | application_id, customer_id, loan_amount, application_date, application_status, product_type |
 
 | Target Table | Description |
 |--------------|-------------|

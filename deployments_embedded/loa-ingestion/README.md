@@ -36,9 +36,9 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 **MAP**: 1 entity (Applications) → 1 ODP table
 
-| Entity | ODP Table |
-|--------|-----------|
-| Applications | `odp_loa.applications` |
+| Entity | ODP Table | Key Fields |
+|--------|-----------|------------|
+| Applications | `odp_loa.applications` | application_id, customer_id, loan_amount, application_date, application_status, product_type |
 
 ---
 
