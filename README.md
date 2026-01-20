@@ -349,14 +349,17 @@ cd ../em-ingestion && \
 
 ## Technology Stack
 
-| Layer | Technology |
-|-------|------------|
-| Storage | GCS |
-| Messaging | Pub/Sub with KMS encryption |
-| Processing | Apache Beam on Dataflow |
-| Orchestration | Apache Airflow (Cloud Composer) |
-| Transformation | dbt |
-| Data Warehouse | BigQuery |
-| Monitoring | Cloud Monitoring, OTEL, Dynatrace |
-| Infrastructure | Terraform |
+The framework leverages several Google Cloud services and open-source technologies to ensure a scalable, reliable, and secure migration process.
+
+| Layer | Technology | Key Documentation |
+|-------|------------|-------------------|
+| **Storage** | [Google Cloud Storage (GCS)](https://cloud.google.com/storage) | [GCS Documentation](https://cloud.google.com/storage/docs) |
+| **Messaging** | [Cloud Pub/Sub](https://cloud.google.com/pubsub) | [Pub/Sub Documentation](https://cloud.google.com/pubsub/docs) |
+| **Security** | [Cloud KMS](https://cloud.google.com/kms) | [KMS Documentation](https://cloud.google.com/kms/docs) |
+| **Processing** | [Apache Beam](https://beam.apache.org/) on [Cloud Dataflow](https://cloud.google.com/dataflow) | [Beam Docs](https://beam.apache.org/documentation/), [Dataflow Docs](https://cloud.google.com/dataflow/docs) |
+| **Orchestration** | [Apache Airflow](https://airflow.apache.org/) on [Cloud Composer](https://cloud.google.com/composer) | [Airflow Docs](https://airflow.apache.org/docs/), [Composer Docs](https://cloud.google.com/composer/docs) |
+| **Transformation** | [dbt (Data Build Tool)](https://www.getdbt.com/) | [dbt Documentation](https://docs.getdbt.com/docs/introduction) |
+| **Data Warehouse** | [BigQuery](https://cloud.google.com/bigquery) | [BigQuery Documentation](https://cloud.google.com/bigquery/docs) |
+| **Monitoring** | [Cloud Monitoring](https://cloud.google.com/monitoring) | [Operations Suite Docs](https://cloud.google.com/stackdriver/docs) |
+| **Infrastructure** | [Terraform](https://www.terraform.io/) | [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs) |
 

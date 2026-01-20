@@ -104,3 +104,11 @@ terraform apply -var-file=env/staging.tfvars
 | `environment` | Environment name | `staging` |
 | `force_destroy` | Allow bucket deletion | `false` |
 
+---
+
+## GCP Documentation Links
+- [Terraform Google Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs)
+- [Managing GCP Infrastructure with Terraform](https://cloud.google.com/docs/terraform)
+- [Terraform Best Practices for Google Cloud](https://cloud.google.com/docs/terraform/best-practices-for-terraform)
+- [Google Cloud Deployment Manager vs Terraform](https://cloud.google.com/docs/terraform/deployment-manager-vs-terraform)
+

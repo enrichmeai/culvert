@@ -83,6 +83,34 @@ Key steps for this JOIN pattern:
 
 ---
 
+## Infrastructure & Configurations
+
+### Google Cloud Resources
+This deployment requires the following GCP infrastructure, provisioned via Terraform:
+- **Orchestration**: Cloud Composer (Managed Apache Airflow).
+- **Messaging**: Pub/Sub Topic `em-file-notifications` and Subscription `em-file-notifications-sub`.
+- **Identity & Access**: Service Account with roles for Dataflow, BigQuery, and GCS.
+
+For detailed infrastructure definitions, see [infrastructure/terraform/systems/em/orchestration/](../../infrastructure/terraform/systems/em/orchestration/).
+
+### Airflow Configuration
+The DAGs use several Airflow variables and connections:
+
+| Type | Name | Description |
+|------|------|-------------|
+| **Variable** | `gcp_project_id` | Target GCP Project ID |
+| **Variable** | `em_ingestion_bucket` | GCS bucket for ingestion code |
+| **Connection** | `google_cloud_default` | Connection for GCP resources |
+| **Connection** | `bigquery_default` | Connection for BigQuery |
+
+### GCP Documentation Links
+- [Cloud Composer Documentation](https://cloud.google.com/composer/docs)
+- [Apache Airflow Documentation](https://airflow.apache.org/docs/)
+- [Airflow Google Cloud Operators](https://airflow.apache.org/docs/apache-airflow-providers-google/stable/operators/index.html)
+- [Cloud Pub/Sub Sensors in Airflow](https://airflow.apache.org/docs/apache-airflow-providers-google/stable/_api/apache_airflow/providers/google/cloud/sensors/pubsub/index.html)
+
+---
+
 ## DAGs
 
 | DAG | Purpose |
