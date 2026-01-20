@@ -90,10 +90,13 @@ EOF
     echo -e "${BLUE}=== Publishing Notifications ===${NC}"
 
     for entity in customers accounts decision; do
-        echo -n "  Publishing em_${entity}_${DATE}.csv... "
+        FILE_NAME="em_${entity}_${DATE}.csv.ok"
+        BUCKET_NAME="${PROJECT_ID}-em-landing"
+        echo -n "  Publishing $FILE_NAME... "
         gcloud pubsub topics publish "$TOPIC" \
             --project="$PROJECT_ID" \
-            --message="{\"file\": \"em_${entity}_${DATE}.csv\", \"entity\": \"${entity}\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+            --attribute="objectId=${FILE_NAME},bucketId=${BUCKET_NAME}" \
+            --message="{\"name\": \"${FILE_NAME}\", \"bucket\": \"${BUCKET_NAME}\", \"entity\": \"${entity}\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
             && echo -e "${GREEN}✅${NC}"
     done
 }
@@ -113,7 +116,8 @@ APP003,CUST003,AUTO,25000.00,DECLINED,2025-01-13
 TRL|RecordCount=3|Checksum=loa123
 EOF
 
-    BUCKET="gs://${PROJECT_ID}-loa-landing"
+    BUCKET_NAME="${PROJECT_ID}-loa-landing"
+    BUCKET="gs://${BUCKET_NAME}"
     TOPIC="loa-file-notifications"
     FILE="/tmp/loa_applications_${DATE}.csv"
 
@@ -130,10 +134,12 @@ EOF
     echo ""
     echo -e "${BLUE}=== Publishing Notification ===${NC}"
 
-    echo -n "  Publishing loa_applications_${DATE}.csv... "
+    FILE_NAME="loa_applications_${DATE}.csv.ok"
+    echo -n "  Publishing $FILE_NAME... "
     gcloud pubsub topics publish "$TOPIC" \
         --project="$PROJECT_ID" \
-        --message="{\"file\": \"loa_applications_${DATE}.csv\", \"entity\": \"applications\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
+        --attribute="objectId=${FILE_NAME},bucketId=${BUCKET_NAME}" \
+        --message="{\"name\": \"${FILE_NAME}\", \"bucket\": \"${BUCKET_NAME}\", \"entity\": \"applications\", \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" \
         && echo -e "${GREEN}✅${NC}"
 }
 

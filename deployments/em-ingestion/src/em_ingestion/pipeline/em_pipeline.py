@@ -211,8 +211,6 @@ class EMPipelineOptions(PipelineOptions):
         parser.add_argument('--entity', type=str, required=True,
                           choices=['customers', 'accounts', 'decision'],
                           help='Entity to process')
-        parser.add_argument('--skip_reconciliation', action='store_true',
-                          help='Skip reconciliation check')
 
 
 class AddAuditColumnsDoFn(beam.DoFn):
@@ -309,7 +307,7 @@ def run_em_pipeline(argv=None, expected_count: Optional[int] = None):
                         rates=summary['rates'])
 
             # Perform reconciliation if expected_count provided
-            if expected_count is not None and not em_opts.skip_reconciliation:
+            if expected_count is not None and not gdw_opts.skip_reconciliation:
                 with otel_ctx.span("reconciliation") as recon_span:
                     logger.info("Starting reconciliation", expected_count=expected_count)
 

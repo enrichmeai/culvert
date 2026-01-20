@@ -51,6 +51,8 @@ class GDWPipelineOptions(PipelineOptions):
         # Input/Output path arguments (support value providers for streaming)
         parser.add_value_provider_argument(
             '--input_pattern',
+            '--input_path',
+            '--input_file',
             type=str,
             default='',
             help='Input file pattern (e.g., gs://bucket/input/*.csv)'
@@ -58,6 +60,7 @@ class GDWPipelineOptions(PipelineOptions):
 
         parser.add_value_provider_argument(
             '--output_table',
+            '--destination_table',
             type=str,
             default='',
             help='Output BigQuery table (e.g., project.dataset.table)'
@@ -78,9 +81,16 @@ class GDWPipelineOptions(PipelineOptions):
             help='Unique run identifier for tracking and auditing'
         )
 
+        parser.add_argument(
+            '--skip_reconciliation',
+            action='store_true',
+            help='Skip reconciliation check'
+        )
+
         # GCP Configuration
         parser.add_value_provider_argument(
             '--gcp_project',
+            '--project_id',
             type=str,
             default='',
             help='GCP Project ID for resources'

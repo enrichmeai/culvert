@@ -304,7 +304,7 @@ def run_loa_pipeline(argv=None, expected_count: Optional[int] = None):
 
             # Perform reconciliation if expected_count provided
             # if expected_count is not None and not loa_opts.skip_reconciliation:
-            if expected_count is not None:
+            if expected_count is not None and not gdw_opts.skip_reconciliation:
                 with otel_ctx.span("reconciliation") as recon_span:
                     logger.info("Starting reconciliation", expected_count=expected_count)
 
