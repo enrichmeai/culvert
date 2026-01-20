@@ -9,6 +9,13 @@ A **standardized framework** for moving data from legacy mainframe systems to Go
 ### 1. Shared Library Foundation
 Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity and security. Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
+#### Technology Links
+*   [Google Cloud Platform (GCP)](https://cloud.google.com/docs)
+*   [Apache Beam](https://beam.apache.org/documentation/)
+*   [Apache Airflow](https://airflow.apache.org/docs/)
+*   [dbt (data build tool)](https://docs.getdbt.com/)
+*   [Terraform](https://developer.hashicorp.com/terraform/docs)
+
 ### 2. Flexible and Extensible
 The architecture is designed to work with different tools. While we provide ready-to-use patterns for **Apache Beam** (ingestion) and **dbt** (transformation), you can plug in your own tools if needed. 
 

@@ -104,24 +104,26 @@ This deployment requires the following GCP infrastructure, provisioned via Terra
 
 For detailed infrastructure definitions, see [infrastructure/terraform/systems/em/ingestion/](../../infrastructure/terraform/systems/em/ingestion/).
 
-### Pipeline Configuration (GDWPipelineOptions)
+### Pipeline Configuration (EMPipelineOptions)
 The ingestion pipeline accepts several command-line arguments to control its behavior:
 
-| Argument | Alias | Description | Required |
-|----------|-------|-------------|----------|
-| `--input_pattern` | `--input_path`, `--input_file` | GCS pattern for input CSV files | Yes |
-| `--output_table` | `--destination_table` | Target BigQuery table (`project.dataset.table`) | Yes |
-| `--error_table` | - | BQ table for failed records | Yes |
-| `--run_id` | - | Unique identifier for tracking/auditing | Yes |
-| `--gcp_project` | `--project_id` | GCP Project ID | Yes |
-| `--skip_reconciliation` | - | Boolean flag to skip reconciliation check | No |
-| `--gcp_num_workers` | - | Number of Dataflow workers (if autoscaling is NONE) | No |
+| Argument | Description | Required |
+|----------|-------------|----------|
+| `--entity` | EM entity to process (`customers`, `accounts`, `decision`) | Yes |
+| `--input_file` | GCS path to input file | Yes |
+| `--output_table` | Target BigQuery table (`project:dataset.table`) | Yes |
+| `--error_table` | BQ table for failed records | Yes |
+| `--run_id` | Unique identifier for tracking/auditing | Yes |
+| `--extract_date` | Extract date in `YYYYMMDD` format | Yes |
+| `--job_control_project` | GCP Project for job control table | No |
 
-### GCP Documentation Links
-- [Cloud Dataflow Documentation](https://cloud.google.com/dataflow/docs)
-- [Apache Beam Python SDK Quickstart](https://beam.apache.org/get-started/quickstart-py/)
-- [BigQuery I/O in Apache Beam](https://beam.apache.org/documentation/io/built-in/google-bigquery/)
-- [Cloud Storage Notifications for Pub/Sub](https://cloud.google.com/storage/docs/pubsub-notifications)
+### Technology Stack & Documentation
+- [Google Cloud Dataflow](https://cloud.google.com/dataflow/docs) - Managed Apache Beam service
+- [Apache Beam Python SDK](https://beam.apache.org/documentation/sdks/python/) - Programming model for data processing
+- [Google Cloud Storage](https://cloud.google.com/storage/docs) - Input file landing zone
+- [Google BigQuery](https://cloud.google.com/bigquery/docs) - Data warehouse target
+- [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/docs) - Event-driven triggers
+- [Apache Beam BigQuery I/O](https://beam.apache.org/documentation/io/built-in/google-bigquery/) - Connector for BQ
 
 ---
 
