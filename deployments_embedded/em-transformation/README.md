@@ -89,6 +89,33 @@ Key steps for this JOIN pattern:
 
 ---
 
+## Infrastructure & Configurations
+
+### Google Cloud Resources
+This deployment requires the following GCP infrastructure, provisioned via Terraform:
+- **Data Warehouse**: BigQuery datasets `odp_em` (source) and `fdp_em` (target).
+- **Processing**: dbt (running on Cloud Composer or as a standalone process) for executing transformations.
+
+For detailed infrastructure definitions, see [infrastructure/terraform/systems/em/transformation/](../../infrastructure/terraform/systems/em/transformation/).
+
+### dbt Configuration (`dbt_project.yml`)
+The transformation behavior is controlled by variables and configurations in `dbt_project.yml`:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `gcp_project_id` | Target GCP Project | From `GCP_PROJECT_ID` env var |
+| `source_dataset` | Source ODP dataset | `odp_em` |
+| `staging_dataset` | Intermediate staging dataset | `stg_em` |
+| `fdp_dataset` | Target FDP dataset | `fdp_em` |
+| `masking_level` | PII masking strategy (`FULL`, `PARTIAL`, `NONE`) | `AUTO` |
+
+### GCP Documentation Links
+- [BigQuery Documentation](https://cloud.google.com/bigquery/docs)
+- [dbt Documentation](https://docs.getdbt.com/docs/introduction)
+- [dbt-bigquery Adapter](https://docs.getdbt.com/reference/warehouse-setups/bigquery-setup)
+
+---
+
 ## Dependencies
 
 | Library | Purpose |
