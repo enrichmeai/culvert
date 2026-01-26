@@ -7,7 +7,7 @@ A **standardized framework** for moving data from legacy mainframe systems to Go
 ## Why Use This Framework?
 
 ### 1. Shared Library Foundation
-Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity and security. Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
+Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity, security, and **observability** (including built-in **Dynatrace** integration). Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
 #### Technology Links
 *   [Google Cloud Platform (GCP)](https://cloud.google.com/docs)
@@ -87,7 +87,7 @@ This script sets up everything you need to develop and test locally.
 ### 2. Running Tests
 
 #### Library Tests
-To run all shared library tests (700+ tests):
+To run all shared library tests (900+ tests):
 ```bash
 ./scripts/run_library_tests.sh
 ```
@@ -325,9 +325,10 @@ cd ../em-ingestion && \
 | gcp-pipeline-core | 208 |
 | gcp-pipeline-beam | 358 |
 | gcp-pipeline-orchestration | 52 |
+| gcp-pipeline-tester | 362 |
 | loa-ingestion (embedded) | 20 |
 | em-ingestion (embedded) | 26 |
-| **Total** | **664** |
+| **Total** | **1026** |
 
 ---
 
