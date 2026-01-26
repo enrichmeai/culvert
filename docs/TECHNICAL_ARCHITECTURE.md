@@ -134,7 +134,8 @@ Each unit runs with its own dedicated Service Account:
 ### 8.2 Monitoring & Observability
 *   **Logging**: Structured JSON logging in all libraries.
 *   **Tracing**: `run_id` used as a correlation ID across Cloud Logging, Dataflow, and BigQuery.
-*   **Metrics**: Custom metrics exported to Cloud Monitoring via `gcp-pipeline-core`.
+*   **Metrics**: Custom metrics exported to Cloud Monitoring and **Dynatrace** via `gcp-pipeline-core`.
+*   **Dashboards**: Pre-configured Cloud Monitoring dashboards for pipeline throughput, error rates, and FinOps costs.
 
 ## 9. Technical Considerations
 
@@ -153,12 +154,25 @@ The 3-unit model enforces a **Shared-Nothing** architecture at the runtime level
 
 ---
 
-## 10. Pluggable & Hybrid Architecture
-The framework is designed as a **Pluggable Architecture**. While it provides reference implementations for Ingestion (Beam) and Transformation (dbt), these can be replaced by in-house tools (Spark, Stored Procedures, etc.) without redesigning the Orchestration or Audit layers.
+## 10. Pluggable & Hybrid Architecture (Cross-Source/Multi-Cloud)
+The framework is designed as a **Pluggable Architecture**. While it provides reference implementations for Ingestion (Beam) and Transformation (dbt), these can be replaced by in-house tools or handle different source/target combinations (e.g., Cloud Spanner to BigQuery) without redesigning the Orchestration or Audit layers.
 
-For a detailed comparison of components used in the "paved path" (specifically Pub/Sub vs. Cloud Run), see the [Architectural Guide: Pub/Sub vs. Cloud Run](./PUB_SUB_VS_CLOUD_RUN.md).
+### 10.1 Handling Diverse Sources (e.g., Cloud Spanner to BigQuery)
+For scenarios where the source is not GCS but another cloud database like **Cloud Spanner**, the framework maintains the 3-Unit model through two primary patterns:
 
-### 10.1 The Metadata Contract as the Integration Point
+#### Pattern A: Federated Transformation (dbt + External Queries)
+Best for: Low-to-medium volume data where BigQuery can query Spanner directly.
+1.  **Orchestration**: Airflow triggers dbt (Unit 2).
+2.  **Transformation**: dbt models use `EXTERNAL_QUERY` to pull data from Spanner and transform it directly into BigQuery FDP tables.
+3.  **Audit**: The `gcp-pipeline-transform` macros are used to inject the `run_id` and `_transformed_at` timestamps into the FDP.
+
+#### Pattern B: Two-Step Migration (Ingestion + Transformation)
+Best for: High-volume data or when complex pre-processing/quarantining is required.
+1.  **Ingestion (Unit 1)**: A Beam pipeline or Cloud Dataflow job reads from **Cloud Spanner** and writes to **BigQuery ODP**.
+2.  **Transformation (Unit 2)**: Standard dbt models transform data from ODP to FDP.
+3.  **Orchestration (Unit 3)**: Airflow coordinates both steps, passing the `run_id` through the `job_control` table.
+
+### 10.2 The Metadata Contract as the Integration Point
 The 3-Unit Deployment model is decoupled via the **Metadata Contract** (`job_control` table and `run_id`). Any tool that respects this contract can be integrated into the pipeline.
 
 ```

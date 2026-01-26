@@ -13,15 +13,14 @@ The framework uses a **4-library model**. Libraries must be released and version
 | `gcp-pipeline-beam` | Ingestion Logic (HDR/TRL, Split Files) | Artifact Registry (PyPI) |
 | `gcp-pipeline-orchestration` | Control Plane (Sensors, DAG Factory) | Cloud Composer (Plugins/DAGs) |
 | `gcp-pipeline-transform` | Transformation (dbt Macros) | dbt Hub / Git Submodule |
+| `gcp-pipeline-tester` | Testing (Mocks, Base Classes) | Artifact Registry (PyPI) |
 
 ### 1.2. Release Process
 1.  **Versioning**: Update `version` in `pyproject.toml` (e.g., `1.0.0` -> `1.1.0`).
-2.  **Validation**: Ensure all 618+ library tests pass.
+2.  **Validation**: Ensure all **1,000+** library tests pass.
     ```bash
     # Run all library tests
-    pytest gcp-pipeline-libraries/gcp-pipeline-core/tests/unit
-    pytest gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit
-    pytest gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit
+    ./scripts/run_library_tests.sh
     ```
 3.  **Publishing**:
     - Build: `python -m build`
