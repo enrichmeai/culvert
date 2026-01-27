@@ -157,8 +157,8 @@ The 3-unit model enforces a **Shared-Nothing** architecture at the runtime level
 ## 10. Pluggable & Hybrid Architecture (Cross-Source/Multi-Cloud)
 The framework is designed as a **Pluggable Architecture**. While it provides reference implementations for Ingestion (Beam) and Transformation (dbt), these can be replaced by in-house tools or handle different source/target combinations (e.g., Cloud Spanner to BigQuery) without redesigning the Orchestration or Audit layers.
 
-### 10.1 Handling Diverse Sources (e.g., Cloud Spanner to BigQuery)
-For scenarios where the source is not GCS but another cloud database like **Cloud Spanner**, the framework maintains the 3-Unit model through two primary patterns:
+### 10.1 Handling Diverse Sources (Spanner, Teradata, etc.)
+The framework is designed to handle migrations from various sources, including legacy platforms like **Teradata** or modern cloud databases like **Cloud Spanner**. For projects building FDPs from Spanner instead of Teradata, we maintain the 3-Unit model through two primary patterns:
 
 #### Pattern A: Federated Transformation (dbt + External Queries)
 Best for: Low-to-medium volume data where BigQuery can query Spanner directly.
@@ -167,8 +167,8 @@ Best for: Low-to-medium volume data where BigQuery can query Spanner directly.
 3.  **Audit**: The `gcp-pipeline-transform` macros are used to inject the `run_id` and `_transformed_at` timestamps into the FDP.
 
 #### Pattern B: Two-Step Migration (Ingestion + Transformation)
-Best for: High-volume data or when complex pre-processing/quarantining is required.
-1.  **Ingestion (Unit 1)**: A Beam pipeline or Cloud Dataflow job reads from **Cloud Spanner** and writes to **BigQuery ODP**.
+Best for: High-volume data, complex pre-processing, or when isolation from source performance is required.
+1.  **Ingestion (Unit 1)**: A Beam pipeline or Cloud Dataflow job reads from **Cloud Spanner** at scale and writes to **BigQuery ODP**. This provides a landing zone for raw data, enabling retries and reconciliation without re-querying Spanner.
 2.  **Transformation (Unit 2)**: Standard dbt models transform data from ODP to FDP.
 3.  **Orchestration (Unit 3)**: Airflow coordinates both steps, passing the `run_id` through the `job_control` table.
 

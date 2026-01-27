@@ -253,6 +253,16 @@ gs://landing/em/customers/
 | FDP Tables | 1 (`portfolio_account_facility`) |
 | Dependency | Immediate trigger after ODP load |
 
+### Spanner Transformation - FEDERATED Pattern
+
+| Aspect | Value |
+|--------|-------|
+| Source System | Cloud Spanner |
+| ODP Tables | 0 (Bypassed) |
+| FDP Tables | 1 (`spanner_customer_summary`) |
+| Technology | dbt + `EXTERNAL_QUERY` |
+| Pattern | Low-Friction Federated Transformation |
+
 ---
 
 ## Project Structure
@@ -271,7 +281,8 @@ gcp-pipeline-libraries/
 ├── [`em-orchestration/`](./deployments_embedded/em-orchestration/)            # Airflow DAGs
 ├── [`loa-ingestion/`](./deployments_embedded/loa-ingestion/)               # 36 tests (1 source)
 ├── [`loa-transformation/`](./deployments_embedded/loa-transformation/)          # dbt models (1 target)
-└── [`loa-orchestration/`](./deployments_embedded/loa-orchestration/)           # Airflow DAGs
+├── [`loa-orchestration/`](./deployments_embedded/loa-orchestration/)           # Airflow DAGs
+└── [`spanner-transformation/`](./deployments_embedded/spanner-transformation/)    # dbt models (Federated)
 
 infrastructure/terraform/
 ├── systems/em/                  # EM infrastructure
