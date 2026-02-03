@@ -9,7 +9,7 @@ fi
 
 SYSTEM_ID_LOWER=$(echo "$1" | tr '[:upper:]' '[:lower:]')
 SYSTEM_ID_UPPER=$(echo "$1" | tr '[:lower:]' '[:upper:]')
-TARGET_DIR="deployments/${SYSTEM_ID_LOWER}-orchestration/dags"
+TARGET_DIR="deployments_embedded/${SYSTEM_ID_LOWER}-orchestration/dags"
 
 echo "🚀 Scaffolding new orchestration for system: ${SYSTEM_ID_UPPER}"
 

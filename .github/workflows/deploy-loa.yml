@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments/loa-*/**'
+      - 'deployments_embedded/loa-*/**'
       - 'gcp-pipeline-libraries/**'
       - 'infrastructure/terraform/systems/loa/**'
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
 
     - name: Run LOA tests
       run: |
-        cd deployments/loa-ingestion
+        cd deployments_embedded/loa-ingestion
         pip install -e .[dev]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
@@ -172,7 +172,7 @@ jobs:
 
     - name: Run dbt
       run: |
-        DBT_PATH="deployments/loa-transformation/dbt"
+        DBT_PATH="deployments_embedded/loa-transformation/dbt"
         if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
           cd "$DBT_PATH"
           dbt deps || echo "⚠️ dbt deps failed"
@@ -219,7 +219,7 @@ jobs:
             --project=$PROJECT_ID \
             --format='value(config.dagGcsPrefix)')
           
-          DAG_SOURCE="deployments/loa-orchestration/dags"
+          DAG_SOURCE="deployments_embedded/loa-orchestration/dags"
           
           if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
             # Upload libraries to DAGs bucket

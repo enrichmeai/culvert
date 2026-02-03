@@ -38,18 +38,18 @@ jobs:
 
     - name: Lint EM deployment
       run: |
-        flake8 deployments/em/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 deployments_embedded/em-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Lint LOA deployment
       run: |
-        flake8 deployments/loa/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 deployments_embedded/loa-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Check formatting (black)
       run: |
-        black --check gcp-pipeline-libraries/gcp-pipeline-builder/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-core/src || true
         black --check gcp-pipeline-libraries/gcp-pipeline-tester/src || true
-        black --check deployments/em/src || true
-        black --check deployments/loa/src || true
+        black --check deployments_embedded/em-ingestion/src || true
+        black --check deployments_embedded/loa-ingestion/src || true
 
   test:
     name: Run Tests
@@ -83,13 +83,13 @@ jobs:
 
     - name: Test EM deployment
       run: |
-        cd deployments/em
+        cd deployments_embedded/em-ingestion
         pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
     - name: Test LOA deployment
       run: |
-        cd deployments/loa
+        cd deployments_embedded/loa-ingestion
         pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 

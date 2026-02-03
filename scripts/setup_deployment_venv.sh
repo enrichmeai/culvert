@@ -12,10 +12,10 @@ fi
 
 DEPLOYMENT_NAME=$1
 PROJECT_ROOT=$(pwd)
-DEPLOYMENT_PATH="$PROJECT_ROOT/deployments/$DEPLOYMENT_NAME"
+DEPLOYMENT_PATH="$PROJECT_ROOT/deployments_embedded/$DEPLOYMENT_NAME"
 
 if [ ! -d "$DEPLOYMENT_PATH" ]; then
-    echo "Error: Deployment '$DEPLOYMENT_NAME' not found in deployments/."
+    echo "Error: Deployment '$DEPLOYMENT_NAME' not found in deployments_embedded/."
     exit 1
 fi
 
@@ -57,5 +57,5 @@ pip install -e ".[dev]"
 echo "------------------------------------------------"
 echo "Setup complete for $DEPLOYMENT_NAME"
 echo "To activate the environment, run:"
-echo "source deployments/$DEPLOYMENT_NAME/venv/bin/activate"
+echo "source deployments_embedded/$DEPLOYMENT_NAME/venv/bin/activate"
 echo "------------------------------------------------"
