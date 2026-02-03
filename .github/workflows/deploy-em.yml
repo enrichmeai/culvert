@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments/em-*/**'
+      - 'deployments_embedded/em-*/**'
       - 'gcp-pipeline-libraries/**'
       - 'infrastructure/terraform/systems/em/**'
   workflow_dispatch:
@@ -39,7 +39,7 @@ jobs:
 
     - name: Run EM tests
       run: |
-        cd deployments/em-ingestion
+        cd deployments_embedded/em-ingestion
         pip install -e .[dev]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
@@ -185,7 +185,7 @@ jobs:
 
     - name: Run dbt
       run: |
-        DBT_PATH="deployments/em-transformation/dbt"
+        DBT_PATH="deployments_embedded/em-transformation/dbt"
         if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
           cd "$DBT_PATH"
           dbt deps || echo "⚠️ dbt deps failed"
@@ -232,7 +232,7 @@ jobs:
             --project=$PROJECT_ID \
             --format='value(config.dagGcsPrefix)')
           
-          DAG_SOURCE="deployments/em-orchestration/dags"
+          DAG_SOURCE="deployments_embedded/em-orchestration/dags"
           
           if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
             # Upload libraries to DAGs bucket

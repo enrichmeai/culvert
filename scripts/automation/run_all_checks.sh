@@ -28,8 +28,8 @@ fi
 
 # 2. Deployment Unit Tests (Example: EM System)
 echo -e "\n${YELLOW}>>> Running Deployment Unit Tests (EM)...${NC}"
-if [ -d "deployments/em-ingestion" ]; then
-    cd deployments/em-ingestion
+if [ -d "deployments_embedded/em-ingestion" ]; then
+    cd deployments_embedded/em-ingestion
     # Assuming venv is already set up or using python -m pytest
     PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
       python3 -m pytest tests/unit/ || { echo -e "${RED}❌ EM Ingestion tests failed!${NC}"; exit 1; }
@@ -41,7 +41,7 @@ fi
 echo -e "\n${YELLOW}>>> Running Static Analysis (Qodana/Lint)...${NC}"
 # In a real environment, you'd run flake8, pylint, or qodana scan
 if command -v flake8 &> /dev/null; then
-    flake8 gcp-pipeline-libraries/ deployments/ --max-line-length=120 --exclude=venv || echo -e "${YELLOW}⚠️ Lint warnings found${NC}"
+    flake8 gcp-pipeline-libraries/ deployments_embedded/ --max-line-length=120 --exclude=venv || echo -e "${YELLOW}⚠️ Lint warnings found${NC}"
 else
     echo "Skipping flake8 (not installed)"
 fi

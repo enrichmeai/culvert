@@ -74,12 +74,12 @@ jobs:
 
     - name: Install EM deployment
       run: |
-        cd deployments/em-ingestion
+        cd deployments_embedded/em-ingestion
         pip install -e .[dev]
 
     - name: Run EM tests
       run: |
-        cd deployments/em-ingestion
+        cd deployments_embedded/em-ingestion
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
   # ==========================================================================
@@ -108,12 +108,12 @@ jobs:
 
     - name: Install LOA deployment
       run: |
-        cd deployments/loa-ingestion
+        cd deployments_embedded/loa-ingestion
         pip install -e .[dev]
 
     - name: Run LOA tests
       run: |
-        cd deployments/loa-ingestion
+        cd deployments_embedded/loa-ingestion
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
   # ==========================================================================

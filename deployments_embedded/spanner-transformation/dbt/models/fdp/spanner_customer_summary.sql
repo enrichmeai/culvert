@@ -32,7 +32,5 @@ SELECT
     email,
     membership_level,
     -- Apply governance audit columns
-    '{{ var("run_id") }}' as _run_id,
-    CURRENT_TIMESTAMP() as _transformed_at,
-    'SPANNER' as _source_system
+    {{ add_audit_columns() }}
 FROM spanner_customers

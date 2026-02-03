@@ -1,2 +1,0 @@
-"""Pipeline unit tests package."""
-

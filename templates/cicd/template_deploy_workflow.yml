@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments/<system_id>-*/**'
+      - 'deployments_embedded/<system_id>-*/**'
       - 'gcp-pipeline-libraries/**'
       - 'infrastructure/terraform/systems/<system_id>/**'
   workflow_dispatch:
@@ -77,5 +77,5 @@ jobs:
           --format='value(config.dagGcsPrefix)')
         
         if [ -n "$DAGS_BUCKET" ]; then
-          gsutil -m cp -r deployments/<system_id>-orchestration/dags/* ${DAGS_BUCKET}/<system_id>/
+          gsutil -m cp -r deployments_embedded/<system_id>-orchestration/dags/* ${DAGS_BUCKET}/<system_id>/
         fi

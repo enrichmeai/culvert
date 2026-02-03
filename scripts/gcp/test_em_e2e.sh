@@ -7,7 +7,7 @@ set -e
 PROJECT_ID="joseph-antony-aruja"
 LANDING_BUCKET="gs://${PROJECT_ID}-em-dev-landing"
 EXTRACT_DATE=$(date +%Y%m%d)
-TEST_DATA_DIR="deployments/em/tests/data"
+TEST_DATA_DIR="deployments_embedded/em-ingestion/tests/data"
 
 echo "=========================================="
 echo "EM Pipeline E2E Test"

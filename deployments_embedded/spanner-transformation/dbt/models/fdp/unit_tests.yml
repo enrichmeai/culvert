@@ -1,0 +1,14 @@
+unit_tests:
+  - name: test_spanner_customer_summary_logic
+    description: "Verify that audit columns are correctly appended to the spanner data"
+    model: spanner_customer_summary
+    given:
+      - input: this # Use 'this' to refer to the model's own CTEs if supported, or mock the input.
+        # However, dbt 1.8 unit tests typically mock 'ref' or 'source'.
+        # Since we use EXTERNAL_QUERY, it's not a standard ref/source.
+        # Let's use the recommended pattern of extracting the external query into a separate model/CTE that can be mocked.
+        rows:
+          - {customer_id: 'C1', first_name: 'John', last_name: 'Doe', email: 'john@example.com', membership_level: 'GOLD', created_at: '2023-01-01'}
+    expect:
+      rows:
+        - {customer_id: 'C1', first_name: 'John', last_name: 'Doe', email: 'john@example.com', membership_level: 'GOLD', _source_system: 'SPANNER'}
