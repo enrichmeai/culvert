@@ -157,21 +157,23 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
-| [`gcp-pipeline-core`](./gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 208 |
-| [`gcp-pipeline-beam`](./gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 358 |
-| [`gcp-pipeline-orchestration`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 52 |
+| [`gcp-pipeline-core`](./gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 219 |
+| [`gcp-pipeline-beam`](./gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 359 |
+| [`gcp-pipeline-orchestration`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 58 |
 | [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
-| [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | - |
+| [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | 101 |
 
 ### [3-Unit Deployment Model (Embedded)](./deployments_embedded/)
 
-Each system is split into 3 independent units. **Note:** In the `deployments_embedded` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
+Each system is split into 3 independent units (Ingestion, Transformation, Orchestration).
 
-| Unit | Purpose | Dependencies |
-|------|---------|--------------|
-| `*-ingestion` | Beam pipeline (GCS → ODP) | core, beam (NO airflow) |
-| `*-transformation` | dbt models (ODP → FDP) | transform (dbt only) |
-| `*-orchestration` | Airflow DAGs | core, orchestration (NO beam) |
+| System | Ingestion | Transformation | Orchestration |
+|--------|-----------|----------------|---------------|
+| **EM** | [em-ingestion](./deployments_embedded/em-ingestion/) (26 tests) | [em-transformation](./deployments_embedded/em-transformation/) | [em-orchestration](./deployments_embedded/em-orchestration/) |
+| **LOA** | [loa-ingestion](./deployments_embedded/loa-ingestion/) (20 tests) | [loa-transformation](./deployments_embedded/loa-transformation/) | [loa-orchestration](./deployments_embedded/loa-orchestration/) |
+| **Spanner** | - | [spanner-transformation](./deployments_embedded/spanner-transformation/) | - |
+
+**Note:** In the `deployments_embedded` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
 
 ---
 
@@ -269,17 +271,17 @@ gs://landing/em/customers/
 
 ```
 gcp-pipeline-libraries/
-├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # 208 tests - Foundation
-├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # 358 tests - Ingestion
-├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # 52 tests - Control
+├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # 219 tests - Foundation
+├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # 359 tests - Ingestion
+├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # 58 tests - Control
 ├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
-└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
+└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # 101 tests - Testing utilities
 
 [deployments_embedded/](./deployments_embedded/)
-├── [`em-ingestion/`](./deployments_embedded/em-ingestion/)                # 44 tests (3 sources)
+├── [`em-ingestion/`](./deployments_embedded/em-ingestion/)                # 26 tests (3 sources)
 ├── [`em-transformation/`](./deployments_embedded/em-transformation/)           # dbt models (2 targets)
 ├── [`em-orchestration/`](./deployments_embedded/em-orchestration/)            # Airflow DAGs
-├── [`loa-ingestion/`](./deployments_embedded/loa-ingestion/)               # 36 tests (1 source)
+├── [`loa-ingestion/`](./deployments_embedded/loa-ingestion/)               # 20 tests (1 source)
 ├── [`loa-transformation/`](./deployments_embedded/loa-transformation/)          # dbt models (1 target)
 ├── [`loa-orchestration/`](./deployments_embedded/loa-orchestration/)           # Airflow DAGs
 └── [`spanner-transformation/`](./deployments_embedded/spanner-transformation/)    # dbt models (Federated)
@@ -314,10 +316,11 @@ infrastructure/terraform/
 ### Run All Tests
 
 ```bash
-# Libraries (618 tests)
+# Libraries (737 tests)
 cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
+cd ../gcp-pipeline-tester && PYTHONPATH=src python -m pytest tests/unit/ -q
 
 # Embedded Deployments (46 tests)
 cd ../../deployments_embedded/loa-ingestion && \
@@ -333,13 +336,13 @@ cd ../em-ingestion && \
 
 | Component | Tests |
 |-----------|-------|
-| gcp-pipeline-core | 208 |
-| gcp-pipeline-beam | 358 |
-| gcp-pipeline-orchestration | 52 |
-| gcp-pipeline-tester | 362 |
+| gcp-pipeline-core | 219 |
+| gcp-pipeline-beam | 359 |
+| gcp-pipeline-orchestration | 58 |
+| gcp-pipeline-tester | 101 |
 | loa-ingestion (embedded) | 20 |
 | em-ingestion (embedded) | 26 |
-| **Total** | **1026** |
+| **Total** | **783** |
 
 ---
 
