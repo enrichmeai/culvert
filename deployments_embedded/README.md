@@ -28,7 +28,8 @@ deployments_embedded/
 ├── em-orchestration/    # EM: Airflow DAGs
 ├── loa-ingestion/       # LOA: Beam pipeline (20 tests)
 ├── loa-transformation/  # LOA: dbt models
-└── loa-orchestration/   # LOA: Airflow DAGs
+├── loa-orchestration/   # LOA: Airflow DAGs
+└── spanner-transformation/ # Spanner: dbt models (Federated)
 ```
 
 ---
@@ -39,6 +40,7 @@ deployments_embedded/
 |--------|---------|-----------|----------------|---------------|
 | **EM** | MULTI-TARGET (3→2) | [em-ingestion](em-ingestion/) | [em-transformation](em-transformation/) | [em-orchestration](em-orchestration/) |
 | **LOA** | MAP (1→1) | [loa-ingestion](loa-ingestion/) | [loa-transformation](loa-transformation/) | [loa-orchestration](loa-orchestration/) |
+| **Spanner** | FEDERATED (Spanner→FDP) | - | [spanner-transformation](spanner-transformation/) | - |
 
 ---
 
