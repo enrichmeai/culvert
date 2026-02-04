@@ -79,7 +79,7 @@ Each part of a system has its own isolated environment. Use the setup script to 
 ./scripts/setup_deployment_venv.sh em-ingestion
 
 # Activate the environment
-source deployments_embedded/em-ingestion/venv/bin/activate
+source deployments/em-ingestion/venv/bin/activate
 ```
 
 This script sets up everything you need to develop and test locally.
@@ -95,7 +95,7 @@ To run all shared library tests (900+ tests):
 #### System-Specific Tests
 To run tests for a specific system component (using embedded libraries):
 ```bash
-cd deployments_embedded/em-ingestion
+cd deployments/em-ingestion
 python -m pytest tests/unit/
 ```
 
@@ -106,7 +106,7 @@ You can test ingestion on your own machine without using Google Cloud. This is g
 
 ```bash
 # Activate the ingestion environment
-cd deployments_embedded/em-ingestion
+cd deployments/em-ingestion
 python -m em_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
     --output_table=project:dataset.table \
@@ -118,7 +118,7 @@ python -m em_ingestion.pipeline.main \
 You can also run your data transformation rules (dbt) locally:
 
 ```bash
-cd deployments_embedded/em-transformation/dbt
+cd deployments/em-transformation/dbt
 dbt run --profiles-dir . --target dev
 ```
 
@@ -163,17 +163,17 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 | [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
 | [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | 101 |
 
-### [3-Unit Deployment Model (Embedded)](./deployments_embedded/)
+### [3-Unit Deployment Model (Embedded)](./deployments/)
 
 Each system is split into 3 independent units (Ingestion, Transformation, Orchestration).
 
 | System | Ingestion | Transformation | Orchestration |
 |--------|-----------|----------------|---------------|
-| **EM** | [em-ingestion](./deployments_embedded/em-ingestion/) (26 tests) | [em-transformation](./deployments_embedded/em-transformation/) | [em-orchestration](./deployments_embedded/em-orchestration/) |
-| **LOA** | [loa-ingestion](./deployments_embedded/loa-ingestion/) (20 tests) | [loa-transformation](./deployments_embedded/loa-transformation/) | [loa-orchestration](./deployments_embedded/loa-orchestration/) |
-| **Spanner** | - | [spanner-transformation](./deployments_embedded/spanner-transformation/) | - |
+| **EM** | [em-ingestion](./deployments/em-ingestion/) (26 tests) | [em-transformation](./deployments/em-transformation/) | [em-orchestration](./deployments/em-orchestration/) |
+| **LOA** | [loa-ingestion](./deployments/loa-ingestion/) (20 tests) | [loa-transformation](./deployments/loa-transformation/) | [loa-orchestration](./deployments/loa-orchestration/) |
+| **Spanner** | - | [spanner-transformation](./deployments/spanner-transformation/) | - |
 
-**Note:** In the `deployments_embedded` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
+**Note:** In the `deployments` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
 
 ---
 
@@ -277,14 +277,14 @@ gcp-pipeline-libraries/
 ├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
 └── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # 101 tests - Testing utilities
 
-[deployments_embedded/](./deployments_embedded/)
-├── [`em-ingestion/`](./deployments_embedded/em-ingestion/)                # 26 tests (3 sources)
-├── [`em-transformation/`](./deployments_embedded/em-transformation/)           # dbt models (2 targets)
-├── [`em-orchestration/`](./deployments_embedded/em-orchestration/)            # Airflow DAGs
-├── [`loa-ingestion/`](./deployments_embedded/loa-ingestion/)               # 20 tests (1 source)
-├── [`loa-transformation/`](./deployments_embedded/loa-transformation/)          # dbt models (1 target)
-├── [`loa-orchestration/`](./deployments_embedded/loa-orchestration/)           # Airflow DAGs
-└── [`spanner-transformation/`](./deployments_embedded/spanner-transformation/)    # dbt models (Federated)
+[deployments/](./deployments/)
+├── [`em-ingestion/`](./deployments/em-ingestion/)                # 26 tests (3 sources)
+├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models (2 targets)
+├── [`em-orchestration/`](./deployments/em-orchestration/)            # Airflow DAGs
+├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 20 tests (1 source)
+├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models (1 target)
+├── [`loa-orchestration/`](./deployments/loa-orchestration/)           # Airflow DAGs
+└── [`spanner-transformation/`](./deployments/spanner-transformation/)    # dbt models (Federated)
 
 infrastructure/terraform/
 ├── systems/em/                  # EM infrastructure
@@ -323,7 +323,7 @@ cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src pyth
 cd ../gcp-pipeline-tester && PYTHONPATH=src python -m pytest tests/unit/ -q
 
 # Embedded Deployments (46 tests)
-cd ../../deployments_embedded/loa-ingestion && \
+cd ../../deployments/loa-ingestion && \
   python -m pytest tests/unit/ -q
 
 cd ../em-ingestion && \

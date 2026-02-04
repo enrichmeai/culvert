@@ -51,19 +51,19 @@ Run the provided script to create all DAGs and the GitHub deployment workflow:
 Example: `./scripts/scaffold_orchestration.sh crm`
 
 This script will:
-1. Create `deployments_embedded/<system_id>-orchestration/dags/`.
+1. Create `deployments/<system_id>-orchestration/dags/`.
 2. Copy all DAG templates and replace placeholders.
 3. Create `.github/workflows/deploy-<system_id>.yml` for automated deployment.
 
 ### Manual Scaffolding
 
-1. Create a new orchestration folder in `deployments_embedded/`:
+1. Create a new orchestration folder in `deployments/`:
    ```bash
-   mkdir -p deployments_embedded/<system_id>-orchestration/dags
+   mkdir -p deployments/<system_id>-orchestration/dags
    ```
 2. Copy the templates:
    ```bash
-   cp templates/dags/template_*.py deployments_embedded/<system_id>-orchestration/dags/
+   cp templates/dags/template_*.py deployments/<system_id>-orchestration/dags/
    ```
 3. Rename the files replacing `template_` with `<system_id>_`.
 4. **Search and Replace**:
@@ -96,7 +96,7 @@ If your transformation requires multiple files to arrive before starting (e.g., 
 ## Testing
 
 1. **Local Validation**: Ensure the DAG parses without syntax errors.
-2. **Unit Tests**: Add unit tests in `deployments_embedded/<system_id>-orchestration/tests/`.
+2. **Unit Tests**: Add unit tests in `deployments/<system_id>-orchestration/tests/`.
 3. **Manual Trigger**: Use the Airflow UI to trigger the PubSub DAG with a mock configuration to test the flow.
 
 ## Common placeholders to replace:

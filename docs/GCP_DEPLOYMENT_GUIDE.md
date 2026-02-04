@@ -180,9 +180,9 @@ The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) are manage
 
 ### Automatic Deployment
 Pipelines deploy automatically when you push to `main` branch with changes in:
-- `deployments_embedded/*-ingestion/**` → Triggers ingestion deployment
-- `deployments_embedded/*-transformation/**` → Triggers transformation deployment
-- `deployments_embedded/*-orchestration/**` → Triggers orchestration deployment
+- `deployments/*-ingestion/**` → Triggers ingestion deployment
+- `deployments/*-transformation/**` → Triggers transformation deployment
+- `deployments/*-orchestration/**` → Triggers orchestration deployment
 - `gcp-pipeline-libraries/**` → Triggers relevant deployments
 - `infrastructure/terraform/**` → Triggers infrastructure updates
 

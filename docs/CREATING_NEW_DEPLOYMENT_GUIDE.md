@@ -29,9 +29,9 @@ The easiest way to start is by copying the structure of an existing deployment o
 
 ```bash
 SYSTEM="mysystem"
-mkdir -p deployments_embedded/${SYSTEM}-ingestion
-mkdir -p deployments_embedded/${SYSTEM}-transformation/dbt
-mkdir -p deployments_embedded/${SYSTEM}-orchestration/dags
+mkdir -p deployments/${SYSTEM}-ingestion
+mkdir -p deployments/${SYSTEM}-transformation/dbt
+mkdir -p deployments/${SYSTEM}-orchestration/dags
 ```
 
 ### 2. Set Up Ingestion Unit (`mysystem-ingestion`)
@@ -53,9 +53,9 @@ mkdir -p deployments_embedded/${SYSTEM}-orchestration/dags
 
 - **Leverage Templates**: Use the standardized templates from `templates/dags/` to jumpstart your DAG development:
   ```bash
-  cp templates/dags/template_pubsub_trigger_dag.py deployments_embedded/${SYSTEM}-orchestration/dags/${SYSTEM}_trigger_dag.py
-  cp templates/dags/template_odp_load_dag.py deployments_embedded/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
-  cp templates/dags/template_fdp_transform_dag.py deployments_embedded/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
+  cp templates/dags/template_pubsub_trigger_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_trigger_dag.py
+  cp templates/dags/template_odp_load_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
+  cp templates/dags/template_fdp_transform_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
   ```
 - **Customization**:
   - **JOIN Pattern**: For multi-entity joins, use `EntityDependencyChecker` in your load DAG to wait for all entities.
@@ -92,5 +92,5 @@ The `templates/` directory provides more than just DAGs:
 
 ## 📚 Reference Implementations
 
-- **[LOA Orchestration Example](../deployments_embedded/loa-orchestration/README.md)**: Split pattern (1 source → 2 targets).
-- **[EM Orchestration Example](../deployments_embedded/em-orchestration/README.md)**: Join pattern (3 sources → 1 target).
+- **[LOA Orchestration Example](../deployments/loa-orchestration/README.md)**: Split pattern (1 source → 2 targets).
+- **[EM Orchestration Example](../deployments/em-orchestration/README.md)**: Join pattern (3 sources → 1 target).

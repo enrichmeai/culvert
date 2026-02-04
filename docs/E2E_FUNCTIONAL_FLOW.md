@@ -1676,14 +1676,14 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 # LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
 # PIPELINE provides the configuration (entities, counts, triggers)
 
-# Example: Blueprint pipeline configuration (deployments_embedded/em/src/em/config.py)
+# Example: Blueprint pipeline configuration (deployments/em/src/em/config.py)
 EM_ENTITY_DEPENDENCIES = {
     "entities": ["customers", "accounts", "decision"],
     "required_count": 3,
     "trigger_next_stage": "transformation"
 }
 
-# Example: Blueprint pipeline configuration (deployments_embedded/loa/src/loa/config.py)
+# Example: Blueprint pipeline configuration (deployments/loa/src/loa/config.py)
 LOA_ENTITY_DEPENDENCIES = {
     "entities": ["applications"],
     "required_count": 1,  # Single entity - immediate trigger
@@ -2022,7 +2022,7 @@ INSERT INTO reference.code_mappings VALUES
 
 #### dbt Model: event_transaction_excess (JOIN)
 
-**File:** `deployments_embedded/em-transformation/dbt/models/fdp/event_transaction_excess.sql`
+**File:** `deployments/em-transformation/dbt/models/fdp/event_transaction_excess.sql`
 
 ```sql
 {{
@@ -2055,7 +2055,7 @@ JOIN {{ ref('stg_em_accounts') }} a ON c.customer_id = a.customer_id
 
 #### dbt Model: portfolio_account_excess (MAP)
 
-**File:** `deployments_embedded/em-transformation/dbt/models/fdp/portfolio_account_excess.sql`
+**File:** `deployments/em-transformation/dbt/models/fdp/portfolio_account_excess.sql`
 
 ```sql
 {{
