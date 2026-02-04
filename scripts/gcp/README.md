@@ -77,7 +77,7 @@ This proves the Ingestion unit is self-contained.
 ### 2. Transformation Testing (Unit 2)
 You can test dbt transformations without running the full ingestion:
 ```bash
-cd deployments_embedded/em-transformation/dbt
+cd deployments/em-transformation/dbt
 dbt run --select fdp.em
 ```
 This proves the Transformation unit is independent.

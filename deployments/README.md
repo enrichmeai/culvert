@@ -22,7 +22,7 @@ The decoupled architecture ensures that **our E2E deployment and testing will be
 Each system is split into 3 independent deployment units:
 
 ```
-deployments_embedded/
+deployments/
 ├── em-ingestion/        # EM: Beam pipeline (26 tests)
 ├── em-transformation/   # EM: dbt models
 ├── em-orchestration/    # EM: Airflow DAGs

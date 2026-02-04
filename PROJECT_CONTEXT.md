@@ -10,7 +10,7 @@ This project is a framework for migrating data from legacy mainframe systems to 
   - `gcp-pipeline-orchestration`: Coordination (Scheduling and dependency management using Airflow).
   - `gcp-pipeline-transform`: Data Modeling (SQL macros for tracking and data privacy using dbt).
   - `gcp-pipeline-tester`: Testing tools (Mocks and test helpers).
-- `deployments_embedded/`: System-specific settings using the libraries (currently using embedded libraries).
+- `deployments/`: System-specific settings using the libraries (currently using embedded libraries).
   - `em-*`: Application A (Multi-target transformation: 3 sources -> 2 targets).
   - `loa-*`: Application B (Single-target transformation: 1 source -> 1 target).
   - `spanner-*`: Spanner Transformation examples.
