@@ -34,7 +34,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 # Upgrade pip
-pip install --upgrade pip
+python3 -m pip install --upgrade pip
 
 # Determine which libraries to install based on pyproject.toml
 # This is a simple heuristic: check for gcp-pipeline-* in dependencies
@@ -46,13 +46,13 @@ ALL_LIBS=("gcp-pipeline-core" "gcp-pipeline-beam" "gcp-pipeline-orchestration" "
 for lib in "${ALL_LIBS[@]}"; do
     if grep -q "$lib" pyproject.toml; then
         echo "Detected dependency: $lib. Installing from local monorepo..."
-        pip install -e "$PROJECT_ROOT/gcp-pipeline-libraries/$lib"
+        python3 -m pip install -e "$PROJECT_ROOT/gcp-pipeline-libraries/$lib"
     fi
 done
 
 # Install the deployment itself in editable mode with dev dependencies
 echo "Installing $DEPLOYMENT_NAME..."
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 echo "------------------------------------------------"
 echo "Setup complete for $DEPLOYMENT_NAME"
