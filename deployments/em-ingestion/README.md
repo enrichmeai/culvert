@@ -89,7 +89,7 @@ Key steps for this JOIN pattern:
 1.  **Define Schema**: Create a new schema file using `gcp_pipeline_core.schema.EntitySchema`.
 2.  **Configure Pipeline**: Inherit from `gcp_pipeline_beam.pipelines.base.BasePipeline`.
 3.  **Plug in Transforms**: Use the fluent `BeamPipelineBuilder` to chain `read_csv` -> `validate` -> `write_to_bigquery`.
-4.  **Harness Config**: Update `harness-ci.yaml` with your project and org identifiers.
+4.  **CI/CD Config**: Update your project and org identifiers in your CI/CD configuration.
 
 ---
 

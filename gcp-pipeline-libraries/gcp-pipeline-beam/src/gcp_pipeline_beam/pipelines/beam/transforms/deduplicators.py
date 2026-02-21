@@ -20,8 +20,11 @@ class DeduplicateRecordsDoFn(beam.DoFn):
     Useful for deduplication before writing to databases or when merging
     data from multiple sources.
 
-    Note: Key tracking is per-worker. For global deduplication in distributed
-    environments, consider using Beam's built-in deduplication or grouping.
+    IMPORTANT: This DoFn's key tracking is PER-WORKER and temporary.
+    It does not provide global deduplication in a distributed environment.
+    For global deduplication, use beam.Reshuffle() or Beam's stateful DoFns,
+    or simply deduplicate in the target database (BigQuery) using 'run_id'
+    and 'WRITE_TRUNCATE'.
 
     Attributes:
         key_fn: Callable that extracts the deduplication key from a record

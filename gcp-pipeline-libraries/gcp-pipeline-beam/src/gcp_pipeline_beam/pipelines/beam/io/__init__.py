@@ -34,10 +34,12 @@ from .gcs import (
     WriteToGCSDoFn,
     ReadCSVFromGCSDoFn,
     WriteCSVToGCSDoFn,
+    WriteSegmentedToGCSDoFn,
 )
 from .bigquery import (
     WriteToBigQueryDoFn,
     BatchWriteToBigQueryDoFn,
+    ReadFromBigQueryDoFn,
 )
 
 __all__ = [
@@ -45,7 +47,9 @@ __all__ = [
     'WriteToGCSDoFn',
     'ReadCSVFromGCSDoFn',
     'WriteCSVToGCSDoFn',
+    'WriteSegmentedToGCSDoFn',
     'WriteToBigQueryDoFn',
     'BatchWriteToBigQueryDoFn',
+    'ReadFromBigQueryDoFn',
 ]
 

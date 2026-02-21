@@ -10,9 +10,9 @@ from typing import List, Callable, Dict, Any, Optional
 import apache_beam as beam
 
 from .transforms import (
-    ParseCsvLine, ValidateRecordDoFn, TransformRecordDoFn
+    ParseCsvLine, ValidateRecordDoFn, TransformRecordDoFn, EnrichWithMetadataDoFn
 )
-from .io import ReadCSVFromGCSDoFn, BatchWriteToBigQueryDoFn
+from .io import ReadCSVFromGCSDoFn, BatchWriteToBigQueryDoFn, ReadFromBigQueryDoFn, WriteSegmentedToGCSDoFn
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,7 @@ class BeamPipelineBuilder:
         self.run_id = run_id
         self.pipeline = beam.Pipeline()
         self.current_pcoll = None
+        self.error_pcoll = None
         logger.info(f"Pipeline builder initialized: {pipeline_name}")
 
     def read_csv(self, gcs_paths: List[str], field_names: Optional[List[str]] = None) -> 'BeamPipelineBuilder':
@@ -86,6 +87,113 @@ class BeamPipelineBuilder:
                 | 'CreatePaths' >> beam.Create(gcs_paths)
                 | 'ReadCSV' >> beam.ParDo(ReadCSVFromGCSDoFn())
             )
+
+        return self
+
+    def read_from_bigquery(
+        self,
+        query: Optional[str] = None,
+        dataset: Optional[str] = None,
+        table: Optional[str] = None,
+        sources: Optional[List[Dict[str, str]]] = None
+    ) -> 'BeamPipelineBuilder':
+        """
+        Read records from one or multiple BigQuery tables.
+
+        Args:
+            query: SQL query to execute (single source)
+            dataset: Dataset name (single source table)
+            table: Table name (single source table)
+            sources: List of dictionaries for multiple sources, each with
+                    'query' or 'dataset' and 'table' keys.
+
+        Returns:
+            BeamPipelineBuilder: For method chaining
+        """
+        logger.info("Reading from BigQuery")
+
+        if sources:
+            logger.info(f"Reading from {len(sources)} BigQuery sources")
+            self.current_pcoll = (
+                self.pipeline
+                | 'CreateSources' >> beam.Create(sources)
+                | 'ReadMultipleFromBQ' >> beam.ParDo(
+                    ReadFromBigQueryDoFn(project=self._get_project())
+                )
+            )
+        else:
+            self.current_pcoll = (
+                self.pipeline
+                | 'ReadFromBQ' >> beam.ParDo(
+                    ReadFromBigQueryDoFn(
+                        project=self._get_project(),
+                        query=query,
+                        dataset=dataset,
+                        table=table
+                    )
+                )
+            )
+
+        return self
+
+    def write_segmented_to_gcs(
+        self,
+        bucket: str,
+        prefix: str = '',
+        segment_size: int = 10000
+    ) -> 'BeamPipelineBuilder':
+        """
+        Write records to segmented GCS files.
+
+        Args:
+            bucket: GCS bucket name
+            prefix: Path prefix
+            segment_size: Records per segment
+
+        Returns:
+            BeamPipelineBuilder: For method chaining
+        """
+        logger.info(f"Writing segmented records to gs://{bucket}/{prefix}")
+
+        result = (
+            self.current_pcoll
+            | 'WriteSegments' >> beam.ParDo(
+                WriteSegmentedToGCSDoFn(
+                    bucket=bucket,
+                    prefix=prefix,
+                    segment_size=segment_size,
+                    run_id=self.run_id
+                )
+            ).with_outputs('main', 'errors')
+        )
+
+        self.current_pcoll = result['main']
+        self.error_pcoll = result['errors']
+
+        return self
+
+    def enrich_metadata(self, **extra_metadata: Any) -> 'BeamPipelineBuilder':
+        """
+        Enrich records with pipeline metadata.
+
+        Args:
+            **extra_metadata: Additional metadata to add to records
+
+        Returns:
+            BeamPipelineBuilder: For method chaining
+        """
+        logger.info("Adding metadata enrichment step")
+
+        self.current_pcoll = (
+            self.current_pcoll
+            | 'EnrichMetadata' >> beam.ParDo(
+                EnrichWithMetadataDoFn(
+                    run_id=self.run_id,
+                    pipeline_name=self.pipeline_name,
+                    **extra_metadata
+                )
+            )
+        )
 
         return self
 
@@ -166,17 +274,21 @@ class BeamPipelineBuilder:
         """
         logger.info(f"Adding BigQuery write step: {dataset}.{table}")
 
-        self.current_pcoll = (
+        result = (
             self.current_pcoll
             | 'WriteBQ' >> beam.ParDo(
                 BatchWriteToBigQueryDoFn(
                     project=self._get_project(),
                     dataset=dataset,
                     table=table,
-                    batch_size=batch_size
+                    batch_size=batch_size,
+                    run_id=self.run_id
                 )
-            )
+            ).with_outputs('main', 'errors')
         )
+
+        self.current_pcoll = result['main']
+        self.error_pcoll = result['errors']
 
         return self
 

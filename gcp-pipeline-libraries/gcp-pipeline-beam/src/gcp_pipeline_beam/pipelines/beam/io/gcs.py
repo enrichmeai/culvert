@@ -5,7 +5,7 @@ Google Cloud Storage read and write DoFns for Apache Beam pipelines.
 """
 
 import logging
-from typing import Dict, List, Any, Iterator
+from typing import Dict, List, Any, Iterator, Optional
 from datetime import datetime
 
 import apache_beam as beam
@@ -59,11 +59,6 @@ class ReadFromGCSDoFn(beam.DoFn):
 
         Raises:
             Exception: If file cannot be read from GCS
-
-        Example:
-            >>> reader = ReadFromGCSDoFn()
-            >>> reader.setup()
-            >>> lines = list(reader.process('gs://bucket/data.txt'))
         """
         try:
             logger.info(f"Reading from GCS: {gcs_path}")
@@ -78,6 +73,9 @@ class ReadFromGCSDoFn(beam.DoFn):
 
         except Exception as e:
             logger.error(f"Error reading from GCS {gcs_path}: {e}")
+            from gcp_pipeline_core.error_handling.handler import ErrorHandler
+            error_handler = ErrorHandler(pipeline_name="ReadFromGCS", run_id="unknown")
+            error_handler.handle_exception(e, source_file=gcs_path)
             raise
 
 
@@ -143,11 +141,6 @@ class WriteToGCSDoFn(beam.DoFn):
 
         Yields:
             str: GCS path where written
-
-        Example:
-            >>> writer = WriteToGCSDoFn(bucket='bucket', prefix='output/')
-            >>> writer.setup()
-            >>> paths = list(writer.process('line of text'))
         """
         try:
             # Generate filename with timestamp
@@ -165,6 +158,9 @@ class WriteToGCSDoFn(beam.DoFn):
 
         except Exception as e:
             logger.error(f"Error writing to GCS: {e}")
+            from gcp_pipeline_core.error_handling.handler import ErrorHandler
+            error_handler = ErrorHandler(pipeline_name="WriteToGCS", run_id="unknown")
+            error_handler.handle_exception(e)
             raise
 
 
@@ -341,4 +337,150 @@ class WriteCSVToGCSDoFn(beam.DoFn):
         except Exception as e:
             logger.error(f"Error writing CSV to GCS: {e}")
             raise
+
+
+class WriteSegmentedToGCSDoFn(beam.DoFn):
+    """
+    Writes records to segmented GCS files for downstream consumption.
+
+    Buffers records and writes them to GCS when segment size or time
+    threshold is reached. Highly suitable for large datasets.
+
+    Attributes:
+        bucket: GCS bucket name
+        prefix: Path prefix within bucket
+        segment_size: Number of records per file segment
+        extension: File extension (default: 'json')
+        encoding: Character encoding (default: 'utf-8')
+
+    Outputs:
+        Main: str - GCS path where segment written
+        'errors': Dict - Records that failed to write (only if flush fails)
+
+    Example:
+        >>> records | 'WriteCDP' >> beam.ParDo(WriteSegmentedToGCSDoFn(
+        ...     bucket='my-cdp-bucket',
+        ...     prefix='segments/customer_',
+        ...     segment_size=50000
+        ... )).with_outputs('main', 'errors')
+    """
+
+    def __init__(
+        self,
+        bucket: str,
+        prefix: str = '',
+        segment_size: int = 10000,
+        extension: str = 'json',
+        encoding: str = 'utf-8',
+        run_id: Optional[str] = None
+    ):
+        """
+        Initialize segmented GCS writer.
+
+        Args:
+            bucket: GCS bucket name
+            prefix: Path prefix
+            segment_size: Records per segment
+            extension: File extension (default: 'json')
+            encoding: Character encoding (default: 'utf-8')
+            run_id: Unique run identifier
+        """
+        super().__init__()
+        self.bucket = bucket
+        self.prefix = prefix
+        self.segment_size = segment_size
+        self.extension = extension
+        self.encoding = encoding
+        self.run_id = run_id
+        self.gcs_client = None
+        self.segment_count = 0
+        self.buffer = []
+        self.success = beam.metrics.Metrics.counter("gcs_segmented_write", "segments")
+        self.errors = beam.metrics.Metrics.counter("gcs_segmented_write", "errors")
+        self.error_handler = None
+
+    def setup(self):
+        """Initialize GCS client and error handler."""
+        from gcp_pipeline_core.error_handling.handler import ErrorHandler
+
+        self.gcs_client = GcsIO()
+        self.segment_count = 0
+        self.buffer = []
+        self.error_handler = ErrorHandler(
+            pipeline_name="WriteSegmentedToGCS",
+            run_id=self.run_id or "unknown"
+        )
+
+    def process(self, element: Any) -> Iterator[Any]:
+        """
+        Add record to buffer and flush if segment size reached.
+
+        Args:
+            element: Record to write (must be serializable to JSON if extension='json')
+
+        Yields:
+            str: GCS path if segment was flushed
+            TaggedOutput('errors', ...): If flush failed
+        """
+        self.buffer.append(element)
+
+        if len(self.buffer) >= self.segment_size:
+            yield from self._flush_segment()
+
+    def finish_bundle(self):
+        """Flush remaining records in buffer."""
+        if self.buffer:
+            yield from self._flush_segment()
+
+    def _flush_segment(self) -> Iterator[Any]:
+        """
+        Write segment buffer to GCS.
+
+        Yields:
+            str: GCS path where segment written
+            TaggedOutput('errors', ...): If flush failed
+        """
+        # Save buffer in case of failure for tagged output
+        failed_records = list(self.buffer)
+        try:
+            import json
+
+            # Generate filename
+            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            filename = f"{self.prefix}segment_{timestamp}_{self.segment_count}.{self.extension}"
+            gcs_path = f"gs://{self.bucket}/{filename}"
+
+            logger.info(f"Flushing segment of {len(self.buffer)} records to {gcs_path}")
+
+            # Prepare content based on extension
+            if self.extension == 'json':
+                content = '\n'.join([json.dumps(row) for row in self.buffer]) + '\n'
+            else:
+                content = '\n'.join([str(row) for row in self.buffer]) + '\n'
+
+            # Write to GCS
+            with self.gcs_client.open(gcs_path, 'w') as f:
+                f.write(content.encode(self.encoding))
+
+            self.segment_count += 1
+            self.buffer = []
+            self.success.inc()
+            yield gcs_path
+
+        except Exception as e:
+            logger.error(f"Error flushing segment to GCS: {e}")
+            self.errors.inc(len(failed_records))
+            
+            # Use core error handler for classification
+            error_record = self.error_handler.handle_exception(e)
+            
+            self.buffer = []
+            for record in failed_records:
+                yield beam.pvalue.TaggedOutput('errors', {
+                    'error': str(e),
+                    'record': record,
+                    'severity': error_record.severity.value,
+                    'category': error_record.category.value,
+                    'retry_strategy': error_record.retry_strategy.value
+                })
 

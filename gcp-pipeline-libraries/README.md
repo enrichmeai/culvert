@@ -87,6 +87,40 @@ To evolve from an Excellent Enterprise Framework to a State-of-the-Art GCP Archi
 
 ---
 
+## Publishing to PyPI
+
+The libraries can be published to PyPI for public use.
+
+### Manual Publishing
+Use the provided script to build and upload all libraries:
+```bash
+# To TestPyPI
+./scripts/publish_libraries.sh testpypi
+
+# To Production PyPI
+./scripts/publish_libraries.sh pypi
+```
+
+### Automated Publishing via GitHub Actions
+A workflow is available in `.github/workflows/publish-libraries.yml` that triggers:
+1.  **On Every Push to Main**: Automatically builds and publishes all libraries to PyPI when any library code changes.
+2.  **On Release**: When a new GitHub Release is published.
+3.  **Manual Trigger**: Via the "Actions" tab, where you can choose between `pypi` and `testpypi`.
+
+### Consuming Libraries in Deployments
+All deployment units (EM, LOA, CDP) are configured to pull the `gcp-pipeline-*` libraries directly from PyPI. 
+To ensure consistent builds, the CI/CD workflows for these deployments install the libraries using:
+```bash
+pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
+```
+And individual `pyproject.toml` files include these libraries in their `dependencies` list.
+
+**Required Secrets for GitHub Actions:**
+- `PYPI_API_TOKEN`: API token for production PyPI.
+- `TEST_PYPI_API_TOKEN`: API token for TestPyPI.
+
+---
+
 ## Library Breakdown
 
 ### 1. gcp-pipeline-core (The Foundation)
@@ -124,7 +158,7 @@ To evolve from an Excellent Enterprise Framework to a State-of-the-Art GCP Archi
 *   **Purpose**: Standardized mocks and testing infrastructure.
 *   **Key Findings**:
     *   **Mocks**: Rich set of GCS and BigQuery mocks ensuring unit tests don't require live GCP connectivity.
-    *   **Unified CI**: Integrated with `harness-root.yaml` for a unified release strategy.
+    *   **Unified CI**: Integrated for a unified release strategy.
 
 ---
 
@@ -166,7 +200,7 @@ To maintain the integrity of the library architecture, the following rules and r
 *   Example: Use a generic `apply_enrichment(rules)` macro instead of an `apply_em_enrichment()` macro.
 
 ### 4. Release & Tagging Strategy
-*   Use the **Unified Tagging Strategy** via the [Root Pipeline](harness-root.yaml) for cross-library changes.
+*   Use the **Unified Tagging Strategy** for cross-library changes.
 *   Version tags (e.g., `libs-1.0.x`) must be applied to the monorepo root to ensure a consistent state is captured for production deployments.
 
 ---
@@ -229,12 +263,8 @@ Each library is already self-contained with its own `pyproject.toml`, `src/` dir
     ]
     ```
 
-### 3. Harness CI/CD Adjustments
-Update the following fields in each `harness-ci.yaml`:
-*   `orgIdentifier`: Update from `default` to your specific Harness Org ID.
-*   `projectIdentifier`: Update to your specific Harness Project ID.
-*   `connectorRef: github_connector`: Point to your `gcp-pipeline-libraries` repository connector.
-*   `repoName`: Set to `gcp-pipeline-libraries`.
+### 3. CI/CD Adjustments
+If you move libraries to separate repositories, you will need to set up independent CI/CD pipelines for each.
 
 ### 4. dbt Integration (for Transform Library)
 When `gcp-pipeline-transform` moves to a separate repo, update `packages.yml` in deployment projects:
@@ -264,20 +294,11 @@ Before adding a new validator or macro, ask: "Can this be used by any system in 
 
 ---
 
-## CI/CD - Harness Pipelines
-
-Each library contains its own standalone `harness-ci.yaml` for independent CI/CD. Additionally, a root pipeline is provided at the libraries level to orchestrate all library builds and apply a unified version tag.
+## CI/CD - Automation
+Each library is designed for independent build and test cycles. A unified tagging strategy allows orchestrating all library builds and applying a unified version tag across the monorepo.
 
 ### Unified Tagging Strategy
-When changes are made across multiple libraries, the **Root Pipeline** can be used to apply a unified Git tag (e.g., `libs-1.0.x`) to the entire repository. This ensures that a specific state of the monorepo is captured as a single release point, even though libraries can still be built and deployed individually.
-
-- **Root Pipeline**: [harness-root.yaml](harness-root.yaml)
-- **Individual Pipelines**:
-  - [gcp-pipeline-core/harness-ci.yaml](gcp-pipeline-core/harness-ci.yaml)
-  - [gcp-pipeline-beam/harness-ci.yaml](gcp-pipeline-beam/harness-ci.yaml)
-  - [gcp-pipeline-orchestration/harness-ci.yaml](gcp-pipeline-orchestration/harness-ci.yaml)
-  - [gcp-pipeline-transform/harness-ci.yaml](gcp-pipeline-transform/harness-ci.yaml)
-  - [gcp-pipeline-tester/harness-ci.yaml](gcp-pipeline-tester/harness-ci.yaml)
+When changes are made across multiple libraries, you can apply a unified Git tag (e.g., `libs-1.0.x`) to the entire repository. This ensures that a specific state of the monorepo is captured as a single release point, even though libraries can still be built and tested individually.
 
 ---
 
