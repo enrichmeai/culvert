@@ -37,9 +37,9 @@ LIBRARIES=(
 )
 
 # Check for twine
-if ! command -v twine &> /dev/null; then
+if ! python3 -m twine --version &> /dev/null; then
     echo -e "${YELLOW}Installing twine for publishing...${NC}"
-    pip install --upgrade twine build
+    python3 -m pip install --upgrade twine build
 fi
 
 for lib in "${LIBRARIES[@]}"; do

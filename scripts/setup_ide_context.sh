@@ -36,12 +36,12 @@ source venv/bin/activate
 
 # 4. Upgrade pip
 echo -e "${YELLOW}Upgrading pip...${NC}"
-pip install --upgrade pip
+python3 -m pip install --upgrade pip
 
 # 5. Install in Editable Mode
 echo -e "${YELLOW}Installing monorepo in editable mode with dev dependencies...${NC}"
 echo -e "${BLUE}(This links all gcp-pipeline-* libraries and deployments)${NC}"
-pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]"
 
 echo -e "\n${GREEN}================================================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"
