@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments_embedded/loa-*/**'
-      - 'gcp-pipeline-libraries/**'
+      - 'deployments/loa-*/**'
       - 'infrastructure/terraform/systems/loa/**'
   workflow_dispatch:
 
@@ -31,15 +30,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-transform
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
 
     - name: Run LOA tests
       run: |
-        cd deployments_embedded/loa-ingestion
+        cd deployments/loa-ingestion
         pip install -e .[dev]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
@@ -172,7 +167,7 @@ jobs:
 
     - name: Run dbt
       run: |
-        DBT_PATH="deployments_embedded/loa-transformation/dbt"
+        DBT_PATH="deployments/loa-transformation/dbt"
         if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
           cd "$DBT_PATH"
           dbt deps || echo "⚠️ dbt deps failed"

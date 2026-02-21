@@ -4,8 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments_embedded/em-*/**'
-      - 'gcp-pipeline-libraries/**'
+      - 'deployments/em-*/**'
       - 'infrastructure/terraform/systems/em/**'
   workflow_dispatch:
 
@@ -31,15 +30,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-transform
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
 
     - name: Run EM tests
       run: |
-        cd deployments_embedded/em-ingestion
+        cd deployments/em-ingestion
         pip install -e .[dev]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
@@ -185,7 +180,7 @@ jobs:
 
     - name: Run dbt
       run: |
-        DBT_PATH="deployments_embedded/em-transformation/dbt"
+        DBT_PATH="deployments/em-transformation/dbt"
         if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
           cd "$DBT_PATH"
           dbt deps || echo "⚠️ dbt deps failed"

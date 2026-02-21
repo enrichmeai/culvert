@@ -56,8 +56,10 @@ from .io import (
     WriteToGCSDoFn,
     ReadCSVFromGCSDoFn,
     WriteCSVToGCSDoFn,
+    WriteSegmentedToGCSDoFn,
     WriteToBigQueryDoFn,
     BatchWriteToBigQueryDoFn,
+    ReadFromBigQueryDoFn,
 )
 
 from .pubsub import PublishToPubSubDoFn
@@ -76,8 +78,10 @@ __all__ = [
     'WriteToGCSDoFn',
     'ReadCSVFromGCSDoFn',
     'WriteCSVToGCSDoFn',
+    'WriteSegmentedToGCSDoFn',
     'WriteToBigQueryDoFn',
     'BatchWriteToBigQueryDoFn',
+    'ReadFromBigQueryDoFn',
     # PubSub
     'PublishToPubSubDoFn',
     # Builder

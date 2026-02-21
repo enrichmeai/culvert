@@ -91,6 +91,9 @@ echo ""
 echo -e "${BLUE}>>> Step 4/5: Deploy via GitHub Actions${NC}"
 echo "Triggering GitHub Actions deployments..."
 
+# NOTE: 'cdp' and 'spanner' are explicitly excluded as per requirements.
+# 'spanner' does not currently have a dedicated terraform infrastructure or separate deployment workflow.
+
 if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "em" ]]; then
     gh workflow run deploy-em.yml && echo "  EM deployment triggered ✅"
 fi

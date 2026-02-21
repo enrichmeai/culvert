@@ -56,6 +56,7 @@ This table manages the state machine for every migration run.
 ### 4.3 Data Layers
 *   **ODP (Original Data Product)**: 1:1 raw copy of mainframe data. Includes audit columns (`_run_id`, `_source_file`, `_processed_at`).
 *   **FDP (Foundation Data Product)**: Business-ready, joined, and cleaned data models.
+*   **CDP (Consumable Data Product)**: Segmented, optimized data sets exported to GCS for downstream consumption (e.g., Marketing, External Partners).
 
 ---
 
@@ -68,6 +69,7 @@ Instead of a single large DAG (monolithic), each system's scheduling is split in
 1.  **Trigger DAG**: Listens for a notification (like a `.ok` file). It checks the file's header and trailer and then starts the next stage.
 2.  **Load DAG**: Manages the data ingestion. it updates the job status (Pending → Running → Success) and ensures data is loaded into the raw (ODP) layer.
 3.  **Transform DAG**: Runs the transformation rules to create the final (FDP) data. It only starts after the Load DAG finishes successfully.
+4.  **Consumable DAG (Optional)**: Reads from FDP tables, performs segmentation, and exports to GCS (CDP layer).
 
 #### 5.1.2 Why Separate DAGs?
 | Consideration | Single Large DAG | Multiple Focused DAGs |
@@ -77,6 +79,14 @@ Instead of a single large DAG (monolithic), each system's scheduling is split in
 | **Scaling** | Hard to manage when one DAG handles many entities. | Each part is independent, allowing for more efficient scheduling. |
 | **Maintenance** | Large files are hard to read and test. | Smaller files are easier to maintain and update. |
 | **Complexity** | Simple but rigid. | Uses a shared status table to coordinate between parts. |
+| **Modular Consumption** | Export logic is mixed with transform logic. | CDP exports can be added as a separate unit without touching core logic. |
+
+#### 5.1.3 CDP Deployment Reference
+A reference implementation for the CDP layer is available at `deployments/cdp-segmentation-example/`. This demonstrates:
+*   Reading from multiple FDP tables in parallel.
+*   Custom segmentation and normalization logic.
+*   Scalable export to GCS using segmented files.
+*   **Integrated Error Handling**: Failed exports are routed to a 'dead-letter' output tag, ensuring 100% data auditability even during partial failures.
 
 ### 5.2 Ingestion (Unit 1)
 *   **Pattern**: Shared-Nothing Ingestion.
@@ -236,10 +246,10 @@ The `AuditTrail` and `ReconciliationEngine` are tool-agnostic. By including the 
 The enterprise data team provides standardized "paved paths" for common patterns. This framework is designed to align with these paths while providing the missing orchestration and ingestion layers.
 
 #### 1. Transformation (dbt on Cloud Run)
-The Enterprise Transformation paved path (currently **under test**) enables teams to run dbt on Cloud Run, providing a dedicated repo and a Harness pipeline to push dbt projects to GCS.
+The Enterprise Transformation paved path (currently **under test**) enables teams to run dbt on Cloud Run, providing a dedicated repo and a pipeline to push dbt projects to GCS.
 *   **Our Strategy**: While Cloud Run is excellent for hosting the dbt execution environment, it is a "passive" component that requires an external invoker.
 *   **Framework Value-Add**: Our **Orchestration Unit (Unit 3)** acts as that invoker. It ensures that dbt is triggered *only* after all upstream ingestion units (Unit 1) have successfully updated the `job_control` table. This prevents the "partial data" problem inherent in simple time-based triggers.
-*   **Integration**: Teams can use the Enterprise Harness pipeline to deploy their dbt code, while using this framework's Airflow DAGs to trigger the execution via Cloud Run (instead of the default BashOperator), maintaining the unified `run_id` lineage.
+*   **Integration**: Teams can use the Enterprise pipeline to deploy their dbt code, while using this framework's Airflow DAGs to trigger the execution via Cloud Run (instead of the default BashOperator), maintaining the unified `run_id` lineage.
 
 #### 2. Ingestion Gap-Filling
 As the Enterprise Ingestion Framework is currently not yet started, this framework's **Ingestion Unit (Unit 1: Beam)** serves as the production-ready "paved path" for mainframe-to-GCP ingestion.

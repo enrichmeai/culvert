@@ -43,10 +43,9 @@ By splitting each system into three independent parts (Ingestion, Transformation
 
 ### Deployment Workflow
 
-In a production environment (using tools like **Harness**), the framework follows a decoupled multi-repository strategy:
-
-1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository uses `gcp-pipeline-libraries/harness-root.yaml` to orchestrate unified tagging and CI for all libraries.
-2.  **Independent Deployment Repositories**: Each system component (e.g., `em-ingestion`, `em-transformation`) resides in its own dedicated repository. Each has its own `harness-ci.yaml` for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
+In a production environment, the framework follows a decoupled multi-repository strategy:
+1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository orchestrates unified tagging and CI for all libraries.
+2.  **Independent Deployment Repositories**: Each system component (e.g., `em-ingestion`, `em-transformation`) resides in its own dedicated repository. Each has its own CI/CD for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
 
 This structure provides global stability for shared components while maintaining local agility for specific data pipelines.
 

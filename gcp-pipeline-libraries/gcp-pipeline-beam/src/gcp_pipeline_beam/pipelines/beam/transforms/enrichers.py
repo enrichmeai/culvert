@@ -62,30 +62,30 @@ class EnrichWithMetadataDoFn(beam.DoFn):
 
     def process(self, element: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
         """
-        Add metadata to record.
+        Add audit metadata to record.
 
         Args:
             element: Record to enrich
 
         Yields:
-            Dict: Enriched record with added metadata fields
+            Dict: Enriched record with added metadata fields (_run_id, _processed_at)
 
         Example:
             >>> enricher = EnrichWithMetadataDoFn(run_id='run_001', pipeline_name='test')
             >>> result = list(enricher.process({'id': '1', 'name': 'John'}))
             >>> enriched = result[0]
-            >>> enriched['run_id']
+            >>> enriched['_run_id']
             'run_001'
             >>> enriched['pipeline_name']
             'test'
-            >>> 'processed_at' in enriched
+            >>> '_processed_at' in enriched
             True
         """
         enriched = {
             **element,
-            'run_id': self.run_id,
+            '_run_id': self.run_id,
             'pipeline_name': self.pipeline_name,
-            'processed_at': datetime.utcnow().isoformat(),
+            '_processed_at': datetime.utcnow().isoformat(),
             **self.metadata
         }
         yield enriched

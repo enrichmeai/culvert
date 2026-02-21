@@ -532,7 +532,7 @@ PYTHONPATH=src pytest tests/unit -v --cov=src/gcp_pipeline_tester --cov-report=h
 
 ## Governance & Compliance
 
-- **Unified Strategy**: Integrated with `harness-root.yaml` for a unified release and tagging strategy (`libs-1.0.x`).
+- **Unified Strategy**: Integrated for a unified release and tagging strategy (`libs-1.0.x`).
 - **Standardized Mocking**: Developers MUST use `tester` mocks instead of custom `unittest.mock.Mock` objects for GCP services to ensure consistency.
 - **BDD Expansion**: Encouraged use of BDD scenarios for any new multi-stage orchestration or processing logic.
 

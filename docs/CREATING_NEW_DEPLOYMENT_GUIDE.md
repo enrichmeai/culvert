@@ -78,7 +78,7 @@ Before submitting your PR, verify that your new deployment works correctly:
 The `templates/` directory provides more than just DAGs:
 
 - **`templates/dags/`**: Standardized, library-integrated Airflow DAGs.
-- **`templates/cicd/`**: Template Harness/GitHub Actions workflows for deploying each unit.
+- **`templates/cicd/`**: Template CI/CD workflows for deploying each unit.
 
 ---
 

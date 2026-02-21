@@ -44,17 +44,17 @@ To verify the entire pipeline in a GCP environment:
 4. **Triggering**: Uploads `.ok` files to trigger the Orchestration layer.
 5. **Validation**: Queries the `job_control.pipeline_jobs` table to verify successful status.
 
-## 4. Harness CI/CD Orchestration
+## 4. CI/CD Orchestration
 
-The framework uses a decoupled, multi-repository Harness configuration to manage shared dependencies and independent system lifecycles.
+The framework uses a decoupled, multi-repository configuration to manage shared dependencies and independent system lifecycles.
 
-### Libraries Monorepo Pipeline (`gcp-pipeline-libraries/harness-root.yaml`)
+### Libraries Monorepo Pipeline
 Shared libraries are managed in a single monorepo to ensure consistency.
-- **Root Orchestrator**: `gcp-pipeline-libraries/harness-root.yaml` acts as the master controller for the library repository.
+- **Root Orchestrator**: Acts as the master controller for the library repository.
 - **Unified Tagging**: It creates a synchronized version tag (e.g., `libs-1.0.42`) across all libraries when changes are merged.
-- **Library CI**: Triggers individual pipelines (`gcp-pipeline-core`, `gcp-pipeline-beam`, etc.) to guarantee stability.
+- **Library CI**: Triggers individual pipelines to guarantee stability.
 
-### Independent Deployment Pipelines (`deployments/*/harness-ci.yaml`)
+### Independent Deployment Pipelines
 Each deployment unit (Ingestion, Transformation, Orchestration) resides in its own repository for maximum isolation.
 - **Isolation**: Changes to `em-ingestion` only trigger its specific repository's pipeline.
 - **Dependency Management**: Pipelines install specific library versions from the central artifact repository.
