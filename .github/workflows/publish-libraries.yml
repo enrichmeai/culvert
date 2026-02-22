@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester]
+        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-migration-framework]
     steps:
     - uses: actions/checkout@v4
 
@@ -96,7 +96,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        library: [gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester]
+        library: [gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-migration-framework]
     steps:
     - uses: actions/checkout@v4
 
