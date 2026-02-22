@@ -6,7 +6,19 @@ A **standardized framework** for moving data from legacy mainframe systems to Go
 
 ## Why Use This Framework?
 
-### 1. Shared Library Foundation
+## Quick Start
+
+### Installation
+
+The entire framework can be installed via the umbrella package:
+
+```bash
+pip install gcp-migration-framework
+```
+
+This will install all the libraries listed below. Alternatively, you can install only the specific libraries you need.
+
+### Shared Library Foundation
 Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity, security, and **observability** (including built-in **Dynatrace** integration). Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
 #### Technology Links
