@@ -48,11 +48,16 @@ try:
     )
     from airflow.utils.context import Context
     AIRFLOW_AVAILABLE = True
-except ImportError:
+except (ImportError, ModuleNotFoundError):
     AIRFLOW_AVAILABLE = False
-    BaseOperator = object
+    class BaseOperator:
+        def __init__(self, task_id=None, **kwargs):
+            self.task_id = task_id
+            for key, value in kwargs.items():
+                setattr(self, key, value)
     DataflowTemplatedJobStartOperator = None
     DataflowStartFlexTemplateOperator = None
+    DataflowCreatePythonJobOperator = None
     Context = dict
 
 
@@ -204,7 +209,12 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         additional_params: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
-        super().__init__(task_id=task_id, **kwargs)
+        if AIRFLOW_AVAILABLE:
+            super().__init__(task_id=task_id, **kwargs)
+        else:
+            self.task_id = task_id
+            for key, value in kwargs.items():
+                setattr(self, key, value)
         self.pipeline_name = pipeline_name
         self.source_type = SourceType(source_type)
         self.processing_mode = ProcessingMode(processing_mode)
