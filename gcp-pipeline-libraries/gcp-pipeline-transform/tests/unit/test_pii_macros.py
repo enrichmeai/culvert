@@ -41,9 +41,10 @@ def test_pii_macros_compilation():
     # Verify macros exist in manifest
     macros = manifest.get("macros", {})
     macro_names = [m.split(".")[-1] for m in macros.keys()]
-    assert "mask_ssn" in macro_names
-    assert "mask_phone" in macro_names
-    assert "mask_name" in macro_names
+    assert "mask_full" in macro_names
+    assert "mask_redacted" in macro_names
+    assert "mask_partial_last4" in macro_names
+    assert "mask_pii" in macro_names
 
 def test_audit_macros_compilation():
     # Detect if we are running from project root or library root
@@ -76,6 +77,7 @@ def test_audit_macros_compilation():
     macros = manifest.get("macros", {})
     macro_names = [m.split(".")[-1] for m in macros.keys()]
     assert "add_audit_columns" in macro_names
+    assert "apply_audit_columns" in macro_names
 
 def test_dq_macros_compilation():
     # Detect if we are running from project root or library root
@@ -107,8 +109,8 @@ def test_dq_macros_compilation():
     
     macros = manifest.get("macros", {})
     macro_names = [m.split(".")[-1] for m in macros.keys()]
-    assert "validate_no_nulls" in macro_names
-    assert "validate_unique" in macro_names
+    assert "check_required_fields" in macro_names
+    assert "check_uniqueness" in macro_names
 
 def test_enrichment_macros_compilation():
     # Detect if we are running from project root or library root
@@ -140,9 +142,7 @@ def test_enrichment_macros_compilation():
     
     macros = manifest.get("macros", {})
     macro_names = [m.split(".")[-1] for m in macros.keys()]
-    assert "enrich_date_parts" in macro_names
-    assert "lookup_status" in macro_names
-    assert "bucket_amount" in macro_names
+    assert "apply_enrichment" in macro_names
 
 if __name__ == "__main__":
     test_pii_macros_compilation()
