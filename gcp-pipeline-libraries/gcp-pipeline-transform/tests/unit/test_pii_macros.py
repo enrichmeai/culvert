@@ -8,6 +8,14 @@ def test_pii_macros_compilation():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
+    # Debug: Check files in project_dir
+    print(f"DEBUG: base_dir={base_dir}")
+    print(f"DEBUG: project_dir={project_dir}")
+    if os.path.exists(project_dir):
+        print(f"DEBUG: ls project_dir={os.listdir(project_dir)}")
+    else:
+        print(f"DEBUG: project_dir DOES NOT EXIST")
+
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
@@ -27,6 +35,8 @@ def test_pii_macros_compilation():
         text=True,
         env=env
     )
+    print(f"DEBUG: dbt stdout={result.stdout}")
+    print(f"DEBUG: dbt stderr={result.stderr}")
 
     assert result.returncode == 0, f"dbt compile failed: {result.stdout} {result.stderr}"
 
