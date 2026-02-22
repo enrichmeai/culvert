@@ -12,7 +12,7 @@ def test_pii_macros_compilation():
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
     result = subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -59,7 +59,7 @@ def test_audit_macros_compilation():
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -86,7 +86,7 @@ def test_dq_macros_compilation():
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -112,7 +112,7 @@ def test_enrichment_macros_compilation():
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
