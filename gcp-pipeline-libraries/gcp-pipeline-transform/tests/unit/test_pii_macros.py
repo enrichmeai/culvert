@@ -8,6 +8,15 @@ def test_pii_macros_compilation():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
+    # Debug: Check if profiles.yml exists
+    profiles_path = os.path.join(project_dir, "profiles.yml")
+    print(f"DEBUG: project_dir={project_dir}")
+    print(f"DEBUG: profiles_path={profiles_path}")
+    print(f"DEBUG: profiles_exists={os.path.exists(profiles_path)}")
+    if os.path.exists(profiles_path):
+        with open(profiles_path, 'r') as f:
+            print(f"DEBUG: profiles_content:\n{f.read()}")
+
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
