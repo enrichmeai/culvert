@@ -21,6 +21,9 @@ def test_pii_macros_compilation():
         if os.path.exists(venv_dbt):
             dbt_executable = venv_dbt
 
+    # Use dbt compile but catch the specific auth error and check if the files were generated anyway.
+    # In CI environments, we might not have GCP credentials, but for macro testing, 
+    # we only care if dbt can parse and compile the macros into SQL.
     result = subprocess.run(
         [dbt_executable, "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
@@ -28,10 +31,6 @@ def test_pii_macros_compilation():
         env=env
     )
 
-    # In CI environments, we might not have GCP credentials, but for macro testing, 
-    # we only care if dbt can parse and compile the macros into SQL.
-    # If dbt compile fails due to authentication but still produces compiled files, we can proceed.
-    
     # Check compiled SQL for test_pii_output
     compiled_path = os.path.join(project_dir, "target/compiled/transform_unit_tests/models/test_pii_output.sql")
     
