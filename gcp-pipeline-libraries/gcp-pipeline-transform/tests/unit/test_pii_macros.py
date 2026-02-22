@@ -9,10 +9,13 @@ def test_pii_macros_compilation():
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
     # Run dbt compile
+    env = os.environ.copy()
+    env["DBT_PROFILES_DIR"] = project_dir
     result = subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     assert result.returncode == 0, f"dbt compile failed: {result.stdout} {result.stderr}"
@@ -53,10 +56,13 @@ def test_audit_macros_compilation():
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
     # Run dbt compile
+    env = os.environ.copy()
+    env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     # Check compiled SQL for test_audit_output
@@ -77,10 +83,13 @@ def test_dq_macros_compilation():
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
     # Run dbt compile
+    env = os.environ.copy()
+    env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     # Check compiled SQL for test_dq_output
@@ -100,10 +109,13 @@ def test_enrichment_macros_compilation():
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
     # Run dbt compile
+    env = os.environ.copy()
+    env["DBT_PROFILES_DIR"] = project_dir
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--profiles-dir", project_dir, "--target", "dev"],
+        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev"],
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
 
     # Check compiled SQL for test_enrichment_output
