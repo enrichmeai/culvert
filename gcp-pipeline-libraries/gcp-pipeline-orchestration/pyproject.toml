@@ -10,6 +10,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "apache-airflow>=2.5.0",
+    "apache-airflow-providers-google>=10.1.0",
     "google-cloud-storage",
     "google-cloud-pubsub",
     "gcp-pipeline-core",

@@ -1,0 +1,382 @@
+.github/workflows/deploy-loa.yml:on:
+.github/workflows/deploy-loa.yml-  push:
+.github/workflows/deploy-loa.yml-    branches: [main]
+.github/workflows/deploy-loa.yml-    paths:
+.github/workflows/deploy-loa.yml-      - 'deployments/loa-*/**'
+.github/workflows/deploy-loa.yml-      - 'infrastructure/terraform/systems/loa/**'
+.github/workflows/deploy-loa.yml-  workflow_dispatch:
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-env:
+.github/workflows/deploy-loa.yml-  PYTHON_VERSION: '3.11'
+.github/workflows/deploy-loa.yml-  GCP_REGION: 'europe-west2'
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Set up Python
+.github/workflows/deploy-loa.yml-      uses: actions/setup-python@v5
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/deploy-loa.yml-        cache: 'pip'
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Install dependencies
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        python -m pip install --upgrade pip
+.github/workflows/deploy-loa.yml-        pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Run LOA tests
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        cd deployments/loa-ingestion
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-    needs: test
+.github/workflows/deploy-loa.yml-    environment: dev
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Setup Terraform
+.github/workflows/deploy-loa.yml-      uses: hashicorp/setup-terraform@v3
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        terraform_version: 1.5.0
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Terraform Init
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        cd infrastructure/terraform/systems/loa/ingestion
+.github/workflows/deploy-loa.yml-        terraform init
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Import Existing Resources
+.github/workflows/deploy-loa.yml-      continue-on-error: true
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        cd infrastructure/terraform/systems/loa/ingestion
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
+.github/workflows/deploy-loa.yml-    environment: dev
+.github/workflows/deploy-loa.yml-    continue-on-error: true
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Build and Push Docker Image
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        if [ -f "deployments/loa-ingestion/Dockerfile" ]; then
+.github/workflows/deploy-loa.yml-          gcloud builds submit \
+.github/workflows/deploy-loa.yml-            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/loa-pipeline:latest \
+.github/workflows/deploy-loa.yml-            --project ${{ secrets.GCP_PROJECT_ID }} \
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
+.github/workflows/deploy-loa.yml-    environment: dev
+.github/workflows/deploy-loa.yml-    continue-on-error: true
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Set up Python
+.github/workflows/deploy-loa.yml-      uses: actions/setup-python@v5
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Install dbt
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        pip install dbt-bigquery
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Run dbt
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        DBT_PATH="deployments/loa-transformation/dbt"
+.github/workflows/deploy-loa.yml-        if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
+.github/workflows/deploy-loa.yml-          cd "$DBT_PATH"
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
+.github/workflows/deploy-loa.yml-    environment: dev
+.github/workflows/deploy-loa.yml-    continue-on-error: true
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Upload DAGs to Composer
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+.github/workflows/deploy-loa.yml-        REGION="${{ env.GCP_REGION }}"
+.github/workflows/deploy-loa.yml-        COMPOSER_ENV="loa-dev-composer"
+.github/workflows/deploy-loa.yml-
+--
+.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
+.github/workflows/deploy-loa.yml-    needs: [deploy-infrastructure]
+.github/workflows/deploy-loa.yml-    if: always() && needs.deploy-infrastructure.result == 'success'
+.github/workflows/deploy-loa.yml-    environment: dev
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    steps:
+.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
+.github/workflows/deploy-loa.yml-      with:
+.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
+.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-    - name: Validate Resources
+.github/workflows/deploy-loa.yml-      run: |
+.github/workflows/deploy-loa.yml-        echo "=== Validating LOA Deployment ==="
+.github/workflows/deploy-loa.yml-
+.github/workflows/deploy-loa.yml-        echo "Checking BigQuery datasets..."
+.github/workflows/deploy-loa.yml-        bq ls --project_id=${{ secrets.GCP_PROJECT_ID }} | grep -E "odp_loa|fdp_loa" || echo "Datasets not found"
+--
+.github/workflows/ci.yml:on:
+.github/workflows/ci.yml-  push:
+.github/workflows/ci.yml-    branches: [main, develop]
+.github/workflows/ci.yml-  pull_request:
+.github/workflows/ci.yml-    branches: [main, develop]
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-env:
+.github/workflows/ci.yml-  PYTHON_VERSION: '3.11'
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-jobs:
+.github/workflows/ci.yml-  lint:
+--
+.github/workflows/ci.yml:    runs-on: ubuntu-latest
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    steps:
+.github/workflows/ci.yml-    - uses: actions/checkout@v4
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Set up Python
+.github/workflows/ci.yml-      uses: actions/setup-python@v5
+.github/workflows/ci.yml-      with:
+.github/workflows/ci.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Install lint tools
+.github/workflows/ci.yml-      run: |
+.github/workflows/ci.yml-        python -m pip install --upgrade pip
+.github/workflows/ci.yml-        pip install flake8 black isort mypy
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Lint gcp-pipeline-builder
+.github/workflows/ci.yml-      run: |
+.github/workflows/ci.yml-        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --select=E9,F63,F7,F82 --show-source --statistics
+.github/workflows/ci.yml-        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+--
+.github/workflows/ci.yml:    runs-on: ubuntu-latest
+.github/workflows/ci.yml-    needs: lint
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    steps:
+.github/workflows/ci.yml-    - uses: actions/checkout@v4
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Set up Python
+.github/workflows/ci.yml-      uses: actions/setup-python@v5
+.github/workflows/ci.yml-      with:
+.github/workflows/ci.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/ci.yml-        cache: 'pip'
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Install all dependencies
+.github/workflows/ci.yml-      run: |
+.github/workflows/ci.yml-        python -m pip install --upgrade pip
+.github/workflows/ci.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-builder[dev]
+.github/workflows/ci.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester[dev]
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Test gcp-pipeline-builder
+.github/workflows/ci.yml-      run: |
+--
+.github/workflows/ci.yml:    runs-on: ubuntu-latest
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    steps:
+.github/workflows/ci.yml-    - uses: actions/checkout@v4
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Setup Terraform
+.github/workflows/ci.yml-      uses: hashicorp/setup-terraform@v3
+.github/workflows/ci.yml-      with:
+.github/workflows/ci.yml:        terraform_version: 1.5.0
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Terraform Format Check
+.github/workflows/ci.yml-      run: |
+.github/workflows/ci.yml-        cd infrastructure/terraform
+.github/workflows/ci.yml-        terraform fmt -check -recursive || echo "::warning::Terraform files need formatting"
+.github/workflows/ci.yml-      continue-on-error: true
+.github/workflows/ci.yml-
+.github/workflows/ci.yml-    - name: Terraform Validate (EM)
+.github/workflows/ci.yml-      run: |
+.github/workflows/ci.yml-        cd infrastructure/terraform/em
+--
+.github/workflows/test.yml:on:
+.github/workflows/test.yml-  pull_request:
+.github/workflows/test.yml-    branches: [main, develop]
+.github/workflows/test.yml-  push:
+.github/workflows/test.yml-    branches: [main, develop]
+.github/workflows/test.yml-  workflow_dispatch:
+.github/workflows/test.yml-
+.github/workflows/test.yml-env:
+.github/workflows/test.yml-  PYTHON_VERSION: '3.11'
+.github/workflows/test.yml-
+.github/workflows/test.yml-jobs:
+--
+.github/workflows/test.yml:    runs-on: ubuntu-latest
+.github/workflows/test.yml-
+.github/workflows/test.yml-    strategy:
+.github/workflows/test.yml-      matrix:
+.github/workflows/test.yml-        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester]
+.github/workflows/test.yml-
+.github/workflows/test.yml-    steps:
+.github/workflows/test.yml-    - uses: actions/checkout@v4
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Set up Python
+.github/workflows/test.yml-      uses: actions/setup-python@v5
+--
+.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/test.yml-        cache: 'pip'
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Install dependencies
+.github/workflows/test.yml-      run: |
+.github/workflows/test.yml-        python -m pip install --upgrade pip
+.github/workflows/test.yml-        # Core is needed by beam and orchestration
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+.github/workflows/test.yml-        cd gcp-pipeline-libraries/${{ matrix.library }}
+.github/workflows/test.yml-        pip install -e .[dev] || pip install -e .
+.github/workflows/test.yml-
+--
+.github/workflows/test.yml:  test-em-ingestion:
+.github/workflows/test.yml-    name: Test EM Ingestion
+.github/workflows/test.yml:    runs-on: ubuntu-latest
+.github/workflows/test.yml-    needs: [test-libraries]
+.github/workflows/test.yml-
+.github/workflows/test.yml-    steps:
+.github/workflows/test.yml-    - uses: actions/checkout@v4
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Set up Python
+.github/workflows/test.yml-      uses: actions/setup-python@v5
+.github/workflows/test.yml-      with:
+.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/test.yml-        cache: 'pip'
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Install libraries
+.github/workflows/test.yml-      run: |
+.github/workflows/test.yml-        python -m pip install --upgrade pip
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Install EM deployment
+--
+.github/workflows/test.yml:  test-loa-ingestion:
+.github/workflows/test.yml-    name: Test LOA Ingestion
+.github/workflows/test.yml:    runs-on: ubuntu-latest
+.github/workflows/test.yml-    needs: [test-libraries]
+.github/workflows/test.yml-
+.github/workflows/test.yml-    steps:
+.github/workflows/test.yml-    - uses: actions/checkout@v4
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Set up Python
+.github/workflows/test.yml-      uses: actions/setup-python@v5
+.github/workflows/test.yml-      with:
+.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
+.github/workflows/test.yml-        cache: 'pip'
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Install libraries
+.github/workflows/test.yml-      run: |
+.github/workflows/test.yml-        python -m pip install --upgrade pip
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+.github/workflows/test.yml-
+.github/workflows/test.yml-    - name: Install LOA deployment
+--
+.github/workflows/test.yml:    runs-on: ubuntu-latest
+.github/workflows/test.yml-    needs: [test-libraries, test-em-ingestion, test-loa-ingestion]
+.github/workflows/test.yml-
+.github/workflows/test.yml-    steps:
+.github/workflows/test.yml-    - name: Summary
+.github/workflows/test.yml-      run: |
+.github/workflows/test.yml-        echo "✅ All tests passed!"
+.github/workflows/test.yml-        echo ""
+.github/workflows/test.yml-        echo "Test Summary:"
+.github/workflows/test.yml-        echo "  - Libraries (Core, Beam, Orch, Trans, Tester): ✅"
+.github/workflows/test.yml-        echo "  - EM Ingestion Deployment: ✅"
+--
+.github/workflows/ci-automation.yml:on:
+.github/workflows/ci-automation.yml-  push:
+.github/workflows/ci-automation.yml-    branches: [ main, develop ]
+.github/workflows/ci-automation.yml-  pull_request:
+.github/workflows/ci-automation.yml-    branches: [ main ]
+.github/workflows/ci-automation.yml-
+.github/workflows/ci-automation.yml-jobs:
+.github/workflows/ci-automation.yml-  test:
+.github/workflows/ci-automation.yml:    runs-on: ubuntu-latest
+.github/workflows/ci-automation.yml-    steps:
+.github/workflows/ci-automation.yml-      - uses: actions/checkout@v3
+.github/workflows/ci-automation.yml-
+.github/workflows/ci-automation.yml-      - name: Set up Python
+.github/workflows/ci-automation.yml-        uses: actions/setup-python@v4
+.github/workflows/ci-automation.yml-        with:
+.github/workflows/ci-automation.yml:          python-version: '3.9'
+.github/workflows/ci-automation.yml-
+.github/workflows/ci-automation.yml-      - name: Install dependencies
+.github/workflows/ci-automation.yml-        run: |
+.github/workflows/ci-automation.yml-          python -m pip install --upgrade pip
+.github/workflows/ci-automation.yml-          pip install pytest flake8
+.github/workflows/ci-automation.yml-          # Install library dependencies if needed
+.github/workflows/ci-automation.yml-          # find libraries -name "pyproject.toml" -exec pip install -e {} \;
+.github/workflows/ci-automation.yml-
+.github/workflows/ci-automation.yml-      - name: Run All Local Checks
+.github/workflows/ci-automation.yml-        run: |
+--
+.github/workflows/ci-automation.yml:    runs-on: ubuntu-latest
+.github/workflows/ci-automation.yml-    needs: test
+.github/workflows/ci-automation.yml-    if: github.event_name == 'pull_request'
+.github/workflows/ci-automation.yml-    steps:
+.github/workflows/ci-automation.yml-      - uses: actions/checkout@v3
+.github/workflows/ci-automation.yml-      - name: Validate Deployment Scripts
+.github/workflows/ci-automation.yml-        run: |
+.github/workflows/ci-automation.yml-          # Bash syntax check for all automation scripts
+.github/workflows/ci-automation.yml-          find scripts/automation -name "*.sh" -exec bash -n {} \;
+.github/workflows/ci-automation.yml-          echo "All automation scripts passed syntax check."
+--
+.github/workflows/qodana_code_quality.yml:on:
+.github/workflows/qodana_code_quality.yml-  workflow_dispatch:  # Manual trigger only
+.github/workflows/qodana_code_quality.yml-  # Disabled - requires QODANA_TOKEN
+.github/workflows/qodana_code_quality.yml-  # pull_request:
+.github/workflows/qodana_code_quality.yml-  # push:
+.github/workflows/qodana_code_quality.yml-  #   branches:
+.github/workflows/qodana_code_quality.yml-  #     - main
+.github/workflows/qodana_code_quality.yml-
+.github/workflows/qodana_code_quality.yml-jobs:
+.github/workflows/qodana_code_quality.yml-  qodana:
+.github/workflows/qodana_code_quality.yml:    runs-on: ubuntu-latest
+.github/workflows/qodana_code_quality.yml-    permissions:
+.github/workflows/qodana_code_quality.yml-      contents: write
+.github/workflows/qodana_code_quality.yml-      pull-requests: write
+.github/workflows/qodana_code_quality.yml-      checks: write
+.github/workflows/qodana_code_quality.yml-    steps:
+.github/workflows/qodana_code_quality.yml-      - uses: actions/checkout@v4
+.github/workflows/qodana_code_quality.yml-        with:
+.github/workflows/qodana_code_quality.yml-          ref: ${{ github.event.pull_request.head.sha }}
+.github/workflows/qodana_code_quality.yml-          fetch-depth: 0
+.github/workflows/qodana_code_quality.yml-      - name: 'Qodana Scan'
