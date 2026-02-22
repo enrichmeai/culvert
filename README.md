@@ -55,6 +55,20 @@ This structure provides global stability for shared components while maintaining
 
 The framework is designed to be simple to use. You can set up a new migration by following our guides and using our pre-built templates.
 
+### Environment Auto-Setup (venv)
+To ensure your IDE can resolve all modules immediately on open, initialize the root virtual environment and install dependencies:
+
+```bash
+# From the repository root
+./scripts/setup_ide_context.sh
+
+# Then activate it in your shell (optional but recommended)
+source venv/bin/activate
+```
+
+- PyCharm/IntelliJ: Set the project interpreter to the virtualenv at ./venv.
+- VS Code: If you have Python extension, it will usually auto-detect ./venv; otherwise select it manually.
+
 | Resource | Description |
 | :--- | :--- |
 | **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
