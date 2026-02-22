@@ -8,20 +8,21 @@ def test_pii_macros_compilation():
     base_dir = os.path.dirname(os.path.abspath(__file__))
     project_dir = os.path.join(base_dir, "dbt_test_project")
 
-    # Debug: Check if profiles.yml exists
-    profiles_path = os.path.join(project_dir, "profiles.yml")
-    print(f"DEBUG: project_dir={project_dir}")
-    print(f"DEBUG: profiles_path={profiles_path}")
-    print(f"DEBUG: profiles_exists={os.path.exists(profiles_path)}")
-    if os.path.exists(profiles_path):
-        with open(profiles_path, 'r') as f:
-            print(f"DEBUG: profiles_content:\n{f.read()}")
-
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
+    dbt_executable = "dbt"
+    # In some environments (like local venv), dbt might not be in PATH but in venv/bin
+    if not any(os.access(os.path.join(path, dbt_executable), os.X_OK) for path in os.environ.get("PATH", "").split(os.pathsep)):
+        # Try to find it relative to the python executable
+        import sys
+        venv_bin = os.path.dirname(sys.executable)
+        venv_dbt = os.path.join(venv_bin, dbt_executable)
+        if os.path.exists(venv_dbt):
+            dbt_executable = venv_dbt
+
     result = subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
+        [dbt_executable, "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -67,8 +68,18 @@ def test_audit_macros_compilation():
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
+    dbt_executable = "dbt"
+    # In some environments (like local venv), dbt might not be in PATH but in venv/bin
+    if not any(os.access(os.path.join(path, dbt_executable), os.X_OK) for path in os.environ.get("PATH", "").split(os.pathsep)):
+        # Try to find it relative to the python executable
+        import sys
+        venv_bin = os.path.dirname(sys.executable)
+        venv_dbt = os.path.join(venv_bin, dbt_executable)
+        if os.path.exists(venv_dbt):
+            dbt_executable = venv_dbt
+
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
+        [dbt_executable, "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -94,8 +105,18 @@ def test_dq_macros_compilation():
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
+    dbt_executable = "dbt"
+    # In some environments (like local venv), dbt might not be in PATH but in venv/bin
+    if not any(os.access(os.path.join(path, dbt_executable), os.X_OK) for path in os.environ.get("PATH", "").split(os.pathsep)):
+        # Try to find it relative to the python executable
+        import sys
+        venv_bin = os.path.dirname(sys.executable)
+        venv_dbt = os.path.join(venv_bin, dbt_executable)
+        if os.path.exists(venv_dbt):
+            dbt_executable = venv_dbt
+
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
+        [dbt_executable, "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
@@ -120,8 +141,18 @@ def test_enrichment_macros_compilation():
     # Run dbt compile
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = project_dir
+    dbt_executable = "dbt"
+    # In some environments (like local venv), dbt might not be in PATH but in venv/bin
+    if not any(os.access(os.path.join(path, dbt_executable), os.X_OK) for path in os.environ.get("PATH", "").split(os.pathsep)):
+        # Try to find it relative to the python executable
+        import sys
+        venv_bin = os.path.dirname(sys.executable)
+        venv_dbt = os.path.join(venv_bin, dbt_executable)
+        if os.path.exists(venv_dbt):
+            dbt_executable = venv_dbt
+
     subprocess.run(
-        ["dbt", "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
+        [dbt_executable, "compile", "--project-dir", project_dir, "--target", "dev", "--profiles-dir", project_dir],
         capture_output=True,
         text=True,
         env=env
