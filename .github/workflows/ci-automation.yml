@@ -20,9 +20,18 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest flake8
-          # Install library dependencies if needed
-          # find libraries -name "pyproject.toml" -exec pip install -e {} \;
+          pip install pytest pytest-mock pytest-cov flake8
+          
+          # Install all libraries in editable mode to ensure their dependencies are installed
+          # core first
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-transform
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+
+          # dbt-bigquery is needed for transform library tests
+          pip install dbt-bigquery
 
       - name: Run All Local Checks
         run: |
