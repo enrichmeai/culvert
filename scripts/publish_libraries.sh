@@ -18,6 +18,7 @@ NC='\033[0m'
 
 # Choose target repository name/URL
 REPOSITORY_NAME="${1:-pypi}"
+PROJECT_ROOT=$(pwd)
 
 if [ "$REPOSITORY_NAME" == "testpypi" ]; then
     PYPI_URL="https://test.pypi.org/legacy/"
@@ -36,10 +37,17 @@ LIBRARIES=(
     "gcp-pipeline-tester"
 )
 
+# Use virtual environment python if available, otherwise fallback to system python
+if [ -f "$PROJECT_ROOT/venv/bin/python" ]; then
+    PYTHON_CMD="$PROJECT_ROOT/venv/bin/python"
+else
+    PYTHON_CMD="python3"
+fi
+
 # Check for twine
-if ! python3 -m twine --version &> /dev/null; then
+if ! $PYTHON_CMD -m twine --version &> /dev/null; then
     echo -e "${YELLOW}Installing twine for publishing...${NC}"
-    python3 -m pip install --upgrade twine build
+    $PYTHON_CMD -m pip install --upgrade twine build
 fi
 
 for lib in "${LIBRARIES[@]}"; do
@@ -52,14 +60,14 @@ for lib in "${LIBRARIES[@]}"; do
     
     # Build package
     echo "  Building package..."
-    python3 -m build
+    $PYTHON_CMD -m build
     
     # Upload package
     echo "  Uploading to PyPI..."
     if [ "$REPOSITORY_NAME" == "testpypi" ]; then
-        python3 -m twine upload --repository testpypi dist/* --skip-existing
+        $PYTHON_CMD -m twine upload --repository testpypi dist/* --skip-existing
     else
-        python3 -m twine upload dist/* --skip-existing
+        $PYTHON_CMD -m twine upload dist/* --skip-existing
     fi
     
     cd - > /dev/null
