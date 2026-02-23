@@ -72,7 +72,7 @@ class SafeDataDeletion:
             "timestamp": now.isoformat()
         })
 
-        logger.info("Deletion approval requested for: %s", record.record_id)
+        logger.info("Deletion approval requested for record", record_id=record.record_id)
 
         return approval_request
 
@@ -100,9 +100,7 @@ class SafeDataDeletion:
             "run_id": run_id
         })
 
-        logger.info("Deletion approved for: %s by %s", record.record_id,
-                   approved_by)
-
+        logger.info("Deletion approved for record", record_id=record.record_id, approved_by=approved_by)
     def delete_record(
         self,
         record: MalformedRecord,
@@ -120,8 +118,8 @@ class SafeDataDeletion:
         """
         if record.quarantine_level != QuarantineLevel.DELETE_APPROVED:
             logger.error(
-                "Cannot delete record %s - not approved for deletion",
-                record.record_id
+                "Cannot delete record - not approved for deletion",
+                record_id=record.record_id
             )
             return False
 
@@ -136,12 +134,12 @@ class SafeDataDeletion:
                 "run_id": run_id
             })
 
-            logger.info("Record deleted: %s", record.record_id)
+            logger.info("Record deleted", record_id=record.record_id)
             return True
 
         except Exception as exc:
-            logger.error("Failed to delete record %s: %s",
-                        record.record_id, str(exc), exc_info=True)
+            logger.error("Failed to delete record",
+                        record_id=record.record_id, error=str(exc), exc_info=True)
             return False
 
     def delete_batch(
@@ -189,8 +187,8 @@ class SafeDataDeletion:
                 })
 
         logger.info(
-            "Batch deletion completed: %d deleted, %d failed, %d skipped",
-            results["deleted"], results["failed"], results["skipped"]
+            "Batch deletion completed",
+            deleted=results["deleted"], failed=results["failed"], skipped=results["skipped"]
         )
         return results
 

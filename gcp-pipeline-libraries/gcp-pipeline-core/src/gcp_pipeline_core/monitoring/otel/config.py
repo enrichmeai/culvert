@@ -27,7 +27,8 @@ class OTELExporterType(Enum):
     CONSOLE = "console"      # Debug output to console
     OTLP = "otlp"           # Generic OTLP (gRPC)
     OTLP_HTTP = "otlp_http" # OTLP over HTTP (Dynatrace uses this)
-    GCP_TRACE = "gcp_trace" # Google Cloud Trace
+    GCP_OTLP = "gcp_otlp"   # GCP Native OTel (telemetry.googleapis.com)
+    GCP_TRACE = "gcp_trace" # Google Cloud Trace (Legacy/Direct)
     DYNATRACE = "dynatrace" # Dynatrace (convenience alias for OTLP_HTTP)
     NONE = "none"           # Disabled
 
@@ -148,6 +149,34 @@ class OTELConfig:
             exporter_type=OTELExporterType.DYNATRACE,
             dynatrace_url=dynatrace_url,
             dynatrace_token=dynatrace_token,
+            environment=environment,
+            **kwargs
+        )
+
+    @classmethod
+    def for_gcp_otlp(
+        cls,
+        service_name: str,
+        project_id: str,
+        environment: str = "dev",
+        **kwargs
+    ) -> "OTELConfig":
+        """
+        Create configuration for GCP native OTel ingestion.
+
+        Args:
+            service_name: Name of the pipeline service
+            project_id: GCP project ID
+            environment: Deployment environment
+
+        Returns:
+            Configured OTELConfig for GCP OTel (telemetry.googleapis.com)
+        """
+        return cls(
+            service_name=service_name,
+            exporter_type=OTELExporterType.GCP_OTLP,
+            gcp_project_id=project_id,
+            otlp_endpoint="telemetry.googleapis.com:443",
             environment=environment,
             **kwargs
         )

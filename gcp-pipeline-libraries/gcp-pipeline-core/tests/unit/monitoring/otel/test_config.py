@@ -15,6 +15,7 @@ class TestOTELExporterType:
         assert OTELExporterType.CONSOLE.value == "console"
         assert OTELExporterType.OTLP.value == "otlp"
         assert OTELExporterType.OTLP_HTTP.value == "otlp_http"
+        assert OTELExporterType.GCP_OTLP.value == "gcp_otlp"
         assert OTELExporterType.GCP_TRACE.value == "gcp_trace"
         assert OTELExporterType.DYNATRACE.value == "dynatrace"
         assert OTELExporterType.NONE.value == "none"
@@ -117,6 +118,17 @@ class TestOTELConfig:
             otlp_endpoint="http://localhost:4317",
         )
         assert config.otlp_endpoint == "http://localhost:4317"
+
+    def test_gcp_otlp_config_factory(self):
+        """Test GCP OTLP configuration factory."""
+        config = OTELConfig.for_gcp_otlp(
+            service_name="test-pipeline",
+            project_id="my-project",
+        )
+        assert config.exporter_type == OTELExporterType.GCP_OTLP
+        assert config.gcp_project_id == "my-project"
+        assert config.otlp_endpoint == "telemetry.googleapis.com:443"
+        assert config.service_name == "test-pipeline"
 
     def test_resource_attributes(self):
         """Test resource attributes."""
