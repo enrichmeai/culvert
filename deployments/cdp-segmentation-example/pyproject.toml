@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cdp-segmentation-example"
-version = "1.0.0"
+version = "1.0.1"
 description = "CDP Segmentation Example - GCS to BigQuery and GCS exports"
 readme = "README.md"
 requires-python = ">=3.9"

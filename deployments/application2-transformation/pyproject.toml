@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "application2-transformation"
-version = "1.0.0"
+version = "1.0.1"
 description = "Application2 FDP Transformation - dbt models for ODP to FDP (MAP: 1 source → 1 target)"
 readme = "README.md"
 license = {text = "MIT"}
