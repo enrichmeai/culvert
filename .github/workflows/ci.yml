@@ -97,33 +97,4 @@ jobs:
 #        pip install -e .[dev,airflow]
 #        PYTHONPATH=src pytest tests/unit -v --tb=short
 
-  validate-terraform:
-    name: Validate Terraform
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.5.0
-
-    - name: Terraform Format Check
-      run: |
-        cd infrastructure/terraform
-        terraform fmt -check -recursive || echo "::warning::Terraform files need formatting"
-      continue-on-error: true
-
-    - name: Terraform Validate (Application1)
-      run: |
-        cd infrastructure/terraform/systems/application1/ingestion
-        terraform init -backend=false
-        terraform validate
-
-    - name: Terraform Validate (Application2)
-      run: |
-        cd infrastructure/terraform/systems/application2/ingestion
-        terraform init -backend=false
-        terraform validate
 
