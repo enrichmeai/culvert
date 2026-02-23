@@ -30,5 +30,5 @@ sed "s/<SYSTEM_ID>/${SYSTEM_ID_UPPER}/g; s/<system_id>/${SYSTEM_ID_LOWER}/g" "te
 
 echo "✅ Done! Files created in ${TARGET_DIR} and .github/workflows/"
 echo "Next steps:"
-echo "1. Customize REQUIRED_ENTITIES in ${TARGET_DIR}/${SYSTEM_ID_LOWER}_odp_load_dag.py"
+echo "1. Customize REQUIRED_ENTITIES in ${TARGET_DIR}/${SYSTEM_ID_LOWER}_odp_application2d_dag.py"
 echo "2. Customize dbt selectors in ${TARGET_DIR}/${SYSTEM_ID_LOWER}_fdp_transform_dag.py"

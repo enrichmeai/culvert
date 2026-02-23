@@ -1,4 +1,4 @@
-# LOA Blueprint - Google Dataflow Configuration
+# Application2 Blueprint - Google Dataflow Configuration
 #
 # Provisions Dataflow resources for:
 # - Pipeline job templates

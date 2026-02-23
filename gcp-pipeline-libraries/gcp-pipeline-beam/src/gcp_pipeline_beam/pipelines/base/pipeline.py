@@ -87,7 +87,7 @@ class BasePipeline(ABC):
         Example:
             >>> config = PipelineConfig(
             ...     run_id='run_20231225_001',
-            ...     pipeline_name='loa_applications_migration'
+            ...     pipeline_name='application2_applications_migration'
             ... )
             >>> options = GDWPipelineOptions(['--num_workers=2'])
             >>> pipeline = BasePipeline(options, config)

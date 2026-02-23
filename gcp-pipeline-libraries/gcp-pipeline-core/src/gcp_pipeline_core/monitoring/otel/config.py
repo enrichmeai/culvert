@@ -47,7 +47,7 @@ class OTELConfig:
     Configuration for OpenTelemetry integration.
 
     Attributes:
-        service_name: Name of the service (e.g., "em-pipeline")
+        service_name: Name of the service (e.g., "application1-pipeline")
         service_version: Version of the service
         environment: Deployment environment (dev, staging, prod)
         exporter_type: Type of exporter to use
@@ -62,7 +62,7 @@ class OTELConfig:
 
     Example:
         >>> config = OTELConfig.for_dynatrace(
-        ...     service_name="em-pipeline",
+        ...     service_name="application1-pipeline",
         ...     dynatrace_url="https://xyz.live.dynatrace.com/api/v2/otlp",
         ...     dynatrace_token="dt0c01.xxx",
         ... )

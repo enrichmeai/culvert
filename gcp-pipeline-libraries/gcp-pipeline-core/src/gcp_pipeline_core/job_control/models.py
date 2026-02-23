@@ -16,7 +16,7 @@ class PipelineJob:
 
     Attributes:
         run_id: Unique identifier for this pipeline run
-        system_id: Source system identifier (e.g., EM, LOA)
+        systapplication1_id: Source system identifier (e.g., Application1, Application2)
         entity_type: Type of entity being processed (Customer, Account, etc.)
         extract_date: Date of the source data extract
         status: Current job status
@@ -33,7 +33,7 @@ class PipelineJob:
         updated_at: Record last update timestamp
     """
     run_id: str
-    system_id: str
+    systapplication1_id: str
     entity_type: str
     extract_date: date
     status: JobStatus = JobStatus.PENDING

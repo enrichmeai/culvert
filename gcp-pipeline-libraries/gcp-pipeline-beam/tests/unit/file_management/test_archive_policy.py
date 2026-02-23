@@ -253,10 +253,10 @@ class TestArchivePolicyEngineResolvePath:
         path = engine.resolve_path(
             source_path="landing/audit.log",
             entity="audit",
-            source="mainframe",
+            source="external",
             policy_name="audit_logs"
         )
-        assert "mainframe" in path
+        assert "external" in path
 
     def test_resolve_path_extracts_filename(self, sample_config_dict):
         """Test filename extraction from source path."""

@@ -19,7 +19,7 @@ Ingestion library - Beam pipelines, transforms, file management.
   │  ┌─────────────────────────────────────────────────────────┐    │
   │  │                    File Management                       │    │
   │  │  • HDR/TRL Parser (header/trailer validation)           │    │
-  │  │  • Split File Handler (reassemble >25MB files)          │    │
+  │  │  • Split File Handler (reassemble split files)           │    │
   │  │  • File Archiver (move to archive bucket)               │    │
   │  └─────────────────────────────────────────────────────────┘    │
   │                              │                                   │
@@ -91,7 +91,7 @@ Ingestion library - Beam pipelines, transforms, file management.
 
 ## Split File Handling
 
-Files larger than 25MB are split by mainframe. The `.ok` file signals ALL splits are ready.
+The system supports processing files that have been split into multiple parts. The `.ok` file signals ALL splits are ready.
 
 ```
   GCS Landing Bucket                         Pub/Sub & Processing
@@ -132,17 +132,17 @@ Files larger than 25MB are split by mainframe. The `.ok` file signals ALL splits
 
 ```python
 # 1. Pub/Sub receives notification for .ok file
-#    Message: {"name": "em/customers/customers.csv.ok", "bucket": "landing"}
+#    Message: {"name": "application1/customers/customers.csv.ok", "bucket": "landing"}
 
 # 2. Sensor extracts entity name from .ok file
 #    entity = "customers"  (from customers.csv.ok)
 
 # 3. File discovery finds all matching splits
-#    pattern = f"gs://landing/em/customers/customers*.csv"
+#    pattern = f"gs://landing/application1/customers/customers*.csv"
 #    files = [
-#        "gs://landing/em/customers/customers_1.csv",
-#        "gs://landing/em/customers/customers_2.csv", 
-#        "gs://landing/em/customers/customers_3.csv",
+#        "gs://landing/application1/customers/customers_1.csv",
+#        "gs://landing/application1/customers/customers_2.csv", 
+#        "gs://landing/application1/customers/customers_3.csv",
 #    ]
 
 # 4. All files processed in single Dataflow job
@@ -175,7 +175,7 @@ Files larger than 25MB are split by mainframe. The `.ok` file signals ALL splits
 ## Key Findings
 
 ### 1. Advanced HDR/TRL Parsing
-- **Configurable Parser**: Highly flexible regex-based parsing for mainframe-style headers and trailers.
+- **Configurable Parser**: Highly flexible regex-based parsing for header and trailer validation.
 - **Support**: Handles custom patterns, prefixes, and multi-field extraction for diverse source systems.
 - **Validation**: Automated record count and checksum verification against trailer values.
 
@@ -191,7 +191,7 @@ Files larger than 25MB are split by mainframe. The `.ok` file signals ALL splits
 - **In-flight Masking**: Supports PII masking during the ingestion process, ensuring sensitive data is protected before landing in BigQuery.
 
 ### 4. Split File Handling
-- Specialized logic for reassembling and processing files split at 25MB thresholds by mainframe systems.
+- Specialized logic for reassembling and processing split files from source systems.
 
 ---
 

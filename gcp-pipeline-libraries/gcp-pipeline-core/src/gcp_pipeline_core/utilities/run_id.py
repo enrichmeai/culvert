@@ -34,8 +34,8 @@ def generate_run_id(job_name: str, timestamp: Optional[str] = None, include_uuid
         ValueError: If job_name is empty
 
     Example:
-        >>> run_id = generate_run_id('loa_applications_migration')
-        >>> # Returns: 'loa_applications_migration_20231225_143022_a1b2c3d4'
+        >>> run_id = generate_run_id('application2_applications_migration')
+        >>> # Returns: 'application2_applications_migration_20231225_143022_a1b2c3d4'
         >>>
         >>> # With custom timestamp
         >>> run_id = generate_run_id('pipeline', timestamp='20231225_100000')

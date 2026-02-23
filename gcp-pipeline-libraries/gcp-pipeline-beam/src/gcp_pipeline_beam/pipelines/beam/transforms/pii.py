@@ -29,7 +29,7 @@ class MaskPIIDoFn(beam.DoFn):
     - PARTIAL: masks all but last 4
     
     Example:
-        >>> from em.schema import EMCustomerSchema
+        >>> from application1.schema import EMCustomerSchema
         >>> masked = records | beam.ParDo(MaskPIIDoFn(EMCustomerSchema))
     """
 

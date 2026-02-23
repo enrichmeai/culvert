@@ -94,17 +94,17 @@ class TestStructuredLogger(unittest.TestCase):
         logger = StructuredLogger(
             name="test_structured",
             run_id="run_123",
-            system_id="EM"
+            systapplication1_id="Application1"
         )
         self.assertIsNotNone(logger)
         self.assertEqual(logger.run_id, "run_123")
-        self.assertEqual(logger.system_id, "EM")
+        self.assertEqual(logger.systapplication1_id, "Application1")
 
     def test_log_info(self):
         """info() should log at INFO level."""
         logger = configure_structured_logging(
             run_id="test_run",
-            system_id="EM",
+            systapplication1_id="Application1",
             logger_name="test_info",
             stream=self.stream
         )
@@ -120,7 +120,7 @@ class TestStructuredLogger(unittest.TestCase):
         """Logger should include extra fields."""
         logger = configure_structured_logging(
             run_id="test_run",
-            system_id="EM",
+            systapplication1_id="Application1",
             logger_name="test_extra",
             stream=self.stream
         )
@@ -133,10 +133,10 @@ class TestStructuredLogger(unittest.TestCase):
         self.assertEqual(log_entry['stage'], 'parse')
 
     def test_context_included(self):
-        """Context (run_id, system_id) should be included."""
+        """Context (run_id, systapplication1_id) should be included."""
         logger = configure_structured_logging(
-            run_id="em_20260105_123456",
-            system_id="EM",
+            run_id="application1_20260105_123456",
+            systapplication1_id="Application1",
             entity_type="customers",
             logger_name="test_context",
             stream=self.stream
@@ -146,15 +146,15 @@ class TestStructuredLogger(unittest.TestCase):
         output = self.stream.getvalue().strip()
         log_entry = json.loads(output)
 
-        self.assertEqual(log_entry['run_id'], 'em_20260105_123456')
-        self.assertEqual(log_entry['system_id'], 'EM')
+        self.assertEqual(log_entry['run_id'], 'application1_20260105_123456')
+        self.assertEqual(log_entry['systapplication1_id'], 'Application1')
         self.assertEqual(log_entry['entity_type'], 'customers')
 
     def test_set_context(self):
         """set_context should update context."""
         logger = configure_structured_logging(
             run_id="initial_run",
-            system_id="EM",
+            systapplication1_id="Application1",
             logger_name="test_set_context",
             stream=self.stream
         )

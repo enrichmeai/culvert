@@ -17,7 +17,7 @@ class TestSchemaValidator(unittest.TestCase):
         """Create test schema."""
         self.schema = EntitySchema(
             entity_name="test_entity",
-            system_id="TEST",
+            systapplication1_id="TEST",
             fields=[
                 SchemaField(
                     name="id",
@@ -275,13 +275,13 @@ class TestSchemaValidator(unittest.TestCase):
 
 
 class TestSchemaValidatorWithRealSchema(unittest.TestCase):
-    """Test SchemaValidator with realistic EM-like schema."""
+    """Test SchemaValidator with realistic Application1-like schema."""
 
     def setUp(self):
-        """Create EM-like customer schema."""
+        """Create Application1-like customer schema."""
         self.customer_schema = EntitySchema(
             entity_name="customers",
-            system_id="EM",
+            systapplication1_id="Application1",
             fields=[
                 SchemaField(
                     name="customer_id",

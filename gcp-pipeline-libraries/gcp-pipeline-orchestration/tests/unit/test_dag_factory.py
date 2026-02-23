@@ -73,25 +73,25 @@ class TestDAGFactory:
     def test_create_dag_from_config(self):
         """Test creating DAG from configuration dict."""
         config = {
-            'dag_id': 'loa_daily_job',
+            'dag_id': 'application2_daily_job',
             'schedule_interval': '@daily',
             'start_date': '2023-01-01',
             'catchup': False,
             'default_args': {
-                'owner': 'loa_team',
+                'owner': 'application2_team',
                 'retries': 3,
                 'retry_delay_minutes': 5
             },
-            'tags': ['loa', 'migration']
+            'tags': ['application2', 'migration']
         }
 
         factory = DAGFactory()
         dag = factory.create_dag_from_dict(config)
 
-        assert dag.dag_id == 'loa_daily_job'
-        assert dag.default_args['owner'] == 'loa_team'
+        assert dag.dag_id == 'application2_daily_job'
+        assert dag.default_args['owner'] == 'application2_team'
         assert dag.default_args['retries'] == 3
-        assert 'loa' in dag.tags
+        assert 'application2' in dag.tags
 
     def test_create_dag_from_config_with_invalid_start_date(self):
         """Test DAG creation handles invalid start date gracefully."""

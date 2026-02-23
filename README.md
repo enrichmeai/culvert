@@ -13,13 +13,21 @@ A **standardized framework** for moving data from legacy mainframe systems to Go
 The entire framework can be installed via the umbrella package:
 
 ```bash
-pip install gcp-migration-framework
+pip install gcp-pipeline-framework
 ```
 
 This will install all the libraries listed below. Alternatively, you can install only the specific libraries you need.
 
-### Shared Library Foundation
-Instead of rebuilding common features for every system, the framework provides five core libraries (`core`, `beam`, `orchestration`, `transform`, `tester`). This ensures that every migration follows the same high standards for data integrity, security, and **observability** (including built-in **Dynatrace** integration). Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
+### Library Features
+
+The libraries provide shared features across all systems:
+*   **Audit Trail:** Centralized tracking via `gcp-pipeline-core`.
+*   **Ingestion Patterns:** Standardized Beam pipelines in `gcp-pipeline-beam`.
+*   **Orchestration:** Reusable Airflow operators in `gcp-pipeline-orchestration`.
+*   **Transformation Macros:** Shared dbt macros in `gcp-pipeline-transform`.
+*   **Testing Utilities:** Base classes and mocks in `gcp-pipeline-tester`.
+
+Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
 #### Technology Links
 *   [Google Cloud Platform (GCP)](https://cloud.google.com/docs)
@@ -57,7 +65,7 @@ By splitting each system into three independent parts (Ingestion, Transformation
 
 In a production environment, the framework follows a decoupled multi-repository strategy:
 1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository orchestrates unified tagging and CI for all libraries.
-2.  **Independent Deployment Repositories**: Each system component (e.g., `em-ingestion`, `em-transformation`) resides in its own dedicated repository. Each has its own CI/CD for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
+2.  **Independent Deployment Repositories**: Each system component (e.g., `application1-ingestion`, `application1-transformation`) resides in its own dedicated repository. Each has its own CI/CD for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
 
 This structure provides global stability for shared components while maintaining local agility for specific data pipelines.
 
@@ -100,11 +108,11 @@ The framework supports local testing and cloud-based validation.
 Each part of a system has its own isolated environment. Use the setup script to get started:
 
 ```bash
-# Example: Setup the ingestion part for the EM system
-./scripts/setup_deployment_venv.sh em-ingestion
+# Example: Setup the ingestion part for the Application1 system
+./scripts/setup_deployment_venv.sh application1-ingestion
 
 # Activate the environment
-source deployments/em-ingestion/venv/bin/activate
+source deployments/application1-ingestion/venv/bin/activate
 ```
 
 This script sets up everything you need to develop and test locally.
@@ -117,10 +125,10 @@ To run all shared library tests (900+ tests):
 ./scripts/run_library_tests.sh
 ```
 
-#### System-Specific Tests
+#### Systapplication1-Specific Tests
 To run tests for a specific system component (using embedded libraries):
 ```bash
-cd deployments/em-ingestion
+cd deployments/application1-ingestion
 python -m pytest tests/unit/
 ```
 
@@ -131,8 +139,8 @@ You can test ingestion on your own machine without using Google Cloud. This is g
 
 ```bash
 # Activate the ingestion environment
-cd deployments/em-ingestion
-python -m em_ingestion.pipeline.main \
+cd deployments/application1-ingestion
+python -m application1_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
     --output_table=project:dataset.table \
     --runner=DirectRunner \
@@ -143,7 +151,7 @@ python -m em_ingestion.pipeline.main \
 You can also run your data transformation rules (dbt) locally:
 
 ```bash
-cd deployments/em-transformation/dbt
+cd deployments/application1-transformation/dbt
 dbt run --profiles-dir . --target dev
 ```
 
@@ -152,11 +160,11 @@ dbt run --profiles-dir . --target dev
 To test the full flow on Google Cloud, use the simulation script. This mimics a file arriving from a mainframe:
 
 ```bash
-# Simulates a file arrival for the EM system
-./scripts/gcp/06_test_pipeline.sh em
+# Simulates a file arrival for the Application1 system
+./scripts/gcp/06_test_pipeline.sh application1
 
-# Simulates LOA file arrival
-./scripts/gcp/06_test_pipeline.sh loa
+# Simulates Application2 file arrival
+./scripts/gcp/06_test_pipeline.sh application2
 ```
 
 This script performs the following actions:
@@ -169,7 +177,7 @@ This script performs the following actions:
 
 ## [Architecture](./docs/TECHNICAL_ARCHITECTURE.md)
 
-### 4-Library Model
+### 4-Library Model (Grouped under gcp-pipeline-framework)
 
 ```
 gcp-pipeline-core (Foundation - NO beam, NO airflow)
@@ -182,6 +190,7 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
+| [`gcp-pipeline-framework`](./gcp-pipeline-libraries/gcp-pipeline-framework/) | **Umbrella package** - Installs all libraries below | - |
 | [`gcp-pipeline-core`](./gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 219 |
 | [`gcp-pipeline-beam`](./gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 359 |
 | [`gcp-pipeline-orchestration`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 58 |
@@ -194,8 +203,8 @@ Each system is split into 3 independent units (Ingestion, Transformation, Orches
 
 | System | Ingestion | Transformation | Orchestration |
 |--------|-----------|----------------|---------------|
-| **EM** | [em-ingestion](./deployments/em-ingestion/) (26 tests) | [em-transformation](./deployments/em-transformation/) | [em-orchestration](./deployments/em-orchestration/) |
-| **LOA** | [loa-ingestion](./deployments/loa-ingestion/) (20 tests) | [loa-transformation](./deployments/loa-transformation/) | [loa-orchestration](./deployments/loa-orchestration/) |
+| **Application1** | [application1-ingestion](./deployments/application1-ingestion/) (26 tests) | [application1-transformation](./deployments/application1-transformation/) | [application1-orchestration](./deployments/application1-orchestration/) |
+| **Application2** | [application2-ingestion](./deployments/application2-ingestion/) (20 tests) | [application2-transformation](./deployments/application2-transformation/) | [application2-orchestration](./deployments/application2-orchestration/) |
 | **Spanner** | - | [spanner-transformation](./deployments/spanner-transformation/) | - |
 
 **Note:** In the `deployments` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
@@ -239,7 +248,7 @@ CSV files             + .ok file     │
 ### File Format
 
 ```
-HDR|EM|CUSTOMERS|20260101           ← Header: System, Entity, Date
+HDR|Application1|CUSTOMERS|20260101           ← Header: System, Entity, Date
 customer_id,name,ssn,status         ← CSV headers
 1001,John Doe,123-45-6789,ACTIVE    ← Data rows
 1002,Jane Smith,987-65-4321,ACTIVE
@@ -252,7 +261,7 @@ Files > 25MB are split by mainframe with naming: `customers_1.csv`, `customers_2
 
 Single `.ok` file signals all splits are complete:
 ```
-gs://landing/em/customers/
+gs://landing/application1/customers/
 ├── customers_1.csv
 ├── customers_2.csv
 └── customers.csv.ok    ← Triggers processing of ALL splits
@@ -262,7 +271,7 @@ gs://landing/em/customers/
 
 ## Reference Implementations
 
-### EM (Application A) - MULTI-TARGET Pattern
+### Application1 (Application A) - MULTI-TARGET Pattern
 
 | Aspect | Value |
 |--------|-------|
@@ -271,7 +280,7 @@ gs://landing/em/customers/
 | FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
 | Dependency | Wait for all 3 entities before FDP transformation |
 
-### LOA (Application B) - MAP Pattern
+### Application2 (Application B) - MAP Pattern
 
 | Aspect | Value |
 |--------|-------|
@@ -303,20 +312,20 @@ gcp-pipeline-libraries/
 └── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # 101 tests - Testing utilities
 
 [deployments/](./deployments/)
-├── [`em-ingestion/`](./deployments/em-ingestion/)                # 26 tests (3 sources)
-├── [`em-transformation/`](./deployments/em-transformation/)           # dbt models (2 targets)
-├── [`em-orchestration/`](./deployments/em-orchestration/)            # Airflow DAGs
-├── [`loa-ingestion/`](./deployments/loa-ingestion/)               # 20 tests (1 source)
-├── [`loa-transformation/`](./deployments/loa-transformation/)          # dbt models (1 target)
-├── [`loa-orchestration/`](./deployments/loa-orchestration/)           # Airflow DAGs
+├── [`application1-ingestion/`](./deployments/application1-ingestion/)                # 26 tests (3 sources)
+├── [`application1-transformation/`](./deployments/application1-transformation/)           # dbt models (2 targets)
+├── [`application1-orchestration/`](./deployments/application1-orchestration/)            # Airflow DAGs
+├── [`application2-ingestion/`](./deployments/application2-ingestion/)               # 20 tests (1 source)
+├── [`application2-transformation/`](./deployments/application2-transformation/)          # dbt models (1 target)
+├── [`application2-orchestration/`](./deployments/application2-orchestration/)           # Airflow DAGs
 └── [`spanner-transformation/`](./deployments/spanner-transformation/)    # dbt models (Federated)
 
 infrastructure/terraform/
-├── systems/em/                  # EM infrastructure
+├── systems/application1/                  # Application1 infrastructure
 │   ├── ingestion/               # GCS, Pub/Sub
 │   ├── transformation/          # BigQuery datasets
 │   └── orchestration/           # Service accounts, IAM
-└── systems/loa/                 # LOA infrastructure
+└── systems/application2/                 # Application2 infrastructure
     ├── ingestion/
     ├── transformation/
     └── orchestration/
@@ -348,10 +357,10 @@ cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src pyth
 cd ../gcp-pipeline-tester && PYTHONPATH=src python -m pytest tests/unit/ -q
 
 # Embedded Deployments (46 tests)
-cd ../../deployments/loa-ingestion && \
+cd ../../deployments/application2-ingestion && \
   python -m pytest tests/unit/ -q
 
-cd ../em-ingestion && \
+cd ../application1-ingestion && \
   python -m pytest tests/unit/ -q
 ```
 
@@ -365,8 +374,8 @@ cd ../em-ingestion && \
 | gcp-pipeline-beam | 359 |
 | gcp-pipeline-orchestration | 58 |
 | gcp-pipeline-tester | 101 |
-| loa-ingestion (embedded) | 20 |
-| em-ingestion (embedded) | 26 |
+| application2-ingestion (embedded) | 20 |
+| application1-ingestion (embedded) | 26 |
 | **Total** | **783** |
 
 ---

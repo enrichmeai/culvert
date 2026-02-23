@@ -12,7 +12,7 @@ This document defines the production-grade architecture for the Legacy Mainframe
 ## 3. System Architecture
 
 ### 3.1 The 3-Unit Deployment Model
-Every system (e.g., EM, LOA) is implemented as three independent functional units:
+Every system (e.g., Application1, Application2) is implemented as three independent functional units:
 
 1.  **Unit 1: Ingestion (Beam/Dataflow)**: Handles I/O, file validation, and raw loading.
 2.  **Unit 2: Transformation (dbt/BigQuery)**: Implements business logic and data modeling.
@@ -43,7 +43,7 @@ This table manages the state machine for every migration run.
 | Column | Type | Description |
 |--------|------|-------------|
 | `run_id` | STRING | Unique ID (Correlation ID) |
-| `system_id` | STRING | Source system (EM, LOA) |
+| `systapplication1_id` | STRING | Source system (e.g., Application1, Application2) |
 | `entity_type` | STRING | Entity (Customers, Accounts) |
 | `extract_date` | DATE | Source file extract date |
 | `status` | STRING | PENDING, RUNNING, SUCCESS, FAILED |
@@ -154,8 +154,8 @@ Each unit runs with its own dedicated Service Account:
 *   **Worker Slots**: By using "fire-and-forget" triggers and Sensors in `reschedule` mode, we minimize the time a DAG occupies a worker slot, significantly reducing Cloud Composer costs.
 
 ### 9.2 Cross-DAG Coordination
-*   **TriggerDagRunOperator**: Used for direct downstream triggers when the relationship is 1:1 (like in LOA).
-*   **Job Control Polling**: Used for complex joins (like in EM). The `em_dependency_check_dag` queries the `job_control` table to see if all required entities for a given `extract_date` have reached the `SUCCESS` state before triggering the transformation. This is more robust than using `ExternalTaskSensor` which is tied to specific execution times.
+*   **TriggerDagRunOperator**: Used for direct downstream triggers when the relationship is 1:1.
+*   **Job Control Polling**: Used for complex joins. A dependency check DAG queries the `job_control` table to see if all required entities for a given `extract_date` have reached the `SUCCESS` state before triggering the transformation. This is more robust than using `ExternalTaskSensor` which is tied to specific execution times.
 
 ### 9.3 Shared-Nothing vs. Shared-Everything
 The 3-unit model enforces a **Shared-Nothing** architecture at the runtime level. The Ingestion unit has no knowledge of Airflow, and the Orchestration unit has no knowledge of Beam. This allows for:
@@ -257,7 +257,7 @@ As the Enterprise Ingestion Framework is currently not yet started, this framewo
 *   **Future Proofing**: Because our architecture is decoupled (Unit 1 is independent of Unit 2/3), systems started on this framework can easily migrate to the Enterprise Ingestion Framework once it matures, simply by swapping the Unit 1 implementation while keeping the Orchestration and Transformation logic intact.
 
 ### 10.6 Governance for Custom paved paths
-While the framework encourages the creation of system-specific "paved paths" to handle unique legacy patterns, all paths must adhere to the following mandatory governance rules to maintain platform integrity. This approach has broad support from multiple teams across the **the enterprise platform**, ensuring that decentralized innovation remains consistent with enterprise standards.
+While the framework encourages the creation of systapplication1-specific "paved paths" to handle unique legacy patterns, all paths must adhere to the following mandatory governance rules to maintain platform integrity. This approach has broad support from multiple teams across the **the enterprise platform**, ensuring that decentralized innovation remains consistent with enterprise standards.
 
 #### 10.6.1 The Pathway to "Official" paved path Status
 A custom pattern developed by a team can be promoted to an official "paved path" if it:
@@ -294,7 +294,7 @@ While BigQuery can load CSV files directly (`bq load`), the migration framework 
 
 Lightweight tools like Cloud Workflows are excellent for simple linear sequences, but the migration framework uses Composer for "Unit 3" to handle enterprise complexity:
 
-1.  **Complex State Coordination (JOIN Pattern)**: In the EM system, we must wait for three independent entities (Customers, Accounts, Decisions) before triggering transformation. The `EntityDependencyChecker` uses the `job_control` table to manage this cross-DAG state, a pattern that is significantly harder to implement and monitor in serverless workflows.
+1.  **Complex State Coordination (JOIN Pattern)**: In some systems, we must wait for multiple independent entities (e.g., Customers, Accounts, Decisions) before triggering transformation. The `EntityDependencyChecker` uses the `job_control` table to manage this cross-DAG state, a pattern that is significantly harder to implement and monitor in serverless workflows.
 2.  **Sophisticated Retry & Backoff**: Migration involves messy legacy systems. Airflow's built-in exponential backoff, task-level retries, and manual "Clear" capabilities provide a robust safety net that would require significant custom code in simpler tools.
 3.  **The "Factory" Model**: Our `DAGFactory` generates standardized DAGs from configuration. This ensures that 50 different systems follow the exact same operational pattern (Trigger → Load → Transform), which is essential for a small operations team managing a large-scale migration.
 4.  **Operational UI**: When a migration fails at 3 AM, the Airflow UI provides immediate visual feedback on exactly which task failed, XCom values (like `run_id`), and logs. This visibility is "missed" when using more opaque orchestration tools.

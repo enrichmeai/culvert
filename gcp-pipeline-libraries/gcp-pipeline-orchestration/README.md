@@ -95,7 +95,7 @@ Control library - Airflow DAGs, sensors, operators.
                │         │                                           │
                │         ▼                                           │
                │  ┌──────────────┐                                   │
-               │  │ Dependency   │  (EM only - waits for 3 entities) │
+               │  │ Dependency   │  (Application1 only - waits for 3 entities) │
                │  │ Checker      │                                   │
                │  └──────┬───────┘                                   │
                │         │                                           │
@@ -127,10 +127,10 @@ Control library - Airflow DAGs, sensors, operators.
 
 ## Entity Dependency Checker
 
-For systems with multiple entities (like EM with 3 entities), the checker waits until all are loaded.
+For systems with multiple entities (like Application1 with 3 entities), the checker waits until all are loaded.
 
 ```
-                    ENTITY DEPENDENCY CHECK (EM)
+                    ENTITY DEPENDENCY CHECK (Application1)
                     ────────────────────────────
 
   Customers arrives    ──► Check: [✓] customers
@@ -155,10 +155,10 @@ For systems with multiple entities (like EM with 3 entities), the checker waits 
 from datetime import date
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 
-# Configure for EM system
+# Configure for Application1 system
 checker = EntityDependencyChecker(
     project_id="my-project",
-    system_id="EM",
+    systapplication1_id="Application1",
     required_entities=["customers", "accounts", "decision"]
 )
 
@@ -197,7 +197,7 @@ else:
 - **Metadata Extraction**: Automated extraction of file paths, entity types, and timestamps into XCom for downstream use.
 
 ### 3. Entity Dependency Management
-- **EntityDependencyChecker**: Coordinates multi-entity systems (like EM) by ensuring all required datasets (customers, accounts, decision) are present before triggering transformations.
+- **EntityDependencyChecker**: Coordinates multi-entity systems (like Application1) by ensuring all required datasets (customers, accounts, decision) are present before triggering transformations.
 
 ### 4. Global Error Callbacks
 - Standardized failure handlers that publish metadata to DLQs (Dead Letter Queues) for automated alerting and manual intervention.
@@ -210,11 +210,11 @@ The framework implements a two-tier error handling strategy: **Immediate Capture
 
 ### 1. Immediate Capture (Callbacks)
 When a task fails, the `on_failure_callback` from the library is triggered. 
-- **DLQ Publishing**: Standardized task metadata (run_id, system_id, exception) is published to a Pub/Sub DLQ.
+- **DLQ Publishing**: Standardized task metadata (run_id, systapplication1_id, exception) is published to a Pub/Sub DLQ.
 - **Audit Logging**: The error is logged to the BigQuery `error_log` table for centralized tracking.
 
 ### 2. Periodic Recovery (Error Handling DAG)
-A dedicated **Error Handling DAG** (e.g., `em_error_handling_dag.py`) runs every 30 minutes to manage the lifecycle of failed records.
+A dedicated **Error Handling DAG** (e.g., `application1_error_handling_dag.py`) runs every 30 minutes to manage the lifecycle of failed records.
 
 #### Automated Reprocessing Flow
 ```

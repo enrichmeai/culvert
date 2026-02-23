@@ -15,19 +15,19 @@ Each data source (system) typically requires a set of four DAGs:
 Consistency in naming is crucial for automated monitoring and maintenance.
 
 ### 1. System Identifier
-* Use a short, unique code for each system (e.g., `EM`, `LOA`, `CRM`).
-* In code, use uppercase for constants (`SYSTEM_ID = "EM"`) and lowercase for paths/IDs (`system_id = "em"`).
+* Use a short, unique code for each system (e.g., `Application1`, `Application2`, `CRM`).
+* In code, use uppercase for constants (`SYSTEM_ID = "Application1"`) and lowercase for paths/IDs (`systapplication1_id = "application1"`).
 
 ### 2. DAG IDs
-Follow the pattern: `{system_id}_{dag_purpose}_dag`
-* `em_pubsub_trigger_dag`
-* `em_odp_load_dag`
-* `em_fdp_transform_dag`
-* `em_error_handling_dag`
+Follow the pattern: `{systapplication1_id}_{dag_purpose}_dag`
+* `application1_pubsub_trigger_dag`
+* `application1_odp_application2d_dag`
+* `application1_fdp_transform_dag`
+* `application1_error_handling_dag`
 
 ### 3. File Names
 Match the DAG ID:
-* `em_pubsub_trigger_dag.py`
+* `application1_pubsub_trigger_dag.py`
 
 ### 4. Task IDs
 Use snake_case and keep them descriptive:
@@ -45,45 +45,45 @@ Templates are located in `templates/dags/`. To automate the creation of a new or
 Run the provided script to create all DAGs and the GitHub deployment workflow:
 
 ```bash
-./scripts/scaffold_orchestration.sh <system_id>
+./scripts/scaffold_orchestration.sh <systapplication1_id>
 ```
 
 Example: `./scripts/scaffold_orchestration.sh crm`
 
 This script will:
-1. Create `deployments/<system_id>-orchestration/dags/`.
+1. Create `deployments/<systapplication1_id>-orchestration/dags/`.
 2. Copy all DAG templates and replace placeholders.
-3. Create `.github/workflows/deploy-<system_id>.yml` for automated deployment.
+3. Create `.github/workflows/deploy-<systapplication1_id>.yml` for automated deployment.
 
 ### Manual Scaffolding
 
 1. Create a new orchestration folder in `deployments/`:
    ```bash
-   mkdir -p deployments/<system_id>-orchestration/dags
+   mkdir -p deployments/<systapplication1_id>-orchestration/dags
    ```
 2. Copy the templates:
    ```bash
-   cp templates/dags/template_*.py deployments/<system_id>-orchestration/dags/
+   cp templates/dags/template_*.py deployments/<systapplication1_id>-orchestration/dags/
    ```
-3. Rename the files replacing `template_` with `<system_id>_`.
+3. Rename the files replacing `template_` with `<systapplication1_id>_`.
 4. **Search and Replace**:
    * Replace `<SYSTEM_ID>` with your system code (e.g., `MYAPP`).
-   * Replace `<system_id>` with lowercase (e.g., `myapp`).
+   * Replace `<systapplication1_id>` with lowercase (e.g., `myapp`).
 5. **CI/CD setup**:
-   * Copy `templates/cicd/template_deploy_workflow.yml` to `.github/workflows/deploy-<system_id>.yml`.
+   * Copy `templates/cicd/template_deploy_workflow.yml` to `.github/workflows/deploy-<systapplication1_id>.yml`.
    * Replace placeholders in the workflow file.
 6. **Customize Configuration**:
-   * In `odp_load_dag`, update `REQUIRED_ENTITIES` if your system has multiple dependent entities.
+   * In `odp_application2d_dag`, update `REQUIRED_ENTITIES` if your system has multiple dependent entities.
    * In `fdp_transform_dag`, update the dbt model selectors.
 
 ## Configuration per Requirement
 
-### Single Entity System (e.g., LOA)
+### Single Entity System (e.g., Application2)
 If your system only provides one file that should be processed immediately:
 * Set `REQUIRED_ENTITIES = ["your_entity"]` in ODP Load.
 * The dependency checker will pass as soon as that single entity is loaded.
 
-### Multi-Entity Coordination (e.g., EM)
+### Multi-Entity Coordination (e.g., Application1)
 If your transformation requires multiple files to arrive before starting (e.g., Customers + Accounts):
 1. Define all entities in `REQUIRED_ENTITIES`.
 2. The `ODP Load DAG` will run for each file.
@@ -91,18 +91,18 @@ If your transformation requires multiple files to arrive before starting (e.g., 
 
 ### PubSub Configuration
 * Ensure the landing bucket has GCS notifications enabled to the correct PubSub topic.
-* The topic should follow the pattern: `projects/{project}/topics/{system_id}-file-arrivals`.
+* The topic should follow the pattern: `projects/{project}/topics/{systapplication1_id}-file-arrivals`.
 
 ## Testing
 
 1. **Local Validation**: Ensure the DAG parses without syntax errors.
-2. **Unit Tests**: Add unit tests in `deployments/<system_id>-orchestration/tests/`.
+2. **Unit Tests**: Add unit tests in `deployments/<systapplication1_id>-orchestration/tests/`.
 3. **Manual Trigger**: Use the Airflow UI to trigger the PubSub DAG with a mock configuration to test the flow.
 
 ## Common placeholders to replace:
 | Placeholder | Example | Description |
 |-------------|---------|-------------|
-| `<SYSTEM_ID>` | `EM` | Short uppercase system name |
-| `<system_id>` | `em` | Short lowercase system name |
+| `<SYSTEM_ID>` | `Application1` | Short uppercase system name |
+| `<systapplication1_id>` | `application1` | Short lowercase system name |
 | `REQUIRED_ENTITIES` | `['customers', 'accounts']` | List of entities to wait for |
-| `dbt run --select staging.<system_id>` | `staging.em` | dbt selector for staging models |
+| `dbt run --select staging.<systapplication1_id>` | `staging.application1` | dbt selector for staging models |

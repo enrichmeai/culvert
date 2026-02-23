@@ -31,7 +31,7 @@ class PipelineConfig:
     Example:
         >>> config = PipelineConfig(
         ...     run_id='run_20231225_001',
-        ...     pipeline_name='loa_applications_migration',
+        ...     pipeline_name='application2_applications_migration',
         ...     entity_type='applications',
         ...     source_file='gs://bucket/input/applications.csv',
         ...     gcp_project_id='my-gcp-project',

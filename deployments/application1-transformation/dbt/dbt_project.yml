@@ -1,0 +1,57 @@
+name: 'application1_transformations'
+version: '1.0.0'
+config-version: 2
+
+profile: 'application1_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros", "../libs/gcp_pipeline_transform/dbt_shared/macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Documentation
+docs-paths: ["docs"]
+
+models:
+  application1_transformations:
+    staging:
+      +materialized: view
+      +schema: stg_em
+      +tags: ["staging", "application1"]
+    fdp:
+      +materialized: incremental
+      +schema: fdp_em
+      +tags: ["fdp", "application1"]
+    marts:
+      +materialized: table
+      +schema: marts_em
+      +tags: ["marts", "application1"]
+    analytics:
+      +materialized: table
+      +schema: analytics_em
+      +tags: ["analytics", "application1"]
+
+vars:
+  # GCP project
+  gcp_project_id: "{{ env_var('GCP_PROJECT_ID') }}"
+
+  # Application1-specific datasets
+  source_dataset: "odp_em"
+  staging_dataset: "stg_em"
+  fdp_dataset: "fdp_em"
+  marts_dataset: "marts_em"
+  analytics_dataset: "analytics_em"
+
+  # Date parameters
+  extract_date: null
+  current_date: "CURRENT_DATE()"
+
+  # Application1 entities
+  application1_entities: ['customers', 'accounts', 'decision']

@@ -42,7 +42,7 @@ SQL library - dbt macros for audit columns and PII masking.
   └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-                    Used by: em-transformation, loa-transformation
+                    Used by: application1-transformation, application2-transformation
 ```
 
 ---
@@ -70,8 +70,8 @@ SQL library - dbt macros for audit columns and PII masking.
                   │     {{ mask_dob(column) }}        │
                   │                                   │
                   │  4. Business Logic                │
-                  │     • JOINs (EM: 2→1)             │
-                  │     • MAPs (LOA: 1→1)             │
+                  │     • JOINs (Application1: 2→1)             │
+                  │     • MAPs (Application2: 1→1)             │
                   │                                   │
                   └───────────────────────────────────┘
 ```
@@ -142,7 +142,7 @@ from gcp_pipeline_core.schema import EntitySchema, SchemaField
 
 CustomerSchema = EntitySchema(
     entity_name="customers",
-    system_id="EM",
+    systapplication1_id="Application1",
     fields=[
         SchemaField(name="customer_id", field_type="STRING", required=True),
         SchemaField(name="ssn", field_type="STRING", is_pii=True),
@@ -213,7 +213,7 @@ Reference in your deployment's dbt project:
 
 ```yaml
 # dbt_project.yml
-name: 'em_transformation'
+name: 'application1_transformation'
 
 # Reference shared macros
 packages:
@@ -224,7 +224,7 @@ Or copy macros to your project:
 
 ```bash
 cp -r gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros \
-      deployments/em-transformation/dbt/macros/shared/
+      deployments/application1-transformation/dbt/macros/shared/
 ```
 
 ---

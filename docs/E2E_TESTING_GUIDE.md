@@ -9,13 +9,13 @@ This document describes how to perform end-to-end testing of the deployed pipeli
 - Access to GCP project with deployed infrastructure
 
 
-## EM Pipeline - Complete Test Procedure
+## Application1 Pipeline - Complete Test Procedure
 
 ### Step 1: Deploy Infrastructure (if not done)
 
 ```bash
 # Trigger deployment via GitHub Actions
-gh workflow run deploy-em.yml
+gh workflow run deploy-application1.yml
 
 # Wait and check status (takes ~5-10 mins, Composer takes ~30 mins)
 gh run list --limit 4
@@ -27,31 +27,31 @@ gh run list --limit 4
 # Check Composer environment
 gcloud composer environments list --locations=europe-west2
 
-# Expected: em-dev-composer with state RUNNING
+# Expected: application1-dev-composer with state RUNNING
 ```
 
 ```bash
 # Check BigQuery datasets
 bq ls
 
-# Expected: fdp_em, job_control, odp_em
+# Expected: fdp_application1, job_control, odp_application1
 ```
 
 ```bash
 # Check GCS buckets
-gsutil ls | grep em
+gsutil ls | grep application1
 
 # Expected:
-# gs://{project}-em-dev-archive/
-# gs://{project}-em-dev-error/
-# gs://{project}-em-dev-landing/
+# gs://{project}-application1-dev-archive/
+# gs://{project}-application1-dev-error/
+# gs://{project}-application1-dev-landing/
 ```
 
 ```bash
 # Check Pub/Sub topics
-gcloud pubsub topics list | grep em
+gcloud pubsub topics list | grep application1
 
-# Expected: em-file-notifications
+# Expected: application1-file-notifications
 ```
 
 ### Step 3: Upload Test Data
@@ -60,23 +60,23 @@ gcloud pubsub topics list | grep em
 PROJECT_ID=$(gcloud config get-value project)
 
 # Upload the test data file (uses existing sample data)
-gsutil cp deployments/em/tests/data/em_customers_sample.csv \
-  gs://${PROJECT_ID}-em-dev-landing/em/
+gsutil cp deployments/application1/tests/data/application1_customers_sample.csv \
+  gs://${PROJECT_ID}-application1-dev-landing/application1/
 
 # Upload the trigger file (.ok) - this triggers the pipeline
-touch /tmp/em_customers_sample.ok
-gsutil cp /tmp/em_customers_sample.ok \
-  gs://${PROJECT_ID}-em-dev-landing/em/
+touch /tmp/application1_customers_sample.ok
+gsutil cp /tmp/application1_customers_sample.ok \
+  gs://${PROJECT_ID}-application1-dev-landing/application1/
 
 # Verify files uploaded
-gsutil ls gs://${PROJECT_ID}-em-dev-landing/em/
+gsutil ls gs://${PROJECT_ID}-application1-dev-landing/application1/
 ```
 
 ### Step 4: Verify Pub/Sub Notification
 
 ```bash
 # Pull messages from subscription
-gcloud pubsub subscriptions pull em-file-notifications-sub \
+gcloud pubsub subscriptions pull application1-file-notifications-sub \
   --auto-ack --limit=5
 
 # Expected: Two messages with eventType=OBJECT_FINALIZE
@@ -91,25 +91,25 @@ PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
 # Get the Composer DAGs bucket
-DAGS_BUCKET=$(gcloud composer environments describe em-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe application1-dev-composer \
   --location=$REGION \
   --format='value(config.dagGcsPrefix)')
 
 echo "DAGs bucket: $DAGS_BUCKET"
 
 # Upload DAGs
-gsutil -m cp -r deployments/em/src/em/orchestration/airflow/dags/* \
-  ${DAGS_BUCKET}/em/
+gsutil -m cp -r deployments/application1/src/application1/orchestration/airflow/dags/* \
+  ${DAGS_BUCKET}/application1/
 
 # Verify DAGs uploaded
-gsutil ls ${DAGS_BUCKET}/em/
+gsutil ls ${DAGS_BUCKET}/application1/
 ```
 
 ### Step 6: Access Airflow UI
 
 ```bash
 # Get Composer environment URL
-gcloud composer environments describe em-dev-composer \
+gcloud composer environments describe application1-dev-composer \
   --location=europe-west2 \
   --format='value(config.airflowUri)'
 
@@ -123,11 +123,11 @@ PROJECT_ID=$(gcloud config get-value project)
 
 # Check ODP table
 bq query --project_id=${PROJECT_ID} \
-  "SELECT * FROM odp_em.customers LIMIT 10"
+  "SELECT * FROM odp_application1.customers LIMIT 10"
 
 # Check FDP table  
 bq query --project_id=${PROJECT_ID} \
-  "SELECT * FROM fdp_em.event_transaction_excess LIMIT 10"
+  "SELECT * FROM fdp_application1.event_transaction_excess LIMIT 10"
 
 # Check job control
 bq query --project_id=${PROJECT_ID} \
@@ -136,13 +136,13 @@ bq query --project_id=${PROJECT_ID} \
 
 ---
 
-## LOA Pipeline - Complete Test Procedure
+## Application2 Pipeline - Complete Test Procedure
 
 ### Step 1: Deploy Infrastructure
 
 ```bash
-# Trigger LOA deployment
-gh workflow run deploy-loa.yml
+# Trigger Application2 deployment
+gh workflow run deploy-application2.yml
 
 # Wait and check status
 gh run list --limit 4
@@ -156,24 +156,24 @@ gh run list --limit 4
 # Check Composer environment
 gcloud composer environments list --locations=europe-west2
 
-# Expected: loa-dev-composer with state RUNNING
+# Expected: application2-dev-composer with state RUNNING
 ```
 
 ```bash
 # Check BigQuery datasets
-bq ls | grep loa
+bq ls | grep application2
 
-# Expected: fdp_loa, odp_loa
+# Expected: fdp_application2, odp_application2
 ```
 
 ```bash
 # Check GCS buckets
-gsutil ls | grep loa
+gsutil ls | grep application2
 
 # Expected:
-# gs://{project}-loa-dev-archive/
-# gs://{project}-loa-dev-error/
-# gs://{project}-loa-dev-landing/
+# gs://{project}-application2-dev-archive/
+# gs://{project}-application2-dev-error/
+# gs://{project}-application2-dev-landing/
 ```
 
 ### Step 3: Upload Test Data
@@ -182,19 +182,19 @@ gsutil ls | grep loa
 PROJECT_ID=$(gcloud config get-value project)
 
 # Upload the test data file
-gsutil cp deployments/loa/tests/data/loa_applications_sample.csv \
-  gs://${PROJECT_ID}-loa-dev-landing/loa/
+gsutil cp deployments/application2/tests/data/application2_applications_sample.csv \
+  gs://${PROJECT_ID}-application2-dev-landing/application2/
 
 # Upload the trigger file (.ok)
-touch /tmp/loa_applications_sample.ok
-gsutil cp /tmp/loa_applications_sample.ok \
-  gs://${PROJECT_ID}-loa-dev-landing/loa/
+touch /tmp/application2_applications_sample.ok
+gsutil cp /tmp/application2_applications_sample.ok \
+  gs://${PROJECT_ID}-application2-dev-landing/application2/
 ```
 
 ### Step 4: Verify Pub/Sub Notification
 
 ```bash
-gcloud pubsub subscriptions pull loa-file-notifications-sub \
+gcloud pubsub subscriptions pull application2-file-notifications-sub \
   --auto-ack --limit=5
 ```
 
@@ -205,13 +205,13 @@ PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
 # Get the Composer DAGs bucket
-DAGS_BUCKET=$(gcloud composer environments describe loa-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe application2-dev-composer \
   --location=$REGION \
   --format='value(config.dagGcsPrefix)')
 
 # Upload DAGs
-gsutil -m cp -r deployments/loa/src/loa/orchestration/airflow/dags/* \
-  ${DAGS_BUCKET}/loa/
+gsutil -m cp -r deployments/application2/src/application2/orchestration/airflow/dags/* \
+  ${DAGS_BUCKET}/application2/
 ```
 
 ---
@@ -221,11 +221,11 @@ gsutil -m cp -r deployments/loa/src/loa/orchestration/airflow/dags/* \
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
 
-# Remove EM test files
-gsutil rm gs://${PROJECT_ID}-em-dev-landing/em/em_customers_sample.*
+# Remove Application1 test files
+gsutil rm gs://${PROJECT_ID}-application1-dev-landing/application1/application1_customers_sample.*
 
-# Remove LOA test files
-gsutil rm gs://${PROJECT_ID}-loa-dev-landing/loa/loa_applications_sample.*
+# Remove Application2 test files
+gsutil rm gs://${PROJECT_ID}-application2-dev-landing/application2/application2_applications_sample.*
 ```
 
 ---
@@ -246,17 +246,17 @@ To completely remove all resources:
 
 ```bash
 # Check GCS notification configuration
-gsutil notification list gs://${PROJECT_ID}-em-dev-landing
+gsutil notification list gs://${PROJECT_ID}-application1-dev-landing
 
 # Verify topic exists
-gcloud pubsub topics describe em-file-notifications
+gcloud pubsub topics describe application1-file-notifications
 ```
 
 ### Composer Environment Issues
 
 ```bash
 # Check environment status
-gcloud composer environments describe em-dev-composer \
+gcloud composer environments describe application1-dev-composer \
   --location=europe-west2
 
 # Check environment logs
@@ -267,14 +267,14 @@ gcloud logging read "resource.type=cloud_composer_environment" --limit=20
 
 ```bash
 # Check dataset permissions
-bq show --format=prettyjson odp_em
+bq show --format=prettyjson odp_application1
 ```
 
 ### DAGs Not Appearing in Airflow
 
 ```bash
 # Check if DAGs were uploaded
-DAGS_BUCKET=$(gcloud composer environments describe em-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe application1-dev-composer \
   --location=europe-west2 \
   --format='value(config.dagGcsPrefix)')
 gsutil ls ${DAGS_BUCKET}/

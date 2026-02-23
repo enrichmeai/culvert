@@ -1,0 +1,269 @@
+name: Deploy Application2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployments/application2-*/**'
+      - 'infrastructure/terraform/systems/application2/**'
+  workflow_dispatch:
+
+env:
+  PYTHON_VERSION: '3.11'
+  GCP_REGION: 'europe-west2'
+  ENVIRONMENT: 'dev'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install gcp-pipeline-framework[core,beam,orchestration,transform,tester]>=1.0.0
+
+    - name: Run Application2 tests
+      run: |
+        cd deployments/application2-ingestion
+        pip install -e .[dev]
+        PYTHONPATH=src pytest tests/unit -v --tb=short
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    runs-on: ubuntu-latest
+    needs: test
+    environment: dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+
+    - name: Terraform Init
+      run: |
+        cd infrastructure/terraform/systems/application2/ingestion
+        terraform init
+
+    - name: Import Existing Resources
+      continue-on-error: true
+      run: |
+        cd infrastructure/terraform/systems/application2/ingestion
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        
+        # Import BigQuery datasets if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_bigquery_dataset.odp_loa' "$PROJECT_ID/odp_loa" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_bigquery_dataset.fdp_loa' "$PROJECT_ID/fdp_loa" 2>/dev/null || true
+        
+        # Import Pub/Sub topics if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_topic.application2_file_notifications' "projects/$PROJECT_ID/topics/application2-file-notifications" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_topic.application2_pipeline_events' "projects/$PROJECT_ID/topics/application2-pipeline-events" 2>/dev/null || true
+        
+        # Import Pub/Sub subscriptions if they exist
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_subscription.application2_file_notifications_sub' "projects/$PROJECT_ID/subscriptions/application2-file-notifications-sub" 2>/dev/null || true
+        terraform import -var="gcp_project_id=$PROJECT_ID" \
+          'google_pubsub_subscription.application2_pipeline_events_sub' "projects/$PROJECT_ID/subscriptions/application2-pipeline-events-sub" 2>/dev/null || true
+
+    - name: Terraform Plan
+      run: |
+        cd infrastructure/terraform/systems/application2/ingestion
+        terraform plan \
+          -var-file="../env/dev.tfvars" \
+          -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}" \
+          -out=tfplan
+
+    - name: Terraform Apply
+      run: |
+        cd infrastructure/terraform/systems/application2/ingestion
+        terraform apply -auto-approve tfplan
+
+  deploy-dataflow:
+    name: Deploy Dataflow Template
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: dev
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build and Push Docker Image
+      run: |
+        if [ -f "deployments/application2-ingestion/Dockerfile" ]; then
+          gcloud builds submit \
+            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/application2-pipeline:latest \
+            --project ${{ secrets.GCP_PROJECT_ID }} \
+            deployments/application2-ingestion/
+        else
+          echo "⚠️ Dockerfile not found - skipping Docker build"
+        fi
+
+    - name: Create Flex Template
+      run: |
+        if gcloud container images describe gcr.io/${{ secrets.GCP_PROJECT_ID }}/application2-pipeline:latest 2>/dev/null; then
+          gcloud dataflow flex-template build \
+            gs://${{ secrets.GCP_PROJECT_ID }}-application2-dev-temp/templates/application2_pipeline.json \
+            --image-gcr-path gcr.io/${{ secrets.GCP_PROJECT_ID }}/application2-pipeline:latest \
+            --sdk-language PYTHON \
+            --flex-template-base-image PYTHON3 \
+            --project ${{ secrets.GCP_PROJECT_ID }}
+        else
+          echo "⚠️ Docker image not found - skipping Flex Template creation"
+        fi
+
+  deploy-dbt:
+    name: Deploy dbt Models
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: dev
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Install dbt
+      run: |
+        pip install dbt-bigquery
+
+    - name: Run dbt
+      run: |
+        DBT_PATH="deployments/application2-transformation/dbt"
+        if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
+          cd "$DBT_PATH"
+          dbt deps || echo "⚠️ dbt deps failed"
+          dbt run --target dev || echo "⚠️ dbt run failed - may need profiles.yml"
+          dbt test --target dev || echo "⚠️ dbt test failed"
+        else
+          echo "⚠️ dbt project not found at $DBT_PATH - skipping"
+        fi
+
+  deploy-airflow:
+    name: Deploy Airflow DAGs
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    environment: dev
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Upload DAGs to Composer
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        REGION="${{ env.GCP_REGION }}"
+        COMPOSER_ENV="application2-dev-composer"
+        
+        # Check if Composer is running
+        COMPOSER_STATE=$(gcloud composer environments describe $COMPOSER_ENV \
+          --location=$REGION \
+          --project=$PROJECT_ID \
+          --format='value(state)' 2>/dev/null || echo "NOT_FOUND")
+        
+        if [ "$COMPOSER_STATE" = "RUNNING" ]; then
+          # Get DAGs bucket
+          DAGS_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
+            --location=$REGION \
+            --project=$PROJECT_ID \
+            --format='value(config.dagGcsPrefix)')
+          
+          DAG_SOURCE="deployments/application2-orchestration/dags"
+          
+          if [ -d "$DAG_SOURCE" ] && [ -n "$DAGS_BUCKET" ]; then
+            # Upload DAGs
+            echo "Uploading DAGs to $DAGS_BUCKET/application2/"
+            gsutil -m cp -r ${DAG_SOURCE}/* ${DAGS_BUCKET}/application2/
+            echo "✅ DAGs uploaded"
+          else
+            echo "⚠️ DAG source not found or bucket empty"
+          fi
+        else
+          echo "⚠️ Composer not ready (state: $COMPOSER_STATE) - skipping DAG upload"
+        fi
+
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-infrastructure]
+    if: always() && needs.deploy-infrastructure.result == 'success'
+    environment: dev
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Validate Resources
+      run: |
+        echo "=== Validating Application2 Deployment ==="
+        
+        echo "Checking BigQuery datasets..."
+        bq ls --project_id=${{ secrets.GCP_PROJECT_ID }} | grep -E "odp_loa|fdp_loa" || echo "Datasets not found"
+        
+        echo "Checking GCS buckets..."
+        gsutil ls gs://${{ secrets.GCP_PROJECT_ID }}-application2-dev-landing 2>/dev/null || echo "Landing bucket not found"
+        
+        echo "Checking Pub/Sub topics..."
+        gcloud pubsub topics list --project=${{ secrets.GCP_PROJECT_ID }} | grep application2 || echo "Topics not found"
+        
+        echo "Checking Composer environment..."
+        gcloud composer environments describe application2-dev-composer \
+          --location=${{ env.GCP_REGION }} \
+          --project=${{ secrets.GCP_PROJECT_ID }} \
+          --format='value(state)' || echo "Composer not found"
+        
+        echo "✅ Application2 Deployment validation complete"
+

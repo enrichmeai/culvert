@@ -101,7 +101,7 @@ class ParseCsvLine(beam.DoFn):
 
         Handles CSV parsing with quoted fields, empty lines, and field
         count mismatches. Uses Python's csv module for robust parsing.
-        Optionally skips HDR/TRL records from mainframe extract files.
+        Optionally skips HDR/TRL records from extract files.
 
         Args:
             line: Raw CSV line from file
@@ -115,7 +115,7 @@ class ParseCsvLine(beam.DoFn):
             >>> list(parser.process('1,John'))
             [{'id': '1', 'name': 'John'}]
 
-            >>> list(parser.process('HDR|EM|Customer|20260101'))
+            >>> list(parser.process('HDR|Application1|Customer|20260101'))
             []  # Skipped
 
             >>> list(parser.process('incomplete'))

@@ -35,7 +35,7 @@ LIBRARIES=(
     "gcp-pipeline-orchestration"
     "gcp-pipeline-transform"
     "gcp-pipeline-tester"
-    "gcp-migration-framework"
+    "gcp-pipeline-framework"
 )
 
 # Use virtual environment python if available, otherwise fallback to system python

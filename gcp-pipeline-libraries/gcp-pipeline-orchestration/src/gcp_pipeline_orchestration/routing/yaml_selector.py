@@ -39,7 +39,7 @@ class YAMLPipelineSelector:
     Matching criteria (all must match if specified in rule):
     - file_pattern: fnmatch pattern against gcs_path
     - file_patterns: list of fnmatch patterns (any match)
-    - system_id: exact match
+    - systapplication1_id: exact match
     - entity_type: exact match
     - custom fields: exact match
 
@@ -106,19 +106,19 @@ class YAMLPipelineSelector:
 
         Args:
             metadata: Metadata dictionary (e.g., from PubSubPullSensor)
-                Expected keys: gcs_path, system_id, entity_type, etc.
+                Expected keys: gcs_path, systapplication1_id, entity_type, etc.
 
         Returns:
             The identifier of the selected pipeline
         """
         gcs_path = metadata.get("gcs_path", "")
-        system_id = metadata.get("system_id")
+        systapplication1_id = metadata.get("systapplication1_id")
         entity_type = metadata.get("entity_type")
 
         rules = self.config.get("routing_rules", [])
 
         for rule in rules:
-            if self._matches_rule(rule, gcs_path, system_id, entity_type, metadata):
+            if self._matches_rule(rule, gcs_path, systapplication1_id, entity_type, metadata):
                 pipeline_id = rule.get("pipeline_id")
                 logger.debug(f"Matched rule for pipeline: {pipeline_id}")
                 return pipeline_id
@@ -135,7 +135,7 @@ class YAMLPipelineSelector:
         self,
         rule: Dict[str, Any],
         gcs_path: str,
-        system_id: Optional[str],
+        systapplication1_id: Optional[str],
         entity_type: Optional[str],
         metadata: Dict[str, Any],
     ) -> bool:
@@ -147,7 +147,7 @@ class YAMLPipelineSelector:
         Args:
             rule: Routing rule dictionary
             gcs_path: GCS file path
-            system_id: System identifier
+            systapplication1_id: System identifier
             entity_type: Entity type
             metadata: Full metadata dictionary
 
@@ -165,9 +165,9 @@ class YAMLPipelineSelector:
             if not any(fnmatch.fnmatch(gcs_path, p) for p in patterns):
                 return False
 
-        # Check system_id
-        if "system_id" in rule and system_id is not None:
-            if str(system_id) != str(rule["system_id"]):
+        # Check systapplication1_id
+        if "systapplication1_id" in rule and systapplication1_id is not None:
+            if str(systapplication1_id) != str(rule["systapplication1_id"]):
                 return False
 
         # Check entity_type
@@ -178,7 +178,7 @@ class YAMLPipelineSelector:
         # Check any custom fields
         for key in rule:
             if key in ("pipeline_id", "file_pattern", "file_patterns",
-                       "system_id", "entity_type", "target_table",
+                       "systapplication1_id", "entity_type", "target_table",
                        "error_table", "processing_mode", "validation",
                        "dataflow_template"):
                 continue  # Skip known config keys

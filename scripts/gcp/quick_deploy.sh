@@ -57,12 +57,12 @@ done
 echo -e "\n${BLUE}>>> Step 2: Create GCS Buckets${NC}"
 
 BUCKETS=(
-    "${PROJECT_ID}-em-landing"
-    "${PROJECT_ID}-em-archive"
-    "${PROJECT_ID}-em-error"
-    "${PROJECT_ID}-loa-landing"
-    "${PROJECT_ID}-loa-archive"
-    "${PROJECT_ID}-loa-error"
+    "${PROJECT_ID}-application1-landing"
+    "${PROJECT_ID}-application1-archive"
+    "${PROJECT_ID}-application1-error"
+    "${PROJECT_ID}-application2-landing"
+    "${PROJECT_ID}-application2-archive"
+    "${PROJECT_ID}-application2-error"
     "${PROJECT_ID}-dataflow-temp"
 )
 
@@ -81,10 +81,10 @@ done
 echo -e "\n${BLUE}>>> Step 3: Create BigQuery Datasets${NC}"
 
 DATASETS=(
-    "odp_em"
-    "fdp_em"
-    "odp_loa"
-    "fdp_loa"
+    "odp_application1"
+    "fdp_application1"
+    "odp_application2"
+    "fdp_application2"
     "job_control"
 )
 
@@ -102,27 +102,27 @@ done
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 4: Create BigQuery Tables${NC}"
 
-# EM Customers table
-echo -n "  Creating odp_em.customers... "
-bq mk --table "${PROJECT_ID}:odp_em.customers" \
+# Application1 Customers table
+echo -n "  Creating odp_application1.customers... "
+bq mk --table "${PROJECT_ID}:odp_application1.customers" \
     customer_id:STRING,first_name:STRING,last_name:STRING,ssn:STRING,status:STRING,created_date:DATE,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# EM Accounts table
-echo -n "  Creating odp_em.accounts... "
-bq mk --table "${PROJECT_ID}:odp_em.accounts" \
+# Application1 Accounts table
+echo -n "  Creating odp_application1.accounts... "
+bq mk --table "${PROJECT_ID}:odp_application1.accounts" \
     account_id:STRING,customer_id:STRING,account_type:STRING,balance:NUMERIC,open_date:DATE,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# EM Decision table
-echo -n "  Creating odp_em.decision... "
-bq mk --table "${PROJECT_ID}:odp_em.decision" \
+# Application1 Decision table
+echo -n "  Creating odp_application1.decision... "
+bq mk --table "${PROJECT_ID}:odp_application1.decision" \
     decision_id:STRING,customer_id:STRING,outcome:STRING,decision_date:DATE,score:INTEGER,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# LOA Applications table
-echo -n "  Creating odp_loa.applications... "
-bq mk --table "${PROJECT_ID}:odp_loa.applications" \
+# Application2 Applications table
+echo -n "  Creating odp_application2.applications... "
+bq mk --table "${PROJECT_ID}:odp_application2.applications" \
     application_id:STRING,customer_id:STRING,ssn:STRING,loan_amount:NUMERIC,interest_rate:NUMERIC,term_months:INTEGER,application_date:DATE,status:STRING,event_type:STRING,account_type:STRING,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
@@ -137,48 +137,48 @@ bq mk --table "${PROJECT_ID}:job_control.pipeline_jobs" \
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 5: Create Pub/Sub Topics${NC}"
 
-# EM Topic
-echo -n "  Creating em-file-notifications... "
-gcloud pubsub topics create em-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating em-file-notifications-sub... "
-gcloud pubsub subscriptions create em-file-notifications-sub \
-    --topic=em-file-notifications \
+# Application1 Topic
+echo -n "  Creating application1-file-notifications... "
+gcloud pubsub topics create application1-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating application1-file-notifications-sub... "
+gcloud pubsub subscriptions create application1-file-notifications-sub \
+    --topic=application1-file-notifications \
     --ack-deadline=60 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# LOA Topic
-echo -n "  Creating loa-file-notifications... "
-gcloud pubsub topics create loa-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating loa-file-notifications-sub... "
-gcloud pubsub subscriptions create loa-file-notifications-sub \
-    --topic=loa-file-notifications \
+# Application2 Topic
+echo -n "  Creating application2-file-notifications... "
+gcloud pubsub topics create application2-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating application2-file-notifications-sub... "
+gcloud pubsub subscriptions create application2-file-notifications-sub \
+    --topic=application2-file-notifications \
     --ack-deadline=60 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # DLQ Topics
-echo -n "  Creating em-dlq... "
-gcloud pubsub topics create em-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating loa-dlq... "
-gcloud pubsub topics create loa-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating application1-dlq... "
+gcloud pubsub topics create application1-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating application2-dlq... "
+gcloud pubsub topics create application2-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # -----------------------------------------------------------------------------
 # Step 6: Setup GCS Notifications (triggers Pub/Sub on .ok file upload)
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 6: Setup GCS Notifications${NC}"
 
-echo -n "  EM bucket notification... "
+echo -n "  Application1 bucket notification... "
 gsutil notification create \
-    -t "projects/${PROJECT_ID}/topics/em-file-notifications" \
+    -t "projects/${PROJECT_ID}/topics/application1-file-notifications" \
     -f json \
     -e OBJECT_FINALIZE \
-    -p "em/" \
-    "gs://${PROJECT_ID}-em-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+    -p "application1/" \
+    "gs://${PROJECT_ID}-application1-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-echo -n "  LOA bucket notification... "
+echo -n "  Application2 bucket notification... "
 gsutil notification create \
-    -t "projects/${PROJECT_ID}/topics/loa-file-notifications" \
+    -t "projects/${PROJECT_ID}/topics/application2-file-notifications" \
     -f json \
     -e OBJECT_FINALIZE \
-    -p "loa/" \
-    "gs://${PROJECT_ID}-loa-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+    -p "application2/" \
+    "gs://${PROJECT_ID}-application2-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # -----------------------------------------------------------------------------
 # Summary

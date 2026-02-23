@@ -16,14 +16,14 @@ class TestPipelineJob(unittest.TestCase):
     def test_create_minimal_job(self):
         """Test creating a job with minimal required fields."""
         job = PipelineJob(
-            run_id="em_customer_20260101_001",
-            system_id="EM",
+            run_id="application1_customer_20260101_001",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
 
-        self.assertEqual(job.run_id, "em_customer_20260101_001")
-        self.assertEqual(job.system_id, "EM")
+        self.assertEqual(job.run_id, "application1_customer_20260101_001")
+        self.assertEqual(job.systapplication1_id, "Application1")
         self.assertEqual(job.entity_type, "Customer")
         self.assertEqual(job.status, JobStatus.PENDING)
         self.assertIsNone(job.started_at)
@@ -33,8 +33,8 @@ class TestPipelineJob(unittest.TestCase):
         """Test creating a job with all fields."""
         now = datetime.utcnow()
         job = PipelineJob(
-            run_id="em_customer_20260101_001",
-            system_id="EM",
+            run_id="application1_customer_20260101_001",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
             status=JobStatus.RUNNING,
@@ -51,8 +51,8 @@ class TestPipelineJob(unittest.TestCase):
     def test_job_with_error_info(self):
         """Test creating a failed job with error info."""
         job = PipelineJob(
-            run_id="em_customer_20260101_001",
-            system_id="EM",
+            run_id="application1_customer_20260101_001",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
             status=JobStatus.FAILED,
@@ -71,7 +71,7 @@ class TestPipelineJob(unittest.TestCase):
         before = datetime.utcnow()
         job = PipelineJob(
             run_id="test",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
@@ -85,7 +85,7 @@ class TestPipelineJob(unittest.TestCase):
         """Test source_files defaults to empty list."""
         job = PipelineJob(
             run_id="test",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
@@ -96,7 +96,7 @@ class TestPipelineJob(unittest.TestCase):
 
         job2 = PipelineJob(
             run_id="test2",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )

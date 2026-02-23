@@ -156,18 +156,18 @@ class DAGFactory:
         Configuration format:
         ```python
         config = {
-            'dag_id': 'loa_daily_pipeline',
+            'dag_id': 'application2_daily_pipeline',
             'schedule_interval': '@daily',
             'start_date': '2023-01-01',
             'catchup': False,
-            'description': 'Daily LOA migration pipeline',
+            'description': 'Daily Application2 migration pipeline',
             'default_args': {
-                'owner': 'loa_team',
+                'owner': 'application2_team',
                 'retries': 3,
                 'retry_delay_minutes': 5,
                 'email_on_failure': True,
             },
-            'tags': ['loa', 'migration', 'enterprise-platform'],
+            'tags': ['application2', 'migration', 'enterprise-platform'],
         }
         ```
 

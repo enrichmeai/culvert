@@ -50,8 +50,8 @@ echo "  - GKE clusters"
 echo "  - Cloud Run services"
 echo "  - All Pub/Sub topics and subscriptions"
 echo "  - All BigQuery datasets (odp_*, fdp_*, job_control)"
-echo "  - All GCS buckets (em-*, loa-*, terraform-state)"
-echo "  - All service accounts (em-*, loa-*)"
+echo "  - All GCS buckets (application1-*, application2-*, terraform-state)"
+echo "  - All service accounts (application1-*, application2-*)"
 echo "  - KMS keys (scheduled for deletion)"
 echo "  - Secret Manager secrets"
 echo "  - Cloud Scheduler jobs"
@@ -78,7 +78,7 @@ echo "  Dataflow jobs cancelled"
 
 echo ""
 echo -e "${BLUE}=== Step 2: Delete Composer Environments ===${NC}"
-for env_name in $(gcloud composer environments list --project="$PROJECT_ID" --locations="$REGION" --format="value(name)" 2>/dev/null | grep -E "(em|loa)" || true); do
+for env_name in $(gcloud composer environments list --project="$PROJECT_ID" --locations="$REGION" --format="value(name)" 2>/dev/null | grep -E "(application1|application2)" || true); do
     echo "  Deleting Composer: $env_name"
     gcloud composer environments delete "$env_name" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
@@ -86,7 +86,7 @@ echo "  Composer environments deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 3: Delete GKE Clusters ===${NC}"
-for cluster in $(gcloud container clusters list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(em|loa|composer)" || true); do
+for cluster in $(gcloud container clusters list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(application1|application2|composer)" || true); do
     zone=$(gcloud container clusters list --project="$PROJECT_ID" --filter="name=$cluster" --format="value(location)")
     echo "  Deleting GKE cluster: $cluster"
     gcloud container clusters delete "$cluster" --project="$PROJECT_ID" --zone="$zone" --quiet 2>/dev/null || true
@@ -95,7 +95,7 @@ echo "  GKE clusters deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 4: Delete Cloud Run Services ===${NC}"
-for service in $(gcloud run services list --project="$PROJECT_ID" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | grep -E "(em|loa)" || true); do
+for service in $(gcloud run services list --project="$PROJECT_ID" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | grep -E "(application1|application2)" || true); do
     echo "  Deleting Cloud Run: $service"
     gcloud run services delete "$service" --project="$PROJECT_ID" --region="$REGION" --quiet 2>/dev/null || true
 done
@@ -103,19 +103,19 @@ echo "  Cloud Run services deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 5: Delete Pub/Sub Subscriptions ===${NC}"
-for sub in em-file-notifications-sub em-pipeline-events-sub loa-file-notifications-sub loa-pipeline-events-sub; do
+for sub in application1-file-notifications-sub application1-pipeline-events-sub application2-file-notifications-sub application2-pipeline-events-sub; do
     gcloud pubsub subscriptions delete "$sub" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sub" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 6: Delete Pub/Sub Topics ===${NC}"
-for topic in em-file-notifications em-pipeline-events loa-file-notifications loa-pipeline-events; do
+for topic in application1-file-notifications application1-pipeline-events application2-file-notifications application2-pipeline-events; do
     gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $topic" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 7: Delete BigQuery Datasets ===${NC}"
-for ds in odp_em fdp_em job_control odp_loa fdp_loa; do
+for ds in odp_application1 fdp_application1 job_control odp_application2 fdp_application2; do
     bq rm -r -f --project_id="$PROJECT_ID" "$ds" 2>/dev/null && echo "  Deleted: $ds" || true
 done
 
@@ -123,11 +123,11 @@ echo ""
 echo -e "${BLUE}=== Step 8: Delete GCS Buckets ===${NC}"
 # Delete both manual and Terraform-created buckets
 for bucket in \
-    em-landing em-archive em-error em-temp \
-    em-dev-landing em-dev-archive em-dev-error em-dev-temp \
-    loa-landing loa-archive loa-error loa-temp \
-    loa-dev-landing loa-dev-archive loa-dev-error loa-dev-temp \
-    dataflow-templates em-dataflow-temp loa-dataflow-temp; do
+    application1-landing application1-archive application1-error application1-temp \
+    application1-dev-landing application1-dev-archive application1-dev-error application1-dev-temp \
+    application2-landing application2-archive application2-error application2-temp \
+    application2-dev-landing application2-dev-archive application2-dev-error application2-dev-temp \
+    dataflow-templates application1-dataflow-temp application2-dataflow-temp; do
     gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
 done
 
@@ -139,23 +139,23 @@ echo ""
 echo -e "${BLUE}=== Step 10: Delete Service Accounts ===${NC}"
 # Delete all pipeline service accounts (both naming patterns)
 for sa in \
-    em-dataflow-sa em-dbt-sa em-composer-sa \
-    em-dev-dataflow em-dev-dbt em-dev-composer \
-    loa-dataflow-sa loa-dbt-sa loa-composer-sa \
-    loa-dev-dataflow loa-dev-dbt loa-dev-composer; do
+    application1-dataflow-sa application1-dbt-sa application1-composer-sa \
+    application1-dev-dataflow application1-dev-dbt application1-dev-composer \
+    application2-dataflow-sa application2-dbt-sa application2-composer-sa \
+    application2-dev-dataflow application2-dev-dbt application2-dev-composer; do
     gcloud iam service-accounts delete "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sa" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 11: Delete Additional Pub/Sub Resources ===${NC}"
 # Delete dead letter topics/subscriptions created by Terraform
-for topic in em-file-notifications-dead-letter em-pipeline-events-dead-letter loa-file-notifications-dead-letter loa-pipeline-events-dead-letter; do
+for topic in application1-file-notifications-dead-letter application1-pipeline-events-dead-letter application2-file-notifications-dead-letter application2-pipeline-events-dead-letter; do
     gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted topic: $topic" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 12: Delete Cloud Scheduler Jobs ===${NC}"
-for job in $(gcloud scheduler jobs list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(em|loa)" || true); do
+for job in $(gcloud scheduler jobs list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(application1|application2)" || true); do
     echo "  Deleting scheduler job: $job"
     gcloud scheduler jobs delete "$job" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
@@ -163,7 +163,7 @@ echo "  Cloud Scheduler jobs deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 13: Delete Secret Manager Secrets ===${NC}"
-for secret in $(gcloud secrets list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(em|loa)" || true); do
+for secret in $(gcloud secrets list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(application1|application2)" || true); do
     echo "  Deleting secret: $secret"
     gcloud secrets delete "$secret" --project="$PROJECT_ID" --quiet 2>/dev/null || true
 done
@@ -172,7 +172,7 @@ echo "  Secrets deleted"
 echo ""
 echo -e "${BLUE}=== Step 14: Schedule KMS Key Deletion (if any) ===${NC}"
 # Note: KMS keys cannot be immediately deleted, only scheduled for destruction
-for keyring in em-keyring loa-keyring pipeline-keyring; do
+for keyring in application1-keyring application2-keyring pipeline-keyring; do
     for key in $(gcloud kms keys list --project="$PROJECT_ID" --location="$REGION" --keyring="$keyring" --format="value(name)" 2>/dev/null || true); do
         key_name=$(basename "$key")
         echo "  Scheduling destruction: $keyring/$key_name"
@@ -183,7 +183,7 @@ echo "  KMS keys scheduled for destruction (30-day hold)"
 
 echo ""
 echo -e "${BLUE}=== Step 15: Delete Cloud Functions ===${NC}"
-for func in $(gcloud functions list --project="$PROJECT_ID" --regions="$REGION" --format="value(name)" 2>/dev/null | grep -E "(em|loa)" || true); do
+for func in $(gcloud functions list --project="$PROJECT_ID" --regions="$REGION" --format="value(name)" 2>/dev/null | grep -E "(application1|application2)" || true); do
     echo "  Deleting function: $func"
     gcloud functions delete "$func" --project="$PROJECT_ID" --region="$REGION" --quiet 2>/dev/null || true
 done
@@ -191,7 +191,7 @@ echo "  Cloud Functions deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 16: Delete Artifact Registry Repositories ===${NC}"
-for repo in $(gcloud artifacts repositories list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(em|loa|pipeline)" || true); do
+for repo in $(gcloud artifacts repositories list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(application1|application2|pipeline)" || true); do
     echo "  Deleting repository: $repo"
     gcloud artifacts repositories delete "$repo" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
@@ -206,7 +206,7 @@ echo "Next steps to redeploy:"
 echo "  1. ./scripts/gcp/01_enable_services.sh"
 echo "  2. ./scripts/gcp/02_create_state_bucket.sh"
 echo "  3. ./scripts/gcp/03_create_infrastructure.sh all"
-echo "  4. ./scripts/gcp/06_test_pipeline.sh em"
+echo "  4. ./scripts/gcp/06_test_pipeline.sh application1"
 echo ""
 echo "Or run everything at once:"
 echo "  ./scripts/gcp/deploy_all.sh"

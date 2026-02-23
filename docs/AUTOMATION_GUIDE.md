@@ -22,7 +22,7 @@ Before pushing code, run the master check script:
 
 This script:
 1. Runs all 700+ library tests.
-2. Runs unit tests for deployment units (e.g., `em-ingestion`).
+2. Runs unit tests for deployment units (e.g., `application1-ingestion`).
 3. Performs basic linting checks.
 
 ## 3. GCP E2E Automation
@@ -30,11 +30,11 @@ This script:
 To verify the entire pipeline in a GCP environment:
 
 ```bash
-# Test the EM system (default)
-./scripts/automation/deploy_and_test_e2e.sh em
+# Test the Application1 system (default)
+./scripts/automation/deploy_and_test_e2e.sh application1
 
-# Test the LOA system
-./scripts/automation/deploy_and_test_e2e.sh loa
+# Test the Application2 system
+./scripts/automation/deploy_and_test_e2e.sh application2
 ```
 
 ### Automation Flow:
@@ -56,7 +56,7 @@ Shared libraries are managed in a single monorepo to ensure consistency.
 
 ### Independent Deployment Pipelines
 Each deployment unit (Ingestion, Transformation, Orchestration) resides in its own repository for maximum isolation.
-- **Isolation**: Changes to `em-ingestion` only trigger its specific repository's pipeline.
+- **Isolation**: Changes to `application1-ingestion` only trigger its specific repository's pipeline.
 - **Dependency Management**: Pipelines install specific library versions from the central artifact repository.
 - **Focused Stages**: 
     - **Ingestion**: Handles Dataflow flex-template builds.

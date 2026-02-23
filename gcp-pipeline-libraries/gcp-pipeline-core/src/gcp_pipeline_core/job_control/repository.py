@@ -21,8 +21,8 @@ class JobControlRepository:
     Example:
         >>> repo = JobControlRepository(project_id="my-project")
         >>> job = PipelineJob(
-        ...     run_id="em_customer_20260101_001",
-        ...     system_id="EM",
+        ...     run_id="application1_customer_20260101_001",
+        ...     systapplication1_id="Application1",
         ...     entity_type="Customer",
         ...     extract_date=date(2026, 1, 1),
         ...     source_files=["gs://bucket/file.csv"]
@@ -61,11 +61,11 @@ class JobControlRepository:
         """
         query = f"""
             INSERT INTO `{self.full_table_id}` (
-                run_id, system_id, entity_type, extract_date,
+                run_id, systapplication1_id, entity_type, extract_date,
                 status, started_at, source_files,
                 created_at, updated_at
             ) VALUES (
-                @run_id, @system_id, @entity_type, @extract_date,
+                @run_id, @systapplication1_id, @entity_type, @extract_date,
                 @status, @started_at, @source_files,
                 CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
             )
@@ -74,7 +74,7 @@ class JobControlRepository:
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("run_id", "STRING", job.run_id),
-                bigquery.ScalarQueryParameter("system_id", "STRING", job.system_id),
+                bigquery.ScalarQueryParameter("systapplication1_id", "STRING", job.systapplication1_id),
                 bigquery.ScalarQueryParameter("entity_type", "STRING", job.entity_type),
                 bigquery.ScalarQueryParameter("extract_date", "DATE", job.extract_date),
                 bigquery.ScalarQueryParameter("status", "STRING", job.status.value),
@@ -208,7 +208,7 @@ class JobControlRepository:
         row = results[0]
         return PipelineJob(
             run_id=row.run_id,
-            system_id=row.system_id,
+            systapplication1_id=row.systapplication1_id,
             entity_type=row.entity_type,
             extract_date=row.extract_date,
             status=JobStatus(row.status),
@@ -221,14 +221,14 @@ class JobControlRepository:
 
     def get_entity_status(
         self,
-        system_id: str,
+        systapplication1_id: str,
         extract_date: date
     ) -> List[dict]:
         """
         Get status of all entities for a system/date.
 
         Args:
-            system_id: Source system ID
+            systapplication1_id: Source system ID
             extract_date: Extract date
 
         Returns:
@@ -237,13 +237,13 @@ class JobControlRepository:
         query = f"""
             SELECT entity_type, status, run_id
             FROM `{self.full_table_id}`
-            WHERE system_id = @system_id
+            WHERE systapplication1_id = @systapplication1_id
               AND extract_date = @extract_date
         """
 
         job_config = bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("system_id", "STRING", system_id),
+                bigquery.ScalarQueryParameter("systapplication1_id", "STRING", systapplication1_id),
                 bigquery.ScalarQueryParameter("extract_date", "DATE", extract_date),
             ]
         )
@@ -255,26 +255,26 @@ class JobControlRepository:
             for row in results
         ]
 
-    def get_pending_jobs(self, system_id: Optional[str] = None) -> List[PipelineJob]:
+    def get_pending_jobs(self, systapplication1_id: Optional[str] = None) -> List[PipelineJob]:
         """
         Get all pending jobs, optionally filtered by system.
 
         Args:
-            system_id: Optional system ID filter
+            systapplication1_id: Optional system ID filter
 
         Returns:
             List of pending PipelineJob instances
         """
-        if system_id:
+        if systapplication1_id:
             query = f"""
                 SELECT * FROM `{self.full_table_id}`
                 WHERE status = 'PENDING'
-                  AND system_id = @system_id
+                  AND systapplication1_id = @systapplication1_id
                 ORDER BY created_at
             """
             job_config = bigquery.QueryJobConfig(
                 query_parameters=[
-                    bigquery.ScalarQueryParameter("system_id", "STRING", system_id),
+                    bigquery.ScalarQueryParameter("systapplication1_id", "STRING", systapplication1_id),
                 ]
             )
         else:
@@ -291,7 +291,7 @@ class JobControlRepository:
         for row in results:
             jobs.append(PipelineJob(
                 run_id=row.run_id,
-                system_id=row.system_id,
+                systapplication1_id=row.systapplication1_id,
                 entity_type=row.entity_type,
                 extract_date=row.extract_date,
                 status=JobStatus(row.status),

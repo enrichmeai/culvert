@@ -69,7 +69,7 @@ class SchemaValidateRecordDoFn(beam.DoFn):
     - PII masking in error output
 
     Example:
-        >>> from em.schema import EMCustomerSchema
+        >>> from application1.schema import EMCustomerSchema
         >>> validator = SchemaValidateRecordDoFn(EMCustomerSchema)
         >>> validated = records | beam.ParDo(validator).with_outputs('invalid')
     """

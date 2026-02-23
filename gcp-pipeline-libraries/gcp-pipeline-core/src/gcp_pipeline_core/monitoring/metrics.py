@@ -222,7 +222,7 @@ class MigrationMetrics:
     Standardized metrics for data migration pipelines.
 
     Provides consistent metric names and automatic tagging with
-    run_id, system_id, and entity_type for all pipeline metrics.
+    run_id, systapplication1_id, and entity_type for all pipeline metrics.
 
     Standard Metrics:
     - records_read: Total records read from source
@@ -235,8 +235,8 @@ class MigrationMetrics:
 
     Example:
         >>> metrics = MigrationMetrics(
-        ...     run_id="em_20260105_143022",
-        ...     system_id="EM",
+        ...     run_id="application1_20260105_143022",
+        ...     systapplication1_id="Application1",
         ...     entity_type="customers"
         ... )
         >>> metrics.record_read(1000)
@@ -266,7 +266,7 @@ class MigrationMetrics:
     def __init__(
         self,
         run_id: str,
-        system_id: str,
+        systapplication1_id: str,
         entity_type: Optional[str] = None,
         pipeline_name: Optional[str] = None
     ):
@@ -275,14 +275,14 @@ class MigrationMetrics:
 
         Args:
             run_id: Pipeline run identifier
-            system_id: System identifier (e.g., EM, LOA)
+            systapplication1_id: System identifier (e.g., Application1, Application2)
             entity_type: Entity being processed (customers, accounts, etc.)
             pipeline_name: Optional pipeline name
         """
         self.run_id = run_id
-        self.system_id = system_id
+        self.systapplication1_id = systapplication1_id
         self.entity_type = entity_type
-        self.pipeline_name = pipeline_name or f"{system_id}_{entity_type or 'pipeline'}"
+        self.pipeline_name = pipeline_name or f"{systapplication1_id}_{entity_type or 'pipeline'}"
 
         # Initialize collector
         self._collector = MetricsCollector(
@@ -293,7 +293,7 @@ class MigrationMetrics:
         # Standard labels for all metrics
         self._labels = {
             'run_id': run_id,
-            'system_id': system_id,
+            'systapplication1_id': systapplication1_id,
         }
         if entity_type:
             self._labels['entity_type'] = entity_type
@@ -485,7 +485,7 @@ class MigrationMetrics:
 
         summary = {
             'run_id': self.run_id,
-            'system_id': self.system_id,
+            'systapplication1_id': self.systapplication1_id,
             'entity_type': self.entity_type,
             'counts': {
                 'read': read,
@@ -522,7 +522,7 @@ class MigrationMetrics:
         summary = self.get_summary()
         return {
             'run_id': self.run_id,
-            'system_id': self.system_id,
+            'systapplication1_id': self.systapplication1_id,
             'entity_type': self.entity_type,
             'records_read': summary['counts']['read'],
             'records_validated': summary['counts']['validated'],

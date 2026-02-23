@@ -5,7 +5,7 @@ Loads entity data from GCS to BigQuery using Dataflow.
 
 To use:
 1. Replace <SYSTEM_ID> with your system identifier (e.g., 'MYAPP').
-2. Replace <system_id> with lowercase identifier (e.g., 'myapp').
+2. Replace <systapplication1_id> with lowercase identifier (e.g., 'myapp').
 3. Configure REQUIRED_ENTITIES if coordination is needed.
 """
 
@@ -65,7 +65,7 @@ def create_job_record(**context):
     repo = JobControlRepository(project_id=PROJECT_ID)
     job = PipelineJob(
         run_id=run_id,
-        system_id=SYSTEM_ID,
+        systapplication1_id=SYSTEM_ID,
         entity_type=entity,
         extract_date=datetime.strptime(extract_date, "%Y%m%d").date(),
         source_files=[data_file],
@@ -85,7 +85,7 @@ def check_dependencies(**context) -> str:
 
     checker = EntityDependencyChecker(
         project_id=PROJECT_ID,
-        system_id=SYSTEM_ID,
+        systapplication1_id=SYSTEM_ID,
         required_entities=REQUIRED_ENTITIES,
     )
 

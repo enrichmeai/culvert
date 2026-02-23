@@ -108,7 +108,7 @@ A workflow is available in `.github/workflows/publish-libraries.yml` that trigge
 3.  **Manual Trigger**: Via the "Actions" tab, where you can choose between `pypi` and `testpypi`.
 
 ### Consuming Libraries in Deployments
-All deployment units (EM, LOA, CDP) are configured to pull the `gcp-pipeline-*` libraries directly from PyPI. 
+All deployment units (Application1, Application2, CDP) are configured to pull the `gcp-pipeline-*` libraries directly from PyPI. 
 To ensure consistent builds, the CI/CD workflows for these deployments install the libraries using:
 ```bash
 pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
@@ -195,9 +195,9 @@ To maintain the integrity of the library architecture, the following rules and r
 
 ### 3. Strict Genericity (NO Project-Specific Logic)
 *   Libraries provide **mechanisms**, not business rules. 
-*   **NEVER** hardcode values, entity names, or logic specific to a single system (e.g., "EM" or "LOA") inside the library code.
+*   **NEVER** hardcode values, entity names, or logic specific to a single system (e.g., "Application1" or "Application2") inside the library code.
 *   Use **Metadata-Driven** patterns: Logic should be controlled by configurations (schemas, variables, or rules) passed from the deployment layer.
-*   Example: Use a generic `apply_enrichment(rules)` macro instead of an `apply_em_enrichment()` macro.
+*   Example: Use a generic `apply_enrichment(rules)` macro instead of an `apply_application1_enrichment()` macro.
 
 ### 4. Release & Tagging Strategy
 *   Use the **Unified Tagging Strategy** for cross-library changes.
@@ -215,7 +215,7 @@ To maintain the integrity of the library architecture, the following rules and r
     - `ErrorClassifier`: Categorizes exceptions into **Validation** (no retry), **Integration** (retry with backoff), and **Resource** (exponential backoff).
     - `RetryPolicy`: Configurable max retries, backoff multipliers, and jitter.
 - **Job Control**: Tracks pipeline execution states in BigQuery for granular status updates and failure stage tracking.
-- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, system_id).
+- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, systapplication1_id).
 - **Compliance**: Zero dependencies on Beam or Airflow.
 
 ### gcp-pipeline-beam (Ingestion Layer)
@@ -343,8 +343,8 @@ The libraries are designed for "Local-First" development. You can validate DAG s
 
 **Example: Validate DAG syntax**
 ```bash
-cd deployments/em-orchestration
-python dags/em_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
+cd deployments/application1-orchestration
+python dags/application1_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
 ```
 
 **Example: Test Beam transform with mocks**

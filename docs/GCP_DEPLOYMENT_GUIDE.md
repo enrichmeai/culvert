@@ -87,38 +87,38 @@ Or manually:
 PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
-# EM Buckets
-gsutil mb -l $REGION gs://${PROJECT_ID}-em-landing
-gsutil mb -l $REGION gs://${PROJECT_ID}-em-archive
-gsutil mb -l $REGION gs://${PROJECT_ID}-em-error
-gsutil mb -l $REGION gs://${PROJECT_ID}-em-temp
+# Application1 Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-application1-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-application1-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-application1-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-application1-temp
 
-# EM BigQuery Datasets
-bq mk --location=$REGION odp_em
-bq mk --location=$REGION fdp_em
+# Application1 BigQuery Datasets
+bq mk --location=$REGION odp_application1
+bq mk --location=$REGION fdp_application1
 bq mk --location=$REGION job_control
 
-# EM Pub/Sub Topics
-gcloud pubsub topics create em-file-notifications
-gcloud pubsub topics create em-pipeline-events
-gcloud pubsub subscriptions create em-file-notifications-sub --topic=em-file-notifications
-gcloud pubsub subscriptions create em-pipeline-events-sub --topic=em-pipeline-events
+# Application1 Pub/Sub Topics
+gcloud pubsub topics create application1-file-notifications
+gcloud pubsub topics create application1-pipeline-events
+gcloud pubsub subscriptions create application1-file-notifications-sub --topic=application1-file-notifications
+gcloud pubsub subscriptions create application1-pipeline-events-sub --topic=application1-pipeline-events
 
-# LOA Buckets
-gsutil mb -l $REGION gs://${PROJECT_ID}-loa-landing
-gsutil mb -l $REGION gs://${PROJECT_ID}-loa-archive
-gsutil mb -l $REGION gs://${PROJECT_ID}-loa-error
-gsutil mb -l $REGION gs://${PROJECT_ID}-loa-temp
+# Application2 Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-application2-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-application2-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-application2-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-application2-temp
 
-# LOA BigQuery Datasets
-bq mk --location=$REGION odp_loa
-bq mk --location=$REGION fdp_loa
+# Application2 BigQuery Datasets
+bq mk --location=$REGION odp_application2
+bq mk --location=$REGION fdp_application2
 
-# LOA Pub/Sub Topics
-gcloud pubsub topics create loa-file-notifications
-gcloud pubsub topics create loa-pipeline-events
-gcloud pubsub subscriptions create loa-file-notifications-sub --topic=loa-file-notifications
-gcloud pubsub subscriptions create loa-pipeline-events-sub --topic=loa-pipeline-events
+# Application2 Pub/Sub Topics
+gcloud pubsub topics create application2-file-notifications
+gcloud pubsub topics create application2-pipeline-events
+gcloud pubsub subscriptions create application2-file-notifications-sub --topic=application2-file-notifications
+gcloud pubsub subscriptions create application2-pipeline-events-sub --topic=application2-pipeline-events
 ```
 
 ### Step 1.4: Setup GitHub Actions Service Account
@@ -188,14 +188,14 @@ Pipelines deploy automatically when you push to `main` branch with changes in:
 
 ### Manual Deployment
 ```bash
-# Trigger EM deployment
-gh workflow run deploy-em.yml
+# Trigger Application1 deployment
+gh workflow run deploy-application1.yml
 
-# Trigger LOA deployment
-gh workflow run deploy-loa.yml
+# Trigger Application2 deployment
+gh workflow run deploy-application2.yml
 
 # Check status
-gh run list --workflow=deploy-em.yml --limit 3
+gh run list --workflow=deploy-application1.yml --limit 3
 ```
 
 ---
@@ -204,7 +204,7 @@ gh run list --workflow=deploy-em.yml --limit 3
 
 ### Step 3.1: Upload Test Data
 ```bash
-./scripts/gcp/06_test_pipeline.sh em
+./scripts/gcp/06_test_pipeline.sh application1
 ```
 
 Or manually:
@@ -213,8 +213,8 @@ PROJECT_ID=$(gcloud config get-value project)
 DATE=$(date +%Y%m%d)
 
 # Create test file
-cat > /tmp/em_customers.csv << 'EOF'
-HDR|EM|Customers|20260104
+cat > /tmp/application1_customers.csv << 'EOF'
+HDR|Application1|Customers|20260104
 customer_id,name,email,status
 CUST001,John Doe,john@example.com,ACTIVE
 CUST002,Jane Smith,jane@example.com,ACTIVE
@@ -222,24 +222,24 @@ TRL|RecordCount=2|Checksum=abc123
 EOF
 
 # Upload to landing bucket
-gsutil cp /tmp/em_customers.csv gs://${PROJECT_ID}-em-landing/
+gsutil cp /tmp/application1_customers.csv gs://${PROJECT_ID}-application1-landing/
 
 # Create trigger file (.ok)
-touch /tmp/em_customers.csv.ok
-gsutil cp /tmp/em_customers.csv.ok gs://${PROJECT_ID}-em-landing/
+touch /tmp/application1_customers.csv.ok
+gsutil cp /tmp/application1_customers.csv.ok gs://${PROJECT_ID}-application1-landing/
 
 # Publish notification
-gcloud pubsub topics publish em-file-notifications \
-    --message='{"file": "em_customers.csv", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+gcloud pubsub topics publish application1-file-notifications \
+    --message='{"file": "application1_customers.csv", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
 ### Step 3.2: Monitor Pipeline
 ```bash
 # Check Pub/Sub messages
-gcloud pubsub subscriptions pull em-pipeline-events-sub --auto-ack
+gcloud pubsub subscriptions pull application1-pipeline-events-sub --auto-ack
 
 # Check BigQuery for loaded data
-bq query --use_legacy_sql=false 'SELECT * FROM odp_em.customers LIMIT 10'
+bq query --use_legacy_sql=false 'SELECT * FROM odp_application1.customers LIMIT 10'
 
 # Check Dataflow jobs
 gcloud dataflow jobs list --status=active
@@ -290,13 +290,13 @@ gh secret list
 
 ## Quick Reference
 
-| Resource | EM | LOA |
+| Resource | Application1 | Application2 |
 |----------|-----|-----|
-| Landing Bucket | `{project}-em-landing` | `{project}-loa-landing` |
-| Archive Bucket | `{project}-em-archive` | `{project}-loa-archive` |
-| Error Bucket | `{project}-em-error` | `{project}-loa-error` |
-| ODP Dataset | `odp_em` | `odp_loa` |
-| FDP Dataset | `fdp_em` | `fdp_loa` |
-| Notification Topic | `em-file-notifications` | `loa-file-notifications` |
-| Events Topic | `em-pipeline-events` | `loa-pipeline-events` |
+| Landing Bucket | `{project}-application1-landing` | `{project}-application2-landing` |
+| Archive Bucket | `{project}-application1-archive` | `{project}-application2-archive` |
+| Error Bucket | `{project}-application1-error` | `{project}-application2-error` |
+| ODP Dataset | `odp_application1` | `odp_application2` |
+| FDP Dataset | `fdp_application1` | `fdp_application2` |
+| Notification Topic | `application1-file-notifications` | `application2-file-notifications` |
+| Events Topic | `application1-pipeline-events` | `application2-pipeline-events` |
 

@@ -34,7 +34,7 @@ def configure_otel(config: OTELConfig) -> bool:
 
     Example:
         >>> config = OTELConfig.for_dynatrace(
-        ...     service_name="em-pipeline",
+        ...     service_name="application1-pipeline",
         ...     dynatrace_url="https://xyz.live.dynatrace.com/api/v2/otlp",
         ...     dynatrace_token="dt0c01.xxx",
         ... )

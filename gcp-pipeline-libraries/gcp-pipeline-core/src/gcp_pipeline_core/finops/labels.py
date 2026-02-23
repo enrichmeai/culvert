@@ -6,16 +6,16 @@ from typing import Dict, Optional
 class FinOpsLabels:
     """Standardized labels for FinOps cost allocation."""
 
-    def __init__(self, system_id: str, environment: str, project: str = "gdw-data-core"):
+    def __init__(self, systapplication1_id: str, environment: str, project: str = "gdw-data-core"):
         """
         Initialize FinOps labels.
 
         Args:
-            system_id: System identifier (e.g., EM, LOA).
+            systapplication1_id: System identifier (e.g., Application1, Application2).
             environment: Environment (e.g., DEV, PROD).
             project: Project name (defaults to "gdw-data-core").
         """
-        self.system_id = system_id
+        self.systapplication1_id = systapplication1_id
         self.environment = environment
         self.project = project
 
@@ -27,19 +27,19 @@ class FinOpsLabels:
             Dictionary of lowercase labels suitable for GCP resources.
         """
         return {
-            "system": self.system_id.lower(),
+            "system": self.systapplication1_id.lower(),
             "environment": self.environment.lower(),
             "project": self.project.lower(),
             "managed_by": "terraform-and-library"
         }
 
     @staticmethod
-    def get_standard_labels(system_id: str, environment: str, run_id: Optional[str] = None) -> Dict[str, str]:
+    def get_standard_labels(systapplication1_id: str, environment: str, run_id: Optional[str] = None) -> Dict[str, str]:
         """
         Utility to get standard label set.
 
         Args:
-            system_id: System identifier.
+            systapplication1_id: System identifier.
             environment: Deployment environment.
             run_id: Optional pipeline run identifier.
 
@@ -47,7 +47,7 @@ class FinOpsLabels:
             Dictionary of standard labels.
         """
         labels = {
-            "system": system_id.lower(),
+            "system": systapplication1_id.lower(),
             "environment": environment.lower(),
             "managed_by": "gcp-pipeline-library"
         }

@@ -2,7 +2,7 @@
 # =============================================================================
 # Step 3: Create Infrastructure (Buckets, Datasets, Topics)
 # =============================================================================
-# Usage: ./scripts/gcp/03_create_infrastructure.sh [em|loa|all]
+# Usage: ./scripts/gcp/03_create_infrastructure.sh [application1|application2|all]
 # =============================================================================
 
 set -e
@@ -74,61 +74,61 @@ create_subscription() {
     fi
 }
 
-# EM Infrastructure
+# Application1 Infrastructure
 setup_em() {
-    echo -e "${BLUE}=== EM Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Application1 Infrastructure ===${NC}"
     echo ""
     echo "GCS Buckets:"
-    create_bucket "em-landing"
-    create_bucket "em-archive"
-    create_bucket "em-error"
-    create_bucket "em-temp"
+    create_bucket "application1-landing"
+    create_bucket "application1-archive"
+    create_bucket "application1-error"
+    create_bucket "application1-temp"
 
     echo ""
     echo "BigQuery Datasets:"
-    create_dataset "odp_em"
-    create_dataset "fdp_em"
+    create_dataset "odp_application1"
+    create_dataset "fdp_application1"
     create_dataset "job_control"
 
     echo ""
     echo "Pub/Sub:"
-    create_topic "em-file-notifications"
-    create_topic "em-pipeline-events"
-    create_subscription "em-file-notifications-sub" "em-file-notifications"
-    create_subscription "em-pipeline-events-sub" "em-pipeline-events"
+    create_topic "application1-file-notifications"
+    create_topic "application1-pipeline-events"
+    create_subscription "application1-file-notifications-sub" "application1-file-notifications"
+    create_subscription "application1-pipeline-events-sub" "application1-pipeline-events"
     echo ""
 }
 
-# LOA Infrastructure
+# Application2 Infrastructure
 setup_loa() {
-    echo -e "${BLUE}=== LOA Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Application2 Infrastructure ===${NC}"
     echo ""
     echo "GCS Buckets:"
-    create_bucket "loa-landing"
-    create_bucket "loa-archive"
-    create_bucket "loa-error"
-    create_bucket "loa-temp"
+    create_bucket "application2-landing"
+    create_bucket "application2-archive"
+    create_bucket "application2-error"
+    create_bucket "application2-temp"
 
     echo ""
     echo "BigQuery Datasets:"
-    create_dataset "odp_loa"
-    create_dataset "fdp_loa"
+    create_dataset "odp_application2"
+    create_dataset "fdp_application2"
 
     echo ""
     echo "Pub/Sub:"
-    create_topic "loa-file-notifications"
-    create_topic "loa-pipeline-events"
-    create_subscription "loa-file-notifications-sub" "loa-file-notifications"
-    create_subscription "loa-pipeline-events-sub" "loa-pipeline-events"
+    create_topic "application2-file-notifications"
+    create_topic "application2-pipeline-events"
+    create_subscription "application2-file-notifications-sub" "application2-file-notifications"
+    create_subscription "application2-pipeline-events-sub" "application2-pipeline-events"
     echo ""
 }
 
 # Main
 case "$DEPLOYMENT" in
-    em)  setup_em ;;
-    loa) setup_loa ;;
+    application1)  setup_em ;;
+    application2) setup_loa ;;
     all) setup_em; setup_loa ;;
-    *)   echo "Usage: $0 [em|loa|all]"; exit 1 ;;
+    *)   echo "Usage: $0 [application1|application2|all]"; exit 1 ;;
 esac
 
 echo -e "${GREEN}✅ Step 3 Complete!${NC}"

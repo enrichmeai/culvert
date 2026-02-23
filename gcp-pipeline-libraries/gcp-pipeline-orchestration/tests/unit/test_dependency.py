@@ -14,10 +14,10 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.mock_repo = MagicMock()
-        # New interface: pipeline provides system_id and required_entities
+        # New interface: pipeline provides systapplication1_id and required_entities
         self.checker = EntityDependencyChecker(
             project_id="test-project",
-            system_id="em",
+            systapplication1_id="application1",
             required_entities=["customers", "accounts", "decision"],
             job_repo=self.mock_repo
         )
@@ -26,12 +26,12 @@ class TestEntityDependencyChecker(unittest.TestCase):
         """Test initialization with required entities."""
         checker = EntityDependencyChecker(
             project_id="test-project",
-            system_id="my_system",
+            systapplication1_id="my_system",
             required_entities=["entity_a", "entity_b"],
             job_repo=self.mock_repo
         )
 
-        self.assertEqual(checker.system_id, "my_system")
+        self.assertEqual(checker.systapplication1_id, "my_system")
         self.assertEqual(checker.required_entities, ["entity_a", "entity_b"])
         self.assertEqual(checker.required_count, 2)
 
@@ -50,7 +50,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
         loaded = self.checker.get_loaded_entities(date(2026, 1, 1))
 
         self.mock_repo.get_entity_status.assert_called_once_with(
-            "em", date(2026, 1, 1)
+            "application1", date(2026, 1, 1)
         )
         self.assertIn("customers", loaded)
         self.assertIn("accounts", loaded)
@@ -80,10 +80,10 @@ class TestEntityDependencyChecker(unittest.TestCase):
         self.assertFalse(result)
 
     def test_all_entities_loaded_single_entity(self):
-        """Test with single entity (like LOA)."""
-        loa_checker = EntityDependencyChecker(
+        """Test with single entity (like Application2)."""
+        application2_checker = EntityDependencyChecker(
             project_id="test-project",
-            system_id="loa",
+            systapplication1_id="application2",
             required_entities=["applications"],
             job_repo=self.mock_repo
         )
@@ -92,7 +92,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
             {"entity_type": "APPLICATIONS", "status": "SUCCESS", "run_id": "run_001"},
         ]
 
-        result = loa_checker.all_entities_loaded(date(2026, 1, 1))
+        result = application2_checker.all_entities_loaded(date(2026, 1, 1))
 
         self.assertTrue(result)
 
@@ -140,7 +140,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
 
         status = self.checker.get_status_summary(date(2026, 1, 1))
 
-        self.assertEqual(status["system_id"], "em")
+        self.assertEqual(status["systapplication1_id"], "application1")
         self.assertEqual(status["extract_date"], "2026-01-01")
         self.assertEqual(len(status["required_entities"]), 3)
         self.assertEqual(status["required_count"], 3)
@@ -153,12 +153,12 @@ class TestEntityDependencyChecker(unittest.TestCase):
         """Test with custom system configuration."""
         custom_checker = EntityDependencyChecker(
             project_id="test-project",
-            system_id="custom_system",
+            systapplication1_id="custom_system",
             required_entities=["entity1", "entity2", "entity3", "entity4"],
             job_repo=self.mock_repo
         )
 
-        self.assertEqual(custom_checker.system_id, "custom_system")
+        self.assertEqual(custom_checker.systapplication1_id, "custom_system")
         self.assertEqual(custom_checker.required_count, 4)
         self.assertEqual(custom_checker.required_entities, ["entity1", "entity2", "entity3", "entity4"])
 

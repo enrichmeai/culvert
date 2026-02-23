@@ -1,2 +1,0 @@
-"""LOA Config Unit Tests."""
-

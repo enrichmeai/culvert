@@ -175,7 +175,7 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
             'gcs_path': gcs_path,
             'bucket': attributes.get('bucketId'),
             'object_id': attributes.get('objectId'),
-            'system_id': attributes.get('system_id'),
+            'systapplication1_id': attributes.get('systapplication1_id'),
             'entity_type': attributes.get('entity_type'),
             'event_type': attributes.get('eventType'),
             'publish_time': payload.get('publishTime'),

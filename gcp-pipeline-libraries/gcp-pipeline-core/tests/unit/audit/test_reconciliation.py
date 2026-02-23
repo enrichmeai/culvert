@@ -21,14 +21,14 @@ class TestReconciliationEngine(unittest.TestCase):
         """Set up test engine."""
         self.engine = ReconciliationEngine(
             entity_type="customers",
-            run_id="em_20260105_143022_abc123",
+            run_id="application1_20260105_143022_abc123",
             project_id="test-project"
         )
 
     def test_initialization(self):
         """ReconciliationEngine should initialize correctly."""
         self.assertEqual(self.engine.entity_type, "customers")
-        self.assertEqual(self.engine.run_id, "em_20260105_143022_abc123")
+        self.assertEqual(self.engine.run_id, "application1_20260105_143022_abc123")
         self.assertEqual(self.engine.project_id, "test-project")
 
     def test_reconcile_counts_match(self):
@@ -106,7 +106,7 @@ class TestReconciliationEngine(unittest.TestCase):
         result_dict = result.to_dict()
 
         self.assertEqual(result_dict['entity_type'], 'customers')
-        self.assertEqual(result_dict['run_id'], 'em_20260105_143022_abc123')
+        self.assertEqual(result_dict['run_id'], 'application1_20260105_143022_abc123')
         self.assertEqual(result_dict['expected_count'], 1000)
         self.assertEqual(result_dict['actual_count'], 1000)
         self.assertEqual(result_dict['status'], 'RECONCILED')
@@ -144,7 +144,7 @@ class TestReconciliationWithBigQuery(unittest.TestCase):
         """Set up test engine."""
         self.engine = ReconciliationEngine(
             entity_type="customers",
-            run_id="em_20260105_143022_abc123",
+            run_id="application1_20260105_143022_abc123",
             project_id="test-project"
         )
 
@@ -218,7 +218,7 @@ class TestReconciliationFromTrailer(unittest.TestCase):
         """Set up test engine."""
         self.engine = ReconciliationEngine(
             entity_type="customers",
-            run_id="em_20260105_143022_abc123"
+            run_id="application1_20260105_143022_abc123"
         )
 
     @patch('gcp_pipeline_core.audit.reconciliation.ReconciliationEngine.reconcile_with_bigquery')

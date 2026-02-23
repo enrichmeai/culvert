@@ -15,7 +15,7 @@ Usage:
     >>>
     >>> engine = ReconciliationEngine(
     ...     entity_type="customers",
-    ...     run_id="em_20260105_143022",
+    ...     run_id="application1_20260105_143022",
     ...     project_id="my-project"
     ... )
     >>> result = engine.reconcile_with_bigquery(
@@ -97,7 +97,7 @@ class ReconciliationEngine:
     Example:
         >>> engine = ReconciliationEngine(
         ...     entity_type="customers",
-        ...     run_id="em_20260105_143022",
+        ...     run_id="application1_20260105_143022",
         ...     project_id="my-project"
         ... )
         >>>

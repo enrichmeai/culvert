@@ -20,7 +20,7 @@ Example (Schema-driven validation):
     >>> from gcp_pipeline_beam.pipelines.beam.transforms import (
     ...     ParseCsvLine, SchemaValidateRecordDoFn
     ... )
-    >>> from em.schema import EMCustomerSchema
+    >>> from application1.schema import EMCustomerSchema
     >>>
     >>> pipeline | 'ReadText' >> beam.io.ReadFromText('input.csv')
     ...         | 'ParseCSV' >> beam.ParDo(ParseCsvLine(EMCustomerSchema.get_csv_headers()))

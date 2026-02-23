@@ -1,6 +1,6 @@
-# LOA Blueprint - Terraform Main Configuration
+# Application2 Blueprint - Terraform Main Configuration
 #
-# Provisions complete GCP infrastructure for LOA pipeline:
+# Provisions complete GCP infrastructure for Application2 pipeline:
 # - GCS buckets (input, archive, error, quarantine)
 # - BigQuery datasets (raw, staging, marts)
 # - Service accounts and IAM roles
@@ -22,7 +22,7 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "loa-terraform-state"
+    bucket = "application2-terraform-state"
     prefix = "staging"
   }
 }
@@ -47,10 +47,10 @@ locals {
   region      = var.gcp_region
 
   # Resource naming convention
-  prefix = "loa-${local.environment}"
+  prefix = "application2-${local.environment}"
 
   common_labels = {
-    project     = "loa-blueprint"
+    project     = "application2-blueprint"
     environment = local.environment
     managed_by  = "terraform"
     created_at  = timestamp()
@@ -240,28 +240,28 @@ resource "google_artifact_registry_repository" "pipeline_repo" {
 # Dataflow service account
 resource "google_service_account" "dataflow" {
   account_id   = "${local.prefix}-dataflow"
-  display_name = "LOA Dataflow Service Account"
+  display_name = "Application2 Dataflow Service Account"
   description  = "Service account for Dataflow pipeline execution"
 }
 
 # dbt service account
 resource "google_service_account" "dbt" {
   account_id   = "${local.prefix}-dbt"
-  display_name = "LOA dbt Service Account"
+  display_name = "Application2 dbt Service Account"
   description  = "Service account for dbt transformations"
 }
 
 # Cloud Run service account
 resource "google_service_account" "cloud_run" {
   account_id   = "${local.prefix}-cloud-run"
-  display_name = "LOA Cloud Run Service Account"
+  display_name = "Application2 Cloud Run Service Account"
   description  = "Service account for Cloud Run services"
 }
 
 # Analytics service account
 resource "google_service_account" "analytics" {
   account_id   = "${local.prefix}-analytics"
-  display_name = "LOA Analytics Service Account"
+  display_name = "Application2 Analytics Service Account"
   description  = "Service account for analytics/reporting access"
 }
 
@@ -387,11 +387,11 @@ resource "google_compute_router_nat" "main" {
 # MONITORING
 # ============================================================================
 
-# Log bucket for LOA pipeline logs
-resource "google_logging_project_bucket_config" "loa_logs" {
+# Log bucket for Application2 pipeline logs
+resource "google_logging_project_bucket_config" "application2_logs" {
   project          = var.gcp_project_id
   location         = var.gcp_region
-  bucket_id        = "loa-pipeline-logs"
+  bucket_id        = "application2-pipeline-logs"
   retention_days   = var.log_retention_days
   enable_analytics = true
 }
