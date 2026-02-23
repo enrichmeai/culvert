@@ -1,11 +1,6 @@
 name: Deploy Application2
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deployments/application2-*/**'
-      - 'infrastructure/terraform/systems/application2/**'
   workflow_dispatch:
 
 env:
