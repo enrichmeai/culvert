@@ -113,13 +113,13 @@ jobs:
 
     - name: Terraform Validate (Application1)
       run: |
-        cd infrastructure/terraform/application1
+        cd infrastructure/terraform/systems/application1/ingestion
         terraform init -backend=false
         terraform validate
 
     - name: Terraform Validate (Application2)
       run: |
-        cd infrastructure/terraform/application2
+        cd infrastructure/terraform/systems/application2/ingestion
         terraform init -backend=false
         terraform validate
 
