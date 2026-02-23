@@ -69,7 +69,11 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e gcp-pipeline-libraries/gcp-pipeline-core[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-transform
         pip install -e gcp-pipeline-libraries/gcp-pipeline-tester[dev]
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-framework[core,beam,orchestration,transform,tester]
 
     - name: Test gcp-pipeline-core
       run: |
