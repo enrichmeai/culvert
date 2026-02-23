@@ -173,6 +173,14 @@ class OTELProvider:
                 timeout=self.config.export_timeout_ms // 1000,
             )
 
+        elif exporter_type == OTELExporterType.GCP_OTLP:
+            from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+            # For telemetry.googleapis.com, we use gRPC with default credentials
+            return OTLPSpanExporter(
+                endpoint=self.config.otlp_endpoint,
+                timeout=self.config.export_timeout_ms // 1000,
+            )
+
         elif exporter_type == OTELExporterType.GCP_TRACE:
             from opentelemetry.exporter.cloud_trace import CloudTraceSpanExporter
             return CloudTraceSpanExporter(project_id=self.config.gcp_project_id)
@@ -203,6 +211,13 @@ class OTELProvider:
             )
 
         elif exporter_type == OTELExporterType.OTLP:
+            from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+            return OTLPMetricExporter(
+                endpoint=self.config.otlp_endpoint,
+                timeout=self.config.export_timeout_ms // 1000,
+            )
+
+        elif exporter_type == OTELExporterType.GCP_OTLP:
             from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
             return OTLPMetricExporter(
                 endpoint=self.config.otlp_endpoint,
