@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "application2-ingestion"
-version = "1.0.0"
+version = "1.0.1"
 description = "Application2 ODP Ingestion Pipeline - GCS to BigQuery via Dataflow"
 readme = "README.md"
 license = {text = "MIT"}

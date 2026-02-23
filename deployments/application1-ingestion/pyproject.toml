@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "application1-ingestion"
-version = "1.0.0"
+version = "1.0.1"
 description = "Application1 ODP Ingestion Pipeline - Handles 3 entities (Customers, Accounts, Decision)"
 readme = "README.md"
 license = {text = "MIT"}

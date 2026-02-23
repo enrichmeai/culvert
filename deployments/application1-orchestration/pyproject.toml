@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "application1-orchestration"
-version = "1.0.0"
+version = "1.0.1"
 description = "Application1 Orchestration - Airflow DAGs for pipeline coordination (JOIN pattern)"
 readme = "README.md"
 license = {text = "MIT"}
