@@ -12,7 +12,7 @@
 # ============================================================================
 
 resource "google_kms_key_ring" "data_key_ring" {
-  name     = "loa-key-ring-${var.environment}"
+  name     = "application2-key-ring-${var.environment}"
   location = var.gcp_region
 }
 

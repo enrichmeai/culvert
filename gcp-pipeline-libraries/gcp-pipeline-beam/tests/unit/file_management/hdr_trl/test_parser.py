@@ -18,21 +18,21 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
 
     def test_parse_valid_header(self):
         """Test parsing a valid header line."""
-        line = "HDR|EM|Customer|20260101"
+        line = "HDR|Application1|Customer|20260101"
         result = self.parser.parse_header(line)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.system_id, "EM")
+        self.assertEqual(result.systapplication1_id, "Application1")
         self.assertEqual(result.entity_type, "Customer")
         self.assertEqual(result.extract_date, "20260101")
 
     def test_parse_valid_header_with_whitespace(self):
         """Test parsing header with leading/trailing whitespace."""
-        line = "  HDR|LOA|Applications|20260115  \n"
+        line = "  HDR|Application2|Applications|20260115  \n"
         result = self.parser.parse_header(line)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.system_id, "LOA")
+        self.assertEqual(result.systapplication1_id, "Application2")
         self.assertEqual(result.entity_type, "Applications")
 
     def test_parse_valid_trailer(self):
@@ -67,7 +67,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
     def test_parse_file_lines(self):
         """Test parsing complete file lines."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
             "1001,John,123-45-6789",
             "1002,Jane,987-65-4321",
@@ -76,7 +76,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
 
         metadata = self.parser.parse_file_lines(lines)
 
-        self.assertEqual(metadata.header.system_id, "EM")
+        self.assertEqual(metadata.header.systapplication1_id, "Application1")
         self.assertEqual(metadata.trailer.record_count, 2)
         self.assertEqual(metadata.data_start_line, 1)
         self.assertEqual(metadata.data_end_line, 3)
@@ -104,7 +104,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
     def test_parse_file_lines_invalid_trailer(self):
         """Test parsing file with invalid trailer raises ValueError."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
             "NOT_A_TRAILER"
         ]
@@ -116,7 +116,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
 
     def test_is_header_line(self):
         """Test is_header_line detection."""
-        self.assertTrue(self.parser.is_header_line("HDR|EM|Customer|20260101"))
+        self.assertTrue(self.parser.is_header_line("HDR|Application1|Customer|20260101"))
         self.assertTrue(self.parser.is_header_line("  HDR|test"))
         self.assertFalse(self.parser.is_header_line("TRL|something"))
         self.assertFalse(self.parser.is_header_line("id,name,ssn"))
@@ -144,7 +144,7 @@ class TestHDRTRLParserCustomPatterns(unittest.TestCase):
         # Test custom header
         header = parser.parse_header("HEADER:MY_SYSTEM:MY_ENTITY:20260101")
         self.assertIsNotNone(header)
-        self.assertEqual(header.system_id, "MY_SYSTEM")
+        self.assertEqual(header.systapplication1_id, "MY_SYSTEM")
         self.assertEqual(header.entity_type, "MY_ENTITY")
 
         # Test custom trailer
@@ -162,9 +162,9 @@ class TestHDRTRLParserCustomPatterns(unittest.TestCase):
         """Test that default patterns work without any arguments."""
         parser = HDRTRLParser()  # No arguments - use defaults
 
-        header = parser.parse_header("HDR|EM|Customer|20260101")
+        header = parser.parse_header("HDR|Application1|Customer|20260101")
         self.assertIsNotNone(header)
-        self.assertEqual(header.system_id, "EM")
+        self.assertEqual(header.systapplication1_id, "Application1")
 
         trailer = parser.parse_trailer("TRL|RecordCount=500|Checksum=abc123")
         self.assertIsNotNone(trailer)

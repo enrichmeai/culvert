@@ -36,7 +36,7 @@ class HDRTRLParser:
     Example with defaults:
         >>> parser = HDRTRLParser()
         >>> metadata = parser.parse_file("gs://bucket/file.csv")
-        >>> print(metadata.header.system_id)  # "EM"
+        >>> print(metadata.header.systapplication1_id)  # "Application1"
 
     Example with custom patterns:
         >>> parser = HDRTRLParser(
@@ -89,7 +89,7 @@ class HDRTRLParser:
 
         return HeaderRecord(
             record_type=self.hdr_prefix.rstrip(self.delimiter),
-            system_id=match.group(1),
+            systapplication1_id=match.group(1),
             entity_type=match.group(2),
             extract_date=match.group(3),
             raw_line=line

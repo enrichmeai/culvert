@@ -17,14 +17,14 @@ class TestHeaderRecord(unittest.TestCase):
         """Test creating a HeaderRecord."""
         header = HeaderRecord(
             record_type="HDR",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
-            raw_line="HDR|EM|Customer|20260101"
+            raw_line="HDR|Application1|Customer|20260101"
         )
 
         self.assertEqual(header.record_type, "HDR")
-        self.assertEqual(header.system_id, "EM")
+        self.assertEqual(header.systapplication1_id, "Application1")
         self.assertEqual(header.entity_type, "Customer")
         self.assertEqual(header.extract_date, "20260101")
 
@@ -32,10 +32,10 @@ class TestHeaderRecord(unittest.TestCase):
         """Test extract_date_parsed property."""
         header = HeaderRecord(
             record_type="HDR",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
-            raw_line="HDR|EM|Customer|20260101"
+            raw_line="HDR|Application1|Customer|20260101"
         )
 
         parsed_date = header.extract_date_parsed
@@ -48,10 +48,10 @@ class TestHeaderRecord(unittest.TestCase):
         """Test HeaderRecord with extra fields."""
         header = HeaderRecord(
             record_type="HDR",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
-            raw_line="HDR|EM|Customer|20260101",
+            raw_line="HDR|Application1|Customer|20260101",
             extra_fields={"custom_field": "value"}
         )
 
@@ -94,10 +94,10 @@ class TestParsedFileMetadata(unittest.TestCase):
         """Test creating ParsedFileMetadata."""
         header = HeaderRecord(
             record_type="HDR",
-            system_id="EM",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
-            raw_line="HDR|EM|Customer|20260101"
+            raw_line="HDR|Application1|Customer|20260101"
         )
         trailer = TrailerRecord(
             record_type="TRL",
@@ -113,7 +113,7 @@ class TestParsedFileMetadata(unittest.TestCase):
             data_end_line=100
         )
 
-        self.assertEqual(metadata.header.system_id, "EM")
+        self.assertEqual(metadata.header.systapplication1_id, "Application1")
         self.assertEqual(metadata.trailer.record_count, 100)
         self.assertEqual(metadata.data_start_line, 1)
         self.assertEqual(metadata.data_end_line, 100)

@@ -1,7 +1,7 @@
 from gcp_pipeline_core.finops.labels import FinOpsLabels
 
 def test_finops_labels_to_dict():
-    labels = FinOpsLabels(system_id="MySystem", environment="PROD")
+    labels = FinOpsLabels(systapplication1_id="MySystem", environment="PROD")
     d = labels.to_dict()
     
     assert d["system"] == "mysystem"
@@ -10,7 +10,7 @@ def test_finops_labels_to_dict():
     assert d["managed_by"] == "terraform-and-library"
 
 def test_get_standard_labels():
-    d = FinOpsLabels.get_standard_labels(system_id="Test", environment="Dev", run_id="123")
+    d = FinOpsLabels.get_standard_labels(systapplication1_id="Test", environment="Dev", run_id="123")
     
     assert d["system"] == "test"
     assert d["environment"] == "dev"

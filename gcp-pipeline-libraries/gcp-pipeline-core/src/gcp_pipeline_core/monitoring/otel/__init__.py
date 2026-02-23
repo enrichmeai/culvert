@@ -18,7 +18,7 @@ Usage:
 
     # Configure OTEL with Dynatrace
     config = OTELConfig.for_dynatrace(
-        service_name="em-pipeline",
+        service_name="application1-pipeline",
         dynatrace_url="https://your-env.live.dynatrace.com/api/v2/otlp",
         dynatrace_token="dt0c01.xxx",
     )
@@ -31,7 +31,7 @@ Usage:
         process_records()
 
     # Use context for pipeline-wide tracing
-    with OTELContext(run_id="run_123", system_id="EM") as ctx:
+    with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
         with ctx.span("validation") as span:
             span.set_attribute("records", 1000)
             validate_records()

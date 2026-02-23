@@ -112,7 +112,7 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_valid_file_structure(self):
         """Test valid file with HDR, data, and TRL."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
             "1001,John,123-45-6789",
             "1002,Jane,987-65-4321",
@@ -140,7 +140,7 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_missing_trl(self):
         """Test file missing TRL record."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
             "1001,John,123-45-6789",
         ]
@@ -153,9 +153,9 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_hdr_in_middle(self):
         """Test file with HDR in middle."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
-            "HDR|EM|Account|20260101",  # Unexpected HDR
+            "HDR|Application1|Account|20260101",  # Unexpected HDR
             "1001,John,123-45-6789",
             "TRL|RecordCount=1|Checksum=abc123"
         ]
@@ -168,7 +168,7 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_trl_in_middle(self):
         """Test file with TRL in middle."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "id,name,ssn",
             "TRL|RecordCount=1|Checksum=abc",  # Unexpected TRL
             "1001,John,123-45-6789",
@@ -192,7 +192,7 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_hdr_trl_only(self):
         """Test file with only HDR and TRL (no data)."""
         lines = [
-            "HDR|EM|Customer|20260101",
+            "HDR|Application1|Customer|20260101",
             "TRL|RecordCount=0|Checksum=abc123"
         ]
 
@@ -203,7 +203,7 @@ class TestValidateRowTypes(unittest.TestCase):
     def test_whitespace_handling(self):
         """Test that whitespace is handled correctly."""
         lines = [
-            "  HDR|EM|Customer|20260101  ",
+            "  HDR|Application1|Customer|20260101  ",
             "id,name,ssn",
             "  TRL|RecordCount=0|Checksum=abc123  "
         ]

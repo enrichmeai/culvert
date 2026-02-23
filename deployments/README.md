@@ -23,12 +23,12 @@ Each system is split into 3 independent deployment units:
 
 ```
 deployments/
-├── em-ingestion/        # EM: Beam pipeline (26 tests)
-├── em-transformation/   # EM: dbt models
-├── em-orchestration/    # EM: Airflow DAGs
-├── loa-ingestion/       # LOA: Beam pipeline (20 tests)
-├── loa-transformation/  # LOA: dbt models
-├── loa-orchestration/   # LOA: Airflow DAGs
+├── application1-ingestion/        # Application1: Beam pipeline (26 tests)
+├── application1-transformation/   # Application1: dbt models
+├── application1-orchestration/    # Application1: Airflow DAGs
+├── application2-ingestion/       # Application2: Beam pipeline (20 tests)
+├── application2-transformation/  # Application2: dbt models
+├── application2-orchestration/   # Application2: Airflow DAGs
 └── spanner-transformation/ # Spanner: dbt models (Federated)
 ```
 
@@ -38,15 +38,15 @@ deployments/
 
 | System | Pattern | Ingestion | Transformation | Orchestration |
 |--------|---------|-----------|----------------|---------------|
-| **EM** | MULTI-TARGET (3→2) | [em-ingestion](em-ingestion/) | [em-transformation](em-transformation/) | [em-orchestration](em-orchestration/) |
-| **LOA** | MAP (1→1) | [loa-ingestion](loa-ingestion/) | [loa-transformation](loa-transformation/) | [loa-orchestration](loa-orchestration/) |
+| **Application1** | MULTI-TARGET (3→2) | [application1-ingestion](application1-ingestion/) | [application1-transformation](application1-transformation/) | [application1-orchestration](application1-orchestration/) |
+| **Application2** | MAP (1→1) | [application2-ingestion](application2-ingestion/) | [application2-transformation](application2-transformation/) | [application2-orchestration](application2-orchestration/) |
 | **Spanner** | FEDERATED (Spanner→FDP) | - | [spanner-transformation](spanner-transformation/) | - |
 
 ---
 
 ## Pattern Comparison
 
-| Aspect | EM (JOIN) | LOA (MAP) |
+| Aspect | Application1 (JOIN) | Application2 (MAP) |
 |--------|-----------|-------------|
 | Source Entities | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | ODP Tables | 3 | 1 |
@@ -104,12 +104,12 @@ Once the internal libraries are published to the Nexus repository, you should tr
 Note: The `PYTHONPATH` overrides below are only necessary while using the embedded library source code. Once transitioned to Nexus packages, standard `pytest` commands will work.
 
 ```bash
-# LOA Ingestion
-cd loa-ingestion
+# Application2 Ingestion
+cd application2-ingestion
 python -m pytest tests/unit/ -v
 
-# EM Ingestion  
-cd ../em-ingestion
+# Application1 Ingestion  
+cd ../application1-ingestion
 python -m pytest tests/unit/ -v
 ```
 
@@ -119,7 +119,7 @@ python -m pytest tests/unit/ -v
 
 | Unit | Tests |
 |------|-------|
-| loa-ingestion | 20 |
-| em-ingestion | 26 |
+| application2-ingestion | 20 |
+| application1-ingestion | 26 |
 | **Total** | **46** |
 

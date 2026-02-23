@@ -72,7 +72,7 @@ class TestParseCsvLine(unittest.TestCase):
             skip_hdr_trl=True
         )
 
-        result = list(parser.process('HDR|EM|Customer|20260101'))
+        result = list(parser.process('HDR|Application1|Customer|20260101'))
 
         self.assertEqual(len(result), 0)
 
@@ -95,7 +95,7 @@ class TestParseCsvLine(unittest.TestCase):
             skip_hdr_trl=False
         )
 
-        result = list(parser.process('HDR|EM|Customer|20260101'))
+        result = list(parser.process('HDR|Application1|Customer|20260101'))
 
         # Should attempt to parse (will succeed since we have 4 fields)
         self.assertEqual(len(result), 1)
@@ -158,7 +158,7 @@ class TestParseCsvLine(unittest.TestCase):
             skip_hdr_trl=True
         )
 
-        result = list(parser.process('  HDR|EM|Customer|20260101  '))
+        result = list(parser.process('  HDR|Application1|Customer|20260101  '))
 
         self.assertEqual(len(result), 0)
 

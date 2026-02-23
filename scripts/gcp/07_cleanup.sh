@@ -2,7 +2,7 @@
 # =============================================================================
 # Cleanup: Delete Infrastructure (Keep Project)
 # =============================================================================
-# Usage: ./scripts/gcp/07_cleanup.sh [em|loa|all]
+# Usage: ./scripts/gcp/07_cleanup.sh [application1|application2|all]
 # =============================================================================
 
 set -e
@@ -22,7 +22,7 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 if [ -z "$DEPLOYMENT" ]; then
-    echo "Usage: $0 [em|loa|all]"
+    echo "Usage: $0 [application1|application2|all]"
     exit 1
 fi
 
@@ -77,42 +77,42 @@ delete_topic() {
 }
 
 cleanup_em() {
-    echo -e "${BLUE}=== Deleting EM Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Deleting Application1 Infrastructure ===${NC}"
     echo ""
     echo "Subscriptions:"
-    delete_subscription "em-file-notifications-sub"
-    delete_subscription "em-pipeline-events-sub"
+    delete_subscription "application1-file-notifications-sub"
+    delete_subscription "application1-pipeline-events-sub"
     echo "Topics:"
-    delete_topic "em-file-notifications"
-    delete_topic "em-pipeline-events"
+    delete_topic "application1-file-notifications"
+    delete_topic "application1-pipeline-events"
     echo "Datasets:"
-    delete_dataset "odp_em"
-    delete_dataset "fdp_em"
+    delete_dataset "odp_application1"
+    delete_dataset "fdp_application1"
     echo "Buckets:"
-    delete_bucket "em-landing"
-    delete_bucket "em-archive"
-    delete_bucket "em-error"
-    delete_bucket "em-temp"
+    delete_bucket "application1-landing"
+    delete_bucket "application1-archive"
+    delete_bucket "application1-error"
+    delete_bucket "application1-temp"
     echo ""
 }
 
 cleanup_loa() {
-    echo -e "${BLUE}=== Deleting LOA Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Deleting Application2 Infrastructure ===${NC}"
     echo ""
     echo "Subscriptions:"
-    delete_subscription "loa-file-notifications-sub"
-    delete_subscription "loa-pipeline-events-sub"
+    delete_subscription "application2-file-notifications-sub"
+    delete_subscription "application2-pipeline-events-sub"
     echo "Topics:"
-    delete_topic "loa-file-notifications"
-    delete_topic "loa-pipeline-events"
+    delete_topic "application2-file-notifications"
+    delete_topic "application2-pipeline-events"
     echo "Datasets:"
-    delete_dataset "odp_loa"
-    delete_dataset "fdp_loa"
+    delete_dataset "odp_application2"
+    delete_dataset "fdp_application2"
     echo "Buckets:"
-    delete_bucket "loa-landing"
-    delete_bucket "loa-archive"
-    delete_bucket "loa-error"
-    delete_bucket "loa-temp"
+    delete_bucket "application2-landing"
+    delete_bucket "application2-archive"
+    delete_bucket "application2-error"
+    delete_bucket "application2-temp"
     echo ""
 }
 
@@ -125,10 +125,10 @@ cleanup_shared() {
 }
 
 case "$DEPLOYMENT" in
-    em)  cleanup_em ;;
-    loa) cleanup_loa ;;
+    application1)  cleanup_em ;;
+    application2) cleanup_loa ;;
     all) cleanup_em; cleanup_loa; cleanup_shared ;;
-    *)   echo "Usage: $0 [em|loa|all]"; exit 1 ;;
+    *)   echo "Usage: $0 [application1|application2|all]"; exit 1 ;;
 esac
 
 echo -e "${GREEN}✅ Cleanup complete!${NC}"

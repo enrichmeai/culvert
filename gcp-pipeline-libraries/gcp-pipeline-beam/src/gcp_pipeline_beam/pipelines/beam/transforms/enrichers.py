@@ -33,7 +33,7 @@ class EnrichWithMetadataDoFn(beam.DoFn):
         ...         | 'ParseCSV' >> beam.ParDo(ParseCsvLine(['id', 'name']))
         ...         | 'Enrich' >> beam.ParDo(EnrichWithMetadataDoFn(
         ...             run_id='run_20231225_001',
-        ...             pipeline_name='loa_applications',
+        ...             pipeline_name='application2_applications',
         ...             environment='production'
         ...         ))
     """

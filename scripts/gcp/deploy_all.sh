@@ -2,7 +2,7 @@
 # =============================================================================
 # Deploy All: Complete GCP Infrastructure Setup
 # =============================================================================
-# Usage: ./scripts/gcp/deploy_all.sh [em|loa|all]
+# Usage: ./scripts/gcp/deploy_all.sh [application1|application2|all]
 #
 # This is the ONE script to run for complete local deployment.
 # It runs all steps in order:
@@ -94,11 +94,11 @@ echo "Triggering GitHub Actions deployments..."
 # NOTE: 'cdp' and 'spanner' are explicitly excluded as per requirements.
 # 'spanner' does not currently have a dedicated terraform infrastructure or separate deployment workflow.
 
-if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "em" ]]; then
-    gh workflow run deploy-em.yml && echo "  EM deployment triggered ✅"
+if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "application1" ]]; then
+    gh workflow run deploy-application1.yml && echo "  Application1 deployment triggered ✅"
 fi
-if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "loa" ]]; then
-    gh workflow run deploy-loa.yml && echo "  LOA deployment triggered ✅"
+if [[ "$DEPLOYMENT" == "all" || "$DEPLOYMENT" == "application2" ]]; then
+    gh workflow run deploy-application2.yml && echo "  Application2 deployment triggered ✅"
 fi
 
 echo ""
@@ -110,7 +110,7 @@ echo ""
 echo -e "${BLUE}>>> Step 5/5: Verify Deployment${NC}"
 echo "Once GitHub Actions complete, run:"
 echo "  ./scripts/gcp/05_verify_setup.sh"
-echo "  ./scripts/gcp/06_test_pipeline.sh em"
+echo "  ./scripts/gcp/06_test_pipeline.sh application1"
 echo ""
 echo ""
 echo -e "${GREEN}=============================================="
@@ -136,7 +136,7 @@ echo "  gh run view <RUN_ID> --log"
 echo ""
 echo "After deployment completes:"
 echo "  ./scripts/gcp/05_verify_setup.sh"
-echo "  ./scripts/gcp/06_test_pipeline.sh em"
+echo "  ./scripts/gcp/06_test_pipeline.sh application1"
 echo ""
 echo "To cleanup:"
 echo "  ./scripts/gcp/00_full_reset.sh"

@@ -1,4 +1,4 @@
-# LOA Blueprint - Terraform Variables
+# Application2 Blueprint - Terraform Variables
 
 # ============================================================================
 # GCP CONFIGURATION

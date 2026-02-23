@@ -83,8 +83,8 @@ class OTELContext:
 
     Example:
         >>> with OTELContext(
-        ...     run_id="em_20260105_143022",
-        ...     system_id="EM",
+        ...     run_id="application1_20260105_143022",
+        ...     systapplication1_id="Application1",
         ...     entity_type="customers"
         ... ) as ctx:
         ...     with ctx.span("validation") as span:
@@ -97,18 +97,18 @@ class OTELContext:
     def __init__(
         self,
         run_id: str,
-        system_id: str,
+        systapplication1_id: str,
         entity_type: Optional[str] = None,
         tracer_name: str = "pipeline",
     ):
         self.run_id = run_id
-        self.system_id = system_id
+        self.systapplication1_id = systapplication1_id
         self.entity_type = entity_type
         self._tracer = get_tracer(tracer_name)
         self._root_span = None
         self._base_attributes = {
             "run_id": run_id,
-            "system_id": system_id,
+            "systapplication1_id": systapplication1_id,
         }
         if entity_type:
             self._base_attributes["entity_type"] = entity_type
@@ -116,7 +116,7 @@ class OTELContext:
     def __enter__(self):
         """Start root span for the pipeline context."""
         try:
-            span_name = f"{self.system_id}_pipeline"
+            span_name = f"{self.systapplication1_id}_pipeline"
             if self.entity_type:
                 span_name = f"{span_name}_{self.entity_type}"
 

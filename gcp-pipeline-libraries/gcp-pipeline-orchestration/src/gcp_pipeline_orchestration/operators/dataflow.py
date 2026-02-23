@@ -294,7 +294,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
                 metadata = ti.xcom_pull(key=self.routing_metadata_key)
                 if metadata:
                     params["entityType"] = metadata.get("entity_type", "")
-                    params["systemId"] = metadata.get("system_id", "")
+                    params["systemId"] = metadata.get("systapplication1_id", "")
                     if metadata.get("gcs_path"):
                         params["sourceFilePath"] = metadata.get("gcs_path")
                     logger.info(f"Applied routing metadata: entity_type={metadata.get('entity_type')}")

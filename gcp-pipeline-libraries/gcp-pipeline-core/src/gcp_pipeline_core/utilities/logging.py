@@ -2,11 +2,11 @@
 Structured JSON Logging for GCP Cloud Logging.
 
 Provides consistent, machine-readable JSON logging for all pipeline components.
-Automatically includes context fields (run_id, system_id, entity_type) in all log entries.
+Automatically includes context fields (run_id, systapplication1_id, entity_type) in all log entries.
 
 Features:
 - JSON-formatted output for Cloud Logging parsing
-- Automatic context injection (run_id, system_id, entity_type)
+- Automatic context injection (run_id, systapplication1_id, entity_type)
 - Thread-safe context management
 - Standard severity levels (DEBUG, INFO, WARNING, ERROR, CRITICAL)
 - Extra fields support for business metrics
@@ -15,14 +15,14 @@ Example:
     >>> from gcp_pipeline_core.utilities.logging import configure_structured_logging
     >>>
     >>> logger = configure_structured_logging(
-    ...     run_id="em_20260105_143022_abc123",
-    ...     system_id="EM",
+    ...     run_id="application1_20260105_143022_abc123",
+    ...     systapplication1_id="Application1",
     ...     entity_type="customers"
     ... )
     >>> logger.info("Processing started", records=1000)
     # Output: {"timestamp": "2026-01-05T14:30:22.123Z", "level": "INFO",
-    #          "message": "Processing started", "run_id": "em_20260105_143022_abc123",
-    #          "system_id": "EM", "entity_type": "customers", "records": 1000}
+    #          "message": "Processing started", "run_id": "application1_20260105_143022_abc123",
+    #          "systapplication1_id": "Application1", "entity_type": "customers", "records": 1000}
 """
 
 import json
@@ -33,7 +33,7 @@ from typing import Optional, Dict, Any
 from threading import local
 from contextvars import ContextVar
 
-# Thread-local context for run_id, system_id, entity_type
+# Thread-local context for run_id, systapplication1_id, entity_type
 _log_context: ContextVar[Dict[str, Any]] = ContextVar('log_context', default={})
 
 
@@ -48,7 +48,7 @@ class StructuredJsonFormatter(logging.Formatter):
     - logger: Logger name
     - module: Source module
     - run_id: Pipeline run ID (from context)
-    - system_id: System identifier (e.g., EM, LOA)
+    - systapplication1_id: System identifier (e.g., Application1, Application2)
     - entity_type: Entity being processed
     - Additional fields passed as extras
     """
@@ -98,10 +98,10 @@ class StructuredLogger:
     Structured logger with automatic context injection.
 
     Wraps a standard Python logger and automatically includes
-    run_id, system_id, and entity_type in all log entries.
+    run_id, systapplication1_id, and entity_type in all log entries.
 
     Example:
-        >>> logger = StructuredLogger("my_pipeline", run_id="run_123", system_id="EM")
+        >>> logger = StructuredLogger("my_pipeline", run_id="run_123", systapplication1_id="Application1")
         >>> logger.info("Processing", records=100, stage="validation")
         # Output includes all context plus extra fields
     """
@@ -110,7 +110,7 @@ class StructuredLogger:
         self,
         name: str,
         run_id: Optional[str] = None,
-        system_id: Optional[str] = None,
+        systapplication1_id: Optional[str] = None,
         entity_type: Optional[str] = None,
         level: int = logging.INFO
     ):
@@ -120,13 +120,13 @@ class StructuredLogger:
         Args:
             name: Logger name
             run_id: Pipeline run identifier
-            system_id: System identifier (e.g., EM, LOA)
+            systapplication1_id: System identifier (e.g., Application1, Application2)
             entity_type: Entity being processed (e.g., customers, accounts)
             level: Logging level (default: INFO)
         """
         self.name = name
         self.run_id = run_id
-        self.system_id = system_id
+        self.systapplication1_id = systapplication1_id
         self.entity_type = entity_type
 
         # Get or create logger
@@ -141,8 +141,8 @@ class StructuredLogger:
         context = {}
         if self.run_id:
             context['run_id'] = self.run_id
-        if self.system_id:
-            context['system_id'] = self.system_id
+        if self.systapplication1_id:
+            context['systapplication1_id'] = self.systapplication1_id
         if self.entity_type:
             context['entity_type'] = self.entity_type
         _log_context.set(context)
@@ -150,7 +150,7 @@ class StructuredLogger:
     def set_context(
         self,
         run_id: Optional[str] = None,
-        system_id: Optional[str] = None,
+        systapplication1_id: Optional[str] = None,
         entity_type: Optional[str] = None
     ):
         """
@@ -158,13 +158,13 @@ class StructuredLogger:
 
         Args:
             run_id: Pipeline run identifier
-            system_id: System identifier
+            systapplication1_id: System identifier
             entity_type: Entity being processed
         """
         if run_id is not None:
             self.run_id = run_id
-        if system_id is not None:
-            self.system_id = system_id
+        if systapplication1_id is not None:
+            self.systapplication1_id = systapplication1_id
         if entity_type is not None:
             self.entity_type = entity_type
         self._update_context()
@@ -204,7 +204,7 @@ class StructuredLogger:
 
 def configure_structured_logging(
     run_id: Optional[str] = None,
-    system_id: Optional[str] = None,
+    systapplication1_id: Optional[str] = None,
     entity_type: Optional[str] = None,
     level: int = logging.INFO,
     logger_name: str = "gcp_pipeline",
@@ -218,7 +218,7 @@ def configure_structured_logging(
 
     Args:
         run_id: Pipeline run identifier
-        system_id: System identifier (EM, LOA)
+        systapplication1_id: System identifier (Application1, Application2)
         entity_type: Entity being processed
         level: Logging level (default: INFO)
         logger_name: Name for the logger
@@ -229,8 +229,8 @@ def configure_structured_logging(
 
     Example:
         >>> logger = configure_structured_logging(
-        ...     run_id="em_20260105_143022",
-        ...     system_id="EM",
+        ...     run_id="application1_20260105_143022",
+        ...     systapplication1_id="Application1",
         ...     entity_type="customers"
         ... )
         >>> logger.info("Pipeline started")
@@ -258,7 +258,7 @@ def configure_structured_logging(
     return StructuredLogger(
         name=logger_name,
         run_id=run_id,
-        system_id=system_id,
+        systapplication1_id=systapplication1_id,
         entity_type=entity_type,
         level=level
     )

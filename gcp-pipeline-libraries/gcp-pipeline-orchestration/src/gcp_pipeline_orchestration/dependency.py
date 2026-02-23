@@ -4,17 +4,17 @@ Entity Dependency Checker.
 Library provides the MECHANISM for checking entity dependencies.
 Pipelines provide their own CONFIGURATION.
 
-The library is GENERIC - no system-specific configuration.
+The library is GENERIC - no systapplication1-specific configuration.
 Each pipeline defines its own entity dependencies.
 
 Usage:
-    # In pipeline DAG (e.g., deployments/em-orchestration/dags/em_fdp_transform_dag.py)
+    # In pipeline DAG (e.g., deployments/application1-orchestration/dags/application1_fdp_transform_dag.py)
     from gcp_pipeline_orchestration import EntityDependencyChecker
 
     # Pipeline defines its configuration
     checker = EntityDependencyChecker(
         project_id="my-project",
-        system_id="em",
+        systapplication1_id="application1",
         required_entities=["customers", "accounts", "decision"]
     )
 
@@ -37,7 +37,7 @@ class EntityDependencyChecker:
 
     Library provides the mechanism only. Pipeline provides:
     - project_id: GCP project
-    - system_id: System identifier (e.g., "em", "loa", "any_system")
+    - systapplication1_id: System identifier (e.g., "application1", "application2", "any_system")
     - required_entities: List of entity names that must all be loaded
 
     No hardcoded system configurations in the library.
@@ -45,7 +45,7 @@ class EntityDependencyChecker:
     Example:
         >>> checker = EntityDependencyChecker(
         ...     project_id="my-project",
-        ...     system_id="em",
+        ...     systapplication1_id="application1",
         ...     required_entities=["customers", "accounts", "decision"]
         ... )
         >>> if checker.all_entities_loaded(date(2026, 1, 1)):
@@ -55,7 +55,7 @@ class EntityDependencyChecker:
     def __init__(
         self,
         project_id: str,
-        system_id: str,
+        systapplication1_id: str,
         required_entities: List[str],
         job_control_dataset: str = "job_control",
         job_control_table: str = "pipeline_jobs",
@@ -66,14 +66,14 @@ class EntityDependencyChecker:
 
         Args:
             project_id: GCP project ID
-            system_id: System identifier (pipeline provides this)
+            systapplication1_id: System identifier (pipeline provides this)
             required_entities: List of entity types that must all be loaded
             job_control_dataset: Dataset for job control table
             job_control_table: Table name for job control
             job_repo: Optional JobControlRepository (for testing)
         """
         self.project_id = project_id
-        self.system_id = system_id
+        self.systapplication1_id = systapplication1_id
         self.required_entities = required_entities
         self.job_repo = job_repo or JobControlRepository(
             project_id,
@@ -96,7 +96,7 @@ class EntityDependencyChecker:
         Returns:
             List of entity types with SUCCESS status
         """
-        statuses = self.job_repo.get_entity_status(self.system_id, extract_date)
+        statuses = self.job_repo.get_entity_status(self.systapplication1_id, extract_date)
 
         return [
             s["entity_type"].lower()
@@ -121,13 +121,13 @@ class EntityDependencyChecker:
 
         if all_loaded:
             logger.info(
-                f"All entities loaded for {self.system_id}/{extract_date}: "
+                f"All entities loaded for {self.systapplication1_id}/{extract_date}: "
                 f"{list(required)}"
             )
         else:
             missing = required - loaded
             logger.info(
-                f"Waiting for {self.system_id}/{extract_date} entities: "
+                f"Waiting for {self.systapplication1_id}/{extract_date} entities: "
                 f"{list(missing)}"
             )
 
@@ -176,7 +176,7 @@ class EntityDependencyChecker:
         required_lower = [e.lower() for e in self.required_entities]
 
         return {
-            "system_id": self.system_id,
+            "systapplication1_id": self.systapplication1_id,
             "extract_date": str(extract_date),
             "required_entities": self.required_entities,
             "required_count": self.required_count,

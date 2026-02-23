@@ -36,20 +36,20 @@ jobs:
       run: |
         flake8 gcp-pipeline-libraries/gcp-pipeline-tester/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
-    - name: Lint EM deployment
+    - name: Lint Application1 deployment
       run: |
-        flake8 deployments_embedded/em-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 deployments/application1-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
-    - name: Lint LOA deployment
+    - name: Lint Application2 deployment
       run: |
-        flake8 deployments_embedded/loa-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 deployments/application2-ingestion/src --count --select=E9,F63,F7,F82 --show-source --statistics
 
     - name: Check formatting (black)
       run: |
         black --check gcp-pipeline-libraries/gcp-pipeline-core/src || true
         black --check gcp-pipeline-libraries/gcp-pipeline-tester/src || true
-        black --check deployments_embedded/em-ingestion/src || true
-        black --check deployments_embedded/loa-ingestion/src || true
+        black --check deployments/application1-ingestion/src || true
+        black --check deployments/application2-ingestion/src || true
 
   test:
     name: Run Tests
@@ -81,15 +81,15 @@ jobs:
         cd gcp-pipeline-libraries/gcp-pipeline-tester
         pytest tests/ -v --tb=short
 
-    - name: Test EM deployment
+    - name: Test Application1 deployment
       run: |
-        cd deployments_embedded/em-ingestion
+        cd deployments/application1-ingestion
         pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
-    - name: Test LOA deployment
+    - name: Test Application2 deployment
       run: |
-        cd deployments_embedded/loa-ingestion
+        cd deployments/application2-ingestion
         pip install -e .[dev,airflow]
         PYTHONPATH=src pytest tests/unit -v --tb=short
 
@@ -111,15 +111,15 @@ jobs:
         terraform fmt -check -recursive || echo "::warning::Terraform files need formatting"
       continue-on-error: true
 
-    - name: Terraform Validate (EM)
+    - name: Terraform Validate (Application1)
       run: |
-        cd infrastructure/terraform/em
+        cd infrastructure/terraform/application1
         terraform init -backend=false
         terraform validate
 
-    - name: Terraform Validate (LOA)
+    - name: Terraform Validate (Application2)
       run: |
-        cd infrastructure/terraform/loa
+        cd infrastructure/terraform/application2
         terraform init -backend=false
         terraform validate
 

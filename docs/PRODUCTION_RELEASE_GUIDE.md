@@ -30,14 +30,14 @@ The framework uses a **4-library model**. Libraries must be released and version
 
 ## 2. 3-Unit Deployment Strategy
 
-Each system (e.g., EM, LOA) is deployed as three independent units to minimize blast radius and reduce costs.
+Each system (e.g., Application1, Application2) is deployed as three independent units to minimize blast radius and reduce costs.
 
 ### 2.1. Ingestion Unit (`*-ingestion`)
 - **Technology**: Apache Beam on Dataflow.
 - **Release**: Bundled as a **Dataflow Flex Template**.
 - **Production Steps**:
-    1. Build Docker image: `gcloud builds submit --tag gcr.io/<PROD_PROJECT>/em-pipeline:1.1.0`
-    2. Build Flex Template: `gcloud dataflow flex-template build gs://<TEMP_BUCKET>/templates/em_pipeline.json --image gcr.io/<PROD_PROJECT>/em-pipeline:1.1.0`
+    1. Build Docker image: `gcloud builds submit --tag gcr.io/<PROD_PROJECT>/application1-pipeline:1.1.0`
+    2. Build Flex Template: `gcloud dataflow flex-template build gs://<TApplication1P_BUCKET>/templates/application1_pipeline.json --image gcr.io/<PROD_PROJECT>/application1-pipeline:1.1.0`
     3. Verify ODP schema in BigQuery.
 
 ### 2.2. Transformation Unit (`*-transformation`)
@@ -54,7 +54,7 @@ Each system (e.g., EM, LOA) is deployed as three independent units to minimize b
 - **Release**: Python DAG files.
 - **Production Steps**:
     1. Upload shared libraries to the `dags/` folder (or install as environment dependencies).
-    2. Upload system-specific DAGs to `gs://<COMPOSER_BUCKET>/dags/<SYSTEM>/`.
+    2. Upload systapplication1-specific DAGs to `gs://<COMPOSER_BUCKET>/dags/<SYSTEM>/`.
     3. Configure Airflow Variables (e.g., `project_id`, `notification_topic`).
 
 ---

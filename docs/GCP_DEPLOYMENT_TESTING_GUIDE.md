@@ -3,7 +3,7 @@ Comprehensive GCP Deployment Testing Guide
 ===========================================
 
 This guide provides comprehensive testing strategies for deploying
-the LOA Blueprint and GDW Data Core library to GCP.
+the Application2 Blueprint and GDW Data Core library to GCP.
 
 Table of Contents:
   1. Local Testing (Unit + Integration with Mocks)
@@ -275,7 +275,7 @@ def staging_sample_pipeline_run():
         # Trigger DAG
         gcloud composer environments run my-composer-env \\
             --location us-central1 \\
-            dags trigger -- loa_applications_migration
+            dags trigger -- application2_applications_migration
 
         # Monitor
         gcloud composer environments run my-composer-env \\
@@ -291,12 +291,12 @@ def staging_sample_pipeline_run():
     [ ] Trigger DAG in Cloud Composer:
         gcloud composer environments run <env> \\
             --location <region> \\
-            dags trigger -- loa_applications_migration
+            dags trigger -- application2_applications_migration
     
     [ ] Monitor DAG execution:
         gcloud composer environments run <env> \\
             --location <region> \\
-            dags list-runs -- loa_applications_migration
+            dags list-runs -- application2_applications_migration
     
     [ ] Check BigQuery output:
         bq query "SELECT COUNT(*) FROM project:dataset.applications"
@@ -485,7 +485,7 @@ def run_complete_test_suite():
     """
     print("""
     ╔════════════════════════════════════════════════════════════════════╗
-    ║     LOA Blueprint & GDW Core - Complete GCP Deployment Testing     ║
+    ║     Application2 Blueprint & GDW Core - Complete GCP Deployment Testing     ║
     ╚════════════════════════════════════════════════════════════════════╝
     """)
 
@@ -544,7 +544,7 @@ def run_complete_test_suite():
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="LOA Blueprint GCP Deployment Tests")
+    parser = argparse.ArgumentParser(description="Application2 Blueprint GCP Deployment Tests")
     parser.add_argument(
         "--phase",
         choices=["local", "staging", "performance", "production", "full"],

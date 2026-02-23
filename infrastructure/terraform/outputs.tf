@@ -1,4 +1,4 @@
-# LOA Blueprint - Terraform Outputs
+# Application2 Blueprint - Terraform Outputs
 
 # ============================================================================
 # GCS BUCKET OUTPUTS

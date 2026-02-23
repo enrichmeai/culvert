@@ -63,13 +63,13 @@ docker-compose up -d
 
 **Expected Output:**
 ```
-Creating loa-airflow-db        ... done
-Creating loa-redis             ... done
-Creating loa-airflow-webserver ... done
-Creating loa-airflow-scheduler ... done
-Creating loa-test-runner       ... done
-Creating loa-bigquery-emulator ... done
-Creating loa-pubsub-emulator   ... done
+Creating application2-airflow-db        ... done
+Creating application2-redis             ... done
+Creating application2-airflow-webserver ... done
+Creating application2-airflow-scheduler ... done
+Creating application2-test-runner       ... done
+Creating application2-bigquery-emulator ... done
+Creating application2-pubsub-emulator   ... done
 ```
 
 ### 2. Verify Services
@@ -81,15 +81,15 @@ docker-compose ps
 **Expected Output:**
 ```
 NAME                         STATUS              PORTS
-loa-airflow-db              Up (healthy)        0.0.0.0:5432->5432/tcp
-loa-airflow-webserver       Up (healthy)        0.0.0.0:8080->8080/tcp
-loa-airflow-scheduler       Up (healthy)        (no ports)
-loa-redis                   Up (healthy)        0.0.0.0:6379->6379/tcp
-loa-test-runner             Up (healthy)        (no ports)
-loa-bigquery-emulator       Up (healthy)        0.0.0.0:9050->9050/tcp
+application2-airflow-db              Up (healthy)        0.0.0.0:5432->5432/tcp
+application2-airflow-webserver       Up (healthy)        0.0.0.0:8080->8080/tcp
+application2-airflow-scheduler       Up (healthy)        (no ports)
+application2-redis                   Up (healthy)        0.0.0.0:6379->6379/tcp
+application2-test-runner             Up (healthy)        (no ports)
+application2-bigquery-emulator       Up (healthy)        0.0.0.0:9050->9050/tcp
                                                 0.0.0.0:9060->9060/tcp
-loa-pubsub-emulator         Up (healthy)        0.0.0.0:8085->8085/tcp
-loa-jupyter                 Up (healthy)        0.0.0.0:8888->8888/tcp
+application2-pubsub-emulator         Up (healthy)        0.0.0.0:8085->8085/tcp
+application2-jupyter                 Up (healthy)        0.0.0.0:8888->8888/tcp
 ```
 
 ### 3. Access Services
@@ -111,7 +111,7 @@ docker-compose run test-runner
 docker-compose run test-runner pytest src/tests/unit/test_validation.py -v
 
 # Run with coverage
-docker-compose run test-runner pytest src/tests/ --cov=components.loa_common --cov-report=html
+docker-compose run test-runner pytest src/tests/ --cov=components.application2_common --cov-report=html
 ```
 
 ### 5. Stop Services
@@ -128,7 +128,7 @@ docker-compose down
 
 #### airflow-db (PostgreSQL)
 ```yaml
-Container: loa-airflow-db
+Container: application2-airflow-db
 Image: postgres:15-alpine
 Port: 5432:5432
 Database: airflow
@@ -138,7 +138,7 @@ User: airflow / Password: airflow
 **Usage:**
 ```bash
 # Connect with psql
-docker exec -it loa-airflow-db psql -U airflow -d airflow
+docker exec -it application2-airflow-db psql -U airflow -d airflow
 
 # View logs
 docker-compose logs airflow-db
@@ -146,7 +146,7 @@ docker-compose logs airflow-db
 
 #### redis
 ```yaml
-Container: loa-redis
+Container: application2-redis
 Image: redis:7-alpine
 Port: 6379:6379
 ```
@@ -154,17 +154,17 @@ Port: 6379:6379
 **Usage:**
 ```bash
 # Connect with redis-cli
-docker exec -it loa-redis redis-cli
+docker exec -it application2-redis redis-cli
 
 # Check info
-docker exec -it loa-redis redis-cli INFO
+docker exec -it application2-redis redis-cli INFO
 ```
 
 ### Airflow Services
 
 #### airflow-webserver
 ```yaml
-Container: loa-airflow-webserver
+Container: application2-airflow-webserver
 Port: 8080:8080
 UI: http://localhost:8080
 Depends on: airflow-db, redis
@@ -185,12 +185,12 @@ docker-compose logs airflow-webserver
 docker-compose restart airflow-webserver
 
 # Execute command in container
-docker exec loa-airflow-webserver airflow dags list
+docker exec application2-airflow-webserver airflow dags list
 ```
 
 #### airflow-scheduler
 ```yaml
-Container: loa-airflow-scheduler
+Container: application2-airflow-scheduler
 Background: No exposed port
 Depends on: airflow-db, airflow-webserver, redis
 ```
@@ -206,14 +206,14 @@ Depends on: airflow-db, airflow-webserver, redis
 docker-compose logs -f airflow-scheduler
 
 # Check status
-docker exec loa-airflow-scheduler ps aux | grep scheduler
+docker exec application2-airflow-scheduler ps aux | grep scheduler
 ```
 
 ### Testing Service
 
 #### test-runner
 ```yaml
-Container: loa-test-runner
+Container: application2-test-runner
 Type: On-demand
 Runs: pytest
 ```
@@ -227,7 +227,7 @@ docker-compose run test-runner
 docker-compose run test-runner pytest src/tests/unit/ -v
 
 # Run with coverage report
-docker-compose run test-runner pytest --cov=components.loa_common --cov-report=html
+docker-compose run test-runner pytest --cov=components.application2_common --cov-report=html
 
 # Run specific test file
 docker-compose run test-runner pytest src/tests/unit/test_validation.py -v
@@ -240,14 +240,14 @@ docker-compose run test-runner pytest src/tests/ -vv -s
 
 #### bigquery-emulator
 ```yaml
-Container: loa-bigquery-emulator
+Container: application2-bigquery-emulator
 GRPC: 9050:9050
 REST: 9060:9060
 ```
 
 #### pubsub-emulator
 ```yaml
-Container: loa-pubsub-emulator
+Container: application2-pubsub-emulator
 Port: 8085:8085
 ```
 
@@ -255,7 +255,7 @@ Port: 8085:8085
 
 #### jupyter
 ```yaml
-Container: loa-jupyter
+Container: application2-jupyter
 Port: 8888:8888
 URL: http://localhost:8888
 No authentication required
@@ -336,7 +336,7 @@ docker-compose run test-runner pytest src/tests/integration/ -v
 
 **Run with coverage:**
 ```bash
-docker-compose run test-runner pytest --cov=components.loa_common --cov-report=html
+docker-compose run test-runner pytest --cov=components.application2_common --cov-report=html
 ```
 
 **View coverage report:**
@@ -348,22 +348,22 @@ open deployments/htmlcov/index.html  # macOS
 
 **List DAGs:**
 ```bash
-docker exec loa-airflow-webserver airflow dags list
+docker exec application2-airflow-webserver airflow dags list
 ```
 
 **Test DAG parsing:**
 ```bash
-docker exec loa-airflow-webserver airflow dags test loa_test_applications_migration 2025-01-01
+docker exec application2-airflow-webserver airflow dags test application2_test_applications_migration 2025-01-01
 ```
 
 **Trigger DAG:**
 ```bash
-docker exec loa-airflow-webserver airflow dags trigger loa_test_applications_migration
+docker exec application2-airflow-webserver airflow dags trigger application2_test_applications_migration
 ```
 
 **View task logs:**
 ```bash
-docker exec loa-airflow-webserver ls /home/appuser/airflow/logs/
+docker exec application2-airflow-webserver ls /home/appuser/airflow/logs/
 ```
 
 ---
@@ -387,7 +387,7 @@ AIRFLOW_SECRET_KEY=your-secret-key-here
 AIRFLOW_FERNET_KEY=your-fernet-key-here
 
 # GCP Configuration
-GCP_PROJECT_ID=loa-test-project
+GCP_PROJECT_ID=application2-test-project
 
 # Logging
 LOG_LEVEL=INFO
@@ -403,13 +403,13 @@ BIGQUERY_EMULATOR_REST_PORT=9060
 PUBSUB_EMULATOR_PORT=8085
 
 # Testing
-PYTEST_ARGS=-v --cov=components.loa_common --cov-report=html
+PYTEST_ARGS=-v --cov=components.application2_common --cov-report=html
 
 # JupyterLab
 JUPYTER_PORT=8888
 
-# LOA App
-LOA_APP_PORT=8000
+# Application2 App
+Application2_APP_PORT=8000
 ```
 
 **Load environment file:**
@@ -466,7 +466,7 @@ docker-compose logs airflow-db
 docker-compose down -v && docker-compose up -d airflow-db
 
 # Check database exists
-docker exec loa-airflow-db psql -U airflow -l
+docker exec application2-airflow-db psql -U airflow -l
 ```
 
 ### Issue 3: Airflow Can't Connect to Database
@@ -490,7 +490,7 @@ docker-compose up -d airflow-webserver
 
 ### Issue 4: Tests Not Running
 
-**Error:** `No module named 'loa_common'`
+**Error:** `No module named 'application2_common'`
 
 **Solution:**
 ```bash
@@ -501,7 +501,7 @@ docker-compose build test-runner
 docker-compose run test-runner pytest src/tests/ -v -s
 
 # Check volumes are mounted
-docker exec loa-test-runner ls /app/deployments/
+docker exec application2-test-runner ls /app/deployments/
 ```
 
 ### Issue 5: Out of Disk Space
@@ -512,7 +512,7 @@ docker exec loa-test-runner ls /app/deployments/
 docker system prune -a
 
 # Remove specific volumes
-docker volume rm loa-airflow-db_data
+docker volume rm application2-airflow-db_data
 
 # Clean old containers
 docker container prune
@@ -525,7 +525,7 @@ docker container prune
 docker-compose ps
 
 # View detailed health logs
-docker inspect --format='{{.State.Health}}' loa-airflow-db
+docker inspect --format='{{.State.Health}}' application2-airflow-db
 
 # Restart unhealthy service
 docker-compose restart airflow-db

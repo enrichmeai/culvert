@@ -49,8 +49,8 @@ class TestJobControlRepository(unittest.TestCase):
     def test_create_job(self):
         """Test creating a job record."""
         job = PipelineJob(
-            run_id="em_customer_20260101_001",
-            system_id="EM",
+            run_id="application1_customer_20260101_001",
+            systapplication1_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
             source_files=["gs://bucket/file.csv"],
@@ -67,7 +67,7 @@ class TestJobControlRepository(unittest.TestCase):
 
         self.assertIn("INSERT INTO", query)
         self.assertIn("run_id", query)
-        self.assertIn("system_id", query)
+        self.assertIn("systapplication1_id", query)
 
     def test_update_status_running(self):
         """Test updating job status to RUNNING."""
@@ -129,7 +129,7 @@ class TestJobControlRepository(unittest.TestCase):
         """Test getting an existing job."""
         mock_row = MagicMock()
         mock_row.run_id = "test_run_001"
-        mock_row.system_id = "EM"
+        mock_row.systapplication1_id = "Application1"
         mock_row.entity_type = "Customer"
         mock_row.extract_date = date(2026, 1, 1)
         mock_row.status = "SUCCESS"
@@ -147,7 +147,7 @@ class TestJobControlRepository(unittest.TestCase):
 
         self.assertIsNotNone(job)
         self.assertEqual(job.run_id, "test_run_001")
-        self.assertEqual(job.system_id, "EM")
+        self.assertEqual(job.systapplication1_id, "Application1")
         self.assertEqual(job.status, JobStatus.SUCCESS)
         self.assertEqual(job.total_records, 5000)
 
@@ -177,7 +177,7 @@ class TestJobControlRepository(unittest.TestCase):
         mock_query_job.result.return_value = [mock_row1, mock_row2]
         self.mock_client.query.return_value = mock_query_job
 
-        statuses = self.repo.get_entity_status("EM", date(2026, 1, 1))
+        statuses = self.repo.get_entity_status("Application1", date(2026, 1, 1))
 
         self.assertEqual(len(statuses), 2)
         self.assertEqual(statuses[0]["entity_type"], "customers")

@@ -1,4 +1,4 @@
-# GDW Data Core - End-to-End Migration Functional Flow
+# GCP Migration Framework - End-to-End Migration Functional Flow
 
 **Ticket ID:** LIBRARY-E2E-001  
 **Status:** Requirements Complete  
@@ -12,12 +12,12 @@
 1. [Executive Summary](#-executive-summary)
    - [High-Level E2E Flow](#high-level-e2e-flow)
    - [Key Concepts](#key-concepts)
-   - [System Comparison](#system-comparison)
+   - [System Comparison](#systapplication1-comparison)
    - [Technology Stack](#technology-stack)
 2. [Complete Data Flow Diagram](#-complete-data-flow-diagram)
 3. [Source Systems](#-source-systems)
-   - [System 1: EM (Application A)](#system-1-em-excess-management)
-   - [System 2: LOA (Application B Application)](#system-2-loa-loan-origination-application)
+   - [System 1: Application1 (Application A)](#systapplication1-1-application1-excess-management)
+   - [System 2: Application2 (Application B Application)](#systapplication1-2-application2-loan-origination-application)
 4. [End-to-End Processing Flow](#-end-to-end-processing-flow)
    - [Stage 1: File Landing & Detection](#stage-1-file-landing--detection)
    - [Stage 2: Orchestration & Validation](#stage-2-orchestration--validation)
@@ -36,7 +36,7 @@
 
 ## 📋 EXECUTIVE SUMMARY
 
-This document provides the complete end-to-end functional requirements for the legacy mainframe-to-GCP data migration framework. The framework migrates data from two mainframe systems (EM and LOA) through a standardized pipeline into BigQuery data products. 
+This document provides the complete end-to-end functional requirements for the legacy mainframe-to-GCP data migration framework. The framework migrates data from mainframe systems through a standardized pipeline into BigQuery data products. 
 
 ### Why the 3-Unit Deployment model?
 By decoupling **Ingestion**, **Transformation**, and **Orchestration** into independent units, the framework simplifies the end-to-end lifecycle:
@@ -56,7 +56,7 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 │  │  MAINFRAME   │     │     GCS      │     │   BIGQUERY   │     │  BIGQUERY  ││
 │  │   EXTRACT    │────►│   LANDING    │────►│     ODP      │────►│    FDP     ││
 │  │              │     │    ZONE      │     │  (Raw Data)  │     │(Transformed││
-│  │  EM / LOA    │     │              │     │              │     │   Data)    ││
+│  │ System A / B │     │              │     │              │     │   Data)    ││
 │  └──────────────┘     └──────────────┘     └──────────────┘     └────────────┘│
 │         │                    │                    │                    │       │
 │         │                    │                    │                    │       │
@@ -86,19 +86,19 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 
 ### Migration Scope
 
-| System | Full Name | Description |
-|--------|-----------|-------------|
-| **EM** | Application A | Financial excess/surplus management system |
-| **LOA** | Application B Application | Loan application processing system |
+| System | Description |
+|--------|-------------|
+| **Application1** | Example of a multi-entity system with dependencies |
+| **Application2** | Example of a single-entity system |
 
 ### System Comparison
 
-| Aspect | EM (Application A) | LOA (Application B) |
+| Aspect | Application1 | Application2 |
 |--------|------------------------|------------------------|
-| **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
-| **Extract Schedule** | Customers/Accounts: 4 PM, Decision: 5 AM | Daily (TBD) |
-| **Dependency Wait** | Yes - wait for all 3 entities | No - immediate trigger |
-| **ODP Tables** | 3 tables | 1 table |
+| **Source Entities** | 3 (e.g., Customers, Accounts, Decision) | 1 (e.g., Applications) |
+| **Extract Schedule** | Staggered (e.g., 4 PM, 5 AM) | Daily |
+| **Dependency Wait** | Yes - wait for all entities | No - immediate trigger |
+| **ODP Tables** | Multiple tables | Single table |
 | **FDP Tables** | 2 (event_transaction_excess, portfolio_account_excess) | 1 (portfolio_account_facility) |
 | **Transformation** | MULTI-TARGET (JOIN/MAP) | MAP 1 source → 1 target |
 
@@ -125,7 +125,7 @@ To ensure clean dependency management and independent scaling, the framework is 
 
 ### Deployment Architecture (3-Unit Model)
 
-Each system migration (e.g., LOA, EM) is organized into three independent deployment units:
+Each system migration (e.g., Application2, Application1) is organized into three independent deployment units:
 
 1. **Ingestion Unit (`*-ingestion`)**: Handles GCS → ODP load. Packages Beam code as Dataflow Flex Templates.
 2. **Transformation Unit (`*-transformation`)**: Handles ODP → FDP transformation. Manages dbt models and SQL logic.
@@ -149,7 +149,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │                                    MAINFRAME SYSTEMS                                     │
 │                                                                                          │
 │    ┌────────────────────────────────┐         ┌────────────────────────────────┐        │
-│    │         EM SYSTEM              │         │         LOA SYSTEM             │        │
+│    │         Application1 SYSTEM              │         │         Application2 SYSTEM             │        │
 │    │  ┌──────────┐ ┌──────────┐    │         │  ┌──────────────────────┐      │        │
 │    │  │Customers │ │ Accounts │    │         │  │    Applications      │      │        │
 │    │  │ (4 PM)   │ │ (4 PM)   │    │         │  │       (Daily)        │      │        │
@@ -169,7 +169,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │                           STAGE 1: GCS LANDING ZONE                                      │
 │                                                                                          │
 │    gs://landing-bucket/                                                                  │
-│    ├── em/                                    ├── loa/                                  │
+│    ├── application1/                                    ├── application2/                                  │
 │    │   ├── customers/                         │   └── applications/                     │
 │    │   │   ├── customers_1.csv               │       ├── applications.csv              │
 │    │   │   ├── customers_2.csv               │       └── applications.csv.ok ◄─TRIGGER │
@@ -213,7 +213,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                    STAGE 3: ODP LOAD (APACHE BEAM / DATAFLOW)                            │
+│                    STAGE 3: ODP Application2D (APACHE BEAM / DATAFLOW)                            │
 │                                                                                          │
 │    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐        │
 │    │ Read CSV     │───►│ Parse Records│───►│ Add Audit    │───►│ Write to     │        │
@@ -224,7 +224,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │    ┌────────────────────────────────────────────────────────────────────────────────┐  │
 │    │                              BigQuery ODP Layer                                 │  │
 │    │                                                                                 │  │
-│    │   odp_em.customers    odp_em.accounts    odp_em.decision    odp_loa.applications│  │
+│    │   odp_application1.customers    odp_application1.accounts    odp_application1.decision    odp_application2.applications│  │
 │    │   (1:1 mapping)       (1:1 mapping)      (1:1 mapping)      (1:1 mapping)       │  │
 │    │                                                                                 │  │
 │    └────────────────────────────────────────────────────────────────────────────────┘  │
@@ -237,7 +237,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │              └───────────────┬───────────┘           └───────────────┬───────────┘     │
 │                              │                                       │                  │
 │              ┌───────────────▼───────────┐                          │                  │
-│              │ EM: Check All 3 Entities  │                          │                  │
+│              │ Application1: Check All 3 Entities  │                          │                  │
 │              │ Loaded for Extract Date?  │                          │                  │
 │              │                           │                          │                  │
 │              │ Customers ☑ Accounts ☑   │                          │                  │
@@ -266,15 +266,15 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 │                         │                                  │                            │
 │                         ▼                                  ▼                            │
 │    ┌──────────────────────────────────┐    ┌──────────────────────────────────┐       │
-│    │           EM FLOW                │    │           LOA FLOW               │       │
+│    │           Application1 FLOW                │    │           Application2 FLOW               │       │
 │    │                                  │    │                                  │       │
-│    │  odp_em.customers ──┐            │    │  odp_loa.applications            │       │
-│    │  odp_em.accounts  ──┼──► JOIN ──┐│    │           │                      │       │
-│    │  odp_em.decision  ──┼──► MAP  ──┤│    │           │                      │       │
+│    │  odp_application1.customers ──┐            │    │  odp_application2.applications            │       │
+│    │  odp_application1.accounts  ──┼──► JOIN ──┐│    │           │                      │       │
+│    │  odp_application1.decision  ──┼──► MAP  ──┤│    │           │                      │       │
 │    │                     │           ││    │           ▼                      │       │
 │    │                     ▼           ││    │    ┌───────────────────┐         │       │
 │    │    ┌───────────────────────────┐││    │    │ FDP:              │         │       │
-│    │    │fdp_em.                    │││    │    │ PortfolioAccount- │         │       │
+│    │    │fdp_application1.                    │││    │    │ PortfolioAccount- │         │       │
 │    │    │event_transaction_excess   │││    │    │ Facility          │         │       │
 │    │    │portfolio_account_excess   │││    │    └───────────────────┘         │       │
 │    │    └───────────────────────────┘││    │                                  │       │
@@ -298,7 +298,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 
 ## 🏢 SOURCE SYSTEMS
 
-### System 1: EM (Application A)
+### System 1: Application1 (Application A)
 
 #### Entities & Tables
 
@@ -323,7 +323,7 @@ Each system migration (e.g., LOA, EM) is organized into three independent deploy
 Each file transfer includes a signal file to indicate completion:
 
 ```
-gs://landing-bucket/em/customers/
+gs://landing-bucket/application1/customers/
 ├── customers.csv          # Data file (or split files)
 ├── customers_1.csv        # Split file 1 (if > 25MB)
 ├── customers_2.csv        # Split file 2 (if > 25MB)
@@ -344,7 +344,7 @@ Each file contains three record types:
 ┌─────────────────────────────────────────────────────────────┐
 │ HEADER RECORD (1 row)                                       │
 │ Format: HDR|{SYSTEM}|{ENTITY}|{DATE}                        │
-│ Example: HDR|EM|Customer|20260101                           │
+│ Example: HDR|Application1|Customer|20260101                           │
 ├─────────────────────────────────────────────────────────────┤
 │ DATA RECORDS (n rows)                                       │
 │ Format: Standard CSV with column headers                    │
@@ -362,7 +362,7 @@ Each file contains three record types:
 | Field | Position | Description | Example |
 |-------|----------|-------------|---------|
 | Record Type | 1 | Always "HDR" | `HDR` |
-| System ID | 2 | Source system code | `EM` |
+| System ID | 2 | Source system code | `Application1` |
 | Entity Type | 3 | Entity name | `Customer`, `Account`, `Decision` |
 | Extract Date | 4 | Date in YYYYMMDD format | `20260101` |
 
@@ -382,7 +382,7 @@ Each file contains three record types:
 
 ---
 
-### System 2: LOA (Application B Application)
+### System 2: Application2 (Application B Application)
 
 #### Entities & Tables
 
@@ -402,13 +402,13 @@ Each file contains three record types:
 
 #### File Structure
 
-Same structure as EM system:
+Same structure as Application1 system:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ HEADER RECORD (1 row)                                       │
 │ Format: HDR|{SYSTEM}|{ENTITY}|{DATE}                        │
-│ Example: HDR|LOA|Applications|20260101                      │
+│ Example: HDR|Application2|Applications|20260101                      │
 ├─────────────────────────────────────────────────────────────┤
 │ DATA RECORDS (n rows)                                       │
 │ Format: Standard CSV with column headers                    │
@@ -419,25 +419,25 @@ Same structure as EM system:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### LOA Data Flow Summary
+#### Application2 Data Flow Summary
 
-LOA has a **simpler flow** compared to EM:
+Application2 has a **simpler flow** compared to Application1:
 - **Single extract** (Applications) instead of 3 entities
 - **No dependency wait** - Transform triggers immediately after ODP load
 - **Two FDP outputs** from single ODP source
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ LOA DATA FLOW                                               │
+│ Application2 DATA FLOW                                               │
 │                                                             │
 │  ┌─────────────────┐                                        │
-│  │ LOA Extract     │  Single daily extract                  │
+│  │ Application2 Extract     │  Single daily extract                  │
 │  │ (Applications)  │                                        │
 │  └────────┬────────┘                                        │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────┐                                        │
-│  │ ODP Load        │  odp_loa.applications                  │
+│  │ ODP Load        │  odp_application2.applications                  │
 │  │ (1:1 Mapping)   │                                        │
 │  └────────┬────────┘                                        │
 │           │                                                 │
@@ -448,7 +448,7 @@ LOA has a **simpler flow** compared to EM:
 │  │ dbt Transformation                                   │   │
 │  │ (Attribute Mapping)                                  │   │
 │  │                                                      │   │
-│  │  odp_loa.applications                                │   │
+│  │  odp_application2.applications                                │   │
 │  │           │                                          │   │
 │  │           └──────────────────┐                       │   │
 │  │                              │                       │   │
@@ -463,31 +463,31 @@ LOA has a **simpler flow** compared to EM:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### LOA BigQuery Dataset Structure
+#### Application2 BigQuery Dataset Structure
 
 ```
 BigQuery Project: {project_id}
 │
-├── odp_loa                              # ODP: Original Data Product (Raw)
-│   └── applications                     # 1:1 mapping of LOA.APPLICATIONS
+├── odp_application2                              # ODP: Original Data Product (Raw)
+│   └── applications                     # 1:1 mapping of Application2.APPLICATIONS
 │
-└── fdp_loa                              # FDP: Foundation Data Product (Transformed)
+└── fdp_application2                              # FDP: Foundation Data Product (Transformed)
     ├── event_transaction_excess         # FDP 1: Event/Transaction focused view
     └── portfolio_account_excess         # FDP 2: Portfolio/Account focused view
 ```
 
-#### LOA Entity Dependency Configuration
+#### Application2 Entity Dependency Configuration
 
 ```python
-# LOA has single entity - no dependency wait required
+# Application2 has single entity - no dependency wait required
 
 SYSTEM_ENTITY_DEPENDENCIES = {
-    "em": {
+    "application1": {
         "entities": ["customers", "accounts", "decision"],
         "required_count": 3,
         "trigger_next_stage": "transformation"
     },
-    "loa": {
+    "application2": {
         "entities": ["applications"],
         "required_count": 1,  # Single entity - immediate trigger
         "trigger_next_stage": "transformation"
@@ -495,37 +495,37 @@ SYSTEM_ENTITY_DEPENDENCIES = {
 }
 ```
 
-#### LOA Transformation DAG
+#### Application2 Transformation DAG
 
 ```python
-# LOA Transformation DAG: loa_transformation_dag
+# Application2 Transformation DAG: application2_transformation_dag
 # Triggered immediately after successful ODP load (no dependency wait)
 
 [check_odp_ready]  ──► Verify applications ODP table has data for extract_date
         │
         ▼
-[run_dbt_staging]  ──► dbt run --select staging.stg_loa_applications
+[run_dbt_staging]  ──► dbt run --select staging.stg_application2_applications
         │
         ▼
-[run_dbt_fdp]  ──► dbt run --select fdp_loa.portfolio_account_facility
+[run_dbt_fdp]  ──► dbt run --select fdp_application2.portfolio_account_facility
         │
         ▼
-[run_dbt_tests]  ──► dbt test --select fdp_loa.*
+[run_dbt_tests]  ──► dbt test --select fdp_application2.*
         │
         ├── On Success ──► [update_transform_status] ──► [update_audit_table] ──► [trigger_reconciliation]
         │
         └── On Failure ──► [log_dbt_errors] ──► [send_alert]
 ```
 
-#### LOA FDP Table Schemas
+#### Application2 FDP Table Schemas
 
 **FDP 1: event_transaction_excess**
 
 ```sql
--- Table: fdp_loa.event_transaction_excess
--- Event and Transaction focused view of LOA applications
+-- Table: fdp_application2.event_transaction_excess
+-- Event and Transaction focused view of Application2 applications
 
-CREATE TABLE fdp_loa.event_transaction_excess (
+CREATE TABLE fdp_application2.event_transaction_excess (
     -- Primary key
     event_key               STRING NOT NULL,
     
@@ -558,10 +558,10 @@ CLUSTER BY application_id, event_date;
 **FDP 2: portfolio_account_excess**
 
 ```sql
--- Table: fdp_loa.portfolio_account_excess
--- Portfolio and Account focused view of LOA applications
+-- Table: fdp_application2.portfolio_account_excess
+-- Portfolio and Account focused view of Application2 applications
 
-CREATE TABLE fdp_loa.portfolio_account_excess (
+CREATE TABLE fdp_application2.portfolio_account_excess (
     -- Primary key
     portfolio_key           STRING NOT NULL,
     
@@ -593,9 +593,9 @@ PARTITION BY _extract_date
 CLUSTER BY portfolio_id, account_id;
 ```
 
-#### LOA dbt Models
+#### Application2 dbt Models
 
-**File:** `transformations/dbt/models/fdp_loa/event_transaction_excess.sql`
+**File:** `transformations/dbt/models/fdp_application2/event_transaction_excess.sql`
 
 ```sql
 {{
@@ -608,7 +608,7 @@ CLUSTER BY portfolio_id, account_id;
 }}
 
 WITH applications AS (
-    SELECT * FROM {{ ref('stg_loa_applications') }}
+    SELECT * FROM {{ ref('stg_application2_applications') }}
     {% if is_incremental() %}
     WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
     {% endif %}
@@ -619,20 +619,20 @@ SELECT
     
     -- Event attributes (mapped from attribute mapping file)
     application_id,
-    {{ map_code('loa', 'applications', 'event_type', 'event_type_code') }} AS event_type,
+    {{ map_code('application2', 'applications', 'event_type', 'event_type_code') }} AS event_type,
     {{ parse_mainframe_date('event_date_raw') }} AS event_date,
-    {{ map_code('loa', 'applications', 'event_status', 'event_status_code') }} AS event_status,
+    {{ map_code('application2', 'applications', 'event_status', 'event_status_code') }} AS event_status,
     
     -- Transaction attributes
     transaction_id,
     transaction_amount,
     {{ parse_mainframe_date('transaction_date_raw') }} AS transaction_date,
-    {{ map_code('loa', 'applications', 'transaction_type', 'txn_type_code') }} AS transaction_type,
+    {{ map_code('application2', 'applications', 'transaction_type', 'txn_type_code') }} AS transaction_type,
     
     -- Excess attributes
     excess_amount,
     excess_reason,
-    {{ map_code('loa', 'applications', 'excess_status', 'excess_status_code') }} AS excess_status,
+    {{ map_code('application2', 'applications', 'excess_status', 'excess_status_code') }} AS excess_status,
     
     -- Audit columns
     _run_id,
@@ -643,7 +643,7 @@ FROM applications
 WHERE event_type_code IS NOT NULL  -- Filter for event-related records
 ```
 
-**File:** `transformations/dbt/models/fdp_loa/portfolio_account_excess.sql`
+**File:** `transformations/dbt/models/fdp_application2/portfolio_account_excess.sql`
 
 ```sql
 {{
@@ -656,7 +656,7 @@ WHERE event_type_code IS NOT NULL  -- Filter for event-related records
 }}
 
 WITH applications AS (
-    SELECT * FROM {{ ref('stg_loa_applications') }}
+    SELECT * FROM {{ ref('stg_application2_applications') }}
     {% if is_incremental() %}
     WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
     {% endif %}
@@ -668,13 +668,13 @@ SELECT
     -- Portfolio attributes (mapped from attribute mapping file)
     portfolio_id,
     portfolio_name,
-    {{ map_code('loa', 'applications', 'portfolio_type', 'portfolio_type_code') }} AS portfolio_type,
+    {{ map_code('application2', 'applications', 'portfolio_type', 'portfolio_type_code') }} AS portfolio_type,
     
     -- Account attributes
     account_id,
     account_number,
-    {{ map_code('loa', 'applications', 'account_type', 'acct_type_code') }} AS account_type,
-    {{ map_code('loa', 'applications', 'account_status', 'acct_status_code') }} AS account_status,
+    {{ map_code('application2', 'applications', 'account_type', 'acct_type_code') }} AS account_type,
+    {{ map_code('application2', 'applications', 'account_status', 'acct_status_code') }} AS account_status,
     
     -- Excess attributes
     excess_amount,
@@ -695,9 +695,9 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 
 ---
 
-## 📊 SYSTEM COMPARISON: EM vs LOA
+## 📊 SYSTEM COMPARISON: Application1 vs Application2
 
-| Aspect | EM (Application A) | LOA (Application B Application) |
+| Aspect | Application1 (Application A) | Application2 (Application B Application) |
 |--------|------------------------|-------------------------------------|
 | **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | **Extract Schedule** | Customers/Accounts: 4 PM, Decision: 5 AM | TBD |
@@ -716,7 +716,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 ┌─────────────────────────────────────────────────────────────┐
 │ MAINFRAME (On-Premise)                                      │
 │ ┌─────────┐    ┌─────────┐                                  │
-│ │ EM      │    │ LOA     │                                  │
+│ │ Application1      │    │ Application2     │                                  │
 │ └────┬────┘    └────┬────┘                                  │
 │      │              │                                       │
 │      └──────┬───────┘                                       │
@@ -737,7 +737,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │ GCP CLOUD STORAGE (Landing Zone)                            │
 │                                                             │
 │  gs://landing-bucket/                                       │
-│  ├── em/                                                    │
+│  ├── application1/                                                    │
 │  │   ├── customers/                                         │
 │  │   │   ├── customers_1.csv      ← Data file (split 1)    │
 │  │   │   ├── customers_2.csv      ← Data file (split 2)    │
@@ -748,7 +748,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  │   └── decision/                                          │
 │  │       ├── decision.csv                                   │
 │  │       └── decision.csv.ok                                │
-│  └── loa/                                                   │
+│  └── application2/                                                   │
 │      └── ...                                                │
 │                                                             │
 │  ──► GCS sends Pub/Sub notification on .ok file upload      │
@@ -761,7 +761,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  Topic: file-landing-notifications                          │
 │  Message attributes:                                        │
 │    - bucketId: landing-bucket                               │
-│    - objectId: em/customers/customers.csv.ok                │
+│    - objectId: application1/customers/customers.csv.ok                │
 │    - eventType: OBJECT_FINALIZE                             │
 │                                                             │
 │  ──► Triggers Airflow DAG via sensor                        │
@@ -788,7 +788,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  Pub/Sub Message Payload:                                   │
 │  {                                                          │
 │    "bucket": "landing-bucket",                              │
-│    "name": "em/customers/customers.csv.ok",                 │
+│    "name": "application1/customers/customers.csv.ok",                 │
 │    "metageneration": "1",                                   │
 │    "timeCreated": "2026-01-01T16:00:00.000Z",               │
 │    "updated": "2026-01-01T16:00:00.000Z"                    │
@@ -796,7 +796,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │                                                             │
 │  Message Attributes:                                        │
 │    - bucketId: landing-bucket                               │
-│    - objectId: em/customers/customers.csv.ok                │
+│    - objectId: application1/customers/customers.csv.ok                │
 │    - eventType: OBJECT_FINALIZE                             │
 │    - payloadFormat: JSON_API_V1                             │
 │                                                             │
@@ -817,7 +817,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  │ - Subscription: file-landing-sub                     │   │
 │  │ - Filter: .ok files only                             │   │
 │  │ - Extracts metadata from message                     │   │
-│  │ - Pushes to XCom: system_id, entity_type, file_path  │   │
+│  │ - Pushes to XCom: systapplication1_id, entity_type, file_path  │   │
 │  └──────────────────────┬──────────────────────────────┘   │
 │                         │                                   │
 │                         ▼                                   │
@@ -825,7 +825,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  │ Pipeline Router Task                                 │   │
 │  │ ────────────────────                                 │   │
 │  │ - Reads metadata from XCom                           │   │
-│  │ - Determines: system (EM/LOA), entity, file path     │   │
+│  │ - Determines: system (Application1/Application2), entity, file path     │   │
 │  │ - Selects appropriate pipeline configuration         │   │
 │  │ - Routes to entity-specific processing               │   │
 │  └──────────────────────┬──────────────────────────────┘   │
@@ -845,7 +845,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  │ File Validation Task                                 │   │
 │  │ ────────────────────                                 │   │
 │  │ For each data file:                                  │   │
-│  │   1. Parse header record (HDR|EM|Customer|YYYYMMDD)  │   │
+│  │   1. Parse header record (HDR|Application1|Customer|YYYYMMDD)  │   │
 │  │   2. Validate system ID matches expected             │   │
 │  │   3. Validate entity type matches expected           │   │
 │  │   4. Validate extract date                           │   │
@@ -915,7 +915,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 #### Stage 2 DAG Structure
 
 ```python
-# DAG: em_file_processing_dag / loa_file_processing_dag
+# DAG: application1_file_processing_dag / application2_file_processing_dag
 
 [PubSubPullSensor] 
         │
@@ -941,8 +941,8 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 | Extracted Field | Source | Example |
 |-----------------|--------|---------|
 | `bucket_id` | Message attribute | `landing-bucket` |
-| `object_path` | Message attribute | `em/customers/customers.csv.ok` |
-| `system_id` | Parsed from path | `em` |
+| `object_path` | Message attribute | `application1/customers/customers.csv.ok` |
+| `systapplication1_id` | Parsed from path | `application1` |
 | `entity_type` | Parsed from path | `customers` |
 | `ok_file_name` | Parsed from path | `customers.csv.ok` |
 | `base_file_pattern` | Derived | `customers*.csv` |
@@ -951,17 +951,17 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 #### File Discovery Logic
 
 ```
-Input: ok_file_path = "em/customers/customers.csv.ok"
+Input: ok_file_path = "application1/customers/customers.csv.ok"
 
-1. Extract directory: "em/customers/"
+1. Extract directory: "application1/customers/"
 2. Extract base name: "customers" (remove .csv.ok)
 3. List files matching pattern: "customers*.csv"
 4. Filter out .ok files
 5. Sort by split number (if applicable)
 
 Output: [
-    "gs://landing-bucket/em/customers/customers_1.csv",
-    "gs://landing-bucket/em/customers/customers_2.csv"
+    "gs://landing-bucket/application1/customers/customers_1.csv",
+    "gs://landing-bucket/application1/customers/customers_2.csv"
 ]
 ```
 
@@ -1033,7 +1033,7 @@ Post successful file validation and data quality checks, data is loaded directly
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ STAGE 3: ODP LOAD TO BIGQUERY                               │
+│ STAGE 3: ODP Application2D TO BIGQUERY                               │
 │                                                             │
 │  Input: Validated CSV files from GCS                        │
 │  Output: BigQuery ODP tables (1:1 mainframe mapping)        │
@@ -1065,7 +1065,7 @@ Post successful file validation and data quality checks, data is loaded directly
 │  │  ┌────────────┐                                      │   │
 │  │  │ Write to   │  Target: ODP dataset in BigQuery     │   │
 │  │  │ BigQuery   │  Table: odp_{system}.{entity}        │   │
-│  │  │ (ODP)      │  e.g., odp_em.customers              │   │
+│  │  │ (ODP)      │  e.g., odp_application1.customers              │   │
 │  │  └────────────┘                                      │   │
 │  │                                                      │   │
 │  └──────────────────────────────────────────────────────┘   │
@@ -1090,8 +1090,8 @@ BigQuery Project: {project_id}
 │
 aa
 │
-└── odp_loa                         # LOA system ODP dataset
-    ├── applications                # 1:1 mapping of LOA tables
+└── odp_application2                         # Application2 system ODP dataset
+    ├── applications                # 1:1 mapping of Application2 tables
     └── ...
 ```
 
@@ -1100,9 +1100,9 @@ aa
 Each ODP table follows this schema pattern:
 
 ```sql
--- Example: odp_em.customers
+-- Example: odp_application1.customers
 
-CREATE TABLE odp_em.customers (
+CREATE TABLE odp_application1.customers (
     -- Original DB2 columns (1:1 mapping)
     customer_id         STRING,
     ssn                 STRING,
@@ -1128,7 +1128,7 @@ CLUSTER BY customer_id;
 
 | Column | Type | Description | Example |
 |--------|------|-------------|---------|
-| `_run_id` | STRING | Unique pipeline execution ID | `em_customers_20260101_160500` |
+| `_run_id` | STRING | Unique pipeline execution ID | `application1_customers_20260101_160500` |
 | `_source_file` | STRING | Source file name | `customers_1.csv` |
 | `_processed_ts` | TIMESTAMP | Load timestamp | `2026-01-01T16:10:00.000Z` |
 | `_extract_date` | DATE | Extract date from HDR record | `2026-01-01` |
@@ -1179,7 +1179,7 @@ On failure of any data quality check or pipeline job, the following error handli
 │  │ 1. Move Files to Error Folder                        │   │
 │  │ ─────────────────────────────                        │   │
 │  │                                                      │   │
-│  │  Source: gs://landing-bucket/em/customers/           │   │
+│  │  Source: gs://landing-bucket/application1/customers/           │   │
 │  │    ├── customers_1.csv                               │   │
 │  │    ├── customers_2.csv                               │   │
 │  │    └── customers.csv.ok                              │   │
@@ -1187,7 +1187,7 @@ On failure of any data quality check or pipeline job, the following error handli
 │  │              │                                       │   │
 │  │              ▼ (Move on failure)                     │   │
 │  │                                                      │   │
-│  │  Error: gs://error-bucket/em/customers/2026/01/01/   │   │
+│  │  Error: gs://error-bucket/application1/customers/2026/01/01/   │   │
 │  │    ├── customers_1.csv                               │   │
 │  │    ├── customers_2.csv                               │   │
 │  │    ├── customers.csv.ok                              │   │
@@ -1231,7 +1231,7 @@ On failure of any data quality check or pipeline job, the following error handli
 
 ```
 gs://error-bucket/
-├── em/
+├── application1/
 │   ├── customers/
 │   │   ├── 2026/01/01/
 │   │   │   ├── customers_1.csv
@@ -1244,7 +1244,7 @@ gs://error-bucket/
 │   │   └── ...
 │   └── decision/
 │       └── ...
-└── loa/
+└── application2/
     └── ...
 ```
 
@@ -1252,8 +1252,8 @@ gs://error-bucket/
 
 ```json
 {
-  "run_id": "em_customers_20260101_160500",
-  "system_id": "em",
+  "run_id": "application1_customers_20260101_160500",
+  "systapplication1_id": "application1",
   "entity_type": "customers",
   "extract_date": "2026-01-01",
   "failed_at": "2026-01-01T16:15:00.000Z",
@@ -1272,8 +1272,8 @@ gs://error-bucket/
       {"customer_id": "1055", "count": 3}
     ]
   },
-  "source_path": "gs://landing-bucket/em/customers/",
-  "error_path": "gs://error-bucket/em/customers/2026/01/01/"
+  "source_path": "gs://landing-bucket/application1/customers/",
+  "error_path": "gs://error-bucket/application1/customers/2026/01/01/"
 }
 ```
 
@@ -1284,7 +1284,7 @@ gs://error-bucket/
 
 CREATE TABLE job_control.pipeline_jobs (
     run_id              STRING NOT NULL,        -- Unique run identifier
-    system_id           STRING NOT NULL,        -- EM, LOA
+    systapplication1_id           STRING NOT NULL,        -- Application1, Application2
     entity_type         STRING NOT NULL,        -- customers, accounts, etc.
     extract_date        DATE NOT NULL,          -- Extract date from header
     
@@ -1339,7 +1339,7 @@ PARTITION BY DATE(extract_date);
 | `DQ_DUPLICATE_PK` | Data Quality | Duplicate primary keys found |
 | `DQ_CORRUPTION` | Data Quality | File corruption detected |
 | `DATAFLOW_FAILED` | ODP Load | Dataflow pipeline failed |
-| `BQ_LOAD_FAILED` | ODP Load | BigQuery load failed |
+| `BQ_Application2D_FAILED` | ODP Load | BigQuery load failed |
 
 #### Move to Error Folder Task
 
@@ -1365,7 +1365,7 @@ def move_to_error_folder(
     move_results = []
     
     for source_path in source_files:
-        # Build error path: gs://error-bucket/em/customers/2026/01/01/
+        # Build error path: gs://error-bucket/application1/customers/2026/01/01/
         error_path = build_error_path(
             source_path=source_path,
             error_bucket="error-bucket",
@@ -1459,7 +1459,7 @@ On successful completion of the ODP data load, source files are moved to the arc
 │ FILE ARCHIVAL PROCESS                                       │
 │                                                             │
 │  Source Location (Landing Zone):                            │
-│    gs://landing-bucket/em/customers/                        │
+│    gs://landing-bucket/application1/customers/                        │
 │    ├── customers_1.csv                                      │
 │    ├── customers_2.csv                                      │
 │    └── customers.csv.ok                                     │
@@ -1468,7 +1468,7 @@ On successful completion of the ODP data load, source files are moved to the arc
 │                         ▼ (Move on success)                 │
 │                                                             │
 │  Archive Location:                                          │
-│    gs://archive-bucket/em/customers/2026/01/01/             │
+│    gs://archive-bucket/application1/customers/2026/01/01/             │
 │    ├── customers_1.csv                                      │
 │    ├── customers_2.csv                                      │
 │    └── customers.csv.ok                                     │
@@ -1490,7 +1490,7 @@ On successful completion of the ODP data load, source files are moved to the arc
 
 ```
 gs://archive-bucket/
-├── em/
+├── application1/
 │   ├── customers/
 │   │   ├── 2026/01/01/
 │   │   │   ├── customers_1.csv
@@ -1504,7 +1504,7 @@ gs://archive-bucket/
 │   │       └── ...
 │   └── decision/
 │       └── ...
-└── loa/
+└── application2/
     └── ...
 ```
 
@@ -1520,7 +1520,7 @@ gs://archive-bucket/
         },
         "condition": {
           "age": 90,
-          "matchesPrefix": ["em/", "loa/"]
+          "matchesPrefix": ["application1/", "application2/"]
         }
       },
       {
@@ -1530,7 +1530,7 @@ gs://archive-bucket/
         },
         "condition": {
           "age": 1,
-          "matchesPrefix": ["em/", "loa/"]
+          "matchesPrefix": ["application1/", "application2/"]
         }
       }
     ]
@@ -1557,8 +1557,8 @@ def archive_source_files(source_files: List[str], extract_date: str) -> dict:
     archive_results = []
     
     for source_path in source_files:
-        # Parse: gs://landing-bucket/em/customers/customers_1.csv
-        # Build: gs://archive-bucket/em/customers/2026/01/01/customers_1.csv
+        # Parse: gs://landing-bucket/application1/customers/customers_1.csv
+        # Build: gs://archive-bucket/application1/customers/2026/01/01/customers_1.csv
         
         archive_path = build_archive_path(
             source_path=source_path,
@@ -1597,11 +1597,11 @@ pipeline_config = {
     "staging_location": "gs://{bucket}/staging/",
     
     # Input
-    "input_files": ["gs://landing-bucket/em/customers/*.csv"],
+    "input_files": ["gs://landing-bucket/application1/customers/*.csv"],
     "skip_header_lines": 1,  # Skip HDR record
     
     # Output
-    "output_table": "{project}:odp_em.customers",
+    "output_table": "{project}:odp_application1.customers",
     "write_disposition": "WRITE_APPEND",
     
     # Audit
@@ -1616,13 +1616,13 @@ pipeline_config = {
 
 #### Entity Dependency Logic
 
-The next stage of processing (Transformation) can **only be triggered when ALL entity extracts for a system are successfully loaded to ODP**. For EM, this means all 3 entities must complete:
+The next stage of processing (Transformation) can **only be triggered when ALL entity extracts for a system are successfully loaded to ODP**. For Application1, this means all 3 entities must complete:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ EM ENTITY DEPENDENCY CHECK                                  │
+│ Application1 ENTITY DEPENDENCY CHECK                                  │
 │                                                             │
-│  Required Entities for EM System:                           │
+│  Required Entities for Application1 System:                           │
 │    ☑ Customers  (Daily @ 4:00 PM)                          │
 │    ☑ Accounts   (Daily @ 4:00 PM)                          │
 │    ☑ Decision   (Daily @ 5:00 AM)                          │
@@ -1634,7 +1634,7 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 │  │          ▼                       ▼                   │   │
 │  │   ┌─────────────┐         ┌─────────────┐           │   │
 │  │   │ SUCCESS     │         │ SUCCESS     │           │   │
-│  │   │ odp_em.     │         │ odp_em.     │           │   │
+│  │   │ odp_application1.     │         │ odp_application1.     │           │   │
 │  │   │ customers   │         │ accounts    │           │   │
 │  │   └──────┬──────┘         └──────┬──────┘           │   │
 │  │          │                       │                   │   │
@@ -1646,16 +1646,16 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 │  │          ▼                                           │   │
 │  │   ┌─────────────┐                                    │   │
 │  │   │ SUCCESS     │                                    │   │
-│  │   │ odp_em.     │                                    │   │
+│  │   │ odp_application1.     │                                    │   │
 │  │   │ decision    │                                    │   │
 │  │   └──────┬──────┘                                    │   │
 │  │          │                                           │   │
 │  │          ▼                                           │   │
 │  │   ┌─────────────────────────────────────────────┐   │   │
-│  │   │ ALL 3 ENTITIES LOADED FOR EXTRACT DATE?     │   │   │
+│  │   │ ALL 3 ENTITIES Application2DED FOR EXTRACT DATE?     │   │   │
 │  │   │                                             │   │   │
 │  │   │  Check job_control.pipeline_jobs:           │   │   │
-│  │   │    - system_id = 'em'                       │   │   │
+│  │   │    - systapplication1_id = 'application1'                       │   │   │
 │  │   │    - extract_date = '2026-01-01'            │   │   │
 │  │   │    - status = 'SUCCESS'                     │   │   │
 │  │   │    - entity_type IN (customers, accounts,   │   │   │
@@ -1676,15 +1676,15 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 # LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
 # PIPELINE provides the configuration (entities, counts, triggers)
 
-# Example: Blueprint pipeline configuration (deployments/em/src/em/config.py)
-EM_ENTITY_DEPENDENCIES = {
+# Example: Blueprint pipeline configuration (deployments/application1/src/application1/config.py)
+Application1_ENTITY_DEPENDENCIES = {
     "entities": ["customers", "accounts", "decision"],
     "required_count": 3,
     "trigger_next_stage": "transformation"
 }
 
-# Example: Blueprint pipeline configuration (deployments/loa/src/loa/config.py)
-LOA_ENTITY_DEPENDENCIES = {
+# Example: Blueprint pipeline configuration (deployments/application2/src/application2/config.py)
+Application2_ENTITY_DEPENDENCIES = {
     "entities": ["applications"],
     "required_count": 1,  # Single entity - immediate trigger
     "trigger_next_stage": "transformation"
@@ -1695,10 +1695,10 @@ from gcp_pipeline_orchestration import EntityDependencyChecker
 
 checker = EntityDependencyChecker(
     project_id="my-project",
-    dependencies=EM_ENTITY_DEPENDENCIES  # Pipeline provides config
+    dependencies=Application1_ENTITY_DEPENDENCIES  # Pipeline provides config
 )
 
-if checker.all_entities_loaded("em", extract_date):
+if checker.all_entities_loaded("application1", extract_date):
     trigger_transformation_dag()
 ```
 
@@ -1706,13 +1706,13 @@ if checker.all_entities_loaded("em", extract_date):
 
 | System | Required Entities | All Required? | Trigger Condition |
 |--------|-------------------|---------------|-------------------|
-| **EM** | Customers, Accounts, Decision | Yes, all 3 | All 3 SUCCESS for same extract_date |
-| **LOA** | Applications | No (single entity) | Immediate after ODP load SUCCESS |
+| **Application1** | Customers, Accounts, Decision | Yes, all 3 | All 3 SUCCESS for same extract_date |
+| **Application2** | Applications | No (single entity) | Immediate after ODP load SUCCESS |
 
 #### Dependency Check Query
 
 ```sql
--- Check if all EM entities are loaded for a given extract date
+-- Check if all Application1 entities are loaded for a given extract date
 
 SELECT 
     extract_date,
@@ -1724,7 +1724,7 @@ SELECT
     END as transform_status
 FROM `{project}.job_control.pipeline_jobs`
 WHERE 
-    system_id = 'em'
+    systapplication1_id = 'application1'
     AND extract_date = @extract_date
     AND status = 'SUCCESS'
     AND entity_type IN ('customers', 'accounts', 'decision')
@@ -1736,32 +1736,32 @@ GROUP BY extract_date;
 ```python
 # check_all_entities_loaded task
 
-def check_all_entities_loaded(system_id: str, extract_date: str) -> bool:
+def check_all_entities_loaded(systapplication1_id: str, extract_date: str) -> bool:
     """
     Check if all required entities for a system are loaded to ODP.
     
     Args:
-        system_id: System identifier (em, loa)
+        systapplication1_id: System identifier (application1, application2)
         extract_date: Extract date to check
     
     Returns:
         True if all entities loaded, False otherwise
     """
-    required_entities = SYSTEM_ENTITY_DEPENDENCIES[system_id]["entities"]
-    required_count = SYSTEM_ENTITY_DEPENDENCIES[system_id]["required_count"]
+    required_entities = SYSTEM_ENTITY_DEPENDENCIES[systapplication1_id]["entities"]
+    required_count = SYSTEM_ENTITY_DEPENDENCIES[systapplication1_id]["required_count"]
     
     query = """
         SELECT COUNT(DISTINCT entity_type) as loaded_count
         FROM `{project}.job_control.pipeline_jobs`
         WHERE 
-            system_id = @system_id
+            systapplication1_id = @systapplication1_id
             AND extract_date = @extract_date
             AND status = 'SUCCESS'
             AND entity_type IN UNNEST(@required_entities)
     """
     
     result = bq_client.query(query, parameters={
-        "system_id": system_id,
+        "systapplication1_id": systapplication1_id,
         "extract_date": extract_date,
         "required_entities": required_entities
     })
@@ -1771,7 +1771,7 @@ def check_all_entities_loaded(system_id: str, extract_date: str) -> bool:
     return loaded_count == required_count
 
 
-def trigger_transformation_if_ready(system_id: str, extract_date: str) -> str:
+def trigger_transformation_if_ready(systapplication1_id: str, extract_date: str) -> str:
     """
     Trigger transformation stage if all entities are loaded.
     Called after each successful ODP load.
@@ -1779,20 +1779,20 @@ def trigger_transformation_if_ready(system_id: str, extract_date: str) -> str:
     Returns:
         'TRIGGERED' if transformation started, 'WAITING' otherwise
     """
-    if check_all_entities_loaded(system_id, extract_date):
+    if check_all_entities_loaded(systapplication1_id, extract_date):
         # All entities loaded - trigger transformation DAG
         trigger_dag(
-            dag_id=f"{system_id}_transformation_dag",
+            dag_id=f"{systapplication1_id}_transformation_dag",
             conf={
-                "system_id": system_id,
+                "systapplication1_id": systapplication1_id,
                 "extract_date": extract_date,
-                "run_id": generate_run_id(system_id, "transform", extract_date)
+                "run_id": generate_run_id(systapplication1_id, "transform", extract_date)
             }
         )
         return "TRIGGERED"
     else:
         # Still waiting for other entities
-        log.info(f"Waiting for all {system_id} entities to load for {extract_date}")
+        log.info(f"Waiting for all {systapplication1_id} entities to load for {extract_date}")
         return "WAITING"
 ```
 
@@ -1834,7 +1834,7 @@ def trigger_transformation_if_ready(system_id: str, extract_date: str) -> str:
 -- Tracks which entities are loaded for each extract date
 
 CREATE TABLE job_control.entity_load_status (
-    system_id           STRING NOT NULL,
+    systapplication1_id           STRING NOT NULL,
     extract_date        DATE NOT NULL,
     entity_type         STRING NOT NULL,
     status              STRING NOT NULL,        -- SUCCESS, FAILED, PENDING
@@ -1842,14 +1842,14 @@ CREATE TABLE job_control.entity_load_status (
     loaded_at           TIMESTAMP,
     record_count        INT64,
     
-    PRIMARY KEY (system_id, extract_date, entity_type) NOT ENFORCED
+    PRIMARY KEY (systapplication1_id, extract_date, entity_type) NOT ENFORCED
 )
 PARTITION BY extract_date;
 
 -- View: Ready for transformation
 CREATE VIEW job_control.v_ready_for_transformation AS
 SELECT 
-    system_id,
+    systapplication1_id,
     extract_date,
     COUNT(*) as entities_loaded,
     ARRAY_AGG(entity_type) as entities,
@@ -1857,10 +1857,10 @@ SELECT
     MAX(loaded_at) as last_load
 FROM job_control.entity_load_status
 WHERE status = 'SUCCESS'
-GROUP BY system_id, extract_date
+GROUP BY systapplication1_id, extract_date
 HAVING 
-    (system_id = 'em' AND COUNT(*) = 3)
-    OR (system_id = 'loa' AND COUNT(*) = ...)  -- Define LOA count
+    (systapplication1_id = 'application1' AND COUNT(*) = 3)
+    OR (systapplication1_id = 'application2' AND COUNT(*) = ...)  -- Define Application2 count
 ;
 ```
 
@@ -1868,11 +1868,11 @@ HAVING
 
 ### Stage 4: dbt Transformation (Foundation Data Product)
 
-Once all 3 EM entities (customers, accounts, decision) are loaded to ODP, the dbt transformation is triggered to create the **Foundation Data Product (FDP)**.
+Once all 3 Application1 entities (customers, accounts, decision) are loaded to ODP, the dbt transformation is triggered to create the **Foundation Data Product (FDP)**.
 
-#### Foundation Data Product: EMAttributes
+#### Foundation Data Product: Application1Attributes
 
-The **EMAttributes** FDP is created by joining and transforming data from all 3 ODP tables using an **Attribute Mapping File**.
+The **Application1Attributes** FDP is created by joining and transforming data from all 3 ODP tables using an **Attribute Mapping File**.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1880,7 +1880,7 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 │                                                             │
 │  Input: ODP Tables (Raw 1:1 Mainframe Data)                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
-│  │ odp_em.     │  │ odp_em.     │  │ odp_em.     │         │
+│  │ odp_application1.     │  │ odp_application1.     │  │ odp_application1.     │         │
 │  │ customers   │  │ accounts    │  │ decision    │         │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
 │         │                │                │                 │
@@ -1904,7 +1904,7 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 │  │ DBT TRANSFORMATION                                   │   │
 │  │ ──────────────────                                   │   │
 │  │                                                      │   │
-│  │  dbt run --select fdp.em                          │   │
+│  │  dbt run --select fdp.application1                          │   │
 │  │                                                      │   │
 │  │  Transformations Applied:                            │   │
 │  │    1. event_transaction_excess: Join customers +     │   │
@@ -1920,8 +1920,8 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 │                         ▼                                   │
 │  Output: Foundation Data Product                            │
 │  ┌─────────────────────────────────────────────────────┐   │
-│  │ fdp_em.event_transaction_excess                    │   │
-│  │ fdp_em.portfolio_account_excess                    │   │
+│  │ fdp_application1.event_transaction_excess                    │   │
+│  │ fdp_application1.portfolio_account_excess                    │   │
 │  │ ─────────────────────────────────                    │   │
 │  │                                                      │   │
 │  │  Transformed, business-ready data targets            │   │
@@ -1936,16 +1936,16 @@ The **EMAttributes** FDP is created by joining and transforming data from all 3 
 ```
 BigQuery Project: {project_id}
 │
-├── odp_em                          # ODP: Original Data Product (Raw)
-│   ├── customers                   # 1:1 mapping of EM.CUSTOMERS
-│   ├── accounts                    # 1:1 mapping of EM.ACCOUNTS
-│   └── decision                    # 1:1 mapping of EM.DECISION
+├── odp_application1                          # ODP: Original Data Product (Raw)
+│   ├── customers                   # 1:1 mapping of Application1.CUSTOMERS
+│   ├── accounts                    # 1:1 mapping of Application1.ACCOUNTS
+│   └── decision                    # 1:1 mapping of Application1.DECISION
 │
-├── fdp_em                          # FDP: Foundation Data Product (Transformed)
+├── fdp_application1                          # FDP: Foundation Data Product (Transformed)
 │   ├── event_transaction_excess    # Joined customer-account view
 │   └── portfolio_account_excess    # Decision-based portfolio view
 │
-└── odp_loa                         # LOA system (similar pattern)
+└── odp_application2                         # Application2 system (similar pattern)
     └── ...
 ```
 
@@ -1953,7 +1953,7 @@ BigQuery Project: {project_id}
 
 The attribute mapping file defines how ODP columns are transformed into FDP columns.
 
-**Location:** `transformations/dbt/seeds/em_attribute_mapping.csv`
+**Location:** `transformations/dbt/seeds/application1_attribute_mapping.csv`
 
 ```csv
 source_entity,source_column,target_column,data_type,transformation,is_required,description
@@ -1998,7 +1998,7 @@ decision,decision_reason,decision_reason,STRING,DIRECT,false,Reason for decision
 -- Stores mainframe code to business value mappings
 
 CREATE TABLE reference.code_mappings (
-    system_id       STRING,
+    systapplication1_id       STRING,
     entity_type     STRING,
     field_name      STRING,
     source_code     STRING,
@@ -2010,19 +2010,19 @@ CREATE TABLE reference.code_mappings (
 
 -- Example data:
 INSERT INTO reference.code_mappings VALUES
-('em', 'customers', 'status', 'A', 'ACTIVE', 'Active customer', '2020-01-01', NULL),
-('em', 'customers', 'status', 'I', 'INACTIVE', 'Inactive customer', '2020-01-01', NULL),
-('em', 'customers', 'status', 'C', 'CLOSED', 'Closed account', '2020-01-01', NULL),
-('em', 'accounts', 'account_type', 'CHK', 'CHECKING', 'Checking account', '2020-01-01', NULL),
-('em', 'accounts', 'account_type', 'SAV', 'SAVINGS', 'Savings account', '2020-01-01', NULL),
-('em', 'decision', 'decision_code', 'APP', 'APPROVED', 'Application approved', '2020-01-01', NULL),
-('em', 'decision', 'decision_code', 'DEN', 'DENIED', 'Application denied', '2020-01-01', NULL),
-('em', 'decision', 'decision_code', 'REV', 'REVIEW', 'Pending review', '2020-01-01', NULL);
+('application1', 'customers', 'status', 'A', 'ACTIVE', 'Active customer', '2020-01-01', NULL),
+('application1', 'customers', 'status', 'I', 'INACTIVE', 'Inactive customer', '2020-01-01', NULL),
+('application1', 'customers', 'status', 'C', 'CLOSED', 'Closed account', '2020-01-01', NULL),
+('application1', 'accounts', 'account_type', 'CHK', 'CHECKING', 'Checking account', '2020-01-01', NULL),
+('application1', 'accounts', 'account_type', 'SAV', 'SAVINGS', 'Savings account', '2020-01-01', NULL),
+('application1', 'decision', 'decision_code', 'APP', 'APPROVED', 'Application approved', '2020-01-01', NULL),
+('application1', 'decision', 'decision_code', 'DEN', 'DENIED', 'Application denied', '2020-01-01', NULL),
+('application1', 'decision', 'decision_code', 'REV', 'REVIEW', 'Pending review', '2020-01-01', NULL);
 ```
 
 #### dbt Model: event_transaction_excess (JOIN)
 
-**File:** `deployments/em-transformation/dbt/models/fdp/event_transaction_excess.sql`
+**File:** `deployments/application1-transformation/dbt/models/fdp/event_transaction_excess.sql`
 
 ```sql
 {{
@@ -2042,20 +2042,20 @@ SELECT
     UPPER(c.first_name) AS first_name,
     UPPER(c.last_name) AS last_name,
     a.account_id,
-    {{ map_code('em', 'accounts', 'account_type', 'a.account_type') }} AS account_type_desc,
+    {{ map_code('application1', 'accounts', 'account_type', 'a.account_type') }} AS account_type_desc,
     a.balance AS current_balance,
     -- Audit columns
     c._run_id,
     c._extract_date,
     CURRENT_TIMESTAMP() AS _transformed_at
-FROM {{ ref('stg_em_customers') }} c
-JOIN {{ ref('stg_em_accounts') }} a ON c.customer_id = a.customer_id
+FROM {{ ref('stg_application1_customers') }} c
+JOIN {{ ref('stg_application1_accounts') }} a ON c.customer_id = a.customer_id
     AND c._extract_date = a._extract_date
 ```
 
 #### dbt Model: portfolio_account_excess (MAP)
 
-**File:** `deployments/em-transformation/dbt/models/fdp/portfolio_account_excess.sql`
+**File:** `deployments/application1-transformation/dbt/models/fdp/portfolio_account_excess.sql`
 
 ```sql
 {{
@@ -2072,13 +2072,13 @@ JOIN {{ ref('stg_em_accounts') }} a ON c.customer_id = a.customer_id
 SELECT
     decision_id,
     customer_id,
-    {{ map_code('em', 'decision', 'decision_code', 'decision_code') }} AS decision_outcome,
+    {{ map_code('application1', 'decision', 'decision_code', 'decision_code') }} AS decision_outcome,
     score,
     -- Audit columns
     _run_id,
     _extract_date,
     CURRENT_TIMESTAMP() AS _transformed_at
-FROM {{ ref('stg_em_decision') }}
+FROM {{ ref('stg_application1_decision') }}
 ```
 
 #### dbt Macros for Transformation
@@ -2087,11 +2087,11 @@ FROM {{ ref('stg_em_decision') }}
 
 ```sql
 -- Macro: Map code to description using reference table
-{% macro map_code(system_id, entity_type, field_name, source_column) %}
+{% macro map_code(systapplication1_id, entity_type, field_name, source_column) %}
     COALESCE(
         (SELECT target_value 
          FROM {{ ref('code_mappings') }} 
-         WHERE system_id = '{{ system_id }}'
+         WHERE systapplication1_id = '{{ systapplication1_id }}'
            AND entity_type = '{{ entity_type }}'
            AND field_name = '{{ field_name }}'
            AND source_code = {{ source_column }}
@@ -2115,18 +2115,18 @@ FROM {{ ref('stg_em_decision') }}
 #### Stage 4 DAG Tasks
 
 ```python
-# Transformation DAG: em_transformation_dag
+# Transformation DAG: application1_transformation_dag
 
 [check_odp_ready]  ──► Verify all 3 ODP tables have data for extract_date
         │
         ▼
-[run_dbt_staging]  ──► dbt run --select staging.stg_em_*
+[run_dbt_staging]  ──► dbt run --select staging.stg_application1_*
         │
         ▼
-[run_dbt_fdp]  ──► dbt run --select fdp_em.event_transaction_excess fdp_em.portfolio_account_excess
+[run_dbt_fdp]  ──► dbt run --select fdp_application1.event_transaction_excess fdp_application1.portfolio_account_excess
         │
         ▼
-[run_dbt_tests]  ──► dbt test --select fdp_em.*
+[run_dbt_tests]  ──► dbt test --select fdp_application1.*
         │
         ├── On Success ──► [update_transform_status] ──► [update_audit_table] ──► [trigger_reconciliation]
         │
@@ -2161,13 +2161,13 @@ On successful completion of the FDP transformation job, the audit table is updat
 CREATE TABLE audit.transformation_audit (
     audit_id                STRING NOT NULL,        -- Unique audit record ID
     run_id                  STRING NOT NULL,        -- Transformation run ID
-    system_id               STRING NOT NULL,        -- EM, LOA
+    systapplication1_id               STRING NOT NULL,        -- Application1, Application2
     extract_date            DATE NOT NULL,          -- Extract date being processed
     
     -- Transformation details
     transformation_type     STRING NOT NULL,        -- ODP_TO_FDP, FDP_TO_CDP, etc.
-    source_dataset          STRING NOT NULL,        -- odp_em
-    target_dataset          STRING NOT NULL,        -- fdp_em
+    source_dataset          STRING NOT NULL,        -- odp_application1
+    target_dataset          STRING NOT NULL,        -- fdp_application1
     target_table            STRING NOT NULL,        -- event_transaction_excess
     
     -- Source entity details
@@ -2203,7 +2203,7 @@ CREATE TABLE audit.transformation_audit (
     created_by              STRING DEFAULT SESSION_USER()
 )
 PARTITION BY DATE(extract_date)
-CLUSTER BY system_id, transformation_type;
+CLUSTER BY systapplication1_id, transformation_type;
 ```
 
 #### Update Audit Table Task
@@ -2213,7 +2213,7 @@ CLUSTER BY system_id, transformation_type;
 
 def update_audit_table(
     run_id: str,
-    system_id: str,
+    systapplication1_id: str,
     extract_date: str,
     source_entities: List[dict],
     target_record_count: int,
@@ -2227,7 +2227,7 @@ def update_audit_table(
     
     Args:
         run_id: Transformation run ID
-        system_id: System identifier (em, loa)
+        systapplication1_id: System identifier (application1, application2)
         extract_date: Extract date processed
         source_entities: List of source entity details
         target_record_count: Records written to FDP
@@ -2244,12 +2244,12 @@ def update_audit_table(
     audit_record = {
         "audit_id": f"audit_{run_id}",
         "run_id": run_id,
-        "system_id": system_id,
+        "systapplication1_id": systapplication1_id,
         "extract_date": extract_date,
         "transformation_type": "ODP_TO_FDP",
-        "source_dataset": f"odp_{system_id}",
-        "target_dataset": f"fdp_{system_id}",
-        "target_table": f"{system_id}_attributes",
+        "source_dataset": f"odp_{systapplication1_id}",
+        "target_dataset": f"fdp_{systapplication1_id}",
+        "target_table": f"{systapplication1_id}_attributes",
         "source_entities": source_entities,
         "source_total_records": source_total,
         "target_record_count": target_record_count,
@@ -2260,7 +2260,7 @@ def update_audit_table(
         "duration_seconds": duration,
         "status": status,
         "dbt_run_id": dbt_run_id,
-        "dbt_model_name": f"fdp_{system_id}.{system_id}_attributes"
+        "dbt_model_name": f"fdp_{systapplication1_id}.{systapplication1_id}_attributes"
     }
     
     # Insert audit record
@@ -2277,7 +2277,7 @@ def record_fdp_audit(**context):
     
     # Get details from previous tasks
     run_id = context['dag_run'].conf['run_id']
-    system_id = context['dag_run'].conf['system_id']
+    systapplication1_id = context['dag_run'].conf['systapplication1_id']
     extract_date = context['dag_run'].conf['extract_date']
     
     # Get source entity counts from ODP
@@ -2288,7 +2288,7 @@ def record_fdp_audit(**context):
     ]
     
     # Get FDP record count
-    target_count = get_fdp_count(f"fdp_{system_id}.{system_id}_attributes", extract_date)
+    target_count = get_fdp_count(f"fdp_{systapplication1_id}.{systapplication1_id}_attributes", extract_date)
     
     # Get timing from XCom
     started_at = ti.xcom_pull(task_ids='run_dbt_fdp', key='start_time')
@@ -2299,7 +2299,7 @@ def record_fdp_audit(**context):
     
     update_audit_table(
         run_id=run_id,
-        system_id=system_id,
+        systapplication1_id=systapplication1_id,
         extract_date=extract_date,
         source_entities=source_entities,
         target_record_count=target_count,
@@ -2314,18 +2314,18 @@ def record_fdp_audit(**context):
 
 ```json
 {
-  "audit_id": "audit_em_transform_20260101_170000",
-  "run_id": "em_transform_20260101_170000",
-  "system_id": "em",
+  "audit_id": "audit_application1_transform_20260101_170000",
+  "run_id": "application1_transform_20260101_170000",
+  "systapplication1_id": "application1",
   "extract_date": "2026-01-01",
   "transformation_type": "ODP_TO_FDP",
-  "source_dataset": "odp_em",
-  "target_dataset": "fdp_em",
+  "source_dataset": "odp_application1",
+  "target_dataset": "fdp_application1",
   "target_table": "event_transaction_excess",
   "source_entities": [
-    {"entity_name": "customers", "record_count": 5000, "odp_run_id": "em_customers_20260101_160500"},
-    {"entity_name": "accounts", "record_count": 8500, "odp_run_id": "em_accounts_20260101_160510"},
-    {"entity_name": "decision", "record_count": 3200, "odp_run_id": "em_decision_20260101_050500"}
+    {"entity_name": "customers", "record_count": 5000, "odp_run_id": "application1_customers_20260101_160500"},
+    {"entity_name": "accounts", "record_count": 8500, "odp_run_id": "application1_accounts_20260101_160510"},
+    {"entity_name": "decision", "record_count": 3200, "odp_run_id": "application1_decision_20260101_050500"}
   ],
   "source_total_records": 16700,
   "target_record_count": 8500,
@@ -2336,7 +2336,7 @@ def record_fdp_audit(**context):
   "duration_seconds": 330,
   "status": "SUCCESS",
   "dbt_run_id": "dbt_run_12345",
-  "dbt_model_name": "fdp_em.event_transaction_excess",
+  "dbt_model_name": "fdp_application1.event_transaction_excess",
   "warnings": [],
   "created_at": "2026-01-01T17:05:31.000Z"
 }
@@ -2345,10 +2345,10 @@ def record_fdp_audit(**context):
 #### FDP Table Schema: event_transaction_excess (JOIN)
 
 ```sql
--- Table: fdp_em.event_transaction_excess
+-- Table: fdp_application1.event_transaction_excess
 -- Transformed customer and account data (JOIN pattern)
 
-CREATE TABLE fdp_em.event_transaction_excess (
+CREATE TABLE fdp_application1.event_transaction_excess (
     -- Primary Keys
     customer_id             STRING NOT NULL,
     account_id              STRING NOT NULL,
@@ -2374,10 +2374,10 @@ CLUSTER BY customer_id, account_id;
 #### FDP Table Schema: portfolio_account_excess (MAP)
 
 ```sql
--- Table: fdp_em.portfolio_account_excess
+-- Table: fdp_application1.portfolio_account_excess
 -- Transformed decision data (MAP pattern)
 
-CREATE TABLE fdp_em.portfolio_account_excess (
+CREATE TABLE fdp_application1.portfolio_account_excess (
     -- Primary Keys
     decision_id             STRING NOT NULL,
     customer_id             STRING NOT NULL,
@@ -2418,15 +2418,15 @@ CLUSTER BY customer_id, _run_id;
 - Adds audit columns (_run_id, _source_file, _processed_ts, _extract_date)
 - Loads 1:1 to BigQuery ODP tables
 - On success: archive files, update job status
-- EM: Wait for all 3 entities before Stage 4
-- LOA: Immediate trigger to Stage 4
+- Application1: Wait for all 3 entities before Stage 4
+- Application2: Immediate trigger to Stage 4
 
 ### Stage 4: FDP Transformation
 - dbt transformation using attribute mapping
 - Code translations (mainframe codes → business values)
 - PII masking applied
-- EM: Join customers + accounts ODP tables → event_transaction_excess FDP, Map decision ODP → portfolio_account_excess FDP
-- LOA: Map applications ODP → portfolio_account_facility FDP
+- Application1: Join customers + accounts ODP tables → event_transaction_excess FDP, Map decision ODP → portfolio_account_excess FDP
+- Application2: Map applications ODP → portfolio_account_facility FDP
 - Update audit table on completion
 
 ---
@@ -2436,19 +2436,19 @@ CLUSTER BY customer_id, _run_id;
 ```
 BigQuery Project: {project_id}
 │
-├── odp_em                              # EM ODP (Original Data Product)
-│   ├── customers                       # 1:1 mapping of EM.CUSTOMERS
-│   ├── accounts                        # 1:1 mapping of EM.ACCOUNTS
-│   └── decision                        # 1:1 mapping of EM.DECISION
+├── odp_application1                              # Application1 ODP (Original Data Product)
+│   ├── customers                       # 1:1 mapping of Application1.CUSTOMERS
+│   ├── accounts                        # 1:1 mapping of Application1.ACCOUNTS
+│   └── decision                        # 1:1 mapping of Application1.DECISION
 │
-├── fdp_em                              # EM FDP (Foundation Data Product)
+├── fdp_application1                              # Application1 FDP (Foundation Data Product)
 │   ├── event_transaction_excess        # Joined customer-account view
 │   └── portfolio_account_excess        # Decision-based portfolio view
 │
-├── odp_loa                             # LOA ODP (Original Data Product)
-│   └── applications                    # 1:1 mapping of LOA.APPLICATIONS
+├── odp_application2                             # Application2 ODP (Original Data Product)
+│   └── applications                    # 1:1 mapping of Application2.APPLICATIONS
 │
-├── fdp_loa                             # LOA FDP (Foundation Data Product)
+├── fdp_application2                             # Application2 FDP (Foundation Data Product)
 │   └── portfolio_account_facility      # Loan facility records
 │
 ├── job_control                         # Pipeline control tables
@@ -2479,27 +2479,27 @@ BigQuery Project: {project_id}
 
 ```
 gs://landing-bucket/                    # Landing zone (source files)
-├── em/
+├── application1/
 │   ├── customers/
 │   ├── accounts/
 │   └── decision/
-└── loa/
+└── application2/
     └── applications/
 
 gs://archive-bucket/                    # Archive (3-month retention)
-├── em/{entity}/{YYYY}/{MM}/{DD}/
-└── loa/{entity}/{YYYY}/{MM}/{DD}/
+├── application1/{entity}/{YYYY}/{MM}/{DD}/
+└── application2/{entity}/{YYYY}/{MM}/{DD}/
 
 gs://error-bucket/                      # Error files (quarantine)
-├── em/{entity}/{YYYY}/{MM}/{DD}/
+├── application1/{entity}/{YYYY}/{MM}/{DD}/
 │   └── error_report.json
-└── loa/{entity}/{YYYY}/{MM}/{DD}/
+└── application2/{entity}/{YYYY}/{MM}/{DD}/
     └── error_report.json
 ```
 
 ---
 
-## ✅ IMPLEMENTATION PHASES
+## ✅ IMPLApplication1ENTATION PHASES
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -2530,7 +2530,7 @@ gs://error-bucket/                      # Error files (quarantine)
 | `DQ_DUPLICATE_PK` | Data Quality | Duplicate primary keys found |
 | `DQ_CORRUPTION` | Data Quality | File corruption detected |
 | `DATAFLOW_FAILED` | ODP Load | Dataflow pipeline failed |
-| `BQ_LOAD_FAILED` | ODP Load | BigQuery load failed |
+| `BQ_Application2D_FAILED` | ODP Load | BigQuery load failed |
 
 ### B. Job Status Values
 

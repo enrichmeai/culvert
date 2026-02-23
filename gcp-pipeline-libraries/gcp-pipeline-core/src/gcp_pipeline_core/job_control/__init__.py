@@ -18,8 +18,8 @@ Example:
     ... )
     >>> repo = JobControlRepository(project_id="my-project")
     >>> job = PipelineJob(
-    ...     run_id="em_customer_20260101_001",
-    ...     system_id="EM",
+    ...     run_id="application1_customer_20260101_001",
+    ...     systapplication1_id="Application1",
     ...     entity_type="Customer",
     ...     extract_date=date(2026, 1, 1),
     ... )

@@ -15,7 +15,7 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-SYSTEM="${1:-em}"
+SYSTEM="${1:-application1}"
 
 echo "=============================================="
 echo "🌍 Starting GCP E2E Automation for: $SYSTEM"

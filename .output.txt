@@ -1,382 +1,481 @@
-.github/workflows/deploy-loa.yml:on:
-.github/workflows/deploy-loa.yml-  push:
-.github/workflows/deploy-loa.yml-    branches: [main]
-.github/workflows/deploy-loa.yml-    paths:
-.github/workflows/deploy-loa.yml-      - 'deployments/loa-*/**'
-.github/workflows/deploy-loa.yml-      - 'infrastructure/terraform/systems/loa/**'
-.github/workflows/deploy-loa.yml-  workflow_dispatch:
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-env:
-.github/workflows/deploy-loa.yml-  PYTHON_VERSION: '3.11'
-.github/workflows/deploy-loa.yml-  GCP_REGION: 'europe-west2'
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Set up Python
-.github/workflows/deploy-loa.yml-      uses: actions/setup-python@v5
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/deploy-loa.yml-        cache: 'pip'
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Install dependencies
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        python -m pip install --upgrade pip
-.github/workflows/deploy-loa.yml-        pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Run LOA tests
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        cd deployments/loa-ingestion
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-    needs: test
-.github/workflows/deploy-loa.yml-    environment: dev
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Setup Terraform
-.github/workflows/deploy-loa.yml-      uses: hashicorp/setup-terraform@v3
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        terraform_version: 1.5.0
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Terraform Init
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        cd infrastructure/terraform/systems/loa/ingestion
-.github/workflows/deploy-loa.yml-        terraform init
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Import Existing Resources
-.github/workflows/deploy-loa.yml-      continue-on-error: true
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        cd infrastructure/terraform/systems/loa/ingestion
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
-.github/workflows/deploy-loa.yml-    environment: dev
-.github/workflows/deploy-loa.yml-    continue-on-error: true
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Build and Push Docker Image
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        if [ -f "deployments/loa-ingestion/Dockerfile" ]; then
-.github/workflows/deploy-loa.yml-          gcloud builds submit \
-.github/workflows/deploy-loa.yml-            --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/loa-pipeline:latest \
-.github/workflows/deploy-loa.yml-            --project ${{ secrets.GCP_PROJECT_ID }} \
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
-.github/workflows/deploy-loa.yml-    environment: dev
-.github/workflows/deploy-loa.yml-    continue-on-error: true
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Set up Python
-.github/workflows/deploy-loa.yml-      uses: actions/setup-python@v5
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Install dbt
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        pip install dbt-bigquery
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Run dbt
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        DBT_PATH="deployments/loa-transformation/dbt"
-.github/workflows/deploy-loa.yml-        if [ -d "$DBT_PATH" ] && [ -f "$DBT_PATH/dbt_project.yml" ]; then
-.github/workflows/deploy-loa.yml-          cd "$DBT_PATH"
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-    needs: deploy-infrastructure
-.github/workflows/deploy-loa.yml-    environment: dev
-.github/workflows/deploy-loa.yml-    continue-on-error: true
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Upload DAGs to Composer
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-.github/workflows/deploy-loa.yml-        REGION="${{ env.GCP_REGION }}"
-.github/workflows/deploy-loa.yml-        COMPOSER_ENV="loa-dev-composer"
-.github/workflows/deploy-loa.yml-
---
-.github/workflows/deploy-loa.yml:    runs-on: ubuntu-latest
-.github/workflows/deploy-loa.yml-    needs: [deploy-infrastructure]
-.github/workflows/deploy-loa.yml-    if: always() && needs.deploy-infrastructure.result == 'success'
-.github/workflows/deploy-loa.yml-    environment: dev
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    steps:
-.github/workflows/deploy-loa.yml-    - uses: actions/checkout@v4
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Authenticate to GCP
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/auth@v2
-.github/workflows/deploy-loa.yml-      with:
-.github/workflows/deploy-loa.yml:        credentials_json: ${{ secrets.GCP_SA_KEY }}
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Setup Cloud SDK
-.github/workflows/deploy-loa.yml-      uses: google-github-actions/setup-gcloud@v2
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-    - name: Validate Resources
-.github/workflows/deploy-loa.yml-      run: |
-.github/workflows/deploy-loa.yml-        echo "=== Validating LOA Deployment ==="
-.github/workflows/deploy-loa.yml-
-.github/workflows/deploy-loa.yml-        echo "Checking BigQuery datasets..."
-.github/workflows/deploy-loa.yml-        bq ls --project_id=${{ secrets.GCP_PROJECT_ID }} | grep -E "odp_loa|fdp_loa" || echo "Datasets not found"
---
-.github/workflows/ci.yml:on:
-.github/workflows/ci.yml-  push:
-.github/workflows/ci.yml-    branches: [main, develop]
-.github/workflows/ci.yml-  pull_request:
-.github/workflows/ci.yml-    branches: [main, develop]
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-env:
-.github/workflows/ci.yml-  PYTHON_VERSION: '3.11'
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-jobs:
-.github/workflows/ci.yml-  lint:
---
-.github/workflows/ci.yml:    runs-on: ubuntu-latest
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    steps:
-.github/workflows/ci.yml-    - uses: actions/checkout@v4
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Set up Python
-.github/workflows/ci.yml-      uses: actions/setup-python@v5
-.github/workflows/ci.yml-      with:
-.github/workflows/ci.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Install lint tools
-.github/workflows/ci.yml-      run: |
-.github/workflows/ci.yml-        python -m pip install --upgrade pip
-.github/workflows/ci.yml-        pip install flake8 black isort mypy
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Lint gcp-pipeline-builder
-.github/workflows/ci.yml-      run: |
-.github/workflows/ci.yml-        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --select=E9,F63,F7,F82 --show-source --statistics
-.github/workflows/ci.yml-        flake8 gcp-pipeline-libraries/gcp-pipeline-builder/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
---
-.github/workflows/ci.yml:    runs-on: ubuntu-latest
-.github/workflows/ci.yml-    needs: lint
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    steps:
-.github/workflows/ci.yml-    - uses: actions/checkout@v4
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Set up Python
-.github/workflows/ci.yml-      uses: actions/setup-python@v5
-.github/workflows/ci.yml-      with:
-.github/workflows/ci.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/ci.yml-        cache: 'pip'
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Install all dependencies
-.github/workflows/ci.yml-      run: |
-.github/workflows/ci.yml-        python -m pip install --upgrade pip
-.github/workflows/ci.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-builder[dev]
-.github/workflows/ci.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester[dev]
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Test gcp-pipeline-builder
-.github/workflows/ci.yml-      run: |
---
-.github/workflows/ci.yml:    runs-on: ubuntu-latest
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    steps:
-.github/workflows/ci.yml-    - uses: actions/checkout@v4
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Setup Terraform
-.github/workflows/ci.yml-      uses: hashicorp/setup-terraform@v3
-.github/workflows/ci.yml-      with:
-.github/workflows/ci.yml:        terraform_version: 1.5.0
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Terraform Format Check
-.github/workflows/ci.yml-      run: |
-.github/workflows/ci.yml-        cd infrastructure/terraform
-.github/workflows/ci.yml-        terraform fmt -check -recursive || echo "::warning::Terraform files need formatting"
-.github/workflows/ci.yml-      continue-on-error: true
-.github/workflows/ci.yml-
-.github/workflows/ci.yml-    - name: Terraform Validate (EM)
-.github/workflows/ci.yml-      run: |
-.github/workflows/ci.yml-        cd infrastructure/terraform/em
---
-.github/workflows/test.yml:on:
-.github/workflows/test.yml-  pull_request:
-.github/workflows/test.yml-    branches: [main, develop]
-.github/workflows/test.yml-  push:
-.github/workflows/test.yml-    branches: [main, develop]
-.github/workflows/test.yml-  workflow_dispatch:
-.github/workflows/test.yml-
-.github/workflows/test.yml-env:
-.github/workflows/test.yml-  PYTHON_VERSION: '3.11'
-.github/workflows/test.yml-
-.github/workflows/test.yml-jobs:
---
-.github/workflows/test.yml:    runs-on: ubuntu-latest
-.github/workflows/test.yml-
-.github/workflows/test.yml-    strategy:
-.github/workflows/test.yml-      matrix:
-.github/workflows/test.yml-        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester]
-.github/workflows/test.yml-
-.github/workflows/test.yml-    steps:
-.github/workflows/test.yml-    - uses: actions/checkout@v4
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Set up Python
-.github/workflows/test.yml-      uses: actions/setup-python@v5
---
-.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/test.yml-        cache: 'pip'
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Install dependencies
-.github/workflows/test.yml-      run: |
-.github/workflows/test.yml-        python -m pip install --upgrade pip
-.github/workflows/test.yml-        # Core is needed by beam and orchestration
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-.github/workflows/test.yml-        cd gcp-pipeline-libraries/${{ matrix.library }}
-.github/workflows/test.yml-        pip install -e .[dev] || pip install -e .
-.github/workflows/test.yml-
---
-.github/workflows/test.yml:  test-em-ingestion:
-.github/workflows/test.yml-    name: Test EM Ingestion
-.github/workflows/test.yml:    runs-on: ubuntu-latest
-.github/workflows/test.yml-    needs: [test-libraries]
-.github/workflows/test.yml-
-.github/workflows/test.yml-    steps:
-.github/workflows/test.yml-    - uses: actions/checkout@v4
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Set up Python
-.github/workflows/test.yml-      uses: actions/setup-python@v5
-.github/workflows/test.yml-      with:
-.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/test.yml-        cache: 'pip'
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Install libraries
-.github/workflows/test.yml-      run: |
-.github/workflows/test.yml-        python -m pip install --upgrade pip
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Install EM deployment
---
-.github/workflows/test.yml:  test-loa-ingestion:
-.github/workflows/test.yml-    name: Test LOA Ingestion
-.github/workflows/test.yml:    runs-on: ubuntu-latest
-.github/workflows/test.yml-    needs: [test-libraries]
-.github/workflows/test.yml-
-.github/workflows/test.yml-    steps:
-.github/workflows/test.yml-    - uses: actions/checkout@v4
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Set up Python
-.github/workflows/test.yml-      uses: actions/setup-python@v5
-.github/workflows/test.yml-      with:
-.github/workflows/test.yml:        python-version: ${{ env.PYTHON_VERSION }}
-.github/workflows/test.yml-        cache: 'pip'
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Install libraries
-.github/workflows/test.yml-      run: |
-.github/workflows/test.yml-        python -m pip install --upgrade pip
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-.github/workflows/test.yml-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
-.github/workflows/test.yml-
-.github/workflows/test.yml-    - name: Install LOA deployment
---
-.github/workflows/test.yml:    runs-on: ubuntu-latest
-.github/workflows/test.yml-    needs: [test-libraries, test-em-ingestion, test-loa-ingestion]
-.github/workflows/test.yml-
-.github/workflows/test.yml-    steps:
-.github/workflows/test.yml-    - name: Summary
-.github/workflows/test.yml-      run: |
-.github/workflows/test.yml-        echo "✅ All tests passed!"
-.github/workflows/test.yml-        echo ""
-.github/workflows/test.yml-        echo "Test Summary:"
-.github/workflows/test.yml-        echo "  - Libraries (Core, Beam, Orch, Trans, Tester): ✅"
-.github/workflows/test.yml-        echo "  - EM Ingestion Deployment: ✅"
---
-.github/workflows/ci-automation.yml:on:
-.github/workflows/ci-automation.yml-  push:
-.github/workflows/ci-automation.yml-    branches: [ main, develop ]
-.github/workflows/ci-automation.yml-  pull_request:
-.github/workflows/ci-automation.yml-    branches: [ main ]
-.github/workflows/ci-automation.yml-
-.github/workflows/ci-automation.yml-jobs:
-.github/workflows/ci-automation.yml-  test:
-.github/workflows/ci-automation.yml:    runs-on: ubuntu-latest
-.github/workflows/ci-automation.yml-    steps:
-.github/workflows/ci-automation.yml-      - uses: actions/checkout@v3
-.github/workflows/ci-automation.yml-
-.github/workflows/ci-automation.yml-      - name: Set up Python
-.github/workflows/ci-automation.yml-        uses: actions/setup-python@v4
-.github/workflows/ci-automation.yml-        with:
-.github/workflows/ci-automation.yml:          python-version: '3.9'
-.github/workflows/ci-automation.yml-
-.github/workflows/ci-automation.yml-      - name: Install dependencies
-.github/workflows/ci-automation.yml-        run: |
-.github/workflows/ci-automation.yml-          python -m pip install --upgrade pip
-.github/workflows/ci-automation.yml-          pip install pytest flake8
-.github/workflows/ci-automation.yml-          # Install library dependencies if needed
-.github/workflows/ci-automation.yml-          # find libraries -name "pyproject.toml" -exec pip install -e {} \;
-.github/workflows/ci-automation.yml-
-.github/workflows/ci-automation.yml-      - name: Run All Local Checks
-.github/workflows/ci-automation.yml-        run: |
---
-.github/workflows/ci-automation.yml:    runs-on: ubuntu-latest
-.github/workflows/ci-automation.yml-    needs: test
-.github/workflows/ci-automation.yml-    if: github.event_name == 'pull_request'
-.github/workflows/ci-automation.yml-    steps:
-.github/workflows/ci-automation.yml-      - uses: actions/checkout@v3
-.github/workflows/ci-automation.yml-      - name: Validate Deployment Scripts
-.github/workflows/ci-automation.yml-        run: |
-.github/workflows/ci-automation.yml-          # Bash syntax check for all automation scripts
-.github/workflows/ci-automation.yml-          find scripts/automation -name "*.sh" -exec bash -n {} \;
-.github/workflows/ci-automation.yml-          echo "All automation scripts passed syntax check."
---
-.github/workflows/qodana_code_quality.yml:on:
-.github/workflows/qodana_code_quality.yml-  workflow_dispatch:  # Manual trigger only
-.github/workflows/qodana_code_quality.yml-  # Disabled - requires QODANA_TOKEN
-.github/workflows/qodana_code_quality.yml-  # pull_request:
-.github/workflows/qodana_code_quality.yml-  # push:
-.github/workflows/qodana_code_quality.yml-  #   branches:
-.github/workflows/qodana_code_quality.yml-  #     - main
-.github/workflows/qodana_code_quality.yml-
-.github/workflows/qodana_code_quality.yml-jobs:
-.github/workflows/qodana_code_quality.yml-  qodana:
-.github/workflows/qodana_code_quality.yml:    runs-on: ubuntu-latest
-.github/workflows/qodana_code_quality.yml-    permissions:
-.github/workflows/qodana_code_quality.yml-      contents: write
-.github/workflows/qodana_code_quality.yml-      pull-requests: write
-.github/workflows/qodana_code_quality.yml-      checks: write
-.github/workflows/qodana_code_quality.yml-    steps:
-.github/workflows/qodana_code_quality.yml-      - uses: actions/checkout@v4
-.github/workflows/qodana_code_quality.yml-        with:
-.github/workflows/qodana_code_quality.yml-          ref: ${{ github.event.pull_request.head.sha }}
-.github/workflows/qodana_code_quality.yml-          fetch-depth: 0
-.github/workflows/qodana_code_quality.yml-      - name: 'Qodana Scan'
+============================= test session starts ==============================
+platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- /opt/homebrew/opt/python@3.14/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core
+configfile: pyproject.toml
+plugins: mock-3.15.1, cov-7.0.0
+collected 219 items
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_prepare_message PASSED [  0%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_publish PASSED [  0%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report PASSED [  1%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report_no_data PASSED [  1%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_result PASSED [  2%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_initialization PASSED [  2%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_extra_records PASSED [  3%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_match PASSED [  3%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_mismatch PASSED [  4%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_with_errors PASSED [  4%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_zero_source PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_result_to_dict PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_error PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_match PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_mismatch PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_error_table PASSED [  7%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationFromTrailer::test_reconcile_from_trailer PASSED [  7%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_failure_with_logger PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_success_with_logger PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic PASSED [  9%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher PASSED [  9%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientInit::test_initialization PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientWriteTable::test_write_to_table_success PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientReadTable::test_read_table_success PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientTableExists::test_table_exists PASSED [ 11%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientQuery::test_query_success PASSED [ 11%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_success PASSED [ 12%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_failure PASSED [ 12%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_success PASSED [ 13%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_gcs_api PASSED [ 13%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_general PASSED [ 14%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_success PASSED [ 14%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_error PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_success PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_empty PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_error PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_success PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_error PASSED [ 17%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_success PASSED [ 17%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_failure PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_success PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_with_complex_message PASSED [ 19%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_api PASSED [ 19%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_general PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_composite_key PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_empty_records PASSED [ 21%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_missing_key_field PASSED [ 21%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_multiple_duplicates PASSED [ 21%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_no_duplicates PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_single_duplicate PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_triple_duplicate PASSED [ 23%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_empty_file PASSED [ 23%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_in_middle PASSED [ 24%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_trl_only PASSED [ 24%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_hdr PASSED [ 25%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_trl PASSED [ 25%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_trl_in_middle PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_valid_file_structure PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_whitespace_handling PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_transient_error PASSED [ 27%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_validation_error PASSED [ 27%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_integration_error PASSED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_permission_error PASSED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_connection_error PASSED [ 29%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_quota_error PASSED [ 29%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_default_config PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_custom_config PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorSeverity::test_severity_values PASSED [ 31%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorCategory::test_category_values PASSED [ 31%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestRetryStrategy::test_strategy_values PASSED [ 31%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_finops_labels_to_dict PASSED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_get_standard_labels PASSED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_finops_integration PASSED [ 33%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_to_job_record_finops PASSED [ 33%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_new_finops_integration PASSED [ 34%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost PASSED [ 34%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost_no_bytes PASSED [ 35%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_load_cost PASSED [ 35%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_upload_cost PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_storage_cost PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields PASSED [ 37%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job PASSED [ 37%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info PASSED [ 39%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job PASSED [ 39%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_entity_status PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_not_found PASSED [ 41%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init PASSED [ 41%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init_custom_dataset_table PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_mark_failed PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_running PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_success PASSED [ 43%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_all_statuses_defined PASSED [ 43%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_from_string PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_values PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_all_stages_defined PASSED [ 45%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_failure_stage_values PASSED [ 45%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELExporterType::test_all_exporter_types_exist PASSED [ 46%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_config PASSED [ 46%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_service_version PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_factory PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_with_environment PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_url PASSED [ 48%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_token PASSED [ 48%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_config_factory PASSED [ 49%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_requires_project_id PASSED [ 49%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_factory PASSED [ 50%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_with_custom_name PASSED [ 50%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_disabled_config_factory PASSED [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_requires_endpoint PASSED [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_with_endpoint PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_resource_attributes PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_service_name_from_env PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_url_from_env PASSED [ 53%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_project_from_env PASSED [ 53%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_sample_rate_from_env PASSED [ 54%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_environment_from_env PASSED [ 54%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_none_span PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_none_span PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_add_event_with_none_span PASSED [ 56%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_record_exception_with_none_span PASSED [ 56%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_ok_with_none_span PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_error_with_none_span PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_mock_span PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_mock_span PASSED [ 58%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_manager_enters_and_exits PASSED [ 58%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_with_entity_type PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_nested_span_creation PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_span_with_attributes PASSED [ 60%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_context PASSED [ 60%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_span PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_set PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_with_entity PASSED [ 62%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_custom_tracer_name PASSED [ 62%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_forwards_to_collector PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_multiple_times PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_set_gauge_forwards_to_collector PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_histogram_forwards_to_collector PASSED [ 64%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_timer_forwards_to_collector PASSED [ 64%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_get_statistics_returns_collector_stats PASSED [ 65%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_start_timer_delegates_to_collector PASSED [ 65%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_step_duration_forwards_to_collector PASSED [ 66%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_base_attributes_set_from_collector PASSED [ 66%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_labels_passed_through PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_getattr_delegates_unknown_methods PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_configure_disabled PASSED [ 68%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_is_otel_initialized_initially_false PASSED [ 68%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_returns_noop_when_not_initialized PASSED [ 68%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_with_name PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_get_meter_returns_noop_when_not_initialized PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_create_counter_on_noop_meter PASSED [ 70%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_executes_function PASSED [ 70%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_custom_name PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_attributes PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_propagates_exception PASSED [ 72%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_preserves_return_value PASSED [ 72%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_kwargs PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestShutdownOtel::test_shutdown_when_not_initialized PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_collector_initialization PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment PASSED [ 74%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment_default_value PASSED [ 74%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_get_summary_includes_context PASSED [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_initialization PASSED [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_failed PASSED [ 76%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_parsed PASSED [ 76%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_processing_time PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_read PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_skipped PASSED [ 78%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validated PASSED [ 78%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validation_error_by_type PASSED [ 78%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_written PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_start_timer PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_to_job_record PASSED [ 80%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_rate_zero_reads PASSED [ 80%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_success_rate PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsWithoutEntityType::test_initialization_without_entity_type PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_extra_labels_merged PASSED [ 82%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_labels_include_context PASSED [ 82%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_complete PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_without_filename PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_bucket_only PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_with_slashes PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_no_matches PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_matches PASSED [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_custom_pattern PASSED [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_error_handling PASSED [ 86%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date PASSED [ 86%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_no_files PASSED [ 87%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_custom_pattern PASSED [ 87%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_extra_fields_included PASSED [ 88%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_includes_standard_fields PASSED [ 88%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_level_is_correct PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_message_is_correct PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_outputs_valid_json PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_all_log_levels PASSED [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_context_included PASSED [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_creates_logger PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_info PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_with_extra_fields PASSED [ 92%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_set_context PASSED [ 92%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_configures_json_output PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_no_duplicate_handlers PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_returns_structured_logger PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_returns_structured_logger PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_uses_name PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_basic PASSED [ 95%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_with_uuid PASSED [ 95%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_without_uuid PASSED [ 96%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_custom_timestamp PASSED [ 96%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_empty_job_name PASSED [ 97%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_consistency PASSED [ 97%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_valid_run_id PASSED [ 98%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_invalid_format PASSED [ 98%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_empty_run_id PASSED [ 99%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_none_run_id PASSED [ 99%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_run_id_without_uuid PASSED [100%]
+=============================== warnings summary ===============================
+tests/unit/audit/test_reconciliation.py: 15 warnings
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic
+tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py:27: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.start_time = datetime.utcnow()
+tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic
+tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py:81: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.end_time = datetime.utcnow()
+tests/unit/finops/test_tracker.py::test_estimate_query_cost
+tests/unit/finops/test_tracker.py::test_estimate_query_cost_no_bytes
+tests/unit/finops/test_tracker.py::test_estimate_load_cost
+tests/unit/finops/test_tracker.py::test_estimate_gcs_upload_cost
+tests/unit/finops/test_tracker.py::test_estimate_gcs_storage_cost
+tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost
+  <string>:12: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    now = datetime.utcnow()
+tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
+tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info
+tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job
+tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found
+  <string>:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:71: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    before = datetime.utcnow()
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    after = datetime.utcnow()
+tests/unit/monitoring/test_metrics.py: 3 warnings
+tests/unit/monitoring/test_migration_metrics.py: 17 warnings
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    self.start_time = datetime.utcnow()
+tests/unit/monitoring/test_migration_metrics.py: 13 warnings
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:119: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    current_time = datetime.utcnow()
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================= 219 passed, 69 warnings in 1.06s =======================
+============================= test session starts ==============================
+platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- /opt/homebrew/opt/python@3.14/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-orchestration
+configfile: pyproject.toml
+plugins: mock-3.15.1, cov-7.0.0
+collected 59 items
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_factory.py::TestErrorHandler::test_handler_has_config PASSED [  1%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_factory.py::TestErrorHandler::test_handler_on_failure_callback PASSED [  3%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_factory.py::TestErrorHandler::test_handler_publish_to_dlq PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_factory.py::TestCreateErrorHandler::test_create_error_handler PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnFailureCallback::test_on_failure_callback PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnValidationFailure::test_on_validation_failure PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnValidationFailure::test_on_validation_failure_with_string_error PASSED [ 11%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnRoutingFailure::test_on_routing_failure PASSED [ 13%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnSchemaMismatch::test_on_schema_mismatch PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_handlers.py::TestOnDataQualityFailure::test_on_data_quality_failure PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_types.py::TestErrorHandlerConfig::test_custom_values PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_types.py::TestErrorHandlerConfig::test_default_values PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_types.py::TestErrorType::test_error_type_constants PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/callbacks/test_types.py::TestDefaultConfig::test_set_and_get_default_config PASSED [ 23%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_basic FAILED [ 25%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_with_custom_args FAILED [ 27%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_validate_dag_config_valid FAILED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_validate_dag_config_missing_dag_id PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_validate_dag_config_duplicate_dag_id FAILED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_from_config FAILED [ 33%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_from_config_with_invalid_start_date FAILED [ 35%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dataflow_operator.py::TestBaseDataflowOperator::test_init PASSED [ 37%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dataflow_operator.py::TestBaseDataflowOperator::test_execute_python_job PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dataflow_operator.py::TestBaseDataflowOperator::test_execute_streaming_flex_template PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dataflow_operator.py::TestBaseDataflowOperator::test_execute_batch_classic_template PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_all_entities_loaded_false PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_all_entities_loaded_single_entity PASSED [ 45%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_all_entities_loaded_true PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_custom_system PASSED [ 49%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_get_loaded_count PASSED [ 50%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_get_loaded_entities PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_get_missing_entities PASSED [ 54%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_get_missing_entities_none_missing PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_get_status_summary PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_init_with_required_entities PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dependency.py::TestEntityDependencyChecker::test_required_count_property PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_router_initialization PASSED [ 62%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_register_pipeline PASSED [ 64%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_get_pipeline_config_exists PASSED [ 66%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_get_pipeline_config_not_exists PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_validate_file_structure_valid PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_validate_file_structure_missing_columns PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_validate_file_structure_no_pipeline PASSED [ 72%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_detect_file_type_by_extension PASSED [ 74%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_detect_file_type_unknown PASSED [ 76%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_register_file_type_pattern PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_get_registered_file_types PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestDAGRouter::test_unregister_pipeline PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestPipelineConfig::test_pipeline_config_creation PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestPipelineConfig::test_pipeline_config_validation_success PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestPipelineConfig::test_pipeline_config_validation_missing_dag_id PASSED [ 86%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestPipelineConfig::test_pipeline_config_validation_missing_entity_name PASSED [ 88%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestPipelineConfig::test_pipeline_config_with_processing_mode PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestFileTypeEnum::test_file_type_values PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestFileTypeEnum::test_file_type_comparison PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_router.py::TestProcessingModeEnum::test_processing_mode_values PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_pubsub_completion_sensor FAILED [ 96%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_dataflow_streaming_sensor FAILED [ 98%]
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_secret_manager_hook FAILED [100%]
+=================================== FAILURES ===================================
+_____________________ TestDAGFactory.test_create_dag_basic _____________________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:14: in test_create_dag_basic
+    dag = factory.create_dag(
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:109: in create_dag
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+_______________ TestDAGFactory.test_create_dag_with_custom_args ________________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:32: in test_create_dag_with_custom_args
+    dag = factory.create_dag(
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:109: in create_dag
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+________________ TestDAGFactory.test_validate_dag_config_valid _________________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:51: in test_validate_dag_config_valid
+    factory.create_dag_from_dict(config)
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:193: in create_dag_from_dict
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+___________ TestDAGFactory.test_validate_dag_config_duplicate_dag_id ___________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:66: in test_validate_dag_config_duplicate_dag_id
+    factory.create_dag(dag_id='test_dag')
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:109: in create_dag
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+__________________ TestDAGFactory.test_create_dag_from_config __________________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:89: in test_create_dag_from_config
+    dag = factory.create_dag_from_dict(config)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:193: in create_dag_from_dict
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+______ TestDAGFactory.test_create_dag_from_config_with_invalid_start_date ______
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:23: in _get_dag_class
+    from airflow import DAG
+E   ModuleNotFoundError: No module named 'airflow'
+During handling of the above exception, another exception occurred:
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py:105: in test_create_dag_from_config_with_invalid_start_date
+    dag = factory.create_dag_from_dict(config)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:193: in create_dag_from_dict
+    DAG = _get_dag_class()
+          ^^^^^^^^^^^^^^^^
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/factories/dag_factory.py:26: in _get_dag_class
+    raise ImportError(
+E   ImportError: apache-airflow is required for DAG creation. Install with: pip install apache-airflow
+------------------------------ Captured log call -------------------------------
+WARNING  gcp_pipeline_orchestration.factories.validators:validators.py:162 Invalid start_date format: invalid-date, using default
+____________ TestOrchestrationSensors.test_pubsub_completion_sensor ____________
+gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py:17: in test_pubsub_completion_sensor
+    sensor = PubSubCompletionSensor(
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/sensors/pubsub.py:201: in __init__
+    super().__init__(*args, **kwargs)
+gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_orchestration/sensors/pubsub.py:72: in __init__
+    raise ImportError(
+E   ImportError: apache-airflow-providers-google is required for PubSub sensors. Install with: pip install apache-airflow-providers-google
+___________ TestOrchestrationSensors.test_dataflow_streaming_sensor ____________
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1429: in patched
+    with self.decoration_helper(patched,
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1411: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:530: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1487: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pkgutil.py:458: in resolve_name
+    mod = importlib.import_module(modname)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/importlib/__init__.py:88: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   ModuleNotFoundError: No module named 'airflow'
+______________ TestOrchestrationSensors.test_secret_manager_hook _______________
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1429: in patched
+    with self.decoration_helper(patched,
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1411: in decoration_helper
+    arg = exit_stack.enter_context(patching)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/contextlib.py:530: in enter_context
+    result = _enter(cm)
+             ^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/unittest/mock.py:1487: in __enter__
+    self.target = self.getter()
+                  ^^^^^^^^^^^^^
+/opt/homebrew/Cellar/python@3.14/3.14.3_1/Frameworks/Python.framework/Versions/3.14/lib/python3.14/pkgutil.py:473: in resolve_name
+    result = getattr(result, p)
+             ^^^^^^^^^^^^^^^^^^
+E   AttributeError: module 'google.cloud' has no attribute 'secretmanager'
+=========================== short test summary info ============================
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_basic - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_with_custom_args - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_validate_dag_config_valid - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_validate_dag_config_duplicate_dag_id - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_from_config - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_dag_factory.py::TestDAGFactory::test_create_dag_from_config_with_invalid_start_date - ImportError: apache-airflow is required for DAG creation. Install with: pip...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_pubsub_completion_sensor - ImportError: apache-airflow-providers-google is required for PubSub sensors...
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_dataflow_streaming_sensor - ModuleNotFoundError: No module named 'airflow'
+FAILED gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/test_sensors.py::TestOrchestrationSensors::test_secret_manager_hook - AttributeError: module 'google.cloud' has no attribute 'secretmanager'
+========================= 9 failed, 50 passed in 0.74s =========================

@@ -12,7 +12,7 @@ from datetime import datetime
 class HeaderRecord:
     """Parsed header record."""
     record_type: str  # e.g., "HDR"
-    system_id: str    # System identifier (e.g., EM, LOA, or any unique source system)
+    systapplication1_id: str    # System identifier (e.g., Application1, Application2, or any unique source system)
     entity_type: str  # e.g., Customer, Account (or any entity)
     extract_date: str  # YYYYMMDD format
     raw_line: str     # Original line

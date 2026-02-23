@@ -169,22 +169,22 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 ### Per-Deployment Service Accounts
 
-Each deployment (EM, LOA) creates dedicated service accounts:
+Each deployment creates dedicated service accounts. For example:
 
-#### EM Deployment
-
-| Service Account | Purpose | Key Roles |
-|-----------------|---------|-----------|
-| `em-dev-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
-| `em-dev-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
-| `em-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
-
-#### LOA Deployment
+#### Application1 Deployment
 
 | Service Account | Purpose | Key Roles |
 |-----------------|---------|-----------|
-| `loa-pipeline-sa` | Pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
-| `loa-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
+| `application1-dev-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
+| `application1-dev-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
+| `application1-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
+
+#### Application2 Deployment
+
+| Service Account | Purpose | Key Roles |
+|-----------------|---------|-----------|
+| `application2-pipeline-sa` | Pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
+| `application2-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
 
 ---
 
@@ -192,7 +192,7 @@ Each deployment (EM, LOA) creates dedicated service accounts:
 
 ### Per Deployment
 
-Each deployment (EM, LOA) provisions:
+Each deployment provisions:
 
 #### GCS Buckets
 
@@ -236,12 +236,12 @@ Use the provided scripts for end-to-end deployment:
 ```bash
 cd legacy-migration-reference
 
-# Full deployment (EM + LOA)
+# Full deployment (Application1 + Application2)
 ./scripts/gcp/deploy_all.sh all
 
 # Or deploy individually
-./scripts/gcp/deploy_all.sh em
-./scripts/gcp/deploy_all.sh loa
+./scripts/gcp/deploy_all.sh application1
+./scripts/gcp/deploy_all.sh application2
 ```
 
 ### Method 2: Step-by-Step Manual
@@ -254,20 +254,20 @@ cd legacy-migration-reference
 ./scripts/gcp/02_create_state_bucket.sh
 
 # Step 3: Trigger GitHub Actions deployments
-gh workflow run deploy-em.yml
-gh workflow run deploy-loa.yml
+gh workflow run deploy-application1.yml
+gh workflow run deploy-application2.yml
 
 # Step 4: Verify deployment
 ./scripts/gcp/05_verify_setup.sh
 
 # Step 5: Test pipeline
-./scripts/gcp/06_test_pipeline.sh em
+./scripts/gcp/06_test_pipeline.sh application1
 ```
 
 ### Method 3: Direct Terraform
 
 ```bash
-cd infrastructure/terraform/em
+cd infrastructure/terraform/application1
 
 # Initialize
 terraform init
@@ -316,17 +316,17 @@ rm github-sa-key.json
 ### Verify GCS Buckets
 
 ```bash
-gsutil ls -p $PROJECT_ID | grep -E "(em|loa)"
+gsutil ls -p $PROJECT_ID | grep -E "(application1|application2)"
 ```
 
 Expected output:
 ```
-gs://{project}-em-dev-landing/
-gs://{project}-em-dev-archive/
-gs://{project}-em-dev-error/
-gs://{project}-loa-dev-landing/
-gs://{project}-loa-dev-archive/
-gs://{project}-loa-dev-error/
+gs://{project}-application1-dev-landing/
+gs://{project}-application1-dev-archive/
+gs://{project}-application1-dev-error/
+gs://{project}-application2-dev-landing/
+gs://{project}-application2-dev-archive/
+gs://{project}-application2-dev-error/
 ```
 
 ### Verify BigQuery Datasets
@@ -339,11 +339,11 @@ Expected output:
 ```
   datasetId  
  ----------- 
-  fdp_em     
-  fdp_loa    
+  fdp_application1     
+  fdp_application2    
   job_control
-  odp_em     
-  odp_loa    
+  odp_application1     
+  odp_application2    
 ```
 
 ### Verify Pub/Sub Topics
@@ -354,10 +354,10 @@ gcloud pubsub topics list --project=$PROJECT_ID
 
 Expected output:
 ```
-name: projects/{project}/topics/em-file-notifications
-name: projects/{project}/topics/em-file-notifications-dead-letter
-name: projects/{project}/topics/loa-file-notifications
-name: projects/{project}/topics/loa-file-notifications-dead-letter
+name: projects/{project}/topics/application1-file-notifications
+name: projects/{project}/topics/application1-file-notifications-dead-letter
+name: projects/{project}/topics/application2-file-notifications
+name: projects/{project}/topics/application2-file-notifications-dead-letter
 ```
 
 ### Verify Cloud Composer
@@ -374,8 +374,8 @@ gcloud composer environments list --locations=$REGION --project=$PROJECT_ID
 
 ```bash
 # Create test file with HDR/TRL format
-cat > /tmp/em_customers_20260104.csv << 'EOF'
-HDR|EM|CUSTOMERS|20260104
+cat > /tmp/application1_customers_20260104.csv << 'EOF'
+HDR|Application1|CUSTOMERS|20260104
 customer_id,name,ssn,account_type,score
 CUST001,John Doe,123-45-6789,CHECKING,750
 CUST002,Jane Smith,987-65-4321,SAVINGS,680
@@ -383,18 +383,18 @@ TRL|RecordCount=2|Checksum=abc123
 EOF
 
 # Upload to landing bucket
-gsutil cp /tmp/em_customers_20260104.csv gs://${PROJECT_ID}-em-dev-landing/em/
+gsutil cp /tmp/application1_customers_20260104.csv gs://${PROJECT_ID}-application1-dev-landing/application1/
 
 # Create trigger file
-touch /tmp/em_customers_20260104.ok
-gsutil cp /tmp/em_customers_20260104.ok gs://${PROJECT_ID}-em-dev-landing/em/
+touch /tmp/application1_customers_20260104.ok
+gsutil cp /tmp/application1_customers_20260104.ok gs://${PROJECT_ID}-application1-dev-landing/application1/
 ```
 
 ### 2. Verify Pub/Sub Message
 
 ```bash
 # Pull messages (will show file notification)
-gcloud pubsub subscriptions pull em-file-notifications-sub \
+gcloud pubsub subscriptions pull application1-file-notifications-sub \
     --project=$PROJECT_ID \
     --auto-ack \
     --limit=5
@@ -404,7 +404,7 @@ gcloud pubsub subscriptions pull em-file-notifications-sub \
 
 ```bash
 # Get Composer environment details
-gcloud composer environments describe em-dev-composer \
+gcloud composer environments describe application1-dev-composer \
     --location=$REGION \
     --project=$PROJECT_ID
 ```
@@ -414,7 +414,7 @@ gcloud composer environments describe em-dev-composer \
 ```bash
 # Check ODP table (after pipeline runs)
 bq query --project_id=$PROJECT_ID \
-    "SELECT * FROM odp_em.customers LIMIT 10"
+    "SELECT * FROM odp_application1.customers LIMIT 10"
 ```
 
 ---
@@ -494,7 +494,7 @@ To completely reset and redeploy:
 
 ### Estimated Monthly Costs
 
-| Component | EM | LOA | Notes |
+| Component | Application1 | Application2 | Notes |
 |-----------|-----|-----|-------|
 | Cloud Composer | ~$300 | ~$300 | Smallest environment |
 | BigQuery | Variable | Variable | Based on data volume |

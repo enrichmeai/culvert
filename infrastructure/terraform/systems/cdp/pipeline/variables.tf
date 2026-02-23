@@ -50,5 +50,5 @@ variable "cdp_system_id" {
 variable "fdp_dataset" {
   description = "Source FDP dataset name"
   type        = string
-  default     = "fdp_em"
+  default     = "fdp_application1"
 }

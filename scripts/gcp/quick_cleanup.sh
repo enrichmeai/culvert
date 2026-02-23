@@ -37,12 +37,12 @@ fi
 echo -e "\n${BLUE}>>> Step 1: Delete GCS Buckets${NC}"
 
 BUCKETS=(
-    "${PROJECT_ID}-em-landing"
-    "${PROJECT_ID}-em-archive"
-    "${PROJECT_ID}-em-error"
-    "${PROJECT_ID}-loa-landing"
-    "${PROJECT_ID}-loa-archive"
-    "${PROJECT_ID}-loa-error"
+    "${PROJECT_ID}-application1-landing"
+    "${PROJECT_ID}-application1-archive"
+    "${PROJECT_ID}-application1-error"
+    "${PROJECT_ID}-application2-landing"
+    "${PROJECT_ID}-application2-archive"
+    "${PROJECT_ID}-application2-error"
     "${PROJECT_ID}-dataflow-temp"
 )
 
@@ -57,10 +57,10 @@ done
 echo -e "\n${BLUE}>>> Step 2: Delete BigQuery Datasets${NC}"
 
 DATASETS=(
-    "odp_em"
-    "fdp_em"
-    "odp_loa"
-    "fdp_loa"
+    "odp_application1"
+    "fdp_application1"
+    "odp_application2"
+    "fdp_application2"
     "job_control"
 )
 
@@ -76,8 +76,8 @@ echo -e "\n${BLUE}>>> Step 3: Delete Pub/Sub Resources${NC}"
 
 # Subscriptions first
 SUBS=(
-    "em-file-notifications-sub"
-    "loa-file-notifications-sub"
+    "application1-file-notifications-sub"
+    "application2-file-notifications-sub"
 )
 
 for sub in "${SUBS[@]}"; do
@@ -87,10 +87,10 @@ done
 
 # Then topics
 TOPICS=(
-    "em-file-notifications"
-    "loa-file-notifications"
-    "em-dlq"
-    "loa-dlq"
+    "application1-file-notifications"
+    "application2-file-notifications"
+    "application1-dlq"
+    "application2-dlq"
 )
 
 for topic in "${TOPICS[@]}"; do

@@ -218,7 +218,7 @@ def validate_row_types(
 
     Example:
         >>> lines = [
-        ...     "HDR|EM|Customer|20260101",
+        ...     "HDR|Application1|Customer|20260101",
         ...     "id,name,ssn",
         ...     "1001,John,123-45-6789",
         ...     "TRL|RecordCount=1|Checksum=abc123"

@@ -1,7 +1,7 @@
 # Project Context Summary
 
 ## Overview
-This project is a framework for migrating data from legacy mainframe systems to Google Cloud Platform. It uses a **shared library** approach, where common infrastructure is separated from system-specific logic. This approach is officially supported by multiple teams across the **the enterprise platform**, providing a standardized way (called "paved paths") to move data reliably.
+This project is a framework for migrating data from legacy mainframe systems to Google Cloud Platform. It uses a **shared library** approach, where common infrastructure is separated from systapplication1-specific logic. This approach is officially supported by multiple teams across the **the enterprise platform**, providing a standardized way (called "paved paths") to move data reliably.
 
 ## Project Structure
 - `gcp-pipeline-libraries/`: Reusable Python libraries and dbt macros.
@@ -10,9 +10,9 @@ This project is a framework for migrating data from legacy mainframe systems to 
   - `gcp-pipeline-orchestration`: Coordination (Scheduling and dependency management using Airflow).
   - `gcp-pipeline-transform`: Data Modeling (SQL macros for tracking and data privacy using dbt).
   - `gcp-pipeline-tester`: Testing tools (Mocks and test helpers).
-- `deployments/`: System-specific settings using the libraries (currently using embedded libraries).
-  - `em-*`: Application A (Multi-target transformation: 3 sources -> 2 targets).
-  - `loa-*`: Application B (Single-target transformation: 1 source -> 1 target).
+- `deployments/`: Systapplication1-specific settings using the libraries (currently using embedded libraries).
+  - `application1-*`: Application A (Multi-target transformation: 3 sources -> 2 targets).
+  - `application2-*`: Application B (Single-target transformation: 1 source -> 1 target).
   - `spanner-*`: Spanner Transformation examples.
 - `templates/`: Pre-built templates for new systems.
 - `docs/`: Technical Architecture and User Guides.

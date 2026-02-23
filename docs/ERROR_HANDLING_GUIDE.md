@@ -1,7 +1,7 @@
-# 🛑 LOA Blueprint - Error Handling Guide
+# 🛑 Framework - Error Handling Guide
 
 ## Overview
-This guide describes the error handling patterns used in the LOA migration pipelines. Error handling is built on the GDW Data Core library, providing consistent error classification, retry logic, and structured reporting.
+This guide describes the error handling patterns used in migration pipelines. Error handling is built on the GCP Pipeline Core library, providing consistent error classification, retry logic, and structured reporting.
 
 ## Core Concepts
 - **Error Classification**: Errors are categorized by severity (INFO, WARNING, CRITICAL) and category (VALIDATION, INTEGRATION, TRANSFORM, RESOURCE).
@@ -30,7 +30,7 @@ The `ErrorContext` manager captures any unhandled exceptions during execution.
 ```python
 from gcp_pipeline_core.core.error_handling import ErrorHandler, ErrorContext
 
-handler = ErrorHandler(pipeline_name="loa-applications", run_id="run_001")
+handler = ErrorHandler(pipeline_name="mysystapplication1-ingestion", run_id="run_001")
 
 with ErrorContext(handler, operation_name="dataflow_execution"):
     # Run your pipeline logic here
@@ -42,5 +42,5 @@ with ErrorContext(handler, operation_name="dataflow_execution"):
 - **GCS Quarantine**: Files that cannot be parsed at all are moved to a quarantine bucket.
 
 ## References
-- [GDW Data Core - Error Handling](../gcp-pipeline-libraries/gcp-pipeline-core/README.md#error-handling)
+- [GCP Pipeline Core - Error Handling](../gcp-pipeline-libraries/gcp-pipeline-core/README.md#error-handling)
 - [Testing Strategy](./COMPLETE_TESTING_GUIDE.md)

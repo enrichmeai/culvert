@@ -14,11 +14,11 @@ infrastructure/terraform/
 ├── security.tf          # Security configurations
 ├── dataflow.tf          # Dataflow configurations
 └── systems/
-    ├── em/
+    ├── application1/
     │   ├── ingestion/   # GCS buckets, Pub/Sub
     │   ├── transformation/  # BigQuery datasets, tables
     │   └── orchestration/   # Service accounts, IAM
-    └── loa/
+    └── application2/
         ├── ingestion/   # GCS buckets, Pub/Sub
         ├── transformation/  # BigQuery datasets, tables
         └── orchestration/   # Service accounts, IAM
@@ -56,37 +56,37 @@ infrastructure/terraform/
 
 ---
 
-## EM Resources
+## Application1 Resources
 
 | ODP Tables | FDP Tables |
 |------------|------------|
-| `odp_em.customers`, `odp_em.accounts` | `fdp_em.event_transaction_excess` |
-| `odp_em.decision` | `fdp_em.portfolio_account_excess` |
+| `odp_application1.customers`, `odp_application1.accounts` | `fdp_application1.event_transaction_excess` |
+| `odp_application1.decision` | `fdp_application1.portfolio_account_excess` |
 
-## LOA Resources
+## Application2 Resources
 
 | ODP Tables | FDP Tables |
 |------------|------------|
-| `odp_loa.applications` | `fdp_loa.portfolio_account_facility` |
+| `odp_application2.applications` | `fdp_application2.portfolio_account_facility` |
 
 ---
 
 ## Deploy
 
 ```bash
-# EM Ingestion
-cd systems/em/ingestion
+# Application1 Ingestion
+cd systems/application1/ingestion
 terraform init
 terraform plan -var-file=env/staging.tfvars
 terraform apply -var-file=env/staging.tfvars
 
-# EM Transformation
+# Application1 Transformation
 cd ../transformation
 terraform init
 terraform plan -var-file=env/staging.tfvars
 terraform apply -var-file=env/staging.tfvars
 
-# EM Orchestration
+# Application1 Orchestration
 cd ../orchestration
 terraform init
 terraform plan -var-file=env/staging.tfvars
