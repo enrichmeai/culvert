@@ -38,6 +38,13 @@ jobs:
         if [ "${{ matrix.library }}" != "gcp-pipeline-core" ]; then
           pip install ./gcp-pipeline-libraries/gcp-pipeline-core
         fi
+        # For framework, we need to install all sub-libraries locally first
+        if [ "${{ matrix.library }}" == "gcp-pipeline-framework" ]; then
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-beam
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-orchestration
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-transform
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-tester
+        fi
         cd gcp-pipeline-libraries/${{ matrix.library }}
         if [ -f pyproject.toml ]; then
           pip install .[dev] || pip install .
