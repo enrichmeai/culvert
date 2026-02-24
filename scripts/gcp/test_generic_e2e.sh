@@ -7,7 +7,7 @@ set -e
 PROJECT_ID="joseph-antony-aruja"
 LANDING_BUCKET="gs://${PROJECT_ID}-generic-dev-landing"
 EXTRACT_DATE=$(date +%Y%m%d)
-TEST_DATA_DIR="deployments/generic-ingestion/tests/data"
+TEST_DATA_DIR="deployments/original-data-to-bigqueryload/tests/data"
 
 echo "=========================================="
 echo "Generic Pipeline E2E Test"
@@ -25,6 +25,12 @@ upload_entity() {
     local ok_path="${LANDING_BUCKET}/generic/${entity}/generic_${entity}_${EXTRACT_DATE}.ok"
 
     echo "Uploading ${entity}..."
+
+    # Check if source file exists
+    if [ ! -f "${source_file}" ]; then
+        echo "  ❌ Source file not found: ${source_file}"
+        return 1
+    fi
 
     # Upload data file
     gsutil cp "${source_file}" "${dest_path}"

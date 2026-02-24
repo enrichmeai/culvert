@@ -33,8 +33,8 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ============================================================================
 
-SYSTEM_ID = "Generic"
-REQUIRED_ENTITIES = ["customers", "accounts", "decision"]
+SYSTEM_ID = "Merged-Pipeline"
+REQUIRED_ENTITIES = ["customers", "accounts", "decision", "applications"]
 
 PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 REGION = Variable.get("gcp_region", default_var="europe-west2")
@@ -115,7 +115,7 @@ with DAG(
         task_id='run_dbt_staging',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt run --select staging.generic --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
+            dbt run --select staging --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
         ''',
     )
 
@@ -124,7 +124,7 @@ with DAG(
         task_id='run_dbt_fdp',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt run --select fdp.generic --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
+            dbt run --select fdp --vars '{{"extract_date": "{{{{ ds_nodash }}}}"}}' --target prod
         ''',
     )
 
@@ -133,7 +133,7 @@ with DAG(
         task_id='run_dbt_tests',
         bash_command=f'''
             cd {DBT_PROJECT_PATH} && \
-            dbt test --select fdp.generic --target prod
+            dbt test --select fdp --target prod
         ''',
     )
 

@@ -23,13 +23,11 @@ Each system is split into 3 independent deployment units:
 
 ```
 deployments/
-├── application1-ingestion/        # Application1: Beam pipeline (26 tests)
-├── application1-transformation/   # Application1: dbt models
-├── application1-orchestration/    # Application1: Airflow DAGs
-├── application2-ingestion/       # Application2: Beam pipeline (20 tests)
-├── application2-transformation/  # Application2: dbt models
-├── application2-orchestration/   # Application2: Airflow DAGs
-└── spanner-transformation/ # Spanner: dbt models (Federated)
+├── original-data-to-bigqueryload/    # Generic: Beam pipeline (20 tests)
+├── bigquery-to-mapped-product/       # Generic: dbt models (26 tests)
+├── data-pipeline-orchestrator/       # Generic: Airflow DAGs
+├── spanner-to-bigquery-load/         # Spanner: dbt models (Federated)
+└── mainframe-segment-transform/      # CDP: Beam pipeline for segmentation
 ```
 
 ---
@@ -38,15 +36,15 @@ deployments/
 
 | System | Pattern | Ingestion | Transformation | Orchestration |
 |--------|---------|-----------|----------------|---------------|
-| **Application1** | MULTI-TARGET (3→2) | [application1-ingestion](application1-ingestion/) | [application1-transformation](application1-transformation/) | [application1-orchestration](application1-orchestration/) |
-| **Application2** | MAP (1→1) | [application2-ingestion](application2-ingestion/) | [application2-transformation](application2-transformation/) | [application2-orchestration](application2-orchestration/) |
-| **Spanner** | FEDERATED (Spanner→FDP) | - | [spanner-transformation](spanner-transformation/) | - |
+| **Generic** | MULTI-TARGET (3→2) | [original-data-to-bigqueryload](original-data-to-bigqueryload/) | [bigquery-to-mapped-product](bigquery-to-mapped-product/) | [data-pipeline-orchestrator](data-pipeline-orchestrator/) |
+| **Spanner** | FEDERATED (Spanner→FDP) | - | [spanner-to-bigquery-load](spanner-to-bigquery-load/) | - |
+| **CDP** | SEGMENTATION (FDP→GCS) | - | [mainframe-segment-transform](mainframe-segment-transform/) | - |
 
 ---
 
 ## Pattern Comparison
 
-| Aspect | Application1 (JOIN) | Application2 (MAP) |
+| Aspect | Generic (JOIN) | Generic (MAP) |
 |--------|-----------|-------------|
 | Source Entities | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | ODP Tables | 3 | 1 |
@@ -104,13 +102,15 @@ Once the internal libraries are published to the Nexus repository, you should tr
 Note: The `PYTHONPATH` overrides below are only necessary while using the embedded library source code. Once transitioned to Nexus packages, standard `pytest` commands will work.
 
 ```bash
-# Application2 Ingestion
-cd application2-ingestion
+# Generic Ingestion
+cd original-data-to-bigqueryload
 python -m pytest tests/unit/ -v
 
-# Application1 Ingestion  
-cd ../application1-ingestion
-python -m pytest tests/unit/ -v
+# Generic Transformation
+cd ../bigquery-to-mapped-product
+# dbt tests
+cd dbt
+dbt test
 ```
 
 ---
@@ -119,7 +119,7 @@ python -m pytest tests/unit/ -v
 
 | Unit | Tests |
 |------|-------|
-| application2-ingestion | 20 |
-| application1-ingestion | 26 |
+| original-data-to-bigqueryload | 20 |
+| bigquery-to-mapped-product | 26 |
 | **Total** | **46** |
 

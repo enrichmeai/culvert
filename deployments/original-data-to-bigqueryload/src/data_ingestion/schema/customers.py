@@ -60,7 +60,7 @@ EM_CUSTOMER_FIELDS = [
 
 EMCustomerSchema = EntitySchema(
     entity_name="customers",
-    system_id="Generic",
+    systapplication1_id="Generic",
     fields=EM_CUSTOMER_FIELDS,
     primary_key=["customer_id"],
     description="Generic Customer records",

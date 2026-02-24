@@ -140,15 +140,15 @@ The DAGs use several Airflow variables and connections:
 ## Execution & Testing
 
 ### 1. Local DAG Validation
-Since the orchestration unit uses the `AIRFLOW_AVAILABLE` stub from `gcp-pipeline-orchestration`, you can validate DAG syntax locally without an Airflow environment:
+You can validate DAG syntax locally:
 
 ```bash
 # Setup venv
-./scripts/setup_deployment_venv.sh generic-orchestration
-source deployments/generic-orchestration/venv/bin/activate
+./scripts/setup_deployment_venv.sh data-pipeline-orchestrator
+source deployments/data-pipeline-orchestrator/venv/bin/activate
 
 # Validate syntax
-python dags/generic_pubsub_trigger_dag.py
+python dags/data_ingestion_dag.py
 ```
 
 ### 2. Testing End-to-End Flow
