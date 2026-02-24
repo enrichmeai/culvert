@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: portfolio_account_facility
+    description: |
+      Generic FDP: Portfolio Account Facility
+      
+      MAP from odp_loa.applications.
+      
+      Contains:
+      - Application details (application_id, loan_amount, status)
+      - Customer details (customer_id)
+      - Facility details (application_date, term_months)
+      
+      Key Difference from Generic:
+      - Generic uses MULTI-TARGET (3 sources → 2 FDP targets)
+      - Generic uses MAP (1 source → 1 FDP target)
+
+    columns:
+      - name: facility_key
+        description: "Primary key"
+        tests:
+          - not_null
+          - unique
+      - name: application_id
+        description: "Application identifier"
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Customer identifier"
+      - name: loan_amount
+        description: "Requested loan amount"
+      - name: application_date
+        description: "Application date"
+      - name: application_status
+        description: "Current application status"
+      - name: _run_id
+        description: "Pipeline run ID"
+        tests:
+          - not_null
+      - name: _extract_date
+        description: "Extract date"
+        tests:
+          - not_null
+      - name: _transformed_at
+        description: "Transformation timestamp"
+

@@ -26,15 +26,15 @@ else
     exit 1
 fi
 
-# 2. Deployment Unit Tests (Example: Application1 System)
-echo -e "\n${YELLOW}>>> Running Deployment Unit Tests (Application1)...${NC}"
-if [ -d "deployments/application1-ingestion" ]; then
-    cd deployments/application1-ingestion
+# 2. Deployment Unit Tests (Example: Generic System)
+echo -e "\n${YELLOW}>>> Running Deployment Unit Tests (Generic)...${NC}"
+if [ -d "deployments/generic-ingestion" ]; then
+    cd deployments/generic-ingestion
     # Assuming venv is already set up or using python -m pytest
     PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
-      python3 -m pytest tests/unit/ || { echo -e "${RED}❌ Application1 Ingestion tests failed!${NC}"; exit 1; }
+      python3 -m pytest tests/unit/ || { echo -e "${RED}❌ Generic Ingestion tests failed!${NC}"; exit 1; }
     cd ../..
-    echo -e "${GREEN}✅ Application1 Ingestion tests passed!${NC}"
+    echo -e "${GREEN}✅ Generic Ingestion tests passed!${NC}"
 fi
 
 # 3. Static Analysis / Linting

@@ -62,7 +62,8 @@ gcloud services enable \
     dataflow.googleapis.com \
     cloudkms.googleapis.com \
     monitoring.googleapis.com \
-    logging.googleapis.com
+    logging.googleapis.com \
+    telemetry.googleapis.com
 ```
 
 ### Step 1.2: Create Terraform State Bucket
@@ -87,38 +88,38 @@ Or manually:
 PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
-# Application1 Buckets
-gsutil mb -l $REGION gs://${PROJECT_ID}-application1-landing
-gsutil mb -l $REGION gs://${PROJECT_ID}-application1-archive
-gsutil mb -l $REGION gs://${PROJECT_ID}-application1-error
-gsutil mb -l $REGION gs://${PROJECT_ID}-application1-temp
+# Generic Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-temp
 
-# Application1 BigQuery Datasets
-bq mk --location=$REGION odp_application1
-bq mk --location=$REGION fdp_application1
+# Generic BigQuery Datasets
+bq mk --location=$REGION odp_generic
+bq mk --location=$REGION fdp_generic
 bq mk --location=$REGION job_control
 
-# Application1 Pub/Sub Topics
-gcloud pubsub topics create application1-file-notifications
-gcloud pubsub topics create application1-pipeline-events
-gcloud pubsub subscriptions create application1-file-notifications-sub --topic=application1-file-notifications
-gcloud pubsub subscriptions create application1-pipeline-events-sub --topic=application1-pipeline-events
+# Generic Pub/Sub Topics
+gcloud pubsub topics create generic-file-notifications
+gcloud pubsub topics create generic-pipeline-events
+gcloud pubsub subscriptions create generic-file-notifications-sub --topic=generic-file-notifications
+gcloud pubsub subscriptions create generic-pipeline-events-sub --topic=generic-pipeline-events
 
-# Application2 Buckets
-gsutil mb -l $REGION gs://${PROJECT_ID}-application2-landing
-gsutil mb -l $REGION gs://${PROJECT_ID}-application2-archive
-gsutil mb -l $REGION gs://${PROJECT_ID}-application2-error
-gsutil mb -l $REGION gs://${PROJECT_ID}-application2-temp
+# Generic Buckets
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-landing
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-archive
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-error
+gsutil mb -l $REGION gs://${PROJECT_ID}-generic-temp
 
-# Application2 BigQuery Datasets
-bq mk --location=$REGION odp_application2
-bq mk --location=$REGION fdp_application2
+# Generic BigQuery Datasets
+bq mk --location=$REGION odp_generic
+bq mk --location=$REGION fdp_generic
 
-# Application2 Pub/Sub Topics
-gcloud pubsub topics create application2-file-notifications
-gcloud pubsub topics create application2-pipeline-events
-gcloud pubsub subscriptions create application2-file-notifications-sub --topic=application2-file-notifications
-gcloud pubsub subscriptions create application2-pipeline-events-sub --topic=application2-pipeline-events
+# Generic Pub/Sub Topics
+gcloud pubsub topics create generic-file-notifications
+gcloud pubsub topics create generic-pipeline-events
+gcloud pubsub subscriptions create generic-file-notifications-sub --topic=generic-file-notifications
+gcloud pubsub subscriptions create generic-pipeline-events-sub --topic=generic-pipeline-events
 ```
 
 ### Step 1.4: Setup GitHub Actions Service Account
@@ -188,14 +189,14 @@ Pipelines deploy automatically when you push to `main` branch with changes in:
 
 ### Manual Deployment
 ```bash
-# Trigger Application1 deployment
-gh workflow run deploy-application1.yml
+# Trigger Generic deployment
+gh workflow run deploy-generic.yml
 
-# Trigger Application2 deployment
-gh workflow run deploy-application2.yml
+# Trigger Generic deployment
+gh workflow run deploy-generic.yml
 
 # Check status
-gh run list --workflow=deploy-application1.yml --limit 3
+gh run list --workflow=deploy-generic.yml --limit 3
 ```
 
 ---
@@ -204,7 +205,7 @@ gh run list --workflow=deploy-application1.yml --limit 3
 
 ### Step 3.1: Upload Test Data
 ```bash
-./scripts/gcp/06_test_pipeline.sh application1
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 Or manually:
@@ -213,8 +214,8 @@ PROJECT_ID=$(gcloud config get-value project)
 DATE=$(date +%Y%m%d)
 
 # Create test file
-cat > /tmp/application1_customers.csv << 'EOF'
-HDR|Application1|Customers|20260104
+cat > /tmp/generic_customers.csv << 'EOF'
+HDR|Generic|Customers|20260104
 customer_id,name,email,status
 CUST001,John Doe,john@example.com,ACTIVE
 CUST002,Jane Smith,jane@example.com,ACTIVE
@@ -222,24 +223,24 @@ TRL|RecordCount=2|Checksum=abc123
 EOF
 
 # Upload to landing bucket
-gsutil cp /tmp/application1_customers.csv gs://${PROJECT_ID}-application1-landing/
+gsutil cp /tmp/generic_customers.csv gs://${PROJECT_ID}-generic-landing/
 
 # Create trigger file (.ok)
-touch /tmp/application1_customers.csv.ok
-gsutil cp /tmp/application1_customers.csv.ok gs://${PROJECT_ID}-application1-landing/
+touch /tmp/generic_customers.csv.ok
+gsutil cp /tmp/generic_customers.csv.ok gs://${PROJECT_ID}-generic-landing/
 
 # Publish notification
-gcloud pubsub topics publish application1-file-notifications \
-    --message='{"file": "application1_customers.csv", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
+gcloud pubsub topics publish generic-file-notifications \
+    --message='{"file": "generic_customers.csv", "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"}'
 ```
 
 ### Step 3.2: Monitor Pipeline
 ```bash
 # Check Pub/Sub messages
-gcloud pubsub subscriptions pull application1-pipeline-events-sub --auto-ack
+gcloud pubsub subscriptions pull generic-pipeline-events-sub --auto-ack
 
 # Check BigQuery for loaded data
-bq query --use_legacy_sql=false 'SELECT * FROM odp_application1.customers LIMIT 10'
+bq query --use_legacy_sql=false 'SELECT * FROM odp_generic.customers LIMIT 10'
 
 # Check Dataflow jobs
 gcloud dataflow jobs list --status=active
@@ -290,13 +291,13 @@ gh secret list
 
 ## Quick Reference
 
-| Resource | Application1 | Application2 |
+| Resource | Generic | Generic |
 |----------|-----|-----|
-| Landing Bucket | `{project}-application1-landing` | `{project}-application2-landing` |
-| Archive Bucket | `{project}-application1-archive` | `{project}-application2-archive` |
-| Error Bucket | `{project}-application1-error` | `{project}-application2-error` |
-| ODP Dataset | `odp_application1` | `odp_application2` |
-| FDP Dataset | `fdp_application1` | `fdp_application2` |
-| Notification Topic | `application1-file-notifications` | `application2-file-notifications` |
-| Events Topic | `application1-pipeline-events` | `application2-pipeline-events` |
+| Landing Bucket | `{project}-generic-landing` | `{project}-generic-landing` |
+| Archive Bucket | `{project}-generic-archive` | `{project}-generic-archive` |
+| Error Bucket | `{project}-generic-error` | `{project}-generic-error` |
+| ODP Dataset | `odp_generic` | `odp_generic` |
+| FDP Dataset | `fdp_generic` | `fdp_generic` |
+| Notification Topic | `generic-file-notifications` | `generic-file-notifications` |
+| Events Topic | `generic-pipeline-events` | `generic-pipeline-events` |
 

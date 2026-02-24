@@ -1,0 +1,5 @@
+HDR|GENERIC|DECISION|20260101
+decision_id,customer_id,account_id,decision_type,decision_date,decision_score,decision_outcome
+DEC001,1001,ACC001,CREDIT,2026-01-01,750,APPROVED
+DEC002,1002,ACC002,RISK,2026-01-01,800,APPROVED
+TRL|RecordCount=2|Checksum=dummy_checksum_decision

@@ -31,7 +31,7 @@ from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
 wait_for_file = BasePubSubPullSensor(
     task_id='wait_for_file',
     project_id='my-project',
-    subscription='application1-notifications-sub',
+    subscription='generic-notifications-sub',
     filter_extension='.ok',           # Only trigger on .ok files
     metadata_xcom_key='file_metadata', # Push metadata to XCom
     ack_messages=True,                # Acknowledge after processing
@@ -58,7 +58,7 @@ wait_for_file = BasePubSubPullSensor(
 │           ▼                                                                              │
 │  ┌──────────────────────────────────────┐                                               │
 │  │ GCS Landing Bucket                    │                                               │
-│  │ gs://landing-bucket/application1/customers/     │                                               │
+│  │ gs://landing-bucket/generic/customers/     │                                               │
 │  │                                       │                                               │
 │  │  📄 customers_1.csv    (data file)    │                                               │
 │  │  📄 customers_2.csv    (data file)    │                                               │
@@ -73,13 +73,13 @@ wait_for_file = BasePubSubPullSensor(
 │                                                                                          │
 │  ┌──────────────────────────────────────┐                                               │
 │  │ Pub/Sub Topic                         │                                               │
-│  │ application1-file-notifications                 │                                               │
+│  │ generic-file-notifications                 │                                               │
 │  │ 🔐 CMEK Encrypted (KMS)              │                                               │
 │  │                                       │                                               │
 │  │ Message:                              │                                               │
 │  │ {                                     │                                               │
 │  │   "bucket": "landing-bucket",         │                                               │
-│  │   "name": "application1/customers/customers.csv.ok",                                           │
+│  │   "name": "generic/customers/customers.csv.ok",                                           │
 │  │   "eventType": "OBJECT_FINALIZE"      │                                               │
 │  │ }                                     │                                               │
 │  └──────────────────┬───────────────────┘                                               │
@@ -111,7 +111,7 @@ wait_for_file = BasePubSubPullSensor(
 │  │  ┌─────────────────────────────────────────────────────────────────────────────┐ │   │
 │  │  │ Step 3: EXTRACT METADATA                                                    │ │   │
 │  │  │ • Parse bucket, object path, event type                                     │ │   │
-│  │  │ • Extract: system=application1, entity=customers, date=20260103                       │ │   │
+│  │  │ • Extract: system=generic, entity=customers, date=20260103                       │ │   │
 │  │  └─────────────────────────────────────────────────────────────────────────────┘ │   │
 │  │                                        │                                          │   │
 │  │                                        ▼                                          │   │
@@ -168,13 +168,13 @@ wait_for_file = BasePubSubPullSensor(
 ```bash
 # List keys in keyring
 gcloud kms keys list \
-  --keyring=application2-keyring-dev \
+  --keyring=generic-keyring-dev \
   --location=europe-west2 \
   --format="table(name,purpose,rotationPeriod,primaryVersion.state)"
 
 # Check key IAM policy
-gcloud kms keys get-iam-policy application2-messaging-key \
-  --keyring=application2-keyring-dev \
+gcloud kms keys get-iam-policy generic-messaging-key \
+  --keyring=generic-keyring-dev \
   --location=europe-west2
 ```
 
@@ -182,33 +182,33 @@ gcloud kms keys get-iam-policy application2-messaging-key \
 
 ## Pub/Sub Topics & Subscriptions
 
-### application2-processing-notifications
+### generic-processing-notifications
 
 **Purpose:** Trigger pipeline processing when files arrive in GCS
 
 | Property | Value |
 |----------|-------|
-| Name | `application2-processing-notifications` |
-| CMEK | `application2-messaging-key` |
+| Name | `generic-processing-notifications` |
+| CMEK | `generic-messaging-key` |
 | Message Retention | 7 days (604800s) |
 
-### application2-processing-notifications-sub
+### generic-processing-notifications-sub
 
 **Purpose:** Cloud Composer subscription for pulling trigger messages
 
 | Property | Value |
 |----------|-------|
-| Name | `application2-processing-notifications-sub` |
+| Name | `generic-processing-notifications-sub` |
 | Ack Deadline | 60 seconds |
 | Message Retention | 7 days |
-| Dead Letter Topic | `application2-notifications-dead-letter` |
+| Dead Letter Topic | `generic-notifications-dead-letter` |
 | Max Delivery Attempts | 5 |
 
-### application2-audit-events
+### generic-audit-events
 
 **Purpose:** Audit trail for all pipeline operations
 
-### application2-notifications-dead-letter
+### generic-notifications-dead-letter
 
 **Purpose:** Capture failed message deliveries for investigation
 
@@ -221,10 +221,10 @@ gcloud kms keys get-iam-policy application2-messaging-key \
 GCS notifications publish to Pub/Sub on file arrival:
 
 ```hcl
-resource "google_storage_notification" "application2_file_notification" {
-  bucket         = google_storage_bucket.application2_data.name
+resource "google_storage_notification" "generic_file_notification" {
+  bucket         = google_storage_bucket.generic_data.name
   payload_format = "JSON_API_V1"
-  topic          = google_pubsub_topic.application2_processing_notifications.id
+  topic          = google_pubsub_topic.generic_processing_notifications.id
   event_types    = ["OBJECT_FINALIZE"]
 }
 ```
@@ -233,7 +233,7 @@ resource "google_storage_notification" "application2_file_notification" {
 
 | Attribute | Example | Description |
 |-----------|---------|-------------|
-| `bucketId` | `project-application2-data` | Source bucket name |
+| `bucketId` | `project-generic-data` | Source bucket name |
 | `objectId` | `incoming/SYS001/data.ok` | Object path |
 | `objectGeneration` | `1234567890` | Object version |
 | `eventType` | `OBJECT_FINALIZE` | Event that triggered notification |
@@ -252,13 +252,13 @@ resource "google_storage_notification" "application2_file_notification" {
 
 ---
 
-## Application2PubSubPullSensor
+## GenericPubSubPullSensor
 
 ### Overview
 
-Custom Airflow sensor extending `BasePubSubPullSensor` with systapplication1-specific functionality.
+Custom Airflow sensor extending `BasePubSubPullSensor` with systgeneric-specific functionality.
 
-**Location:** `deployments/application1/src/application1/orchestration/airflow/sensors/pubsub.py`
+**Location:** `deployments/generic/src/generic/orchestration/airflow/sensors/pubsub.py`
 
 ### Features
 
@@ -271,12 +271,12 @@ Custom Airflow sensor extending `BasePubSubPullSensor` with systapplication1-spe
 ### Usage
 
 ```python
-from application1.orchestration.airflow.sensors.pubsub import Application2PubSubPullSensor
+from generic.orchestration.airflow.sensors.pubsub import GenericPubSubPullSensor
 
-wait_for_trigger = Application2PubSubPullSensor(
+wait_for_trigger = GenericPubSubPullSensor(
     task_id='wait_for_trigger_file',
     project_id='my-project',
-    subscription='application2-processing-notifications-sub',
+    subscription='generic-processing-notifications-sub',
     filter_ok_files=True,
     ack_messages=True,
     max_messages=1,
@@ -290,7 +290,7 @@ wait_for_trigger = Application2PubSubPullSensor(
     "gcs_path": "gs://bucket/incoming/data.ok",
     "bucket": "bucket",
     "object_id": "incoming/data.ok",
-    "systapplication1_id": "SYS001",
+    "systgeneric_id": "SYS001",
     "entity_type": "transactions",
     "event_type": "OBJECT_FINALIZE",
     "publish_time": "2026-01-01T10:00:00Z",
@@ -306,29 +306,29 @@ wait_for_trigger = Application2PubSubPullSensor(
 
 ```bash
 # 1. Verify GCS notification
-gsutil notification list gs://${PROJECT_ID}-application2-data
+gsutil notification list gs://${PROJECT_ID}-generic-data
 
 # 2. Verify topic exists
-gcloud pubsub topics describe application2-processing-notifications
+gcloud pubsub topics describe generic-processing-notifications
 
 # 3. Check subscription
-gcloud pubsub subscriptions describe application2-processing-notifications-sub
+gcloud pubsub subscriptions describe generic-processing-notifications-sub
 
 # 4. Check for pending messages
-gcloud pubsub subscriptions pull application2-processing-notifications-sub --limit=5
+gcloud pubsub subscriptions pull generic-processing-notifications-sub --limit=5
 ```
 
 ### KMS Permission Denied
 
 ```bash
 # Verify Pub/Sub service agent has KMS access
-gcloud kms keys get-iam-policy application2-messaging-key \
-  --keyring=application2-keyring-dev \
+gcloud kms keys get-iam-policy generic-messaging-key \
+  --keyring=generic-keyring-dev \
   --location=europe-west2
 
 # Add binding if missing
-gcloud kms keys add-iam-policy-binding application2-messaging-key \
-  --keyring=application2-keyring-dev \
+gcloud kms keys add-iam-policy-binding generic-messaging-key \
+  --keyring=generic-keyring-dev \
   --location=europe-west2 \
   --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com" \
   --role="roles/cloudkms.cryptoKeyEncrypterDecrypter"
@@ -338,7 +338,7 @@ gcloud kms keys add-iam-policy-binding application2-messaging-key \
 
 ```bash
 # Check dead letter queue
-gcloud pubsub subscriptions pull application2-dead-letter-sub --limit=10
+gcloud pubsub subscriptions pull generic-dead-letter-sub --limit=10
 ```
 
 ---
@@ -361,7 +361,7 @@ gcloud pubsub subscriptions pull application2-dead-letter-sub --limit=10
 
 ```bash
 #!/bin/bash
-SUBSCRIPTION="application2-dead-letter-sub"
+SUBSCRIPTION="generic-dead-letter-sub"
 
 while true; do
   RESULT=$(gcloud pubsub subscriptions pull $SUBSCRIPTION --limit=100 --auto-ack 2>&1)
@@ -377,7 +377,7 @@ done
 ```bash
 #!/bin/bash
 PROJECT_ID="${1:-$(gcloud config get-value project)}"
-BUCKET="${PROJECT_ID}-application2-data"
+BUCKET="${PROJECT_ID}-generic-data"
 TEST_FILE="incoming/test_$(date +%s).ok"
 
 # Upload test file
@@ -387,7 +387,7 @@ echo "Uploaded: gs://${BUCKET}/${TEST_FILE}"
 sleep 5
 
 # Check for message
-gcloud pubsub subscriptions pull application2-processing-notifications-sub --limit=1
+gcloud pubsub subscriptions pull generic-processing-notifications-sub --limit=1
 
 # Cleanup
 gsutil rm "gs://${BUCKET}/${TEST_FILE}"
@@ -397,8 +397,8 @@ gsutil rm "gs://${BUCKET}/${TEST_FILE}"
 
 ## References
 
-- [Terraform: security.tf](../../application1/infrastructure/terraform/security.tf)
-- [Sensor: pubsub.py](../../application1/src/orchestration/airflow/sensors/pubsub.py)
+- [Terraform: security.tf](../../generic/infrastructure/terraform/security.tf)
+- [Sensor: pubsub.py](../../generic/src/orchestration/airflow/sensors/pubsub.py)
 - [PubSub Client](../../../gcp_pipeline_core/core/clients/pubsub_client.py)
 - [Google Cloud Pub/Sub Docs](https://cloud.google.com/pubsub/docs)
 - [Google Cloud KMS Docs](https://cloud.google.com/kms/docs)

@@ -8,8 +8,8 @@ Complete scripts for setting up, testing, and managing GCP infrastructure for th
 |--------|---------|
 | **Deploy Everything** | `./scripts/gcp/deploy_all.sh all` |
 | **Reset Everything** | `./scripts/gcp/00_full_reset.sh` |
-| **Test Application1 Pipeline** | `./scripts/gcp/06_test_pipeline.sh application1` |
-| **Test Application2 Pipeline** | `./scripts/gcp/06_test_pipeline.sh application2` |
+| **Test Generic Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
+| **Test Generic Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
 
 ---
 
@@ -58,7 +58,7 @@ gh auth login
 | `06_test_pipeline.sh` | Upload test data | Testing pipeline |
 | `07_cleanup.sh` | Delete infrastructure (partial) | Cleanup specific deployment |
 | `deploy_all.sh` | Run all setup steps | One-command setup |
-| `e2e_test_em.sh` | End-to-end Application1 test | Testing |
+| `e2e_test_em.sh` | End-to-end Generic test | Testing |
 
 ---
 
@@ -68,25 +68,25 @@ The deployment scripts provide a way to verify the independence of each unit:
 ### 1. Ingestion Testing (Unit 1)
 You can test the Dataflow ingestion without Airflow:
 ```bash
-./scripts/gcp/06_test_pipeline.sh application1
+./scripts/gcp/06_test_pipeline.sh generic
 # Then manually check BigQuery ODP tables
-bq query 'SELECT count(*) FROM odp_application1.customers'
+bq query 'SELECT count(*) FROM odp_generic.customers'
 ```
 This proves the Ingestion unit is self-contained.
 
 ### 2. Transformation Testing (Unit 2)
 You can test dbt transformations without running the full ingestion:
 ```bash
-cd deployments/application1-transformation/dbt
-dbt run --select fdp.application1
+cd deployments/generic-transformation/dbt
+dbt run --select fdp.generic
 ```
 This proves the Transformation unit is independent.
 
 ### 3. Orchestration Testing (Unit 3)
 The `06_test_pipeline.sh` script simulates the entry point by uploading an `.ok` file and publishing a Pub/Sub message. You can then monitor the Airflow UI to see the sequence of **separate DAGs** being triggered:
-1. `application2_pubsub_trigger_dag` detects the file.
-2. `application2_odp_application2d_dag` starts the Dataflow job.
-3. `application2_fdp_transform_dag` starts the dbt run.
+1. `generic_pubsub_trigger_dag` detects the file.
+2. `generic_odp_genericd_dag` starts the Dataflow job.
+3. `generic_fdp_transform_dag` starts the dbt run.
 
 This proves the **Micro-Orchestration** pattern where failure in one step doesn't force a full re-run of the entire pipeline.
 
@@ -106,6 +106,7 @@ This proves the **Micro-Orchestration** pattern where failure in one step doesn'
 | `iam.googleapis.com` | Identity management |
 | `monitoring.googleapis.com` | Monitoring |
 | `logging.googleapis.com` | Logging |
+| `telemetry.googleapis.com` | OTel ingestion API |
 | `cloudbuild.googleapis.com` | CI/CD builds |
 | `containerregistry.googleapis.com` | Docker images |
 | `artifactregistry.googleapis.com` | Artifacts |
@@ -116,45 +117,45 @@ This proves the **Micro-Orchestration** pattern where failure in one step doesn'
 
 | Bucket | Purpose |
 |--------|---------|
-| `{project}-application1-landing` | Application1 raw file uploads |
-| `{project}-application1-archive` | Application1 processed files |
-| `{project}-application1-error` | Application1 failed files |
-| `{project}-application1-temp` | Application1 temporary files |
-| `{project}-application2-landing` | Application2 raw file uploads |
-| `{project}-application2-archive` | Application2 processed files |
-| `{project}-application2-error` | Application2 failed files |
-| `{project}-application2-temp` | Application2 temporary files |
+| `{project}-generic-landing` | Generic raw file uploads |
+| `{project}-generic-archive` | Generic processed files |
+| `{project}-generic-error` | Generic failed files |
+| `{project}-generic-temp` | Generic temporary files |
+| `{project}-generic-landing` | Generic raw file uploads |
+| `{project}-generic-archive` | Generic processed files |
+| `{project}-generic-error` | Generic failed files |
+| `{project}-generic-temp` | Generic temporary files |
 | `gdw-terraform-state` | Terraform state storage |
 
 ### BigQuery Datasets
 
 | Dataset | Purpose |
 |---------|---------|
-| `odp_application1` | Application1 Original Data Product (raw) |
-| `fdp_application1` | Application1 Foundation Data Product (transformed) |
-| `odp_application2` | Application2 Original Data Product (raw) |
-| `fdp_application2` | Application2 Foundation Data Product (transformed) |
+| `odp_generic` | Generic Original Data Product (raw) |
+| `fdp_generic` | Generic Foundation Data Product (transformed) |
+| `odp_generic` | Generic Original Data Product (raw) |
+| `fdp_generic` | Generic Foundation Data Product (transformed) |
 | `job_control` | Pipeline job tracking |
 
 ### Pub/Sub Topics & Subscriptions
 
 | Topic | Subscription | Purpose |
 |-------|--------------|---------|
-| `application1-file-notifications` | `application1-file-notifications-sub` | Application1 file arrival events |
-| `application1-pipeline-events` | `application1-pipeline-events-sub` | Application1 pipeline status events |
-| `application2-file-notifications` | `application2-file-notifications-sub` | Application2 file arrival events |
-| `application2-pipeline-events` | `application2-pipeline-events-sub` | Application2 pipeline status events |
+| `generic-file-notifications` | `generic-file-notifications-sub` | Generic file arrival events |
+| `generic-pipeline-events` | `generic-pipeline-events-sub` | Generic pipeline status events |
+| `generic-file-notifications` | `generic-file-notifications-sub` | Generic file arrival events |
+| `generic-pipeline-events` | `generic-pipeline-events-sub` | Generic pipeline status events |
 
 ### Service Accounts
 
 | Service Account | Purpose | Roles |
 |-----------------|---------|-------|
 | `github-actions-deploy` | CI/CD deployment | BigQuery Admin, Storage Admin, Pub/Sub Admin, Dataflow Admin, IAM Admin, Composer Admin |
-| `application1-dataflow-sa` | Application1 Dataflow jobs | Dataflow Worker, BigQuery Data Editor, Storage Object Admin |
-| `application1-dbt-sa` | Application1 dbt transformations | BigQuery Data Editor |
-| `application1-composer-sa` | Application1 Airflow orchestration | Composer Worker, Dataflow Admin |
-| `application2-dataflow-sa` | Application2 Dataflow jobs | Dataflow Worker, BigQuery Data Editor, Storage Object Admin |
-| `application2-dbt-sa` | Application2 dbt transformations | BigQuery Data Editor |
+| `generic-dataflow-sa` | Generic Dataflow jobs | Dataflow Worker, BigQuery Data Editor, Storage Object Admin |
+| `generic-dbt-sa` | Generic dbt transformations | BigQuery Data Editor |
+| `generic-composer-sa` | Generic Airflow orchestration | Composer Worker, Dataflow Admin |
+| `generic-dataflow-sa` | Generic Dataflow jobs | Dataflow Worker, BigQuery Data Editor, Storage Object Admin |
+| `generic-dbt-sa` | Generic dbt transformations | BigQuery Data Editor |
 
 ### GitHub Secrets Required
 
@@ -186,8 +187,7 @@ chmod +x scripts/gcp/*.sh
 ./scripts/gcp/deploy_all.sh all
 
 # 5. Test pipeline
-./scripts/gcp/06_test_pipeline.sh application1
-./scripts/gcp/06_test_pipeline.sh application2
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 ### Reset and Redeploy
@@ -208,8 +208,8 @@ After local setup, push to GitHub to trigger automatic deployment:
 git push origin main
 
 # Or manually trigger
-gh workflow run deploy-application1.yml
-gh workflow run deploy-application2.yml
+gh workflow run deploy-generic.yml
+gh workflow run deploy-generic.yml
 
 # Check status
 gh run list --limit 5
@@ -284,8 +284,8 @@ The `github-actions-deploy` service account needs these roles:
 ./scripts/gcp/00_full_reset.sh
 
 # Only deploy what you need
-./scripts/gcp/deploy_all.sh application1   # Just Application1
-./scripts/gcp/deploy_all.sh application2  # Just Application2
+./scripts/gcp/deploy_all.sh generic   # Just Generic
+./scripts/gcp/deploy_all.sh generic  # Just Generic
 ```
 
 ---
@@ -301,9 +301,9 @@ HDR|{SYSTEM}|{ENTITY}|{YYYYMMDD}     ← Header record
 TRL|RecordCount={n}|Checksum={hash}   ← Trailer record
 ```
 
-### Example Application1 Customers File
+### Example Generic Customers File
 ```
-HDR|Application1|Customers|20260104
+HDR|Generic|Customers|20260104
 customer_id,name,email,status,created_date
 CUST001,John Doe,john@example.com,ACTIVE,2025-01-15
 CUST002,Jane Smith,jane@example.com,ACTIVE,2025-01-14
@@ -343,14 +343,14 @@ TRL|RecordCount=2|Checksum=abc123
 ├─────────────────────────────────────────────────────────────┤
 │  git push  →  GitHub Actions  →  Deploy to GCP              │
 │                                                              │
-│  Or manual: gh workflow run deploy-application1.yml                    │
+│  Or manual: gh workflow run deploy-generic.yml                    │
 └─────────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                       TESTING                                │
 │  (Run locally with gcloud CLI)                               │
 ├─────────────────────────────────────────────────────────────┤
-│  Step 6: Test Pipeline  → 06_test_pipeline.sh application1             │
+│  Step 6: Test Pipeline  → 06_test_pipeline.sh generic             │
 │                                                              │
 │  This uploads test CSV files and publishes Pub/Sub messages  │
 └─────────────────────────────────────────────────────────────┘
@@ -360,15 +360,15 @@ TRL|RecordCount=2|Checksum=abc123
 
 ### Infrastructure (Step 3)
 
-**Application1 Deployment:**
-- Buckets: `{project}-application1-landing`, `{project}-application1-archive`, `{project}-application1-error`, `{project}-application1-temp`
-- Datasets: `odp_application1`, `fdp_application1`, `job_control`
-- Topics: `application1-file-notifications`, `application1-pipeline-events`
+**Generic Deployment:**
+- Buckets: `{project}-generic-landing`, `{project}-generic-archive`, `{project}-generic-error`, `{project}-generic-temp`
+- Datasets: `odp_generic`, `fdp_generic`, `job_control`
+- Topics: `generic-file-notifications`, `generic-pipeline-events`
 
-**Application2 Deployment:**
-- Buckets: `{project}-application2-landing`, `{project}-application2-archive`, `{project}-application2-error`, `{project}-application2-temp`
-- Datasets: `odp_application2`, `fdp_application2`
-- Topics: `application2-file-notifications`, `application2-pipeline-events`
+**Generic Deployment:**
+- Buckets: `{project}-generic-landing`, `{project}-generic-archive`, `{project}-generic-error`, `{project}-generic-temp`
+- Datasets: `odp_generic`, `fdp_generic`
+- Topics: `generic-file-notifications`, `generic-pipeline-events`
 
 ### GitHub Secrets (Step 4)
 
@@ -380,11 +380,11 @@ TRL|RecordCount=2|Checksum=abc123
 ## Cleanup
 
 ```bash
-# Delete Application1 only
-./scripts/gcp/07_cleanup.sh application1
+# Delete Generic only
+./scripts/gcp/07_cleanup.sh generic
 
-# Delete Application2 only
-./scripts/gcp/07_cleanup.sh application2
+# Delete Generic only
+./scripts/gcp/07_cleanup.sh generic
 
 # Delete everything
 ./scripts/gcp/07_cleanup.sh all

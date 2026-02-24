@@ -1,0 +1,75 @@
+version: 2
+
+sources:
+  - name: odp_generic
+    description: "Generic Original Data Product tables"
+    database: "{{ var('gcp_project') }}"
+    schema: odp_generic
+    tables:
+      - name: customers
+        description: "Generic Customer records"
+        columns:
+          - name: customer_id
+            description: "Unique customer identifier"
+            tests:
+              - not_null
+              - unique
+          - name: ssn
+            description: "Social Security Number (PII)"
+          - name: first_name
+            description: "Customer first name"
+          - name: last_name
+            description: "Customer last name"
+          - name: dob
+            description: "Date of birth"
+          - name: status
+            description: "Customer status (A/I/C)"
+          - name: created_date
+            description: "Customer creation date"
+          - name: _run_id
+            description: "Pipeline run ID"
+          - name: _source_file
+            description: "Source file path"
+          - name: _processed_at
+            description: "Processing timestamp"
+
+      - name: accounts
+        description: "Generic Account records"
+        columns:
+          - name: account_id
+            description: "Unique account identifier"
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            description: "Foreign key to customers"
+            tests:
+              - not_null
+          - name: account_type
+            description: "Account type"
+          - name: balance
+            description: "Current balance"
+          - name: status
+            description: "Account status (A/I/C)"
+          - name: open_date
+            description: "Account open date"
+
+      - name: decision
+        description: "Generic Decision records"
+        columns:
+          - name: decision_id
+            description: "Unique decision identifier"
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            description: "Foreign key to customers"
+            tests:
+              - not_null
+          - name: decision_code
+            description: "Decision outcome code"
+          - name: decision_date
+            description: "When decision was made"
+          - name: score
+            description: "Credit score"
+

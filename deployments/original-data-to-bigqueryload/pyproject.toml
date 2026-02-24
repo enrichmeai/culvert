@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "original-data-to-bigqueryload"
+version = "1.0.1"
+description = "Generic ODP Ingestion Pipeline - Handles multiple entities (Customers, Accounts, Decision)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+dependencies = [
+    "google-cloud-bigquery>=3.0.0",
+    "google-cloud-storage>=2.0.0",
+    "pydantic>=2.0.0",
+    "gcp-pipeline-framework[core,beam]>=1.0.0",
+]
+# NOTE: NO apache-airflow dependency!
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.0.0",
+    "pytest-cov>=4.0.0",
+    "gcp-pipeline-tester>=1.0.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+

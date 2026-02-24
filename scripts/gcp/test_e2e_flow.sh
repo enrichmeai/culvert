@@ -4,7 +4,7 @@
 # =============================================================================
 # Tests the complete flow: GCS → Pub/Sub → Dataflow → BigQuery
 #
-# Usage: ./scripts/gcp/test_e2e_flow.sh [application1|application2|all]
+# Usage: ./scripts/gcp/test_e2e_flow.sh [generic|generic|all]
 #
 # Prerequisites:
 #   - gcloud CLI authenticated
@@ -57,20 +57,20 @@ MISSING=0
 
 # Check buckets
 echo "Checking GCS buckets..."
-check_resource "Bucket" "${PROJECT_ID}-application1-landing" "gsutil ls gs://${PROJECT_ID}-application1-landing" || MISSING=1
-check_resource "Bucket" "${PROJECT_ID}-application2-landing" "gsutil ls gs://${PROJECT_ID}-application2-landing" || MISSING=1
+check_resource "Bucket" "${PROJECT_ID}-generic-landing" "gsutil ls gs://${PROJECT_ID}-generic-landing" || MISSING=1
+check_resource "Bucket" "${PROJECT_ID}-generic-landing" "gsutil ls gs://${PROJECT_ID}-generic-landing" || MISSING=1
 
 # Check BigQuery datasets
 echo "Checking BigQuery datasets..."
-check_resource "Dataset" "odp_application1" "bq show ${PROJECT_ID}:odp_application1" || MISSING=1
-check_resource "Dataset" "odp_application2" "bq show ${PROJECT_ID}:odp_application2" || MISSING=1
-check_resource "Dataset" "fdp_application1" "bq show ${PROJECT_ID}:fdp_application1" || MISSING=1
-check_resource "Dataset" "fdp_application2" "bq show ${PROJECT_ID}:fdp_application2" || MISSING=1
+check_resource "Dataset" "odp_generic" "bq show ${PROJECT_ID}:odp_generic" || MISSING=1
+check_resource "Dataset" "odp_generic" "bq show ${PROJECT_ID}:odp_generic" || MISSING=1
+check_resource "Dataset" "fdp_generic" "bq show ${PROJECT_ID}:fdp_generic" || MISSING=1
+check_resource "Dataset" "fdp_generic" "bq show ${PROJECT_ID}:fdp_generic" || MISSING=1
 
 # Check Pub/Sub topics
 echo "Checking Pub/Sub topics..."
-check_resource "Topic" "application1-file-notifications" "gcloud pubsub topics describe application1-file-notifications" || MISSING=1
-check_resource "Topic" "application2-file-notifications" "gcloud pubsub topics describe application2-file-notifications" || MISSING=1
+check_resource "Topic" "generic-file-notifications" "gcloud pubsub topics describe generic-file-notifications" || MISSING=1
+check_resource "Topic" "generic-file-notifications" "gcloud pubsub topics describe generic-file-notifications" || MISSING=1
 
 if [ $MISSING -eq 1 ]; then
     echo -e "\n${YELLOW}Some resources are missing. Run infrastructure setup first:${NC}"
@@ -91,12 +91,12 @@ echo -e "\n${BLUE}>>> Step 2: Create Test Data Files${NC}"
 TEST_DIR="/tmp/gcp_e2e_test_${TIMESTAMP}"
 mkdir -p "$TEST_DIR"
 
-if [ "$SYSTEM" = "application1" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Creating Application1 test files..."
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Creating Generic test files..."
 
-    # Application1 Customers file
-    cat > "$TEST_DIR/application1_customers.csv" << 'EOF'
-HDR|Application1|CUSTOMERS|20260106
+    # Generic Customers file
+    cat > "$TEST_DIR/generic_customers.csv" << 'EOF'
+HDR|Generic|CUSTOMERS|20260106
 customer_id,first_name,last_name,ssn,status,created_date
 C001,John,Doe,123-45-6789,ACTIVE,2025-01-15
 C002,Jane,Smith,987-65-4321,ACTIVE,2025-02-20
@@ -104,9 +104,9 @@ C003,Bob,Johnson,555-55-5555,INACTIVE,2025-03-10
 TRL|RecordCount=3|Checksum=abc123
 EOF
 
-    # Application1 Accounts file
-    cat > "$TEST_DIR/application1_accounts.csv" << 'EOF'
-HDR|Application1|ACCOUNTS|20260106
+    # Generic Accounts file
+    cat > "$TEST_DIR/generic_accounts.csv" << 'EOF'
+HDR|Generic|ACCOUNTS|20260106
 account_id,customer_id,account_type,balance,open_date
 A001,C001,CHECKING,1500.00,2025-01-20
 A002,C001,SAVINGS,5000.00,2025-01-21
@@ -114,9 +114,9 @@ A003,C002,CHECKING,2500.00,2025-02-25
 TRL|RecordCount=3|Checksum=def456
 EOF
 
-    # Application1 Decision file
-    cat > "$TEST_DIR/application1_decision.csv" << 'EOF'
-HDR|Application1|DECISION|20260106
+    # Generic Decision file
+    cat > "$TEST_DIR/generic_decision.csv" << 'EOF'
+HDR|Generic|DECISION|20260106
 decision_id,customer_id,outcome,decision_date,score
 D001,C001,APPROVED,2025-01-25,750
 D002,C002,APPROVED,2025-02-28,680
@@ -124,15 +124,15 @@ D003,C003,DENIED,2025-03-15,520
 TRL|RecordCount=3|Checksum=ghi789
 EOF
 
-    echo "  ✅ Application1 test files created"
+    echo "  ✅ Generic test files created"
 fi
 
-if [ "$SYSTEM" = "application2" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Creating Application2 test files..."
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Creating Generic test files..."
 
-    # Application2 Applications file
-    cat > "$TEST_DIR/application2_applications.csv" << 'EOF'
-HDR|Application2|APPLICATIONS|20260106
+    # Generic Applications file
+    cat > "$TEST_DIR/generic_applications.csv" << 'EOF'
+HDR|Generic|APPLICATIONS|20260106
 application_id,customer_id,ssn,loan_amount,interest_rate,term_months,application_date,status,event_type,account_type
 APP001,C001,123-45-6789,25000.00,5.5,60,2025-01-10,APPROVED,NEW_APPLICATION,PORTFOLIO
 APP002,C002,987-65-4321,15000.00,6.0,36,2025-02-15,PENDING,NEW_APPLICATION,EXCESS
@@ -140,7 +140,7 @@ APP003,C003,555-55-5555,50000.00,4.5,84,2025-03-20,APPROVED,REFINANCE,PORTFOLIO
 TRL|RecordCount=3|Checksum=jkl012
 EOF
 
-    echo "  ✅ Application2 test files created"
+    echo "  ✅ Generic test files created"
 fi
 
 # -----------------------------------------------------------------------------
@@ -148,35 +148,35 @@ fi
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 3: Upload Test Files to GCS${NC}"
 
-if [ "$SYSTEM" = "application1" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Uploading Application1 files..."
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Uploading Generic files..."
 
     # Upload data files first
-    gsutil cp "$TEST_DIR/application1_customers.csv" "gs://${PROJECT_ID}-application1-landing/application1/customers/"
-    gsutil cp "$TEST_DIR/application1_accounts.csv" "gs://${PROJECT_ID}-application1-landing/application1/accounts/"
-    gsutil cp "$TEST_DIR/application1_decision.csv" "gs://${PROJECT_ID}-application1-landing/application1/decision/"
+    gsutil cp "$TEST_DIR/generic_customers.csv" "gs://${PROJECT_ID}-generic-landing/generic/customers/"
+    gsutil cp "$TEST_DIR/generic_accounts.csv" "gs://${PROJECT_ID}-generic-landing/generic/accounts/"
+    gsutil cp "$TEST_DIR/generic_decision.csv" "gs://${PROJECT_ID}-generic-landing/generic/decision/"
 
     # Create .ok trigger files (this triggers Pub/Sub notification)
     touch "$TEST_DIR/customers.csv.ok"
     touch "$TEST_DIR/accounts.csv.ok"
     touch "$TEST_DIR/decision.csv.ok"
 
-    gsutil cp "$TEST_DIR/customers.csv.ok" "gs://${PROJECT_ID}-application1-landing/application1/customers/"
-    gsutil cp "$TEST_DIR/accounts.csv.ok" "gs://${PROJECT_ID}-application1-landing/application1/accounts/"
-    gsutil cp "$TEST_DIR/decision.csv.ok" "gs://${PROJECT_ID}-application1-landing/application1/decision/"
+    gsutil cp "$TEST_DIR/customers.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/customers/"
+    gsutil cp "$TEST_DIR/accounts.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/accounts/"
+    gsutil cp "$TEST_DIR/decision.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/decision/"
 
-    echo "  ✅ Application1 files uploaded"
+    echo "  ✅ Generic files uploaded"
 fi
 
-if [ "$SYSTEM" = "application2" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Uploading Application2 files..."
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Uploading Generic files..."
 
-    gsutil cp "$TEST_DIR/application2_applications.csv" "gs://${PROJECT_ID}-application2-landing/application2/applications/"
+    gsutil cp "$TEST_DIR/generic_applications.csv" "gs://${PROJECT_ID}-generic-landing/generic/applications/"
 
     touch "$TEST_DIR/applications.csv.ok"
-    gsutil cp "$TEST_DIR/applications.csv.ok" "gs://${PROJECT_ID}-application2-landing/application2/applications/"
+    gsutil cp "$TEST_DIR/applications.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/applications/"
 
-    echo "  ✅ Application2 files uploaded"
+    echo "  ✅ Generic files uploaded"
 fi
 
 # -----------------------------------------------------------------------------
@@ -184,23 +184,23 @@ fi
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 4: Check Pub/Sub Messages${NC}"
 
-if [ "$SYSTEM" = "application1" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Checking Application1 Pub/Sub subscription..."
-    MSG_COUNT=$(gcloud pubsub subscriptions pull application1-file-notifications-sub --limit=10 --auto-ack 2>/dev/null | wc -l || echo "0")
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Checking Generic Pub/Sub subscription..."
+    MSG_COUNT=$(gcloud pubsub subscriptions pull generic-file-notifications-sub --limit=10 --auto-ack 2>/dev/null | wc -l || echo "0")
     if [ "$MSG_COUNT" -gt 1 ]; then
-        echo "  ✅ Application1 Pub/Sub messages received"
+        echo "  ✅ Generic Pub/Sub messages received"
     else
-        echo "  ⚠️  No Application1 Pub/Sub messages (may need GCS notification setup)"
+        echo "  ⚠️  No Generic Pub/Sub messages (may need GCS notification setup)"
     fi
 fi
 
-if [ "$SYSTEM" = "application2" ] || [ "$SYSTEM" = "all" ]; then
-    echo "Checking Application2 Pub/Sub subscription..."
-    MSG_COUNT=$(gcloud pubsub subscriptions pull application2-file-notifications-sub --limit=10 --auto-ack 2>/dev/null | wc -l || echo "0")
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "Checking Generic Pub/Sub subscription..."
+    MSG_COUNT=$(gcloud pubsub subscriptions pull generic-file-notifications-sub --limit=10 --auto-ack 2>/dev/null | wc -l || echo "0")
     if [ "$MSG_COUNT" -gt 1 ]; then
-        echo "  ✅ Application2 Pub/Sub messages received"
+        echo "  ✅ Generic Pub/Sub messages received"
     else
-        echo "  ⚠️  No Application2 Pub/Sub messages (may need GCS notification setup)"
+        echo "  ⚠️  No Generic Pub/Sub messages (may need GCS notification setup)"
     fi
 fi
 
@@ -212,24 +212,24 @@ echo "E2E Test Setup Complete"
 echo "==============================================${NC}"
 echo ""
 echo "Test files uploaded to:"
-if [ "$SYSTEM" = "application1" ] || [ "$SYSTEM" = "all" ]; then
-    echo "  - gs://${PROJECT_ID}-application1-landing/application1/customers/"
-    echo "  - gs://${PROJECT_ID}-application1-landing/application1/accounts/"
-    echo "  - gs://${PROJECT_ID}-application1-landing/application1/decision/"
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "  - gs://${PROJECT_ID}-generic-landing/generic/customers/"
+    echo "  - gs://${PROJECT_ID}-generic-landing/generic/accounts/"
+    echo "  - gs://${PROJECT_ID}-generic-landing/generic/decision/"
 fi
-if [ "$SYSTEM" = "application2" ] || [ "$SYSTEM" = "all" ]; then
-    echo "  - gs://${PROJECT_ID}-application2-landing/application2/applications/"
+if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
+    echo "  - gs://${PROJECT_ID}-generic-landing/generic/applications/"
 fi
 echo ""
 echo "Next steps:"
 echo "  1. If Airflow is running: DAGs will pick up .ok files automatically"
 echo "  2. For manual Dataflow test, run:"
-echo "     python deployments/application1-ingestion/src/application1_ingestion/pipeline/application1_pipeline.py \\"
-echo "       --input_path=gs://${PROJECT_ID}-application1-landing/application1/customers/*.csv \\"
-echo "       --output_table=${PROJECT_ID}:odp_application1.customers"
+echo "     python deployments/generic-ingestion/src/generic_ingestion/pipeline/generic_pipeline.py \\"
+echo "       --input_path=gs://${PROJECT_ID}-generic-landing/generic/customers/*.csv \\"
+echo "       --output_table=${PROJECT_ID}:odp_generic.customers"
 echo ""
 echo "  3. Check BigQuery for loaded data:"
-echo "     bq query 'SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_application1.customers\`'"
+echo "     bq query 'SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_generic.customers\`'"
 echo ""
 
 # Cleanup temp files
