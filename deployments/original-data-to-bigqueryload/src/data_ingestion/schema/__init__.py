@@ -1,20 +1,28 @@
 """
 Generic Schema Module.
 
-Entity schemas for Generic Applications.
+Entity schemas for Generic.
 """
 
-from .applications import LOAApplicationsSchema, LOA_APPLICATIONS_FIELDS
-from .registry import LOA_SCHEMAS, get_generic_schema, get_generic_entity_names, get_primary_key
+from .customers import EMCustomerSchema
+from .accounts import EMAccountSchema
+from .decision import EMDecisionSchema
+from .applications import LOAApplicationsSchema
+from .registry import ENTITY_SCHEMAS, get_schema, get_all_entity_names, get_primary_key
+
+EM_SCHEMAS = ENTITY_SCHEMAS
 
 __all__ = [
-    # Entity schemas
+    # Entities
+    'EMCustomerSchema',
+    'EMAccountSchema',
+    'EMDecisionSchema',
     'LOAApplicationsSchema',
-    'LOA_APPLICATIONS_FIELDS',
+    'EM_SCHEMAS',
     # Registry
-    'LOA_SCHEMAS',
-    'get_generic_schema',
-    'get_generic_entity_names',
+    'ENTITY_SCHEMAS',
+    'get_schema',
+    'get_all_entity_names',
     'get_primary_key',
 ]
 

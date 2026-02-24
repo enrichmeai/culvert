@@ -8,11 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install dbt-bigquery
 
-# Copy shared libraries and install them
-COPY gcp-pipeline-libraries /app/gcp-pipeline-libraries
-RUN pip install /app/gcp-pipeline-libraries/gcp-pipeline-core \
-    /app/gcp-pipeline-libraries/gcp-pipeline-transform \
-    /app/gcp-pipeline-libraries/gcp-pipeline-framework
+# Install shared libraries from PyPI
+RUN pip install --no-cache-dir \
+    gcp-pipeline-framework[core,transform]>=1.0.0
 
 # Copy deployment code
 COPY deployments/bigquery-to-mapped-product /app/deployments/bigquery-to-mapped-product

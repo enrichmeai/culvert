@@ -39,6 +39,7 @@ SERVICES=(
     # Monitoring
     "monitoring.googleapis.com"
     "logging.googleapis.com"
+    "telemetry.googleapis.com"
     # Build & Deploy
     "cloudbuild.googleapis.com"
     "containerregistry.googleapis.com"

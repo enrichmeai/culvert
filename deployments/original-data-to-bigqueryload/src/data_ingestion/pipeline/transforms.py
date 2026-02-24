@@ -14,7 +14,7 @@ import apache_beam as beam
 from gcp_pipeline_beam.file_management import HDRTRLParser
 
 from ..validation import EMValidator
-from ..schema import EM_SCHEMAS
+from ..schema import ENTITY_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
 
     def setup(self):
         self.validator = EMValidator()
-        self.schema = EM_SCHEMAS.get(self.entity)
+        self.schema = ENTITY_SCHEMAS.get(self.entity)
 
     def process(self, line: str) -> Iterator[Dict[str, Any]]:
         line = line.strip()

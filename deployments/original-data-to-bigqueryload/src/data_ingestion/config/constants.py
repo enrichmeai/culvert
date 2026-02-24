@@ -34,10 +34,20 @@ DECISION_HEADERS = [
     "reason_codes",
 ]
 
+APPLICATIONS_HEADERS = [
+    "application_id",
+    "customer_id",
+    "application_type",
+    "status",
+    "submission_date",
+    "amount_requested",
+]
+
 # Allowed values
 ALLOWED_STATUSES = ["A", "I", "C"]
 ALLOWED_ACCOUNT_TYPES = ["CHECKING", "SAVINGS", "MONEY_MARKET", "CD", "IRA"]
 ALLOWED_DECISION_CODES = ["APPROVE", "DECLINE", "REVIEW", "PENDING"]
+ALLOWED_APPLICATION_STATUSES = ["SUBMITTED", "IN_PROGRESS", "APPROVED", "DECLINED", "CANCELLED"]
 
 # Score range
 SCORE_MIN = 300

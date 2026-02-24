@@ -148,10 +148,9 @@ source deployments/original-data-to-bigqueryload/venv/bin/activate
 ```
 
 ### 2. Unit Testing
-Run the ingestion unit tests using library mocks:
+Run the ingestion unit tests:
 ```bash
-PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
-  python -m pytest tests/unit/ -v
+python -m pytest tests/unit/ -v
 ```
 
 ### 3. Local Execution (DirectRunner)

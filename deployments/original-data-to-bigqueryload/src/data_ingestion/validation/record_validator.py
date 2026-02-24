@@ -11,7 +11,7 @@ from typing import Dict, List, Any
 from gcp_pipeline_beam.validators import SchemaValidator
 from gcp_pipeline_core.data_quality import check_duplicate_keys
 
-from ..schema import EM_SCHEMAS, get_generic_schema
+from ..schema import ENTITY_SCHEMAS, get_schema
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class EMRecordValidator:
     def __init__(self):
         """Initialize validators for each entity."""
         self._validators = {}
-        for entity_name, schema in EM_SCHEMAS.items():
+        for entity_name, schema in ENTITY_SCHEMAS.items():
             self._validators[entity_name] = SchemaValidator(schema)
 
     def validate_record(
@@ -41,7 +41,7 @@ class EMRecordValidator:
 
         Args:
             record: Record dictionary
-            entity_name: Entity name (customers, accounts, decision)
+            entity_name: Entity name (customers, accounts, decision, applications)
 
         Returns:
             List of error messages (empty if valid)
@@ -102,7 +102,7 @@ class EMRecordValidator:
         Returns:
             List of duplicate records
         """
-        schema = get_generic_schema(entity_name)
+        schema = get_schema(entity_name)
         if not schema:
             return []
 

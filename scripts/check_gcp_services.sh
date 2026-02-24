@@ -24,6 +24,7 @@ REQUIRED_SERVICES=(
     "cloudkms.googleapis.com"
     "monitoring.googleapis.com"
     "logging.googleapis.com"
+    "telemetry.googleapis.com"
 )
 
 echo "Checking required GCP services..."

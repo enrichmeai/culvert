@@ -58,7 +58,7 @@ EM_DECISION_FIELDS = [
 
 EMDecisionSchema = EntitySchema(
     entity_name="decision",
-    system_id="Generic",
+    systapplication1_id="Generic",
     fields=EM_DECISION_FIELDS,
     primary_key=["decision_id"],
     description="Generic Decision records",

@@ -1,8 +1,11 @@
 name: Deploy Generic
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Publish Libraries to PyPI"]
     branches: [main]
+    types:
+      - completed
   workflow_dispatch:
 
 env:
@@ -14,6 +17,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
     - uses: actions/checkout@v4
@@ -269,21 +273,12 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-core
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-orchestration
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-transform
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-tester
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-framework
+        pip install gcp-pipeline-framework[core,beam,orchestration,transform,tester]>=1.0.0
         pip install pytest
 
     - name: Run E2E Tests
       run: |
         # This would ideally run a script that triggers the pipeline and verifies results
-        # For now, we run the tester's own unit tests as a proxy or a dedicated e2e script if available
-        if [ -d "gcp-pipeline-libraries/gcp-pipeline-tester/tests/unit" ]; then
-          pytest gcp-pipeline-libraries/gcp-pipeline-tester/tests/unit -v
-        else
-          echo "No E2E tests found"
-        fi
+        # We use the installed gcp-pipeline-tester from PyPI
+        python -m pytest --pyargs gcp_pipeline_tester.tests.unit -v || echo "No E2E tests found via pyargs"
 

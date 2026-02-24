@@ -24,11 +24,9 @@ RUN pip install --no-cache-dir \
     cryptography \
     pandas
 
-# Copy shared libraries and install them
-COPY gcp-pipeline-libraries /app/gcp-pipeline-libraries
-RUN pip install /app/gcp-pipeline-libraries/gcp-pipeline-core \
-    /app/gcp-pipeline-libraries/gcp-pipeline-beam \
-    /app/gcp-pipeline-libraries/gcp-pipeline-framework
+# Install shared libraries from PyPI
+RUN pip install --no-cache-dir \
+    gcp-pipeline-framework[core,beam]>=1.0.0
 
 # Copy deployment code
 COPY deployments/original-data-to-bigqueryload /app/deployments/original-data-to-bigqueryload

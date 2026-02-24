@@ -28,7 +28,7 @@ from ..config import (
     ACCOUNTS_HEADERS,
     DECISION_HEADERS,
 )
-from ..schema import EM_SCHEMAS
+from ..schema import ENTITY_SCHEMAS, get_schema
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,7 @@ def run_pipeline(argv=None):
     extract_date = generic_options.extract_date
 
     headers = ENTITY_HEADERS.get(entity)
-    schema = EM_SCHEMAS.get(entity)
+    schema = ENTITY_SCHEMAS.get(entity)
 
     if not headers or not schema:
         raise ValueError(f"Unknown entity: {entity}")

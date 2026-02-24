@@ -18,10 +18,12 @@ The CDP pipeline performs the following steps:
 
 ### Local Execution (for testing)
 
-Ensure you have your GCP credentials configured and the library paths added to your `PYTHONPATH`.
+Ensure you have your GCP credentials configured.
 
 ```bash
-export PYTHONPATH=$PYTHONPATH:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src
+# Setup venv
+./scripts/setup_deployment_venv.sh mainframe-segment-transform
+source deployments/mainframe-segment-transform/venv/bin/activate
 
 python3 src/cdp_example/main.py \
     --project your-project-id \

@@ -53,7 +53,7 @@ EM_ACCOUNT_FIELDS = [
 
 EMAccountSchema = EntitySchema(
     entity_name="accounts",
-    system_id="Generic",
+    systapplication1_id="Generic",
     fields=EM_ACCOUNT_FIELDS,
     primary_key=["account_id"],
     description="Generic Account records",
