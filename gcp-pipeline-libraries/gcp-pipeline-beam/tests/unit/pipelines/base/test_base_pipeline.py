@@ -417,10 +417,10 @@ class TestBasePipelineIntegration:
         pipeline = TestPipeline(config={'pipeline_name': 'test'})
         mock_beam_pipeline = MagicMock()
 
-        source_config = {'type': 'pubsub', 'subscription': 'projects/p/subscriptions/s'}
+        source_config = {'type': 'pubsub', 'subscription': 'projects/test-project/subscriptions/s'}
         pipeline.read_source(mock_beam_pipeline, source_config)
 
-        mock_read_pubsub.assert_called_once_with(subscription='projects/p/subscriptions/s')
+        mock_read_pubsub.assert_called_once_with(subscription='projects/test-project/subscriptions/s')
 
     @patch('apache_beam.io.WriteToBigQuery')
     def test_write_to_bigquery_batch(self, mock_write_bq):
