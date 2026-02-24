@@ -125,10 +125,10 @@ To run all shared library tests (900+ tests):
 ./scripts/run_library_tests.sh
 ```
 
-#### Systapplication1-Specific Tests
+#### System-Specific Tests
 To run tests for a specific system component (using embedded libraries):
 ```bash
-cd deployments/application1-ingestion
+cd deployments/original-data-to-bigqueryload
 python -m pytest tests/unit/
 ```
 
@@ -139,8 +139,8 @@ You can test ingestion on your own machine without using Google Cloud. This is g
 
 ```bash
 # Activate the ingestion environment
-cd deployments/application1-ingestion
-python -m application1_ingestion.pipeline.main \
+cd deployments/original-data-to-bigqueryload
+python -m data_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
     --output_table=project:dataset.table \
     --runner=DirectRunner \
@@ -151,7 +151,7 @@ python -m application1_ingestion.pipeline.main \
 You can also run your data transformation rules (dbt) locally:
 
 ```bash
-cd deployments/application1-transformation/dbt
+cd deployments/bigquery-to-mapped-product/dbt
 dbt run --profiles-dir . --target dev
 ```
 
@@ -160,11 +160,8 @@ dbt run --profiles-dir . --target dev
 To test the full flow on Google Cloud, use the simulation script. This mimics a file arriving from a mainframe:
 
 ```bash
-# Simulates a file arrival for the Application1 system
-./scripts/gcp/06_test_pipeline.sh application1
-
-# Simulates Application2 file arrival
-./scripts/gcp/06_test_pipeline.sh application2
+# Simulates a file arrival for the generic ingestion pipeline
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 This script performs the following actions:
@@ -197,15 +194,19 @@ gcp-pipeline-beam         gcp-pipeline-orchestration
 | [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
 | [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | 101 |
 
-### [3-Unit Deployment Model (Embedded)](./deployments/)
+### 3-Unit Deployment Model (Consolidated)
 
-Each system is split into 3 independent units (Ingestion, Transformation, Orchestration).
+The framework now uses a consolidated, generic 3-unit deployment model (Ingestion, Transformation, Orchestration) to prove all patterns in a unified manner.
 
-| System | Ingestion | Transformation | Orchestration |
-|--------|-----------|----------------|---------------|
-| **Application1** | [application1-ingestion](./deployments/application1-ingestion/) (26 tests) | [application1-transformation](./deployments/application1-transformation/) | [application1-orchestration](./deployments/application1-orchestration/) |
-| **Application2** | [application2-ingestion](./deployments/application2-ingestion/) (20 tests) | [application2-transformation](./deployments/application2-transformation/) | [application2-orchestration](./deployments/application2-orchestration/) |
-| **Spanner** | - | [spanner-transformation](./deployments/spanner-transformation/) | - |
+| Unit | Purpose | Source Components |
+| :--- | :--- | :--- |
+| **Ingestion** | [original-data-to-bigqueryload](./deployments/original-data-to-bigqueryload/) | Customers, Accounts, Decision, Applications |
+| **Transformation** | [bigquery-to-mapped-product](./deployments/bigquery-to-mapped-product/) | dbt models for all generic targets |
+| **Orchestration** | [data-pipeline-orchestrator](./deployments/data-pipeline-orchestrator/) | Airflow DAGs for coordination |
+
+Specialized patterns are maintained in dedicated projects:
+*   **Spanner**: [spanner-to-bigquery-load](./deployments/spanner-to-bigquery-load/)
+*   **Mainframe Segment**: [mainframe-segment-transform](./deployments/mainframe-segment-transform/)
 
 **Note:** In the `deployments` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
 
@@ -248,7 +249,7 @@ CSV files             + .ok file     │
 ### File Format
 
 ```
-HDR|Application1|CUSTOMERS|20260101           ← Header: System, Entity, Date
+HDR|Generic|CUSTOMERS|20260101           ← Header: System, Entity, Date
 customer_id,name,ssn,status         ← CSV headers
 1001,John Doe,123-45-6789,ACTIVE    ← Data rows
 1002,Jane Smith,987-65-4321,ACTIVE
@@ -261,7 +262,7 @@ Files > 25MB are split by mainframe with naming: `customers_1.csv`, `customers_2
 
 Single `.ok` file signals all splits are complete:
 ```
-gs://landing/application1/customers/
+gs://landing/generic/customers/
 ├── customers_1.csv
 ├── customers_2.csv
 └── customers.csv.ok    ← Triggers processing of ALL splits
@@ -271,7 +272,7 @@ gs://landing/application1/customers/
 
 ## Reference Implementations
 
-### Application1 (Application A) - MULTI-TARGET Pattern
+### Generic Ingestion - JOIN Pattern (3-to-3)
 
 | Aspect | Value |
 |--------|-------|
@@ -280,7 +281,7 @@ gs://landing/application1/customers/
 | FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
 | Dependency | Wait for all 3 entities before FDP transformation |
 
-### Application2 (Application B) - MAP Pattern
+### Generic Ingestion - MAP Pattern (1-to-1)
 
 | Aspect | Value |
 |--------|-------|
@@ -305,31 +306,25 @@ gs://landing/application1/customers/
 
 ```
 gcp-pipeline-libraries/
-├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # 219 tests - Foundation
-├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # 359 tests - Ingestion
-├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # 58 tests - Control
+├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # Foundation
+├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # Ingestion
+├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # Control
 ├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
-└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # 101 tests - Testing utilities
+└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
 
 [deployments/](./deployments/)
-├── [`application1-ingestion/`](./deployments/application1-ingestion/)                # 26 tests (3 sources)
-├── [`application1-transformation/`](./deployments/application1-transformation/)           # dbt models (2 targets)
-├── [`application1-orchestration/`](./deployments/application1-orchestration/)            # Airflow DAGs
-├── [`application2-ingestion/`](./deployments/application2-ingestion/)               # 20 tests (1 source)
-├── [`application2-transformation/`](./deployments/application2-transformation/)          # dbt models (1 target)
-├── [`application2-orchestration/`](./deployments/application2-orchestration/)           # Airflow DAGs
-└── [`spanner-transformation/`](./deployments/spanner-transformation/)    # dbt models (Federated)
+├── [`original-data-to-bigqueryload/`](./deployments/original-data-to-bigqueryload/) # Generic Ingestion
+├── [`bigquery-to-mapped-product/`](./deployments/bigquery-to-mapped-product/)       # Generic Transformation
+├── [`data-pipeline-orchestrator/`](./deployments/data-pipeline-orchestrator/)      # Generic Orchestration
+├── [`spanner-to-bigquery-load/`](./deployments/spanner-to-bigquery-load/)          # Spanner Federated
+└── [`mainframe-segment-transform/`](./deployments/mainframe-segment-transform/)    # Mainframe Segment
 
 infrastructure/terraform/
-├── systems/application1/                  # Application1 infrastructure
-│   ├── ingestion/               # GCS, Pub/Sub
-│   ├── transformation/          # BigQuery datasets
-│   └── orchestration/           # Service accounts, IAM
-└── systems/application2/                 # Application2 infrastructure
-    ├── ingestion/
-    ├── transformation/
-    └── orchestration/
-```
+└── systems/generic/               # Generic 3-unit infrastructure
+    ├── ingestion/                 # GCS, Pub/Sub, BQ ODP
+    ├── transformation/            # BigQuery FDP
+    └── orchestration/             # Service accounts, IAM, Composer
+```,search:
 
 ---
 

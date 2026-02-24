@@ -57,12 +57,12 @@ done
 echo -e "\n${BLUE}>>> Step 2: Create GCS Buckets${NC}"
 
 BUCKETS=(
-    "${PROJECT_ID}-application1-landing"
-    "${PROJECT_ID}-application1-archive"
-    "${PROJECT_ID}-application1-error"
-    "${PROJECT_ID}-application2-landing"
-    "${PROJECT_ID}-application2-archive"
-    "${PROJECT_ID}-application2-error"
+    "${PROJECT_ID}-generic-landing"
+    "${PROJECT_ID}-generic-archive"
+    "${PROJECT_ID}-generic-error"
+    "${PROJECT_ID}-generic-landing"
+    "${PROJECT_ID}-generic-archive"
+    "${PROJECT_ID}-generic-error"
     "${PROJECT_ID}-dataflow-temp"
 )
 
@@ -81,10 +81,10 @@ done
 echo -e "\n${BLUE}>>> Step 3: Create BigQuery Datasets${NC}"
 
 DATASETS=(
-    "odp_application1"
-    "fdp_application1"
-    "odp_application2"
-    "fdp_application2"
+    "odp_generic"
+    "fdp_generic"
+    "odp_generic"
+    "fdp_generic"
     "job_control"
 )
 
@@ -102,27 +102,27 @@ done
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 4: Create BigQuery Tables${NC}"
 
-# Application1 Customers table
-echo -n "  Creating odp_application1.customers... "
-bq mk --table "${PROJECT_ID}:odp_application1.customers" \
+# Generic Customers table
+echo -n "  Creating odp_generic.customers... "
+bq mk --table "${PROJECT_ID}:odp_generic.customers" \
     customer_id:STRING,first_name:STRING,last_name:STRING,ssn:STRING,status:STRING,created_date:DATE,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# Application1 Accounts table
-echo -n "  Creating odp_application1.accounts... "
-bq mk --table "${PROJECT_ID}:odp_application1.accounts" \
+# Generic Accounts table
+echo -n "  Creating odp_generic.accounts... "
+bq mk --table "${PROJECT_ID}:odp_generic.accounts" \
     account_id:STRING,customer_id:STRING,account_type:STRING,balance:NUMERIC,open_date:DATE,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# Application1 Decision table
-echo -n "  Creating odp_application1.decision... "
-bq mk --table "${PROJECT_ID}:odp_application1.decision" \
+# Generic Decision table
+echo -n "  Creating odp_generic.decision... "
+bq mk --table "${PROJECT_ID}:odp_generic.decision" \
     decision_id:STRING,customer_id:STRING,outcome:STRING,decision_date:DATE,score:INTEGER,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# Application2 Applications table
-echo -n "  Creating odp_application2.applications... "
-bq mk --table "${PROJECT_ID}:odp_application2.applications" \
+# Generic Applications table
+echo -n "  Creating odp_generic.applications... "
+bq mk --table "${PROJECT_ID}:odp_generic.applications" \
     application_id:STRING,customer_id:STRING,ssn:STRING,loan_amount:NUMERIC,interest_rate:NUMERIC,term_months:INTEGER,application_date:DATE,status:STRING,event_type:STRING,account_type:STRING,_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE \
     2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
@@ -137,48 +137,48 @@ bq mk --table "${PROJECT_ID}:job_control.pipeline_jobs" \
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 5: Create Pub/Sub Topics${NC}"
 
-# Application1 Topic
-echo -n "  Creating application1-file-notifications... "
-gcloud pubsub topics create application1-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating application1-file-notifications-sub... "
-gcloud pubsub subscriptions create application1-file-notifications-sub \
-    --topic=application1-file-notifications \
+# Generic Topic
+echo -n "  Creating generic-file-notifications... "
+gcloud pubsub topics create generic-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating generic-file-notifications-sub... "
+gcloud pubsub subscriptions create generic-file-notifications-sub \
+    --topic=generic-file-notifications \
     --ack-deadline=60 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-# Application2 Topic
-echo -n "  Creating application2-file-notifications... "
-gcloud pubsub topics create application2-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating application2-file-notifications-sub... "
-gcloud pubsub subscriptions create application2-file-notifications-sub \
-    --topic=application2-file-notifications \
+# Generic Topic
+echo -n "  Creating generic-file-notifications... "
+gcloud pubsub topics create generic-file-notifications 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating generic-file-notifications-sub... "
+gcloud pubsub subscriptions create generic-file-notifications-sub \
+    --topic=generic-file-notifications \
     --ack-deadline=60 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # DLQ Topics
-echo -n "  Creating application1-dlq... "
-gcloud pubsub topics create application1-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
-echo -n "  Creating application2-dlq... "
-gcloud pubsub topics create application2-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating generic-dlq... "
+gcloud pubsub topics create generic-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+echo -n "  Creating generic-dlq... "
+gcloud pubsub topics create generic-dlq 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # -----------------------------------------------------------------------------
 # Step 6: Setup GCS Notifications (triggers Pub/Sub on .ok file upload)
 # -----------------------------------------------------------------------------
 echo -e "\n${BLUE}>>> Step 6: Setup GCS Notifications${NC}"
 
-echo -n "  Application1 bucket notification... "
+echo -n "  Generic bucket notification... "
 gsutil notification create \
-    -t "projects/${PROJECT_ID}/topics/application1-file-notifications" \
+    -t "projects/${PROJECT_ID}/topics/generic-file-notifications" \
     -f json \
     -e OBJECT_FINALIZE \
-    -p "application1/" \
-    "gs://${PROJECT_ID}-application1-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+    -p "generic/" \
+    "gs://${PROJECT_ID}-generic-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
-echo -n "  Application2 bucket notification... "
+echo -n "  Generic bucket notification... "
 gsutil notification create \
-    -t "projects/${PROJECT_ID}/topics/application2-file-notifications" \
+    -t "projects/${PROJECT_ID}/topics/generic-file-notifications" \
     -f json \
     -e OBJECT_FINALIZE \
-    -p "application2/" \
-    "gs://${PROJECT_ID}-application2-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
+    -p "generic/" \
+    "gs://${PROJECT_ID}-generic-landing" 2>/dev/null && echo "✅" || echo "⚠️ (may exist)"
 
 # -----------------------------------------------------------------------------
 # Summary

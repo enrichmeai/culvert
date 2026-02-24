@@ -58,10 +58,10 @@ else
     ((ERRORS++))
 fi
 
-# Check Application1 buckets
+# Check Generic buckets
 echo ""
-echo -e "${BLUE}=== Application1 Buckets ===${NC}"
-for bucket in application1-landing application1-archive application1-error application1-temp; do
+echo -e "${BLUE}=== Generic Buckets ===${NC}"
+for bucket in generic-landing generic-archive generic-error generic-temp; do
     if gsutil ls "gs://${PROJECT_ID}-${bucket}" &>/dev/null; then
         echo -e "  ${GREEN}✅${NC} gs://${PROJECT_ID}-${bucket}"
     else
@@ -70,10 +70,10 @@ for bucket in application1-landing application1-archive application1-error appli
     fi
 done
 
-# Check Application2 buckets
+# Check Generic buckets
 echo ""
-echo -e "${BLUE}=== Application2 Buckets ===${NC}"
-for bucket in application2-landing application2-archive application2-error application2-temp; do
+echo -e "${BLUE}=== Generic Buckets ===${NC}"
+for bucket in generic-landing generic-archive generic-error generic-temp; do
     if gsutil ls "gs://${PROJECT_ID}-${bucket}" &>/dev/null; then
         echo -e "  ${GREEN}✅${NC} gs://${PROJECT_ID}-${bucket}"
     else
@@ -85,7 +85,7 @@ done
 # Check BigQuery datasets
 echo ""
 echo -e "${BLUE}=== BigQuery Datasets ===${NC}"
-for ds in odp_application1 fdp_application1 job_control odp_application2 fdp_application2; do
+for ds in odp_generic fdp_generic job_control odp_generic fdp_generic; do
     if bq show --project_id="$PROJECT_ID" "$ds" &>/dev/null; then
         echo -e "  ${GREEN}✅${NC} $ds"
     else
@@ -97,7 +97,7 @@ done
 # Check Pub/Sub topics
 echo ""
 echo -e "${BLUE}=== Pub/Sub Topics ===${NC}"
-for topic in application1-file-notifications application1-pipeline-events application2-file-notifications application2-pipeline-events; do
+for topic in generic-file-notifications generic-pipeline-events generic-file-notifications generic-pipeline-events; do
     if gcloud pubsub topics describe "$topic" --project="$PROJECT_ID" &>/dev/null; then
         echo -e "  ${GREEN}✅${NC} $topic"
     else
@@ -131,8 +131,8 @@ if [ $ERRORS -eq 0 ]; then
     echo ""
     echo "Next steps:"
     echo "  1. Push code to trigger deployment: git push"
-    echo "  2. Or manually: gh workflow run deploy-application1.yml"
-    echo "  3. Test with: ./scripts/gcp/06_test_pipeline.sh application1"
+    echo "  2. Or manually: gh workflow run deploy-generic.yml"
+    echo "  3. Test with: ./scripts/gcp/06_test_pipeline.sh generic"
 else
     echo -e "${RED}❌ $ERRORS issue(s) found. Please fix before deploying.${NC}"
 fi

@@ -19,7 +19,7 @@ Every record processed through the pipeline gets these columns automatically:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `_run_id` | STRING | Unique pipeline execution ID (e.g., `application1_20260103_143022_abc123`) |
+| `_run_id` | STRING | Unique pipeline execution ID (e.g., `generic_20260103_143022_abc123`) |
 | `_source_file` | STRING | Original source file name |
 | `_extract_date` | DATE | Extract date from HDR record |
 | `_processed_at` | TIMESTAMP | When record was loaded to ODP |
@@ -34,17 +34,17 @@ from gcp_pipeline_core.audit import AuditTrail
 from gcp_pipeline_core.utilities import generate_run_id
 
 # Create audit trail for pipeline run
-run_id = generate_run_id("application1")  # → "application1_20260103_143022_abc123"
+run_id = generate_run_id("generic")  # → "generic_20260103_143022_abc123"
 audit = AuditTrail(
     run_id=run_id,
-    pipeline_name="application1_daily_load",
+    pipeline_name="generic_daily_load",
     entity_type="customers"
 )
 
 # Log pipeline stages
 audit.log_entry("STARTED", "Pipeline initiated")
 audit.log_entry("VALIDATION", "File validation passed", {"record_count": 1000})
-audit.log_entry("ODP_Application2D", "Loaded to BigQuery", {"table": "odp_application1.customers"})
+audit.log_entry("ODP_GenericD", "Loaded to BigQuery", {"table": "odp_generic.customers"})
 audit.log_entry("COMPLETED", "Pipeline finished successfully")
 
 # Get summary
@@ -56,12 +56,12 @@ print(f"Records processed: {audit.records_processed}")
 
 ```sql
 -- Find all records from a specific pipeline run
-SELECT * FROM odp_application1.customers 
-WHERE _run_id = 'application1_20260103_143022_abc123';
+SELECT * FROM odp_generic.customers 
+WHERE _run_id = 'generic_20260103_143022_abc123';
 
 -- Track which file a record came from
 SELECT customer_id, _source_file, _extract_date 
-FROM odp_application1.customers 
+FROM odp_generic.customers 
 WHERE customer_id = 'CUST001';
 
 -- Reconciliation: compare source vs loaded counts
@@ -69,8 +69,8 @@ SELECT
   _source_file,
   COUNT(*) as loaded_count,
   _extract_date
-FROM odp_application1.customers
-WHERE _run_id = 'application1_20260103_143022_abc123'
+FROM odp_generic.customers
+WHERE _run_id = 'generic_20260103_143022_abc123'
 GROUP BY _source_file, _extract_date;
 ```
 

@@ -12,7 +12,7 @@ This document defines the production-grade architecture for the Legacy Mainframe
 ## 3. System Architecture
 
 ### 3.1 The 3-Unit Deployment Model
-Every system (e.g., Application1, Application2) is implemented as three independent functional units:
+Every system (e.g., Generic, Generic) is implemented as three independent functional units:
 
 1.  **Unit 1: Ingestion (Beam/Dataflow)**: Handles I/O, file validation, and raw loading.
 2.  **Unit 2: Transformation (dbt/BigQuery)**: Implements business logic and data modeling.
@@ -43,7 +43,7 @@ This table manages the state machine for every migration run.
 | Column | Type | Description |
 |--------|------|-------------|
 | `run_id` | STRING | Unique ID (Correlation ID) |
-| `systapplication1_id` | STRING | Source system (e.g., Application1, Application2) |
+| `systgeneric_id` | STRING | Source system (e.g., Generic, Generic) |
 | `entity_type` | STRING | Entity (Customers, Accounts) |
 | `extract_date` | DATE | Source file extract date |
 | `status` | STRING | PENDING, RUNNING, SUCCESS, FAILED |
@@ -257,7 +257,7 @@ As the Enterprise Ingestion Framework is currently not yet started, this framewo
 *   **Future Proofing**: Because our architecture is decoupled (Unit 1 is independent of Unit 2/3), systems started on this framework can easily migrate to the Enterprise Ingestion Framework once it matures, simply by swapping the Unit 1 implementation while keeping the Orchestration and Transformation logic intact.
 
 ### 10.6 Governance for Custom paved paths
-While the framework encourages the creation of systapplication1-specific "paved paths" to handle unique legacy patterns, all paths must adhere to the following mandatory governance rules to maintain platform integrity. This approach has broad support from multiple teams across the **the enterprise platform**, ensuring that decentralized innovation remains consistent with enterprise standards.
+While the framework encourages the creation of systgeneric-specific "paved paths" to handle unique legacy patterns, all paths must adhere to the following mandatory governance rules to maintain platform integrity. This approach has broad support from multiple teams across the **the enterprise platform**, ensuring that decentralized innovation remains consistent with enterprise standards.
 
 #### 10.6.1 The Pathway to "Official" paved path Status
 A custom pattern developed by a team can be promoted to an official "paved path" if it:

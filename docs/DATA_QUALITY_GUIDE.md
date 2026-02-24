@@ -1,4 +1,4 @@
-# 📊 Application2 Blueprint - Data Quality Standards (Hybrid Library & Dataplex)
+# 📊 Generic Blueprint - Data Quality Standards (Hybrid Library & Dataplex)
 
 **Version:** 2.1  
 **Last Updated:** December 31, 2025  

@@ -12,23 +12,23 @@ A standard system migration is broken down into **4 Major Work Streams**, corres
 *Focus: Defining the contract between the legacy system and GCP.*
 
 1.  **Analyze Source Extract**: Identify HDR/TRL format, delimiters, and file naming conventions.
-2.  **Define Entity Schema**: Create `EntitySchema` definitions in `gcp-pipeline-core` (or systapplication1-specific config) including data types, nullability, and regex patterns.
+2.  **Define Entity Schema**: Create `EntitySchema` definitions in `gcp-pipeline-core` (or systgeneric-specific config) including data types, nullability, and regex patterns.
 3.  **Map ODP to FDP**: Document the transformation logic (joins, filters, business rules) from raw tables to business-ready tables.
 4.  **Identify PII/Sensitive Data**: List columns requiring masking or hashing in the FDP layer.
 
 ### Work Stream 2: Infrastructure (Terraform)
 *Focus: Provisioning the "house" for the data.*
 
-1.  **Create System Folders**: Set up new Terraform modules under `infrastructure/terraform/systems/<systapplication1_id>/`.
+1.  **Create System Folders**: Set up new Terraform modules under `infrastructure/terraform/systems/<systgeneric_id>/`.
 2.  **Provision GCS Buckets**: Create Landing, Archive, Error, and Temp buckets.
-3.  **Provision BigQuery Datasets**: Create `odp_<systapplication1_id>` and `fdp_<systapplication1_id>` datasets.
+3.  **Provision BigQuery Datasets**: Create `odp_<systgeneric_id>` and `fdp_<systgeneric_id>` datasets.
 4.  **Configure Pub/Sub**: Create file notification topics and subscriptions.
 5.  **IAM Role Assignment**: Provision dedicated Service Accounts for Ingestion, Transformation, and Orchestration with least-privilege roles.
 
 ### Work Stream 3: Ingestion Unit (Unit 1 - Beam/Dataflow)
 *Focus: Moving data from GCS to BigQuery ODP.*
 
-1.  **Initialize Ingestion Project**: Create `deployments/<systapplication1_id>-ingestion/` structure.
+1.  **Initialize Ingestion Project**: Create `deployments/<systgeneric_id>-ingestion/` structure.
 2.  **Implement File Validation**: Configure `HDRTRLParser` for the system's specific header/trailer format.
 3.  **Create Beam Pipeline**: Implement the pipeline using `BasePipeline` (recommended) or `beam.Pipeline`, ensuring `SchemaValidateRecordDoFn` and audit columns are included.
 4.  **Configure Flex Template**: Build the Docker image and JSON metadata for the Dataflow Flex Template.
@@ -37,7 +37,7 @@ A standard system migration is broken down into **4 Major Work Streams**, corres
 ### Work Stream 4: Transformation Unit (Unit 2 - dbt)
 *Focus: Transforming data from ODP to FDP.*
 
-1.  **Initialize dbt Project**: Create `deployments/<systapplication1_id>-transformation/dbt/`.
+1.  **Initialize dbt Project**: Create `deployments/<systgeneric_id>-transformation/dbt/`.
 2.  **Implement Staging Models**: Create 1:1 staging views with basic casting and renaming.
 3.  **Implement FDP Models**: Write the SQL logic for the final business-ready tables.
 4.  **Apply Audit Macros**: Ensure all models use the `add_audit_columns()` macro from `gcp-pipeline-transform`.
@@ -46,7 +46,7 @@ A standard system migration is broken down into **4 Major Work Streams**, corres
 ### Work Stream 5: Orchestration Unit (Unit 3 - Airflow)
 *Focus: Coordinating the event-driven flow.*
 
-1.  **Initialize Orchestration Project**: Create `deployments/<systapplication1_id>-orchestration/dags/`.
+1.  **Initialize Orchestration Project**: Create `deployments/<systgeneric_id>-orchestration/dags/`.
 2.  **Implement Trigger DAG**: Configure the `BasePubSubPullSensor` to listen for `.ok` files.
 3.  **Implement Load DAG**: Use `BatchDataflowOperator` (from library) or standard `DataflowStartFlexTemplateOperator` to launch the Ingestion unit.
 4.  **Implement Transform DAG**: Use `BashOperator` to execute `dbt run` for the Transformation unit.

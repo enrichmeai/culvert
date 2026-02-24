@@ -2,7 +2,7 @@
 # =============================================================================
 # Cleanup: Delete Infrastructure (Keep Project)
 # =============================================================================
-# Usage: ./scripts/gcp/07_cleanup.sh [application1|application2|all]
+# Usage: ./scripts/gcp/07_cleanup.sh [generic|generic|all]
 # =============================================================================
 
 set -e
@@ -22,7 +22,7 @@ if [ -z "$PROJECT_ID" ]; then
 fi
 
 if [ -z "$DEPLOYMENT" ]; then
-    echo "Usage: $0 [application1|application2|all]"
+    echo "Usage: $0 [generic|generic|all]"
     exit 1
 fi
 
@@ -77,42 +77,42 @@ delete_topic() {
 }
 
 cleanup_em() {
-    echo -e "${BLUE}=== Deleting Application1 Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Deleting Generic Infrastructure ===${NC}"
     echo ""
     echo "Subscriptions:"
-    delete_subscription "application1-file-notifications-sub"
-    delete_subscription "application1-pipeline-events-sub"
+    delete_subscription "generic-file-notifications-sub"
+    delete_subscription "generic-pipeline-events-sub"
     echo "Topics:"
-    delete_topic "application1-file-notifications"
-    delete_topic "application1-pipeline-events"
+    delete_topic "generic-file-notifications"
+    delete_topic "generic-pipeline-events"
     echo "Datasets:"
-    delete_dataset "odp_application1"
-    delete_dataset "fdp_application1"
+    delete_dataset "odp_generic"
+    delete_dataset "fdp_generic"
     echo "Buckets:"
-    delete_bucket "application1-landing"
-    delete_bucket "application1-archive"
-    delete_bucket "application1-error"
-    delete_bucket "application1-temp"
+    delete_bucket "generic-landing"
+    delete_bucket "generic-archive"
+    delete_bucket "generic-error"
+    delete_bucket "generic-temp"
     echo ""
 }
 
 cleanup_loa() {
-    echo -e "${BLUE}=== Deleting Application2 Infrastructure ===${NC}"
+    echo -e "${BLUE}=== Deleting Generic Infrastructure ===${NC}"
     echo ""
     echo "Subscriptions:"
-    delete_subscription "application2-file-notifications-sub"
-    delete_subscription "application2-pipeline-events-sub"
+    delete_subscription "generic-file-notifications-sub"
+    delete_subscription "generic-pipeline-events-sub"
     echo "Topics:"
-    delete_topic "application2-file-notifications"
-    delete_topic "application2-pipeline-events"
+    delete_topic "generic-file-notifications"
+    delete_topic "generic-pipeline-events"
     echo "Datasets:"
-    delete_dataset "odp_application2"
-    delete_dataset "fdp_application2"
+    delete_dataset "odp_generic"
+    delete_dataset "fdp_generic"
     echo "Buckets:"
-    delete_bucket "application2-landing"
-    delete_bucket "application2-archive"
-    delete_bucket "application2-error"
-    delete_bucket "application2-temp"
+    delete_bucket "generic-landing"
+    delete_bucket "generic-archive"
+    delete_bucket "generic-error"
+    delete_bucket "generic-temp"
     echo ""
 }
 
@@ -125,10 +125,10 @@ cleanup_shared() {
 }
 
 case "$DEPLOYMENT" in
-    application1)  cleanup_em ;;
-    application2) cleanup_loa ;;
+    generic)  cleanup_em ;;
+    generic) cleanup_loa ;;
     all) cleanup_em; cleanup_loa; cleanup_shared ;;
-    *)   echo "Usage: $0 [application1|application2|all]"; exit 1 ;;
+    *)   echo "Usage: $0 [generic|generic|all]"; exit 1 ;;
 esac
 
 echo -e "${GREEN}✅ Cleanup complete!${NC}"

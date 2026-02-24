@@ -6,7 +6,7 @@ set -e
 
 if [ -z "$1" ]; then
     echo "Usage: $0 <deployment-name>"
-    echo "Example: $0 application2-ingestion"
+    echo "Example: $0 generic-ingestion"
     exit 1
 fi
 

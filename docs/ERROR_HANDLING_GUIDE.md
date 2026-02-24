@@ -30,7 +30,7 @@ The `ErrorContext` manager captures any unhandled exceptions during execution.
 ```python
 from gcp_pipeline_core.core.error_handling import ErrorHandler, ErrorContext
 
-handler = ErrorHandler(pipeline_name="mysystapplication1-ingestion", run_id="run_001")
+handler = ErrorHandler(pipeline_name="mysystgeneric-ingestion", run_id="run_001")
 
 with ErrorContext(handler, operation_name="dataflow_execution"):
     # Run your pipeline logic here

@@ -1,0 +1,96 @@
+version: 2
+
+models:
+  - name: event_transaction_excess
+    description: |
+      Event Transaction Excess - Foundation Data Product
+      
+      JOIN of 2 ODP sources (customers, accounts) into a single
+      table for transaction-level analysis.
+      
+      Dependency: Both customers and accounts must be loaded before this runs.
+
+    config:
+      tags: ["fdp", "generic", "join"]
+      materialized: table
+      partition_by:
+        field: _extract_date
+        data_type: date
+      cluster_by:
+        - customer_id
+        - account_id
+
+    columns:
+      - name: customer_id
+        description: "Customer identifier"
+        tests:
+          - not_null
+      - name: ssn_masked
+        description: "Masked SSN (***-**-XXXX)"
+      - name: first_name
+        description: "Customer first name"
+      - name: last_name
+        description: "Customer last name"
+      - name: account_id
+        description: "Account identifier"
+      - name: account_type_desc
+        description: "Account type description"
+      - name: current_balance
+        description: "Current account balance"
+
+      # Audit columns
+      - name: _run_id
+        description: "Pipeline run ID"
+        tests:
+          - not_null
+      - name: _extract_date
+        description: "Extract date from source"
+        tests:
+          - not_null
+      - name: _transformed_at
+        description: "Transformation timestamp"
+
+  - name: portfolio_account_excess
+    description: |
+      Portfolio Account Excess - Foundation Data Product
+      
+      MAP of decision ODP source into FDP target for portfolio analysis.
+      
+      Dependency: decision ODP must be loaded before this runs.
+
+    config:
+      tags: ["fdp", "generic", "map"]
+      materialized: table
+      partition_by:
+        field: _extract_date
+        data_type: date
+      cluster_by:
+        - customer_id
+        - _run_id
+
+    columns:
+      - name: decision_id
+        description: "Decision identifier"
+        tests:
+          - not_null
+      - name: customer_id
+        description: "Customer identifier"
+        tests:
+          - not_null
+      - name: decision_outcome
+        description: "Decision outcome (Approved/Declined/Under Review/Pending)"
+      - name: score
+        description: "Credit score"
+
+      # Audit columns
+      - name: _run_id
+        description: "Pipeline run ID"
+        tests:
+          - not_null
+      - name: _extract_date
+        description: "Extract date from source"
+        tests:
+          - not_null
+      - name: _transformed_at
+        description: "Transformation timestamp"
+

@@ -1,6 +1,6 @@
 # 📖 Complete Testing & Deployment Guide
 
-Unified guide for the GDW Data Core Library and Deployments (Application1 & Application2).
+Unified guide for the GDW Data Core Library and Deployments (Generic & Generic).
 
 **Last Updated:** January 2, 2026  
 **Reference:** [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md)
@@ -25,8 +25,8 @@ Per the [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md), we have two pipeline s
 
 | System | Entities | ODP Tables | FDP Tables | Pattern |
 |--------|----------|------------|------------|---------|
-| **Application1** (Application A) | 3 (Customers, Accounts, Decision) | 3 | 2 (`event_transaction_excess`, `portfolio_account_excess`) | MULTI-TARGET |
-| **Application2** (Application B) | 1 (Applications) | 1 | 1 (`portfolio_account_facility`) | MAP |
+| **Generic** (Application A) | 3 (Customers, Accounts, Decision) | 3 | 2 (`event_transaction_excess`, `portfolio_account_excess`) | MULTI-TARGET |
+| **Generic** (Application B) | 1 (Applications) | 1 | 1 (`portfolio_account_facility`) | MAP |
 
 ### File Format (Both Systems)
 
@@ -58,17 +58,17 @@ pip install -r deployments/setup/requirements-test.txt
 
 # Install packages in editable mode
 pip install -e gcp-pipeline-libraries/gcp-pipeline-core/
-pip install -e deployments/application1/
-pip install -e deployments/application2/
+pip install -e deployments/generic/
+pip install -e deployments/generic/
 
 # Verify installation
 python -c "
 from gcp_pipeline_beam.file_management import HDRTRLParser
-from application1.config import SYSTEM_ID as Application1_ID
-from application2.config import SYSTEM_ID as Application2_ID
+from generic.config import SYSTEM_ID as Generic_ID
+from generic.config import SYSTEM_ID as Generic_ID
 print(f'✅ Library: OK')
-print(f'✅ Application1 System ID: {Application1_ID}')
-print(f'✅ Application2 System ID: {Application2_ID}')
+print(f'✅ Generic System ID: {Generic_ID}')
+print(f'✅ Generic System ID: {Generic_ID}')
 "
 ```
 
@@ -95,8 +95,8 @@ To avoid Python module caching conflicts, run tests for each component **separat
 
 # Or run each component separately:
 ./run_all_tests.sh library   # Library only (500+ tests)
-./run_all_tests.sh application1        # Application1 only (400+ tests)
-./run_all_tests.sh application2       # Application2 only (60+ tests)
+./run_all_tests.sh generic        # Generic only (400+ tests)
+./run_all_tests.sh generic       # Generic only (60+ tests)
 ```
 
 ### Test Categories
@@ -125,13 +125,13 @@ PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v --tb=sho
 cd ../gcp-pipeline-orchestration
 PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v --tb=short
 
-# Application2 Ingestion tests (36 tests)
-cd ../../deployments/application2-ingestion
+# Generic Ingestion tests (36 tests)
+cd ../../deployments/generic-ingestion
 PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v --tb=short
 
-# Application1 Ingestion tests (44 tests)
-cd ../application1-ingestion
+# Generic Ingestion tests (44 tests)
+cd ../generic-ingestion
 PYTHONPATH=src:../../gcp-pipeline-libraries/gcp-pipeline-core/src:../../gcp-pipeline-libraries/gcp-pipeline-beam/src \
   python -m pytest tests/unit/ -v --tb=short
 ```
@@ -155,7 +155,7 @@ On every push/PR, GitHub Actions runs tests in isolation:
      └─────┬──────┘
            ▼
   ┌────────────────┐
-  │ test-ingestion │ ← Application1 + Application2 ingestion
+  │ test-ingestion │ ← Generic + Generic ingestion
   └────────────────┘
 ```
 
@@ -174,13 +174,13 @@ cd infrastructure/terraform
 terraform init
 terraform apply
 
-# Deploy Application1
-cd application1
+# Deploy Generic
+cd generic
 terraform init
 terraform apply -var-file=../env/staging.tfvars
 
-# Deploy Application2
-cd ../application2
+# Deploy Generic
+cd ../generic
 terraform init  
 terraform apply -var-file=../env/staging.tfvars
 ```
@@ -191,8 +191,8 @@ terraform apply -var-file=../env/staging.tfvars
 export PROJECT_ID=$(gcloud config get-value project)
 
 # Check buckets
-gsutil ls gs://${PROJECT_ID}-application1-staging-landing
-gsutil ls gs://${PROJECT_ID}-application2-staging-landing
+gsutil ls gs://${PROJECT_ID}-generic-staging-landing
+gsutil ls gs://${PROJECT_ID}-generic-staging-landing
 
 # Check Pub/Sub
 gcloud pubsub topics list
@@ -205,8 +205,8 @@ bq ls
 
 ```bash
 # Copy to Cloud Composer
-gsutil -m cp deployments/application1/src/application1/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
-gsutil -m cp deployments/application2/src/application2/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
+gsutil -m cp deployments/generic/src/generic/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
+gsutil -m cp deployments/generic/src/generic/orchestration/airflow/dags/*.py gs://${COMPOSER_BUCKET}/dags/
 ```
 
 ---
@@ -216,11 +216,11 @@ gsutil -m cp deployments/application2/src/application2/orchestration/airflow/dag
 ### Using the Deployment Test Script
 
 ```bash
-# Test Application1 deployment
-./test_deployment.sh application1
+# Test Generic deployment
+./test_deployment.sh generic
 
-# Test Application2 deployment
-./test_deployment.sh application2
+# Test Generic deployment
+./test_deployment.sh generic
 ```
 
 **What the script does:**
@@ -236,41 +236,41 @@ gsutil -m cp deployments/application2/src/application2/orchestration/airflow/dag
 export PROJECT_ID=$(gcloud config get-value project)
 
 # 1. Upload test file + trigger
-gsutil cp test_applications.csv gs://${PROJECT_ID}-application2-staging-landing/application2/
-gsutil cp /dev/null gs://${PROJECT_ID}-application2-staging-landing/application2/test_applications.csv.ok
+gsutil cp test_applications.csv gs://${PROJECT_ID}-generic-staging-landing/generic/
+gsutil cp /dev/null gs://${PROJECT_ID}-generic-staging-landing/generic/test_applications.csv.ok
 
 # 2. Check Pub/Sub received message
-gcloud pubsub subscriptions pull application2-file-notifications-sub --auto-ack --limit=5
+gcloud pubsub subscriptions pull generic-file-notifications-sub --auto-ack --limit=5
 
 # 3. Wait for pipeline (30-60 seconds)
 sleep 60
 
 # 4. Query BigQuery
 bq query --use_legacy_sql=false \
-  "SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_application2.applications\`"
+  "SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_generic.applications\`"
 
 # 5. Check archive
-gsutil ls gs://${PROJECT_ID}-application2-staging-archive/
+gsutil ls gs://${PROJECT_ID}-generic-staging-archive/
 ```
 
 ---
 
 ## Test Data Examples
 
-### Application1 Customers File
+### Generic Customers File
 
 ```csv
-HDR|Application1|Customers|20260102
+HDR|Generic|Customers|20260102
 customer_id,name,ssn,account_status,created_date
 CUST001,John Doe,123-45-6789,ACTIVE,2026-01-01
 CUST002,Jane Smith,987-65-4321,ACTIVE,2026-01-01
 TRL|RecordCount=2|Checksum=abc123
 ```
 
-### Application2 Applications File
+### Generic Applications File
 
 ```csv
-HDR|Application2|Applications|20260102
+HDR|Generic|Applications|20260102
 application_id,customer_id,ssn,loan_amount,application_date,application_status
 APP001,CUST001,123-45-6789,50000.00,2026-01-01,PENDING
 APP002,CUST002,987-65-4321,75000.00,2026-01-01,APPROVED
@@ -287,8 +287,8 @@ TRL|RecordCount=2|Checksum=def456
 
 ```bash
 ./run_all_tests.sh library  # Then
-./run_all_tests.sh application1       # Then
-./run_all_tests.sh application2
+./run_all_tests.sh generic       # Then
+./run_all_tests.sh generic
 ```
 
 ### Import Errors
@@ -337,12 +337,12 @@ See [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md) for complete architecture.
 |------|---------|
 | Run all tests | `./run_all_tests.sh` |
 | Run library tests | `./run_all_tests.sh library` |
-| Run Application1 tests | `./run_all_tests.sh application1` |
-| Run Application2 tests | `./run_all_tests.sh application2` |
-| Test Application1 deployment | `./test_deployment.sh application1` |
-| Test Application2 deployment | `./test_deployment.sh application2` |
-| Deploy Application1 Terraform | `cd infrastructure/terraform/application1 && terraform apply` |
-| Deploy Application2 Terraform | `cd infrastructure/terraform/application2 && terraform apply` |
+| Run Generic tests | `./run_all_tests.sh generic` |
+| Run Generic tests | `./run_all_tests.sh generic` |
+| Test Generic deployment | `./test_deployment.sh generic` |
+| Test Generic deployment | `./test_deployment.sh generic` |
+| Deploy Generic Terraform | `cd infrastructure/terraform/generic && terraform apply` |
+| Deploy Generic Terraform | `cd infrastructure/terraform/generic && terraform apply` |
 
 ---
 

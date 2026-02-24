@@ -2,7 +2,7 @@
 # =============================================================================
 # Step 6: Test Pipeline with Sample Data
 # =============================================================================
-# Usage: ./scripts/gcp/06_test_pipeline.sh [application1|application2]
+# Usage: ./scripts/gcp/06_test_pipeline.sh [generic|generic]
 # =============================================================================
 
 set -e
@@ -14,7 +14,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
-DEPLOYMENT="${1:-application1}"
+DEPLOYMENT="${1:-generic}"
 DATE=$(date +%Y%m%d)
 
 if [ -z "$PROJECT_ID" ]; then
@@ -31,15 +31,15 @@ echo "Date: $DATE"
 echo "=============================================="
 echo ""
 
-# Application1 Test Data
+# Generic Test Data
 test_em() {
-    echo -e "${BLUE}=== Creating Application1 Test Data ===${NC}"
+    echo -e "${BLUE}=== Creating Generic Test Data ===${NC}"
     echo ""
 
     # Customers
-    echo "Creating application1_customers_${DATE}.csv..."
-    cat > /tmp/application1_customers_${DATE}.csv << EOF
-HDR|Application1|Customers|${DATE}
+    echo "Creating generic_customers_${DATE}.csv..."
+    cat > /tmp/generic_customers_${DATE}.csv << EOF
+HDR|Generic|Customers|${DATE}
 customer_id,name,email,status,created_date
 CUST001,John Doe,john@example.com,ACTIVE,2025-01-15
 CUST002,Jane Smith,jane@example.com,ACTIVE,2025-01-14
@@ -48,9 +48,9 @@ TRL|RecordCount=3|Checksum=abc123
 EOF
 
     # Accounts
-    echo "Creating application1_accounts_${DATE}.csv..."
-    cat > /tmp/application1_accounts_${DATE}.csv << EOF
-HDR|Application1|Accounts|${DATE}
+    echo "Creating generic_accounts_${DATE}.csv..."
+    cat > /tmp/generic_accounts_${DATE}.csv << EOF
+HDR|Generic|Accounts|${DATE}
 account_id,customer_id,account_type,balance,opened_date
 ACC001,CUST001,CHECKING,1500.00,2025-01-15
 ACC002,CUST001,SAVINGS,5000.00,2025-01-15
@@ -59,9 +59,9 @@ TRL|RecordCount=3|Checksum=def456
 EOF
 
     # Decision
-    echo "Creating application1_decision_${DATE}.csv..."
-    cat > /tmp/application1_decision_${DATE}.csv << EOF
-HDR|Application1|Decision|${DATE}
+    echo "Creating generic_decision_${DATE}.csv..."
+    cat > /tmp/generic_decision_${DATE}.csv << EOF
+HDR|Generic|Decision|${DATE}
 decision_id,customer_id,decision_code,score,decision_date
 DEC001,CUST001,APPROVED,750,2025-01-15
 DEC002,CUST002,APPROVED,680,2025-01-14
@@ -69,14 +69,14 @@ DEC003,CUST003,DECLINED,450,2025-01-13
 TRL|RecordCount=3|Checksum=ghi789
 EOF
 
-    BUCKET="gs://${PROJECT_ID}-application1-landing"
-    TOPIC="application1-file-notifications"
+    BUCKET="gs://${PROJECT_ID}-generic-landing"
+    TOPIC="generic-file-notifications"
 
     echo ""
     echo -e "${BLUE}=== Uploading to $BUCKET ===${NC}"
 
     for entity in customers accounts decision; do
-        FILE="/tmp/application1_${entity}_${DATE}.csv"
+        FILE="/tmp/generic_${entity}_${DATE}.csv"
         echo -n "  Uploading $(basename $FILE)... "
         gsutil cp "$FILE" "$BUCKET/" && echo -e "${GREEN}✅${NC}"
 
@@ -90,8 +90,8 @@ EOF
     echo -e "${BLUE}=== Publishing Notifications ===${NC}"
 
     for entity in customers accounts decision; do
-        FILE_NAME="application1_${entity}_${DATE}.csv.ok"
-        BUCKET_NAME="${PROJECT_ID}-application1-landing"
+        FILE_NAME="generic_${entity}_${DATE}.csv.ok"
+        BUCKET_NAME="${PROJECT_ID}-generic-landing"
         echo -n "  Publishing $FILE_NAME... "
         gcloud pubsub topics publish "$TOPIC" \
             --project="$PROJECT_ID" \
@@ -101,14 +101,14 @@ EOF
     done
 }
 
-# Application2 Test Data
+# Generic Test Data
 test_loa() {
-    echo -e "${BLUE}=== Creating Application2 Test Data ===${NC}"
+    echo -e "${BLUE}=== Creating Generic Test Data ===${NC}"
     echo ""
 
-    echo "Creating application2_applications_${DATE}.csv..."
-    cat > /tmp/application2_applications_${DATE}.csv << EOF
-HDR|Application2|Applications|${DATE}
+    echo "Creating generic_applications_${DATE}.csv..."
+    cat > /tmp/generic_applications_${DATE}.csv << EOF
+HDR|Generic|Applications|${DATE}
 application_id,customer_id,loan_type,amount,status,submitted_date
 APP001,CUST001,PERSONAL,10000.00,PENDING,2025-01-15
 APP002,CUST002,MORTGAGE,250000.00,APPROVED,2025-01-14
@@ -116,10 +116,10 @@ APP003,CUST003,AUTO,25000.00,DECLINED,2025-01-13
 TRL|RecordCount=3|Checksum=loa123
 EOF
 
-    BUCKET_NAME="${PROJECT_ID}-application2-landing"
+    BUCKET_NAME="${PROJECT_ID}-generic-landing"
     BUCKET="gs://${BUCKET_NAME}"
-    TOPIC="application2-file-notifications"
-    FILE="/tmp/application2_applications_${DATE}.csv"
+    TOPIC="generic-file-notifications"
+    FILE="/tmp/generic_applications_${DATE}.csv"
 
     echo ""
     echo -e "${BLUE}=== Uploading to $BUCKET ===${NC}"
@@ -134,7 +134,7 @@ EOF
     echo ""
     echo -e "${BLUE}=== Publishing Notification ===${NC}"
 
-    FILE_NAME="application2_applications_${DATE}.csv.ok"
+    FILE_NAME="generic_applications_${DATE}.csv.ok"
     echo -n "  Publishing $FILE_NAME... "
     gcloud pubsub topics publish "$TOPIC" \
         --project="$PROJECT_ID" \
@@ -145,9 +145,9 @@ EOF
 
 # Main
 case "$DEPLOYMENT" in
-    application1)  test_em ;;
-    application2) test_loa ;;
-    *)   echo "Usage: $0 [application1|application2]"; exit 1 ;;
+    generic)  test_em ;;
+    generic) test_loa ;;
+    *)   echo "Usage: $0 [generic|generic]"; exit 1 ;;
 esac
 
 echo ""

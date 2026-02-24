@@ -1,0 +1,57 @@
+name: 'bigquery_mapped_product'
+version: '1.0.0'
+config-version: 2
+
+profile: 'mapped_product_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros", "../libs/gcp_pipeline_transform/dbt_shared/macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Documentation
+docs-paths: ["docs"]
+
+models:
+  bigquery_mapped_product:
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging"]
+    fdp:
+      +materialized: incremental
+      +schema: fdp
+      +tags: ["fdp"]
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ["marts"]
+    analytics:
+      +materialized: table
+      +schema: analytics
+      +tags: ["analytics"]
+
+vars:
+  # GCP project
+  gcp_project_id: "{{ env_var('GCP_PROJECT_ID') }}"
+
+  # Consolidated datasets
+  source_dataset: "odp_generic"
+  staging_dataset: "stg_generic"
+  fdp_dataset: "fdp_generic"
+  marts_dataset: "marts_generic"
+  analytics_dataset: "analytics_generic"
+
+  # Date parameters
+  extract_date: null
+  current_date: "CURRENT_DATE()"
+
+  # Consolidated entities
+  all_entities: ['customers', 'accounts', 'decision', 'applications']

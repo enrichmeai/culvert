@@ -22,12 +22,12 @@ To ensure accountability, every cloud resource must be attributable to a specifi
 ### 1.1 Standardized Labeling
 All resources provisioned via Terraform (GCS, BQ, Dataflow, Pub/Sub) include a `common_labels` block:
 *   `project`: High-level initiative name.
-*   `system`: The source system identifier (e.g., `application1`, `application2`).
+*   `system`: The source system identifier (e.g., `generic`, `generic`).
 *   `environment`: `dev`, `staging`, or `prod`.
 *   `managed_by`: Fixed as `terraform`.
 
 ### 1.2 Hierarchy
-Resources are grouped into systapplication1-specific datasets and buckets, allowing for easy cost breakdown in the GCP Billing Console using Label filters.
+Resources are grouped into systgeneric-specific datasets and buckets, allowing for easy cost breakdown in the GCP Billing Console using Label filters.
 
 ---
 

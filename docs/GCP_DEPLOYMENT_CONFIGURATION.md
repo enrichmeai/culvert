@@ -77,6 +77,7 @@ The following GCP APIs must be enabled:
 | `iam.googleapis.com` | Identity and access management |
 | `monitoring.googleapis.com` | Monitoring and alerting |
 | `logging.googleapis.com` | Cloud logging |
+| `telemetry.googleapis.com` | OTel ingestion API (Logging, Trace, Monitoring) |
 | `cloudbuild.googleapis.com` | Build automation |
 | `composer.googleapis.com` | Apache Airflow (orchestration) |
 | `compute.googleapis.com` | Compute Engine (for Composer) |
@@ -94,11 +95,41 @@ gcloud services enable \
     iam.googleapis.com \
     monitoring.googleapis.com \
     logging.googleapis.com \
+    telemetry.googleapis.com \
     cloudbuild.googleapis.com \
     composer.googleapis.com \
     compute.googleapis.com \
     artifactregistry.googleapis.com \
     containerregistry.googleapis.com
+```
+
+### OpenTelemetry (OTel) Native Ingestion
+
+As of March 2026, GCP recommends using the native OTel ingestion API (`telemetry.googleapis.com`).
+
+#### In Code (Python)
+
+If using the `gcp-pipeline-core` library:
+
+```python
+from gcp_pipeline_core.monitoring.otel import OTELConfig, configure_otel
+
+# Initialize with GCP native OTel ingestion
+config = OTELConfig.for_gcp_otlp(
+    service_name="my-pipeline",
+    project_id="my-project-id"
+)
+configure_otel(config)
+```
+
+#### Via Environment Variables
+
+Set the following environment variables for automatic configuration:
+
+```bash
+OTEL_EXPORTER_TYPE=gcp_otlp
+GCP_PROJECT_ID=my-project-id
+# OTEL_EXPORTER_OTLP_ENDPOINT defaults to telemetry.googleapis.com:443
 ```
 
 ---
@@ -171,20 +202,20 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 Each deployment creates dedicated service accounts. For example:
 
-#### Application1 Deployment
+#### Generic Deployment
 
 | Service Account | Purpose | Key Roles |
 |-----------------|---------|-----------|
-| `application1-dev-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
-| `application1-dev-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
-| `application1-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
+| `generic-dev-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
+| `generic-dev-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
+| `generic-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
 
-#### Application2 Deployment
+#### Generic Deployment
 
 | Service Account | Purpose | Key Roles |
 |-----------------|---------|-----------|
-| `application2-pipeline-sa` | Pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
-| `application2-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
+| `generic-pipeline-sa` | Pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
+| `generic-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
 
 ---
 
@@ -236,12 +267,12 @@ Use the provided scripts for end-to-end deployment:
 ```bash
 cd legacy-migration-reference
 
-# Full deployment (Application1 + Application2)
+# Full deployment (Generic + Generic)
 ./scripts/gcp/deploy_all.sh all
 
 # Or deploy individually
-./scripts/gcp/deploy_all.sh application1
-./scripts/gcp/deploy_all.sh application2
+./scripts/gcp/deploy_all.sh generic
+./scripts/gcp/deploy_all.sh generic
 ```
 
 ### Method 2: Step-by-Step Manual
@@ -254,20 +285,20 @@ cd legacy-migration-reference
 ./scripts/gcp/02_create_state_bucket.sh
 
 # Step 3: Trigger GitHub Actions deployments
-gh workflow run deploy-application1.yml
-gh workflow run deploy-application2.yml
+gh workflow run deploy-generic.yml
+gh workflow run deploy-generic.yml
 
 # Step 4: Verify deployment
 ./scripts/gcp/05_verify_setup.sh
 
 # Step 5: Test pipeline
-./scripts/gcp/06_test_pipeline.sh application1
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 ### Method 3: Direct Terraform
 
 ```bash
-cd infrastructure/terraform/application1
+cd infrastructure/terraform/generic
 
 # Initialize
 terraform init
@@ -316,17 +347,17 @@ rm github-sa-key.json
 ### Verify GCS Buckets
 
 ```bash
-gsutil ls -p $PROJECT_ID | grep -E "(application1|application2)"
+gsutil ls -p $PROJECT_ID | grep -E "(generic|generic)"
 ```
 
 Expected output:
 ```
-gs://{project}-application1-dev-landing/
-gs://{project}-application1-dev-archive/
-gs://{project}-application1-dev-error/
-gs://{project}-application2-dev-landing/
-gs://{project}-application2-dev-archive/
-gs://{project}-application2-dev-error/
+gs://{project}-generic-dev-landing/
+gs://{project}-generic-dev-archive/
+gs://{project}-generic-dev-error/
+gs://{project}-generic-dev-landing/
+gs://{project}-generic-dev-archive/
+gs://{project}-generic-dev-error/
 ```
 
 ### Verify BigQuery Datasets
@@ -339,11 +370,11 @@ Expected output:
 ```
   datasetId  
  ----------- 
-  fdp_application1     
-  fdp_application2    
+  fdp_generic     
+  fdp_generic    
   job_control
-  odp_application1     
-  odp_application2    
+  odp_generic     
+  odp_generic    
 ```
 
 ### Verify Pub/Sub Topics
@@ -354,10 +385,10 @@ gcloud pubsub topics list --project=$PROJECT_ID
 
 Expected output:
 ```
-name: projects/{project}/topics/application1-file-notifications
-name: projects/{project}/topics/application1-file-notifications-dead-letter
-name: projects/{project}/topics/application2-file-notifications
-name: projects/{project}/topics/application2-file-notifications-dead-letter
+name: projects/{project}/topics/generic-file-notifications
+name: projects/{project}/topics/generic-file-notifications-dead-letter
+name: projects/{project}/topics/generic-file-notifications
+name: projects/{project}/topics/generic-file-notifications-dead-letter
 ```
 
 ### Verify Cloud Composer
@@ -374,8 +405,8 @@ gcloud composer environments list --locations=$REGION --project=$PROJECT_ID
 
 ```bash
 # Create test file with HDR/TRL format
-cat > /tmp/application1_customers_20260104.csv << 'EOF'
-HDR|Application1|CUSTOMERS|20260104
+cat > /tmp/generic_customers_20260104.csv << 'EOF'
+HDR|Generic|CUSTOMERS|20260104
 customer_id,name,ssn,account_type,score
 CUST001,John Doe,123-45-6789,CHECKING,750
 CUST002,Jane Smith,987-65-4321,SAVINGS,680
@@ -383,18 +414,18 @@ TRL|RecordCount=2|Checksum=abc123
 EOF
 
 # Upload to landing bucket
-gsutil cp /tmp/application1_customers_20260104.csv gs://${PROJECT_ID}-application1-dev-landing/application1/
+gsutil cp /tmp/generic_customers_20260104.csv gs://${PROJECT_ID}-generic-dev-landing/generic/
 
 # Create trigger file
-touch /tmp/application1_customers_20260104.ok
-gsutil cp /tmp/application1_customers_20260104.ok gs://${PROJECT_ID}-application1-dev-landing/application1/
+touch /tmp/generic_customers_20260104.ok
+gsutil cp /tmp/generic_customers_20260104.ok gs://${PROJECT_ID}-generic-dev-landing/generic/
 ```
 
 ### 2. Verify Pub/Sub Message
 
 ```bash
 # Pull messages (will show file notification)
-gcloud pubsub subscriptions pull application1-file-notifications-sub \
+gcloud pubsub subscriptions pull generic-file-notifications-sub \
     --project=$PROJECT_ID \
     --auto-ack \
     --limit=5
@@ -404,7 +435,7 @@ gcloud pubsub subscriptions pull application1-file-notifications-sub \
 
 ```bash
 # Get Composer environment details
-gcloud composer environments describe application1-dev-composer \
+gcloud composer environments describe generic-dev-composer \
     --location=$REGION \
     --project=$PROJECT_ID
 ```
@@ -414,7 +445,7 @@ gcloud composer environments describe application1-dev-composer \
 ```bash
 # Check ODP table (after pipeline runs)
 bq query --project_id=$PROJECT_ID \
-    "SELECT * FROM odp_application1.customers LIMIT 10"
+    "SELECT * FROM odp_generic.customers LIMIT 10"
 ```
 
 ---
@@ -494,7 +525,7 @@ To completely reset and redeploy:
 
 ### Estimated Monthly Costs
 
-| Component | Application1 | Application2 | Notes |
+| Component | Generic | Generic | Notes |
 |-----------|-----|-----|-------|
 | Cloud Composer | ~$300 | ~$300 | Smallest environment |
 | BigQuery | Variable | Variable | Based on data volume |

@@ -15,9 +15,9 @@ The framework follows a **decoupled, library-first** approach. To create a new d
 
 ### 3 Independent Deployment Units
 
-1.  **`mysystapplication1-ingestion`**: Handles GCS → ODP load. Uses `gcp-pipeline-beam`.
-2.  **`mysystapplication1-transformation`**: Handles ODP → FDP transformation. Uses `gcp-pipeline-transform`.
-3.  **`mysystapplication1-orchestration`**: The "Conductor" (Airflow). Uses `gcp-pipeline-orchestration`.
+1.  **`mysystgeneric-ingestion`**: Handles GCS → ODP load. Uses `gcp-pipeline-beam`.
+2.  **`mysystgeneric-transformation`**: Handles ODP → FDP transformation. Uses `gcp-pipeline-transform`.
+3.  **`mysystgeneric-orchestration`**: The "Conductor" (Airflow). Uses `gcp-pipeline-orchestration`.
 
 ---
 
@@ -34,13 +34,13 @@ mkdir -p deployments/${SYSTEM}-transformation/dbt
 mkdir -p deployments/${SYSTEM}-orchestration/dags
 ```
 
-### 2. Set Up Ingestion Unit (`mysystapplication1-ingestion`)
+### 2. Set Up Ingestion Unit (`mysystgeneric-ingestion`)
 
-- **Define Schema**: Create `mysystapplication1_ingestion/schema/your_entity.py` using `gcp_pipeline_core.schema.EntitySchema`. This is the single source of truth for validation and PII.
+- **Define Schema**: Create `mysystgeneric_ingestion/schema/your_entity.py` using `gcp_pipeline_core.schema.EntitySchema`. This is the single source of truth for validation and PII.
 - **Pipeline**: Inherit from `gcp_pipeline_beam.pipelines.base.BasePipeline`. Use the `BeamPipelineBuilder` for a fluent, easy-to-read configuration.
 - **Ease of Use**: The library handles HDR/TRL parsing, PII masking, and audit injection automatically if you use the standard `DoFns`.
 
-### 3. Set Up Transformation Unit (`mysystapplication1-transformation`)
+### 3. Set Up Transformation Unit (`mysystgeneric-transformation`)
 
 - **dbt Project**: Initialize your dbt project in `dbt/`.
 - **Macro Integration**: In `dbt_project.yml`, add:
@@ -49,12 +49,12 @@ mkdir -p deployments/${SYSTEM}-orchestration/dags
   ```
 - **Generic Macros**: Use `{{ add_audit_columns() }}` in your staging models and `{{ mask_pii(col, 'PII_TYPE') }}` in your FDP models. This ensures you follow the "Generic-First" and "Zero-Bleed" policies without writing custom SQL.
 
-### 4. Set Up Orchestration Unit (`mysystapplication1-orchestration`)
+### 4. Set Up Orchestration Unit (`mysystgeneric-orchestration`)
 
 - **Leverage Templates**: Use the standardized templates from `templates/dags/` to jumpstart your DAG development:
   ```bash
   cp templates/dags/template_pubsub_trigger_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_trigger_dag.py
-  cp templates/dags/template_odp_application2d_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_application2d_dag.py
+  cp templates/dags/template_odp_genericd_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_genericd_dag.py
   cp templates/dags/template_fdp_transform_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
   ```
 - **Customization**:
@@ -92,5 +92,5 @@ The `templates/` directory provides more than just DAGs:
 
 ## 📚 Reference Implementations
 
-- **[Application2 Orchestration Example](../deployments/application2-orchestration/README.md)**: Split pattern (1 source → 2 targets).
-- **[Application1 Orchestration Example](../deployments/application1-orchestration/README.md)**: Join pattern (3 sources → 1 target).
+- **[Generic Orchestration Example](../deployments/generic-orchestration/README.md)**: Split pattern (1 source → 2 targets).
+- **[Generic Orchestration Example](../deployments/generic-orchestration/README.md)**: Join pattern (3 sources → 1 target).

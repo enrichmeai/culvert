@@ -1,6 +1,6 @@
 # BDD Testing Guide - The Right Way
 
-This guide explains how to implement Behavior-Driven Development (BDD) tests in the Application2 Blueprint using the standardized `gcp_pipeline_core.testing.bdd` library.
+This guide explains how to implement Behavior-Driven Development (BDD) tests in the Generic Blueprint using the standardized `gcp_pipeline_core.testing.bdd` library.
 
 ## 🎯 Architecture
 
@@ -62,7 +62,7 @@ Importing `common_steps` gives you:
 ### Pipeline Steps
 Importing `pipeline_steps` gives you:
 - `Given a valid application file "<file>" in the GCS landing zone`
-- `When the Application2 migration pipeline is triggered for "<job>"`
+- `When the Generic migration pipeline is triggered for "<job>"`
 - `Then the input file should be validated successfully`
 - `And the Dataflow job should complete successfully`
 - ...and more.
