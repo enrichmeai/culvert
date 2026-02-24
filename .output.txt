@@ -1,1190 +1,202 @@
-Obtaining file:///Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-beam
-  Installing build dependencies ... done
-  Checking if build backend supports build_editable ... done
-  Getting requirements to build editable ... done
-  Preparing editable metadata (pyproject.toml) ... done
-Collecting apache-beam[gcp] (from gcp-pipeline-beam==1.0.1)
-  Using cached apache_beam-2.71.0-cp314-cp314-macosx_15_0_arm64.whl
-Requirement already satisfied: gcp-pipeline-core in ./venv/lib/python3.14/site-packages (from gcp-pipeline-beam==1.0.1) (1.0.1)
-Requirement already satisfied: cryptography<48.0.0,>=39.0.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (46.0.5)
-Collecting envoy-data-plane<2,>=1.0.3 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached envoy_data_plane-1.0.3-py3-none-any.whl.metadata (3.9 kB)
-Collecting fastavro<2,>=0.23.6 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached fastavro-1.12.1-cp314-cp314-macosx_10_15_universal2.whl.metadata (5.8 kB)
-Collecting fasteners<1.0,>=0.3 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached fasteners-0.20-py3-none-any.whl.metadata (4.8 kB)
-Requirement already satisfied: grpcio>=1.67.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.78.1)
-Collecting httplib2<0.23.0,>=0.8 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached httplib2-0.22.0-py3-none-any.whl.metadata (2.6 kB)
-Collecting jsonpickle<4.0.0,>=3.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached jsonpickle-3.4.2-py3-none-any.whl.metadata (8.1 kB)
-Requirement already satisfied: numpy<2.5.0,>=1.14.3 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.4.2)
-Collecting objsize<0.8.0,>=0.6.1 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached objsize-0.7.1-py3-none-any.whl.metadata (12 kB)
-Requirement already satisfied: packaging>=22.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (26.0)
-Collecting pymongo<5.0.0,>=3.8.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pymongo-4.16.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (10.0 kB)
-Requirement already satisfied: proto-plus<2,>=1.7.1 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.27.1)
-Requirement already satisfied: protobuf!=4.0.*,!=4.21.*,!=4.22.0,!=4.23.*,!=4.24.*,<7.0.0.dev0,>=3.20.3 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (6.33.5)
-Requirement already satisfied: python-dateutil<3,>=2.8.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.9.0.post0)
-Collecting pytz>=2018.3 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pytz-2025.2-py2.py3-none-any.whl.metadata (22 kB)
-Requirement already satisfied: requests<3.0.0,>=2.32.4 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.32.5)
-Collecting sortedcontainers>=2.4.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
-Requirement already satisfied: typing-extensions>=3.7.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (4.15.0)
-Collecting zstandard<1,>=0.18.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached zstandard-0.25.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (3.3 kB)
-Collecting pyyaml<7.0.0,>=3.12 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pyyaml-6.0.3-cp314-cp314-macosx_11_0_arm64.whl.metadata (2.4 kB)
-Collecting beartype<0.23.0,>=0.21.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached beartype-0.22.9-py3-none-any.whl.metadata (37 kB)
-Collecting pyarrow<19.0.0,>=3.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pyarrow-18.1.0.tar.gz (1.1 MB)
-  Installing build dependencies ... done
-  Getting requirements to build wheel ... done
-  Preparing metadata (pyproject.toml) ... done
-Collecting pyarrow-hotfix<1 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pyarrow_hotfix-0.7-py3-none-any.whl.metadata (3.6 kB)
-Collecting cachetools<7,>=3.1.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached cachetools-6.2.6-py3-none-any.whl.metadata (5.6 kB)
-Requirement already satisfied: google-api-core<3,>=2.0.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.30.0)
-Collecting google-apitools>=0.5.35 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_apitools-0.5.35-py3-none-any.whl.metadata (2.7 kB)
-Requirement already satisfied: google-auth<3,>=1.18.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.48.0)
-Collecting google-auth-httplib2<0.3.0,>=0.1.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_auth_httplib2-0.2.1-py3-none-any.whl.metadata (3.0 kB)
-Collecting google-cloud-datastore<3,>=2.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_datastore-2.23.0-py3-none-any.whl.metadata (10 kB)
-Requirement already satisfied: google-cloud-pubsub<3,>=2.1.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.35.0)
-Collecting google-cloud-pubsublite<2,>=1.2.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_pubsublite-1.13.0-py3-none-any.whl.metadata (6.2 kB)
-Collecting google-cloud-storage<3,>=2.18.2 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_storage-2.19.0-py2.py3-none-any.whl.metadata (9.1 kB)
-Requirement already satisfied: google-cloud-bigquery<4,>=2.0.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (3.40.1)
-Collecting google-cloud-bigquery-storage<3,>=2.6.3 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_bigquery_storage-2.36.2-py3-none-any.whl.metadata (10 kB)
-Requirement already satisfied: google-cloud-core<3,>=2.0.0 in ./venv/lib/python3.14/site-packages (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.5.0)
-Collecting google-cloud-bigtable<3,>=2.19.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_bigtable-2.35.0-py3-none-any.whl.metadata (5.8 kB)
-Collecting google-cloud-spanner<4,>=3.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_spanner-3.63.0-py3-none-any.whl.metadata (11 kB)
-Collecting google-cloud-dlp<4,>=3.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_dlp-3.34.0-py3-none-any.whl.metadata (9.9 kB)
-Collecting google-cloud-kms<4,>=3.0.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_kms-3.11.0-py3-none-any.whl.metadata (10 kB)
-Collecting google-cloud-language<3,>=2.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_language-2.19.0-py3-none-any.whl.metadata (10.0 kB)
-Collecting google-cloud-secret-manager<3,>=2.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_secret_manager-2.26.0-py3-none-any.whl.metadata (9.8 kB)
-Collecting google-cloud-videointelligence<3,>=2.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_videointelligence-2.18.0-py3-none-any.whl.metadata (10 kB)
-Collecting google-cloud-vision<4,>=2 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_vision-3.12.1-py3-none-any.whl.metadata (9.8 kB)
-Collecting google-cloud-recommendations-ai<0.11.0,>=0.1.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_recommendations_ai-0.10.18-py3-none-any.whl.metadata (9.7 kB)
-Collecting google-cloud-aiplatform<2.0,>=1.26.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_aiplatform-1.138.0-py2.py3-none-any.whl.metadata (46 kB)
-Collecting cloud-sql-python-connector<2.0.0,>=1.18.2 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached cloud_sql_python_connector-1.20.0-py3-none-any.whl.metadata (31 kB)
-Collecting python-tds>=1.16.1 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached python_tds-1.17.1-py3-none-any.whl.metadata (804 bytes)
-Collecting pg8000>=1.31.5 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pg8000-1.31.5-py3-none-any.whl.metadata (88 kB)
-Collecting PyMySQL>=1.1.0 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pymysql-1.1.2-py3-none-any.whl.metadata (4.3 kB)
-Collecting keyrings.google-artifactregistry-auth (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached keyrings.google_artifactregistry_auth-1.1.2-py3-none-any.whl.metadata (4.6 kB)
-Collecting orjson<4,>=3.9.7 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached orjson-3.11.7-cp314-cp314-macosx_15_0_arm64.whl.metadata (41 kB)
-Collecting regex>=2020.6.8 (from apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached regex-2026.2.19-cp314-cp314-macosx_11_0_arm64.whl.metadata (40 kB)
-Collecting aiofiles (from cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached aiofiles-25.1.0-py3-none-any.whl.metadata (6.3 kB)
-Collecting aiohttp (from cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached aiohttp-3.13.3-cp314-cp314-macosx_11_0_arm64.whl.metadata (8.1 kB)
-Collecting dnspython>=2.0.0 (from cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached dnspython-2.8.0-py3-none-any.whl.metadata (5.7 kB)
-Requirement already satisfied: cffi>=2.0.0 in ./venv/lib/python3.14/site-packages (from cryptography<48.0.0,>=39.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.0.0)
-Collecting betterproto==2.0.0b6 (from envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached betterproto-2.0.0b6-py3-none-any.whl.metadata (17 kB)
-Collecting grpcio-tools<2.0,>=1.67 (from envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached grpcio_tools-1.78.1-cp314-cp314-macosx_11_0_universal2.whl.metadata (5.3 kB)
-Collecting grpclib<0.5.0,>=0.4.1 (from betterproto==2.0.0b6->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached grpclib-0.4.9-py3-none-any.whl.metadata (6.1 kB)
-Requirement already satisfied: googleapis-common-protos<2.0.0,>=1.56.3 in ./venv/lib/python3.14/site-packages (from google-api-core<3,>=2.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.72.0)
-Requirement already satisfied: pyasn1-modules>=0.2.1 in ./venv/lib/python3.14/site-packages (from google-auth<3,>=1.18.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.4.2)
-Requirement already satisfied: rsa<5,>=3.1.4 in ./venv/lib/python3.14/site-packages (from google-auth<3,>=1.18.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (4.9.1)
-Collecting google-cloud-resource-manager<3.0.0,>=1.3.3 (from google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_resource_manager-1.16.0-py3-none-any.whl.metadata (9.9 kB)
-Collecting google-genai<2.0.0,>=1.59.0 (from google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_genai-1.64.0-py3-none-any.whl.metadata (53 kB)
-Requirement already satisfied: pydantic<3 in ./venv/lib/python3.14/site-packages (from google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.12.5)
-Collecting docstring_parser<1 (from google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached docstring_parser-0.17.0-py3-none-any.whl.metadata (3.5 kB)
-Requirement already satisfied: grpcio-status<2.0.0,>=1.33.2 in ./venv/lib/python3.14/site-packages (from google-api-core[grpc]!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.*,!=2.4.*,!=2.5.*,!=2.6.*,!=2.7.*,<3.0.0,>=1.34.1->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.78.1)
-Requirement already satisfied: google-resumable-media<3.0.0,>=2.0.0 in ./venv/lib/python3.14/site-packages (from google-cloud-bigquery<4,>=2.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.8.0)
-Requirement already satisfied: grpc-google-iam-v1<1.0.0,>=0.12.4 in ./venv/lib/python3.14/site-packages (from google-cloud-bigtable<3,>=2.19.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.14.3)
-Requirement already satisfied: google-crc32c<2.0.0dev,>=1.5.0 in ./venv/lib/python3.14/site-packages (from google-cloud-bigtable<3,>=2.19.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.8.0)
-Requirement already satisfied: opentelemetry-api>=1.27.0 in ./venv/lib/python3.14/site-packages (from google-cloud-pubsub<3,>=2.1.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.39.1)
-Requirement already satisfied: opentelemetry-sdk>=1.27.0 in ./venv/lib/python3.14/site-packages (from google-cloud-pubsub<3,>=2.1.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.39.1)
-Collecting overrides<8.0.0,>=6.0.1 (from google-cloud-pubsublite<2,>=1.2.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached overrides-7.7.0-py3-none-any.whl.metadata (5.8 kB)
-Collecting sqlparse>=0.4.4 (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached sqlparse-0.5.5-py3-none-any.whl.metadata (4.7 kB)
-Collecting grpc-interceptor>=0.15.4 (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached grpc_interceptor-0.15.4-py3-none-any.whl.metadata (8.4 kB)
-Requirement already satisfied: opentelemetry-semantic-conventions>=0.43b0 in ./venv/lib/python3.14/site-packages (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.60b1)
-Collecting opentelemetry-resourcedetector-gcp>=1.8.0a0 (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached opentelemetry_resourcedetector_gcp-1.11.0a0-py3-none-any.whl.metadata (3.2 kB)
-Collecting google-cloud-monitoring>=2.16.0 (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached google_cloud_monitoring-2.29.1-py3-none-any.whl.metadata (10 kB)
-Collecting mmh3>=4.1.0 (from google-cloud-spanner<4,>=3.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached mmh3-5.2.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (14 kB)
-Collecting anyio<5.0.0,>=4.8.0 (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached anyio-4.12.1-py3-none-any.whl.metadata (4.3 kB)
-Collecting httpx<1.0.0,>=0.28.1 (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
-Collecting tenacity<9.2.0,>=8.2.3 (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached tenacity-9.1.4-py3-none-any.whl.metadata (1.2 kB)
-Collecting websockets<15.1.0,>=13.0.0 (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached websockets-15.0.1-py3-none-any.whl.metadata (6.8 kB)
-Collecting distro<2,>=1.7.0 (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
-Collecting sniffio (from google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
-Requirement already satisfied: idna>=2.8 in ./venv/lib/python3.14/site-packages (from anyio<5.0.0,>=4.8.0->google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (3.11)
-Collecting setuptools>=77.0.1 (from grpcio-tools<2.0,>=1.67->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached setuptools-82.0.0-py3-none-any.whl.metadata (6.6 kB)
-Collecting h2<5,>=3.1.0 (from grpclib<0.5.0,>=0.4.1->betterproto==2.0.0b6->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached h2-4.3.0-py3-none-any.whl.metadata (5.1 kB)
-Collecting multidict (from grpclib<0.5.0,>=0.4.1->betterproto==2.0.0b6->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl.metadata (5.3 kB)
-Collecting hyperframe<7,>=6.1 (from h2<5,>=3.1.0->grpclib<0.5.0,>=0.4.1->betterproto==2.0.0b6->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached hyperframe-6.1.0-py3-none-any.whl.metadata (4.3 kB)
-Collecting hpack<5,>=4.1 (from h2<5,>=3.1.0->grpclib<0.5.0,>=0.4.1->betterproto==2.0.0b6->envoy-data-plane<2,>=1.0.3->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached hpack-4.1.0-py3-none-any.whl.metadata (4.6 kB)
-Collecting pyparsing!=3.0.0,!=3.0.1,!=3.0.2,!=3.0.3,<4,>=2.4.2 (from httplib2<0.23.0,>=0.8->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached pyparsing-3.3.2-py3-none-any.whl.metadata (5.8 kB)
-Requirement already satisfied: certifi in ./venv/lib/python3.14/site-packages (from httpx<1.0.0,>=0.28.1->google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2026.1.4)
-Collecting httpcore==1.* (from httpx<1.0.0,>=0.28.1->google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
-Collecting h11>=0.16 (from httpcore==1.*->httpx<1.0.0,>=0.28.1->google-genai<2.0.0,>=1.59.0->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
-Requirement already satisfied: annotated-types>=0.6.0 in ./venv/lib/python3.14/site-packages (from pydantic<3->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.7.0)
-Requirement already satisfied: pydantic-core==2.41.5 in ./venv/lib/python3.14/site-packages (from pydantic<3->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.41.5)
-Requirement already satisfied: typing-inspection>=0.4.2 in ./venv/lib/python3.14/site-packages (from pydantic<3->google-cloud-aiplatform<2.0,>=1.26.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.4.2)
-Requirement already satisfied: six>=1.5 in ./venv/lib/python3.14/site-packages (from python-dateutil<3,>=2.8.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.17.0)
-Requirement already satisfied: charset_normalizer<4,>=2 in ./venv/lib/python3.14/site-packages (from requests<3.0.0,>=2.32.4->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (3.4.4)
-Requirement already satisfied: urllib3<3,>=1.21.1 in ./venv/lib/python3.14/site-packages (from requests<3.0.0,>=2.32.4->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (2.6.3)
-Requirement already satisfied: pyasn1>=0.1.3 in ./venv/lib/python3.14/site-packages (from rsa<5,>=3.1.4->google-auth<3,>=1.18.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (0.6.2)
-Collecting aiohappyeyeballs>=2.5.0 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
-Collecting aiosignal>=1.4.0 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
-Collecting attrs>=17.3.0 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached attrs-25.4.0-py3-none-any.whl.metadata (10 kB)
-Collecting frozenlist>=1.1.1 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (20 kB)
-Collecting propcache>=0.2.0 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached propcache-0.4.1-cp314-cp314-macosx_11_0_arm64.whl.metadata (13 kB)
-Collecting yarl<2.0,>=1.17.0 (from aiohttp->cloud-sql-python-connector<2.0.0,>=1.18.2->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached yarl-1.22.0-cp314-cp314-macosx_11_0_arm64.whl.metadata (75 kB)
-Requirement already satisfied: pycparser in ./venv/lib/python3.14/site-packages (from cffi>=2.0.0->cryptography<48.0.0,>=39.0.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (3.0)
-Collecting oauth2client>=1.4.12 (from google-apitools>=0.5.35->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached oauth2client-4.1.3-py2.py3-none-any.whl.metadata (1.2 kB)
-Requirement already satisfied: importlib-metadata<8.8.0,>=6.0 in ./venv/lib/python3.14/site-packages (from opentelemetry-api>=1.27.0->google-cloud-pubsub<3,>=2.1.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (8.7.1)
-Requirement already satisfied: zipp>=3.20 in ./venv/lib/python3.14/site-packages (from importlib-metadata<8.8.0,>=6.0->opentelemetry-api>=1.27.0->google-cloud-pubsub<3,>=2.1.0->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (3.23.0)
-Collecting scramp>=1.4.5 (from pg8000>=1.31.5->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached scramp-1.4.8-py3-none-any.whl.metadata (18 kB)
-Collecting asn1crypto>=1.5.1 (from scramp>=1.4.5->pg8000>=1.31.5->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached asn1crypto-1.5.1-py2.py3-none-any.whl.metadata (13 kB)
-Requirement already satisfied: pandas in ./venv/lib/python3.14/site-packages (from gcp-pipeline-core->gcp-pipeline-beam==1.0.1) (3.0.1)
-Collecting keyring (from keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached keyring-25.7.0-py3-none-any.whl.metadata (21 kB)
-Requirement already satisfied: pluggy in ./venv/lib/python3.14/site-packages (from keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1) (1.6.0)
-Collecting jaraco.classes (from keyring->keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached jaraco.classes-3.4.0-py3-none-any.whl.metadata (2.6 kB)
-Collecting jaraco.functools (from keyring->keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached jaraco_functools-4.4.0-py3-none-any.whl.metadata (3.0 kB)
-Collecting jaraco.context (from keyring->keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached jaraco_context-6.1.0-py3-none-any.whl.metadata (4.3 kB)
-Collecting more-itertools (from jaraco.classes->keyring->keyrings.google-artifactregistry-auth->apache-beam[gcp]->gcp-pipeline-beam==1.0.1)
-  Using cached more_itertools-10.8.0-py3-none-any.whl.metadata (39 kB)
-Using cached beartype-0.22.9-py3-none-any.whl (1.3 MB)
-Using cached cachetools-6.2.6-py3-none-any.whl (11 kB)
-Using cached cloud_sql_python_connector-1.20.0-py3-none-any.whl (50 kB)
-Using cached envoy_data_plane-1.0.3-py3-none-any.whl (959 kB)
-Using cached betterproto-2.0.0b6-py3-none-any.whl (64 kB)
-Using cached fastavro-1.12.1-cp314-cp314-macosx_10_15_universal2.whl (1.0 MB)
-Using cached fasteners-0.20-py3-none-any.whl (18 kB)
-Using cached google_auth_httplib2-0.2.1-py3-none-any.whl (9.5 kB)
-Using cached google_cloud_aiplatform-1.138.0-py2.py3-none-any.whl (8.2 MB)
-Using cached docstring_parser-0.17.0-py3-none-any.whl (36 kB)
-Using cached google_cloud_bigquery_storage-2.36.2-py3-none-any.whl (304 kB)
-Using cached google_cloud_bigtable-2.35.0-py3-none-any.whl (540 kB)
-Using cached google_cloud_datastore-2.23.0-py3-none-any.whl (206 kB)
-Using cached google_cloud_dlp-3.34.0-py3-none-any.whl (220 kB)
-Using cached google_cloud_kms-3.11.0-py3-none-any.whl (350 kB)
-Using cached google_cloud_language-2.19.0-py3-none-any.whl (173 kB)
-Using cached google_cloud_pubsublite-1.13.0-py3-none-any.whl (324 kB)
-Using cached google_cloud_recommendations_ai-0.10.18-py3-none-any.whl (212 kB)
-Using cached google_cloud_resource_manager-1.16.0-py3-none-any.whl (400 kB)
-Using cached google_cloud_secret_manager-2.26.0-py3-none-any.whl (223 kB)
-Using cached google_cloud_spanner-3.63.0-py3-none-any.whl (518 kB)
-Using cached google_cloud_storage-2.19.0-py2.py3-none-any.whl (131 kB)
-Using cached google_cloud_videointelligence-2.18.0-py3-none-any.whl (285 kB)
-Using cached google_cloud_vision-3.12.1-py3-none-any.whl (538 kB)
-Using cached google_genai-1.64.0-py3-none-any.whl (728 kB)
-Using cached anyio-4.12.1-py3-none-any.whl (113 kB)
-Using cached distro-1.9.0-py3-none-any.whl (20 kB)
-Using cached grpcio_tools-1.78.1-cp314-cp314-macosx_11_0_universal2.whl (5.7 MB)
-Using cached grpclib-0.4.9-py3-none-any.whl (77 kB)
-Using cached h2-4.3.0-py3-none-any.whl (61 kB)
-Using cached hpack-4.1.0-py3-none-any.whl (34 kB)
-Using cached httplib2-0.22.0-py3-none-any.whl (96 kB)
-Using cached httpx-0.28.1-py3-none-any.whl (73 kB)
-Using cached httpcore-1.0.9-py3-none-any.whl (78 kB)
-Using cached hyperframe-6.1.0-py3-none-any.whl (13 kB)
-Using cached jsonpickle-3.4.2-py3-none-any.whl (46 kB)
-Using cached objsize-0.7.1-py3-none-any.whl (11 kB)
-Using cached orjson-3.11.7-cp314-cp314-macosx_15_0_arm64.whl (125 kB)
-Using cached overrides-7.7.0-py3-none-any.whl (17 kB)
-Using cached pyarrow_hotfix-0.7-py3-none-any.whl (7.9 kB)
-Using cached pymongo-4.16.0-cp314-cp314-macosx_11_0_arm64.whl (1.0 MB)
-Using cached dnspython-2.8.0-py3-none-any.whl (331 kB)
-Using cached pyparsing-3.3.2-py3-none-any.whl (122 kB)
-Using cached pyyaml-6.0.3-cp314-cp314-macosx_11_0_arm64.whl (173 kB)
-Using cached tenacity-9.1.4-py3-none-any.whl (28 kB)
-Using cached websockets-15.0.1-py3-none-any.whl (169 kB)
-Using cached zstandard-0.25.0-cp314-cp314-macosx_11_0_arm64.whl (640 kB)
-Using cached aiohttp-3.13.3-cp314-cp314-macosx_11_0_arm64.whl (493 kB)
-Using cached multidict-6.7.1-cp314-cp314-macosx_11_0_arm64.whl (43 kB)
-Using cached yarl-1.22.0-cp314-cp314-macosx_11_0_arm64.whl (94 kB)
-Using cached aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
-Using cached aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
-Using cached attrs-25.4.0-py3-none-any.whl (67 kB)
-Using cached frozenlist-1.8.0-cp314-cp314-macosx_11_0_arm64.whl (49 kB)
-Using cached google_apitools-0.5.35-py3-none-any.whl (135 kB)
-Using cached google_cloud_monitoring-2.29.1-py3-none-any.whl (387 kB)
-Using cached grpc_interceptor-0.15.4-py3-none-any.whl (20 kB)
-Using cached h11-0.16.0-py3-none-any.whl (37 kB)
-Using cached mmh3-5.2.0-cp314-cp314-macosx_11_0_arm64.whl (40 kB)
-Using cached oauth2client-4.1.3-py2.py3-none-any.whl (98 kB)
-Using cached opentelemetry_resourcedetector_gcp-1.11.0a0-py3-none-any.whl (18 kB)
-Using cached pg8000-1.31.5-py3-none-any.whl (57 kB)
-Using cached propcache-0.4.1-cp314-cp314-macosx_11_0_arm64.whl (46 kB)
-Using cached pymysql-1.1.2-py3-none-any.whl (45 kB)
-Using cached python_tds-1.17.1-py3-none-any.whl (86 kB)
-Using cached pytz-2025.2-py2.py3-none-any.whl (509 kB)
-Using cached regex-2026.2.19-cp314-cp314-macosx_11_0_arm64.whl (289 kB)
-Using cached scramp-1.4.8-py3-none-any.whl (13 kB)
-Using cached asn1crypto-1.5.1-py2.py3-none-any.whl (105 kB)
-Using cached setuptools-82.0.0-py3-none-any.whl (1.0 MB)
-Using cached sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
-Using cached sqlparse-0.5.5-py3-none-any.whl (46 kB)
-Using cached aiofiles-25.1.0-py3-none-any.whl (14 kB)
-Using cached keyrings.google_artifactregistry_auth-1.1.2-py3-none-any.whl (10 kB)
-Using cached keyring-25.7.0-py3-none-any.whl (39 kB)
-Using cached jaraco.classes-3.4.0-py3-none-any.whl (6.8 kB)
-Using cached jaraco_context-6.1.0-py3-none-any.whl (7.1 kB)
-Using cached jaraco_functools-4.4.0-py3-none-any.whl (10 kB)
-Using cached more_itertools-10.8.0-py3-none-any.whl (69 kB)
-Using cached sniffio-1.3.1-py3-none-any.whl (10 kB)
-Building wheels for collected packages: gcp-pipeline-beam, pyarrow
-  Building editable for gcp-pipeline-beam (pyproject.toml) ... done
-  Created wheel for gcp-pipeline-beam: filename=gcp_pipeline_beam-1.0.1-0.editable-py3-none-any.whl size=3825 sha256=40e701c56a7f15b427ad76d8b77aa771de50e996d84adcbc66cc0db3651cd557
-  Stored in directory: /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-ephem-wheel-cache-rtleqr4g/wheels/94/81/b1/8cad48802deb36e53ffe70ea3070e7f65fd942ca4b25e33d5d
-  Building wheel for pyarrow (pyproject.toml) ... error
-  error: subprocess-exited-with-error
-
-  × Building wheel for pyarrow (pyproject.toml) did not run successfully.
-  │ exit code: 1
-  ╰─> [878 lines of output]
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/config/_apply_pyprojecttoml.py:82: SetuptoolsDeprecationWarning: `project.license` as a TOML table is deprecated
-      !!
-
-              ********************************************************************************
-              Please use a simple string containing a SPDX expression for `project.license`. You can also use `project.license-files`. (Both options available on setuptools>=77.0.0).
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        corresp(dist, value, root_dir)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/config/_apply_pyprojecttoml.py:61: SetuptoolsDeprecationWarning: License classifiers are deprecated.
-      !!
-
-              ********************************************************************************
-              Please consider removing the following classifiers in favor of a SPDX license expression:
-
-              License :: OSI Approved :: Apache Software License
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        dist._finalize_license_expression()
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/dist.py:483: SetuptoolsDeprecationWarning: Pattern '../LICENSE.txt' cannot contain '..'
-      !!
-
-              ********************************************************************************
-              Please ensure the files specified are contained by the root
-              of the Python package (normally marked by `pyproject.toml`).
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-
-              See https://packaging.python.org/en/latest/specifications/glob-patterns/ for details.
-              ********************************************************************************
-
-      !!
-        for path in sorted(cls._find_pattern(pattern, enforce_match))
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/dist.py:483: SetuptoolsDeprecationWarning: Cannot find any files for the given pattern.
-      !!
-
-              ********************************************************************************
-              Pattern '../LICENSE.txt' did not match any files.
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-              ********************************************************************************
-
-      !!
-        for path in sorted(cls._find_pattern(pattern, enforce_match))
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/dist.py:483: SetuptoolsDeprecationWarning: Pattern '../NOTICE.txt' cannot contain '..'
-      !!
-
-              ********************************************************************************
-              Please ensure the files specified are contained by the root
-              of the Python package (normally marked by `pyproject.toml`).
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-
-              See https://packaging.python.org/en/latest/specifications/glob-patterns/ for details.
-              ********************************************************************************
-
-      !!
-        for path in sorted(cls._find_pattern(pattern, enforce_match))
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/dist.py:483: SetuptoolsDeprecationWarning: Cannot find any files for the given pattern.
-      !!
-
-              ********************************************************************************
-              Pattern '../NOTICE.txt' did not match any files.
-
-              By 2027-Feb-18, you need to update your project and remove deprecated calls
-              or your builds will no longer be supported.
-              ********************************************************************************
-
-      !!
-        for path in sorted(cls._find_pattern(pattern, enforce_match))
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/dist.py:765: SetuptoolsDeprecationWarning: License classifiers are deprecated.
-      !!
-
-              ********************************************************************************
-              Please consider removing the following classifiers in favor of a SPDX license expression:
-
-              License :: OSI Approved :: Apache Software License
-
-              See https://packaging.python.org/en/latest/guides/writing-pyproject-toml/#license for details.
-              ********************************************************************************
-
-      !!
-        self._finalize_license_expression()
-      running bdist_wheel
-      running build
-      running build_py
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/orc.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/conftest.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_generated_version.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/benchmark.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_compute_docstrings.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/ipc.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/util.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/flight.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/cffi.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/substrait.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/types.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/dataset.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/cuda.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/feather.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/pandas_compat.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/fs.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/acero.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/csv.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/jvm.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/json.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/compute.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      running egg_info
-      writing pyarrow.egg-info/PKG-INFO
-      writing dependency_links to pyarrow.egg-info/dependency_links.txt
-      writing requirements to pyarrow.egg-info/requires.txt
-      writing top-level names to pyarrow.egg-info/top_level.txt
-      listing git files failed - pretending there aren't any
-      reading manifest file 'pyarrow.egg-info/SOURCES.txt'
-      reading manifest template 'MANIFEST.in'
-      warning: no files found matching '../LICENSE.txt'
-      warning: no files found matching '../NOTICE.txt'
-      warning: no previously-included files matching '*.so' found anywhere in distribution
-      warning: no previously-included files matching '*.pyc' found anywhere in distribution
-      warning: no previously-included files matching '*~' found anywhere in distribution
-      warning: no previously-included files matching '#*' found anywhere in distribution
-      warning: no previously-included files matching '.git*' found anywhere in distribution
-      warning: no previously-included files matching '.DS_Store' found anywhere in distribution
-      no previously-included directories found matching '.asv'
-      writing manifest file 'pyarrow.egg-info/SOURCES.txt'
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.includes' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.includes' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.includes' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.includes' to be distributed and are
-              already explicitly excluding 'pyarrow.includes' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.interchange' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.interchange' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.interchange' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.interchange' to be distributed and are
-              already explicitly excluding 'pyarrow.interchange' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.parquet' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.parquet' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.parquet' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.parquet' to be distributed and are
-              already explicitly excluding 'pyarrow.parquet' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.src.arrow.python' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.src.arrow.python' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.src.arrow.python' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.src.arrow.python' to be distributed and are
-              already explicitly excluding 'pyarrow.src.arrow.python' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.src.arrow.python.vendored' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.src.arrow.python.vendored' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.src.arrow.python.vendored' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.src.arrow.python.vendored' to be distributed and are
-              already explicitly excluding 'pyarrow.src.arrow.python.vendored' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests' to be distributed and are
-              already explicitly excluding 'pyarrow.tests' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests.data.feather' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests.data.feather' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests.data.feather' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests.data.feather' to be distributed and are
-              already explicitly excluding 'pyarrow.tests.data.feather' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests.data.orc' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests.data.orc' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests.data.orc' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests.data.orc' to be distributed and are
-              already explicitly excluding 'pyarrow.tests.data.orc' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests.data.parquet' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests.data.parquet' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests.data.parquet' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests.data.parquet' to be distributed and are
-              already explicitly excluding 'pyarrow.tests.data.parquet' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests.interchange' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests.interchange' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests.interchange' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests.interchange' to be distributed and are
-              already explicitly excluding 'pyarrow.tests.interchange' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.tests.parquet' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.tests.parquet' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.tests.parquet' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.tests.parquet' to be distributed and are
-              already explicitly excluding 'pyarrow.tests.parquet' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-build-env-xae44tbv/overlay/lib/python3.14/site-packages/setuptools/command/build_py.py:215: _Warning: Package 'pyarrow.vendored' is absent from the `packages` configuration.
-      !!
-
-              ********************************************************************************
-              ############################
-              # Package would be ignored #
-              ############################
-              Python recognizes 'pyarrow.vendored' as an importable package[^1],
-              but it is absent from setuptools' `packages` configuration.
-
-              This leads to an ambiguous overall configuration. If you want to distribute this
-              package, please make sure that 'pyarrow.vendored' is explicitly added
-              to the `packages` configuration field.
-
-              Alternatively, you can also rely on setuptools' discovery methods
-              (for example by using `find_namespace_packages(...)`/`find_namespace:`
-              instead of `find_packages(...)`/`find:`).
-
-              You can read more about "package discovery" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/package_discovery.html
-
-              If you don't want 'pyarrow.vendored' to be distributed and are
-              already explicitly excluding 'pyarrow.vendored' via
-              `find_namespace_packages(...)/find_namespace` or `find_packages(...)/find`,
-              you can try to use `exclude_package_data`, or `include-package-data=False` in
-              combination with a more fine grained `package-data` configuration.
-
-              You can read more about "package data files" on setuptools documentation page:
-
-              - https://setuptools.pypa.io/en/latest/userguide/datafiles.html
-
-
-              [^1]: For Python, any directory (with suitable naming) can be imported,
-                    even if it does not contain any `.py` files.
-                    On the other hand, currently there is no concept of package data
-                    directory, all directories are treated like packages.
-              ********************************************************************************
-
-      !!
-        check.warn(importable)
-      copying pyarrow/__init__.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_acero.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_acero.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_azurefs.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_compute.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_compute.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_csv.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_csv.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_cuda.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_cuda.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset_orc.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset_parquet.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset_parquet.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dataset_parquet_encryption.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_dlpack.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_feather.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_flight.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_fs.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_fs.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_gcsfs.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_hdfs.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_json.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_json.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_orc.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_orc.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_parquet.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_parquet.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_parquet_encryption.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_parquet_encryption.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_pyarrow_cpp_tests.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_pyarrow_cpp_tests.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_s3fs.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/_substrait.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/array.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/benchmark.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/builder.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/compat.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/config.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/device.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/error.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/gandiva.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/io.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/ipc.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/lib.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/lib.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/memory.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/pandas-shim.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/public-api.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/scalar.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/table.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/tensor.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      copying pyarrow/types.pxi -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/__init__.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/common.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_acero.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_cuda.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_dataset.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_dataset_parquet.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_feather.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_flight.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_fs.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_python.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libarrow_substrait.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libgandiva.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      copying pyarrow/includes/libparquet_encryption.pxd -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/includes
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      copying pyarrow/interchange/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      copying pyarrow/interchange/buffer.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      copying pyarrow/interchange/column.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      copying pyarrow/interchange/dataframe.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      copying pyarrow/interchange/from_dataframe.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/interchange
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/parquet
-      copying pyarrow/parquet/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/parquet
-      copying pyarrow/parquet/core.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/parquet
-      copying pyarrow/parquet/encryption.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/parquet
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/CMakeLists.txt -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/api.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/arrow_to_pandas.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/arrow_to_pandas.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/arrow_to_python_internal.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/async.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/benchmark.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/benchmark.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/common.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/common.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/csv.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/csv.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/datetime.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/datetime.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/decimal.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/decimal.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/deserialize.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/deserialize.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/extension_type.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/extension_type.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/filesystem.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/filesystem.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/flight.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/flight.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/gdb.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/gdb.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/helpers.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/helpers.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/inference.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/inference.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/io.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/io.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/ipc.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/ipc.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/iterators.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_convert.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_convert.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_init.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_init.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_internal.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_interop.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_to_arrow.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/numpy_to_arrow.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/parquet_encryption.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/parquet_encryption.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/pch.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/platform.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/pyarrow.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/pyarrow.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/pyarrow_api.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/pyarrow_lib.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/python_test.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/python_test.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/python_to_arrow.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/python_to_arrow.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/serialize.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/serialize.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/type_traits.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/udf.cc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/udf.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      copying pyarrow/src/arrow/python/visibility.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python/vendored
-      copying pyarrow/src/arrow/python/vendored/CMakeLists.txt -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python/vendored
-      copying pyarrow/src/arrow/python/vendored/pythoncapi_compat.h -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/src/arrow/python/vendored
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/arrow_16597.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/arrow_39313.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/arrow_7980.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/bound_function_visit_strings.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/conftest.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/extensions.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/pandas_examples.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/pandas_threaded_import.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/pyarrow_cython_example.pyx -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/read_record_batch.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/strategies.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_acero.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_adhoc_memory_leak.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_array.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_builder.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_cffi.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_compute.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_convert_builtin.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_cpp_internals.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_csv.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_cuda.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_cuda_numba_interop.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_cython.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_dataset.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_dataset_encryption.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_deprecations.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_device.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_dlpack.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_exec_plan.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_extension_type.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_feather.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_flight.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_flight_async.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_fs.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_gandiva.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_gdb.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_io.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_ipc.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_json.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_jvm.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_memory.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_misc.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_orc.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_pandas.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_scalars.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_schema.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_sparse_tensor.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_strategies.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_substrait.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_table.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_tensor.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_types.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_udf.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_util.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/test_without_numpy.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/util.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      copying pyarrow/tests/wsgi_examples.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/feather
-      copying pyarrow/tests/data/feather/v0.17.0.version.2-compression.lz4.feather -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/feather
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/README.md -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.emptyFile.jsn.gz -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.emptyFile.orc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.test1.jsn.gz -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.test1.orc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.testDate1900.jsn.gz -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/TestOrcFile.testDate1900.orc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/decimal.jsn.gz -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      copying pyarrow/tests/data/orc/decimal.orc -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/orc
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/parquet
-      copying pyarrow/tests/data/parquet/v0.7.1.all-named-index.parquet -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/parquet
-      copying pyarrow/tests/data/parquet/v0.7.1.column-metadata-handling.parquet -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/parquet
-      copying pyarrow/tests/data/parquet/v0.7.1.parquet -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/parquet
-      copying pyarrow/tests/data/parquet/v0.7.1.some-named-index.parquet -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/data/parquet
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/interchange
-      copying pyarrow/tests/interchange/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/interchange
-      copying pyarrow/tests/interchange/test_conversion.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/interchange
-      copying pyarrow/tests/interchange/test_interchange_spec.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/interchange
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/common.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/conftest.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/encryption.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_basic.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_compliant_nested_type.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_data_types.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_dataset.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_datetime.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_encryption.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_metadata.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_pandas.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_parquet_file.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      copying pyarrow/tests/parquet/test_parquet_writer.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/tests/parquet
-      creating build/lib.macosx-15.0-arm64-cpython-314/pyarrow/vendored
-      copying pyarrow/vendored/__init__.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/vendored
-      copying pyarrow/vendored/docscrape.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/vendored
-      copying pyarrow/vendored/version.py -> build/lib.macosx-15.0-arm64-cpython-314/pyarrow/vendored
-      running build_ext
-      creating /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-install-7y158_mn/pyarrow_78a7a48175dc49989343d292ba34ac90/build/temp.macosx-15.0-arm64-cpython-314
-      -- Running cmake for PyArrow
-      cmake -DCMAKE_INSTALL_PREFIX=/private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-install-7y158_mn/pyarrow_78a7a48175dc49989343d292ba34ac90/build/lib.macosx-15.0-arm64-cpython-314/pyarrow -DPYTHON_EXECUTABLE=/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv/bin/python3.14 -DPython3_EXECUTABLE=/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv/bin/python3.14 -DPYARROW_CXXFLAGS= -DPYARROW_BUNDLE_ARROW_CPP=off -DPYARROW_BUNDLE_CYTHON_CPP=off -DPYARROW_GENERATE_COVERAGE=off -DCMAKE_BUILD_TYPE=release /private/var/folders/dv/hd4zkt0n6k3fntdmfmnnwzqm0000gn/T/pip-install-7y158_mn/pyarrow_78a7a48175dc49989343d292ba34ac90
-      error: command 'cmake' failed: No such file or directory
-      [end of output]
-
-  note: This error originates from a subprocess, and is likely not a problem with pip.
-  ERROR: Failed building wheel for pyarrow
-Successfully built gcp-pipeline-beam
-Failed to build pyarrow
-error: failed-wheel-build-for-install
-× Failed to build installable wheels for some pyproject.toml based projects
-╰─> pyarrow
+[main 8104409] refactor: consolidate deployment workflows and remove deprecated application-specific scripts
+ 225 files changed, 128 insertions(+), 18318 deletions(-)
+ delete mode 100644 .github/workflows/deploy-application1.yml
+ delete mode 100644 .github/workflows/deploy-application2.yml
+ delete mode 100644 deployments/application1-ingestion/Dockerfile
+ delete mode 100644 deployments/application1-ingestion/README.md
+ delete mode 100644 deployments/application1-ingestion/pyproject.toml
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/__init__.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/config/__init__.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/config/constants.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/config/settings.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/__init__.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/application1_pipeline.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/options.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/pipeline_router.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/runner.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/pipeline/transforms.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1a/__init__.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1a/accounts.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1a/customers.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1a/decision.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1a/registry.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1as/odp_accounts.json
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1as/odp_customers.json
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1as/odp_decision.json
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/schapplication1as/pipeline_jobs.json
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/validation/__init__.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/validation/file_validator.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/validation/record_validator.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/validation/types.py
+ delete mode 100644 deployments/application1-ingestion/src/application1_ingestion/validation/validator.py
+ delete mode 100644 deployments/application1-ingestion/tests/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/conftest.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/assertions/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/assertions/beam_assertions.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/assertions/pipeline_assertions.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/assertions/record_assertions.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/beam_test.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/gdw_test.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/result.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/scenario_test.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/base/validation_test.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/base.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/common_steps.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/dq_steps.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/pipeline_steps.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/builders/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/builders/config_builder.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/builders/pipeline_builder.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/builders/record_builder.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/comparison/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/comparison/dual_run.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/fixtures/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/fixtures/beam.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/fixtures/bigquery.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/fixtures/common.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/fixtures/gcs.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/mocks/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/mocks/bigquery_mock.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/mocks/gcs_mock.py
+ delete mode 100644 deployments/application1-ingestion/tests/libs/gcp_pipeline_tester/mocks/pubsub_mock.py
+ delete mode 100644 deployments/application1-ingestion/tests/unit/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/unit/config/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/unit/config/test_config.py
+ delete mode 100644 deployments/application1-ingestion/tests/unit/pipeline/__init__.py
+ delete mode 100644 deployments/application1-ingestion/tests/unit/pipeline/test_application1_pipeline.py
+ delete mode 100644 deployments/application1-orchestration/README.md
+ delete mode 100644 deployments/application1-orchestration/dags/__init__.py
+ delete mode 100644 deployments/application1-orchestration/dags/application1_error_handling_dag.py
+ delete mode 100644 deployments/application1-orchestration/dags/application1_fdp_transform_dag.py
+ delete mode 100644 deployments/application1-orchestration/dags/application1_odp_application2d_dag.py
+ delete mode 100644 deployments/application1-orchestration/dags/application1_pubsub_trigger_dag.py
+ delete mode 100644 deployments/application1-orchestration/pyproject.toml
+ delete mode 100644 deployments/application1-orchestration/tests/__init__.py
+ delete mode 100644 deployments/application1-orchestration/tests/conftest.py
+ delete mode 100644 deployments/application1-orchestration/tests/unit/__init__.py
+ delete mode 100644 deployments/application1-transformation/README.md
+ delete mode 100644 deployments/application1-transformation/dbt/.user.yml
+ delete mode 100644 deployments/application1-transformation/dbt/dbt_project.yml
+ delete mode 100644 deployments/application1-transformation/dbt/macros/data_quality_check.sql
+ delete mode 100644 deployments/application1-transformation/dbt/macros/incrapplication1ental_strategy.sql
+ delete mode 100644 deployments/application1-transformation/dbt/models/fdp/_fdp_application1_models.yml
+ delete mode 100644 deployments/application1-transformation/dbt/models/fdp/event_transaction_excess.sql
+ delete mode 100644 deployments/application1-transformation/dbt/models/fdp/portfolio_account_excess.sql
+ delete mode 100644 deployments/application1-transformation/dbt/models/staging/application1/_application1_sources.yml
+ delete mode 100644 deployments/application1-transformation/dbt/models/staging/application1/stg_application1_accounts.sql
+ delete mode 100644 deployments/application1-transformation/dbt/models/staging/application1/stg_application1_customers.sql
+ delete mode 100644 deployments/application1-transformation/dbt/models/staging/application1/stg_application1_decision.sql
+ delete mode 100644 deployments/application1-transformation/pyproject.toml
+ delete mode 100644 deployments/application1-transformation/tests/__init__.py
+ delete mode 100644 deployments/application2-ingestion/Dockerfile
+ delete mode 100644 deployments/application2-ingestion/README.md
+ delete mode 100644 deployments/application2-ingestion/pyproject.toml
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/__init__.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/config/__init__.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/config/constants.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/config/settings.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/pipeline/__init__.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/pipeline/application2_pipeline.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/pipeline/options.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/pipeline/transforms.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/schapplication1a/__init__.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/schapplication1a/applications.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/schapplication1a/registry.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/schapplication1as/odp_application2_applications.json
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/schapplication1as/pipeline_jobs.json
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/validation/__init__.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/validation/file_validator.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/validation/record_validator.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/validation/types.py
+ delete mode 100644 deployments/application2-ingestion/src/application2_ingestion/validation/validator.py
+ delete mode 100644 deployments/application2-ingestion/tests/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/conftest.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/assertions/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/assertions/beam_assertions.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/assertions/pipeline_assertions.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/assertions/record_assertions.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/beam_test.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/gdw_test.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/result.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/scenario_test.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/base/validation_test.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/base.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/common_steps.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/dq_steps.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/bdd/steps/pipeline_steps.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/builders/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/builders/config_builder.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/builders/pipeline_builder.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/builders/record_builder.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/comparison/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/comparison/dual_run.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/fixtures/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/fixtures/beam.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/fixtures/bigquery.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/fixtures/common.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/fixtures/gcs.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/mocks/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/mocks/bigquery_mock.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/mocks/gcs_mock.py
+ delete mode 100644 deployments/application2-ingestion/tests/libs/gcp_pipeline_tester/mocks/pubsub_mock.py
+ delete mode 100644 deployments/application2-ingestion/tests/unit/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/unit/config/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/unit/config/test_config.py
+ delete mode 100644 deployments/application2-ingestion/tests/unit/pipeline/__init__.py
+ delete mode 100644 deployments/application2-ingestion/tests/unit/pipeline/test_application2_pipeline.py
+ delete mode 100644 deployments/application2-orchestration/README.md
+ delete mode 100644 deployments/application2-orchestration/dags/__init__.py
+ delete mode 100644 deployments/application2-orchestration/dags/application2_error_handling_dag.py
+ delete mode 100644 deployments/application2-orchestration/dags/application2_fdp_transform_dag.py
+ delete mode 100644 deployments/application2-orchestration/dags/application2_odp_application2d_dag.py
+ delete mode 100644 deployments/application2-orchestration/dags/application2_pubsub_trigger_dag.py
+ delete mode 100644 deployments/application2-orchestration/pyproject.toml
+ delete mode 100644 deployments/application2-orchestration/tests/__init__.py
+ delete mode 100644 deployments/application2-orchestration/tests/conftest.py
+ delete mode 100644 deployments/application2-orchestration/tests/unit/__init__.py
+ delete mode 100644 deployments/application2-transformation/README.md
+ delete mode 100644 deployments/application2-transformation/dbt/.user.yml
+ delete mode 100644 deployments/application2-transformation/dbt/dbt_project.yml
+ delete mode 100644 deployments/application2-transformation/dbt/models/fdp/_fdp_application2_models.yml
+ delete mode 100644 deployments/application2-transformation/dbt/models/fdp/portfolio_account_facility.sql
+ delete mode 100644 deployments/application2-transformation/dbt/models/fdp/unit_tests.yml
+ delete mode 100644 deployments/application2-transformation/dbt/models/staging/application2/_application2_sources.yml
+ delete mode 100644 deployments/application2-transformation/dbt/models/staging/application2/stg_application2_applications.sql
+ delete mode 100644 deployments/application2-transformation/pyproject.toml
+ delete mode 100644 deployments/application2-transformation/tests/__init__.py
+ rename deployments/{cdp-segmentation-example => mainframe-segment-transform}/DEPLOYMENT_GUIDE.md (100%)
+ rename deployments/{cdp-segmentation-example => mainframe-segment-transform}/README.md (88%)
+ rename deployments/{cdp-segmentation-example => mainframe-segment-transform}/pyproject.toml (100%)
+ rename deployments/{cdp-segmentation-example => mainframe-segment-transform}/requirapplication1ents.txt (100%)
+ rename deployments/{cdp-segmentation-example => mainframe-segment-transform}/src/cdp_example/main.py (100%)
+ rename deployments/{spanner-transformation => spanner-to-bigquery-load}/dbt/.user.yml (100%)
+ rename deployments/{spanner-transformation => spanner-to-bigquery-load}/dbt/dbt_project.yml (100%)
+ rename deployments/{spanner-transformation => spanner-to-bigquery-load}/dbt/models/fdp/spanner_customer_summary.sql (100%)
+ rename deployments/{spanner-transformation => spanner-to-bigquery-load}/dbt/models/fdp/unit_tests.yml (100%)
+ delete mode 100644 infrastructure/terraform/systems/application1/ingestion/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application1/ingestion/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/application1/orchestration/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application1/orchestration/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/application1/transformation/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application1/transformation/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/ingestion/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/ingestion/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/orchestration/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/orchestration/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/transformation/main.tf
+ delete mode 100644 infrastructure/terraform/systems/application2/transformation/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/cdp/pipeline/main.tf
+ delete mode 100644 infrastructure/terraform/systems/cdp/pipeline/variables.tf
+ delete mode 100644 infrastructure/terraform/systems/spanner-to-bigquery-load/main.tf
+ delete mode 100644 infrastructure/terraform/systems/spanner-to-bigquery-load/variables.tf
+ delete mode 100755 scripts/gcp/test_application1_e2e.sh

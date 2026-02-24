@@ -11,23 +11,24 @@ This document defines the production-grade architecture for the Legacy Mainframe
 
 ## 3. System Architecture
 
-### 3.1 The 3-Unit Deployment Model
-Every system (e.g., Generic, Generic) is implemented as three independent functional units:
+### 3.1 The Merged 3-Unit Deployment Model
 
-1.  **Unit 1: Ingestion (Beam/Dataflow)**: Handles I/O, file validation, and raw loading.
-2.  **Unit 2: Transformation (dbt/BigQuery)**: Implements business logic and data modeling.
-3.  **Unit 3: Orchestration (Airflow/Composer)**: Coordinates the execution and state transitions.
+To reduce GCP costs and management complexity, the framework consolidates all source systems (e.g., Application1/EM and Application2/LOA) into **three functional deployment units**:
+
+1.  **Unit 1: Unified Ingestion (Beam/Dataflow/Docker)**: A single Docker-based unit that handles file validation and raw loading for all entities (Customers, Accounts, Decisions, Applications).
+2.  **Unit 2: Unified Transformation (dbt/BigQuery/Docker)**: A consolidated dbt project containing models for all systems, triggered via Pub/Sub.
+3.  **Unit 3: Unified Orchestration (Airflow/Docker)**: A single set of DAGs (Trigger, Load, Transform) that coordinate the entire flow for all systems.
 
 ### 3.2 Component Interaction Map
 ```mermaid
 graph TD
-    A[Mainframe Extract] -->|GCS Upload| B(Landing Bucket)
-    B -->|Pub/Sub Event| C[Orchestration Unit]
-    C -->|Trigger| D[Ingestion Unit]
+    A[Mainframe Upload] -->|GCS| B(Landing Bucket)
+    B -->|Pub/Sub| C[Unified Orchestration]
+    C -->|Trigger| D[Unified Ingestion]
     D -->|Write| E[(ODP BigQuery)]
-    E -->|Trigger| F[Transformation Unit]
+    E -->|Trigger| F[Unified Transformation]
     F -->|Write| G[(FDP BigQuery)]
-    C -.->|State Management| H[(Job Control Table)]
+    C -.->|State| H[(Job Control)]
 ```
 
 ---
