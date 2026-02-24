@@ -50,14 +50,20 @@ The framework makes it easy to track and fix issues:
 
 ### Cloud Cost Savings
 
-By splitting each system into three independent parts (Ingestion, Transformation, and Orchestration), we reduce infrastructure costs:
+By consolidating multiple systems into three unified deployment units (Ingestion, Transformation, and Orchestration), we significantly reduce GCP infrastructure costs and management overhead:
 
-| Benefit | How it saves money |
-|---------|-------------|
-| **Smaller Orchestration** | The scheduler (Airflow) doesn't need heavy data processing tools installed. |
-| **Efficient Ingestion** | Ingestion jobs (Dataflow) only use the resources they need for a specific task. |
-| **Independent Scaling** | You can scale up ingestion for a large file without affecting the rest of the system. |
-| **Faster Builds** | Smaller, focused components are faster to test and deploy. |
+| Unit | Merged Systems | Benefit |
+|------|----------------|---------|
+| **Ingestion** | EM + LOA | Unified Beam/Dataflow Docker image for all 4 entities. |
+| **Orchestration** | EM + LOA | Single Airflow DAG set managing the entire functional flow. |
+| **Transformation** | EM + LOA | Unified dbt project for all staging and FDP models. |
+
+**Key Benefits:**
+- **Reduced Deployment Footprint**: 3 deployments instead of 6+.
+- **Standardized Python 3.11**: All units run on a stable, high-performance Python 3.11 environment.
+- **Docker-First**: All units are containerized and triggered via Pub/Sub for maximum efficiency.
+- **Independent Scaling**: Each functional unit scales based on load, not per-system.
+- **Faster Builds**: Merged components share dependencies, leading to faster CI/CD cycles.
 
 ---
 

@@ -304,18 +304,33 @@ When changes are made across multiple libraries, you can apply a unified Git tag
 
 ## Run Tests
 
+You can now run tests for each library using `pytest` directly from its directory, as the `pythonpath` is configured in `pyproject.toml` or `pytest.ini`.
+
 ```bash
-# Core (208 tests)
+# Core
 cd gcp-pipeline-core
-PYTHONPATH=src python -m pytest tests/unit/ -q
+pytest
 
-# Beam (358 tests)
+# Beam
 cd ../gcp-pipeline-beam
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
+pytest
 
-# Orchestration (52 tests)
+# Orchestration
 cd ../gcp-pipeline-orchestration
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
+pytest
+
+# Transform
+cd ../gcp-pipeline-transform
+pytest
+
+# Tester
+cd ../gcp-pipeline-tester
+pytest
+```
+
+Alternatively, you can run tests for all libraries from the project root:
+```bash
+./scripts/run_library_tests.sh
 ```
 
 ---
