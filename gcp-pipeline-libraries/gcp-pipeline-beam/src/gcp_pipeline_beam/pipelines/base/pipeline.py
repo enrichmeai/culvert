@@ -24,7 +24,7 @@ from . import lifecycle
 logger = logging.getLogger(__name__)
 
 
-class BasePipeline(ABC):
+class BasePipeline:
     """
     Abstract Base Pipeline class for GDW migration jobs.
 

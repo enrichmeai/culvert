@@ -4,7 +4,7 @@ Windowing and Triggering Module
 Reusable PTransforms for applying windowing and triggering strategies to PCollections.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, Any
 
 import apache_beam as beam
 from apache_beam.transforms import window
@@ -43,7 +43,7 @@ class ApplyWindowing(beam.PTransform):
         gap: Optional[int] = None,
         allowed_lateness: int = 0,
         accumulation_mode: str = 'discarding',
-        trigger: Optional[beam.transforms.trigger.TriggerFn] = None
+        trigger: Any = None
     ):
         """
         Initialize ApplyWindowing.
