@@ -238,7 +238,7 @@ class PubSubSubscriberMock:
 
     Example:
         >>> mock_subscriber = PubSubSubscriberMock()
-        >>> mock_subscriber.add_message("projects/p/subscriptions/s", {"key": "value"})
+        >>> mock_subscriber.add_message("projects/test-project/subscriptions/s", {"key": "value"})
         >>> response = mock_subscriber.pull({"subscription": "...", "max_messages": 10})
     """
 
