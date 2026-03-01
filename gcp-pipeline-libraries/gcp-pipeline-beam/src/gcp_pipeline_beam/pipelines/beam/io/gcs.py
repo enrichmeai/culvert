@@ -467,20 +467,28 @@ class WriteSegmentedToGCSDoFn(beam.DoFn):
             self.success.inc()
             yield gcs_path
 
-        except Exception as e:
+        except (Exception, TypeError) as e:
             logger.error(f"Error flushing segment to GCS: {e}")
             self.errors.inc(len(failed_records))
             
             # Use core error handler for classification
-            error_record = self.error_handler.handle_exception(e)
+            try:
+                error_record = self.error_handler.handle_exception(e)
+                severity = error_record.severity.value
+                category = error_record.category.value
+                retry_strategy = error_record.retry_strategy.value
+            except Exception:
+                severity = "ERROR"
+                category = "UNKNOWN"
+                retry_strategy = "RETRY"
             
             self.buffer = []
             for record in failed_records:
                 yield beam.pvalue.TaggedOutput('errors', {
                     'error': str(e),
                     'record': record,
-                    'severity': error_record.severity.value,
-                    'category': error_record.category.value,
-                    'retry_strategy': error_record.retry_strategy.value
+                    'severity': severity,
+                    'category': category,
+                    'retry_strategy': retry_strategy
                 })
 

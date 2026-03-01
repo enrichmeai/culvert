@@ -6,7 +6,7 @@ error handling, and monitoring capabilities.
 """
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC, ABCMeta, abstractmethod
 from typing import Optional, Dict, Any
 
 import apache_beam as beam
@@ -24,7 +24,13 @@ from . import lifecycle
 logger = logging.getLogger(__name__)
 
 
-class BasePipeline:
+# Create a compatible metaclass to resolve conflicts between ABC and Beam's internal types
+class BasePipelineMeta(ABCMeta, type(beam.PTransform)):
+    """Metaclass to resolve potential conflicts in subclassing with PTransform."""
+    pass
+
+
+class BasePipeline(metaclass=BasePipelineMeta):
     """
     Abstract Base Pipeline class for GDW migration jobs.
 
