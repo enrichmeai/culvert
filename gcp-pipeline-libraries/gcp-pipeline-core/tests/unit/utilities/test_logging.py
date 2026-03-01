@@ -147,14 +147,14 @@ class TestStructuredLogger(unittest.TestCase):
         log_entry = json.loads(output)
 
         self.assertEqual(log_entry['run_id'], 'application1_20260105_123456')
-        self.assertEqual(log_entry['systapplication1_id'], 'Application1')
+        self.assertEqual(log_entry['system_id'], 'Application1')
         self.assertEqual(log_entry['entity_type'], 'customers')
 
     def test_set_context(self):
         """set_context should update context."""
         logger = configure_structured_logging(
             run_id="initial_run",
-            systapplication1_id="Application1",
+            system_id="Application1",
             logger_name="test_set_context",
             stream=self.stream
         )
