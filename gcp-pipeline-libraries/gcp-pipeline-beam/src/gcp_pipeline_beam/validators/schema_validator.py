@@ -13,7 +13,7 @@ Example:
 
     schema = EntitySchema(
         entity_name="customers",
-        systapplication1_id="Application1",
+        system_id="Application1",
         fields=[
             SchemaField(name="customer_id", field_type="STRING", required=True),
             SchemaField(name="status", field_type="STRING", allowed_values=["ACTIVE", "CLOSED"]),

@@ -215,7 +215,7 @@ To maintain the integrity of the library architecture, the following rules and r
     - `ErrorClassifier`: Categorizes exceptions into **Validation** (no retry), **Integration** (retry with backoff), and **Resource** (exponential backoff).
     - `RetryPolicy`: Configurable max retries, backoff multipliers, and jitter.
 - **Job Control**: Tracks pipeline execution states in BigQuery for granular status updates and failure stage tracking.
-- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, systapplication1_id).
+- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, system_id).
 - **Compliance**: Zero dependencies on Beam or Airflow.
 
 ### gcp-pipeline-beam (Ingestion Layer)

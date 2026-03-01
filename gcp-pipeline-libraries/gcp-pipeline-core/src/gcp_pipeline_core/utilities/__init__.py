@@ -28,7 +28,7 @@ Example:
     >>> from gcp_pipeline_core.utilities import generate_run_id, configure_structured_logging
     >>>
     >>> run_id = generate_run_id('my_pipeline')
-    >>> logger = configure_structured_logging(run_id=run_id, systapplication1_id='Application1')
+    >>> logger = configure_structured_logging(run_id=run_id, system_id='Application1')
     >>> logger.info("Pipeline started", records=1000)
 """
 

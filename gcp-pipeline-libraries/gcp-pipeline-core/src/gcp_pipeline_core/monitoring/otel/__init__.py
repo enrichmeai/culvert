@@ -31,7 +31,7 @@ Usage:
         process_records()
 
     # Use context for pipeline-wide tracing
-    with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+    with OTELContext(run_id="run_123", system_id="Application1") as ctx:
         with ctx.span("validation") as span:
             span.set_attribute("records", 1000)
             validate_records()

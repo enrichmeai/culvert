@@ -15,14 +15,14 @@ class TestMigrationMetrics(unittest.TestCase):
         """Set up test metrics."""
         self.metrics = MigrationMetrics(
             run_id="application1_20260105_143022_abc123",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="customers"
         )
 
     def test_initialization(self):
         """MigrationMetrics should initialize correctly."""
         self.assertEqual(self.metrics.run_id, "application1_20260105_143022_abc123")
-        self.assertEqual(self.metrics.systapplication1_id, "Application1")
+        self.assertEqual(self.metrics.system_id, "Application1")
         self.assertEqual(self.metrics.entity_type, "customers")
 
     def test_record_read(self):
@@ -86,11 +86,11 @@ class TestMigrationMetrics(unittest.TestCase):
         self.assertEqual(summary['rates']['validation_failure_rate'], 0)
 
     def test_get_summary_includes_context(self):
-        """get_summary should include run_id, systapplication1_id, entity_type."""
+        """get_summary should include run_id, system_id, entity_type."""
         summary = self.metrics.get_summary()
 
         self.assertEqual(summary['run_id'], "application1_20260105_143022_abc123")
-        self.assertEqual(summary['systapplication1_id'], "Application1")
+        self.assertEqual(summary['system_id'], "Application1")
         self.assertEqual(summary['entity_type'], "customers")
 
     def test_to_job_record(self):
@@ -103,7 +103,7 @@ class TestMigrationMetrics(unittest.TestCase):
         record = self.metrics.to_job_record()
 
         self.assertEqual(record['run_id'], "application1_20260105_143022_abc123")
-        self.assertEqual(record['systapplication1_id'], "Application1")
+        self.assertEqual(record['system_id'], "Application1")
         self.assertEqual(record['entity_type'], "customers")
         self.assertEqual(record['records_read'], 100)
         self.assertEqual(record['records_validated'], 95)
@@ -142,7 +142,7 @@ class TestMigrationMetricsWithoutEntityType(unittest.TestCase):
         """Should work without entity_type."""
         metrics = MigrationMetrics(
             run_id="run_123",
-            systapplication1_id="Application1"
+            system_id="Application1"
         )
         self.assertIsNone(metrics.entity_type)
 
@@ -154,10 +154,10 @@ class TestMigrationMetricsLabels(unittest.TestCase):
     """Test that labels are correctly applied."""
 
     def test_labels_include_context(self):
-        """All metrics should include run_id, systapplication1_id labels."""
+        """All metrics should include run_id, system_id labels."""
         metrics = MigrationMetrics(
             run_id="run_123",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="accounts"
         )
 
@@ -165,14 +165,14 @@ class TestMigrationMetricsLabels(unittest.TestCase):
         labels = metrics._get_labels()
 
         self.assertEqual(labels['run_id'], "run_123")
-        self.assertEqual(labels['systapplication1_id'], "Application1")
+        self.assertEqual(labels['system_id'], "Application1")
         self.assertEqual(labels['entity_type'], "accounts")
 
     def test_extra_labels_merged(self):
         """Extra labels should be merged with standard labels."""
         metrics = MigrationMetrics(
             run_id="run_123",
-            systapplication1_id="Application1"
+            system_id="Application1"
         )
 
         labels = metrics._get_labels({'custom': 'value'})

@@ -30,7 +30,7 @@ class SchemaField:
 class EntitySchema:
     """Schema definition for an entity."""
     entity_name: str
-    systapplication1_id: str
+    system_id: str
     fields: List[SchemaField]
     primary_key: List[str]
     description: str = ""
