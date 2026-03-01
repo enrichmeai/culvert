@@ -9,13 +9,13 @@ Default format (CSV extracts):
     TRL|RecordCount={count}|Checksum={value}
 
 Example with defaults:
-    >>> from gcp_pipeline_beam.file_management.hdr_trl import HDRTRLParser
+    >>> from gcp_pipeline_core.file_management import HDRTRLParser
     >>> parser = HDRTRLParser()
     >>> metadata = parser.parse_file("gs://bucket/file.csv")
 
 Example with custom patterns:
     >>> parser = HDRTRLParser(
-    ...     hdr_pattern=r'^HEADER:(.+):(.+):(\d{8})$',
+    ...     hdr_pattern=r'^HEADER:(.+):(.+):(\\d{8})$',
     ...     hdr_prefix="HEADER:"
     ... )
 """

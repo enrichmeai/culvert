@@ -23,7 +23,7 @@ from airflow.models import Variable
 
 # Import from custom libraries
 from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
-from gcp_pipeline_beam.file_management import HDRTRLParser
+from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 
 logger = logging.getLogger(__name__)

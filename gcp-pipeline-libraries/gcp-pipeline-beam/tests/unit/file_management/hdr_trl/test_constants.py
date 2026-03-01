@@ -2,7 +2,7 @@
 
 import unittest
 
-from gcp_pipeline_beam.file_management.hdr_trl import (
+from gcp_pipeline_core.file_management import (
     DEFAULT_HDR_PATTERN,
     DEFAULT_TRL_PATTERN,
     DEFAULT_HDR_PREFIX,

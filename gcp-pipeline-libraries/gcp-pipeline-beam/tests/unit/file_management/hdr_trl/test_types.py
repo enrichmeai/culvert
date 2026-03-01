@@ -3,7 +3,7 @@
 import unittest
 from datetime import datetime
 
-from gcp_pipeline_beam.file_management.hdr_trl import (
+from gcp_pipeline_core.file_management import (
     HeaderRecord,
     TrailerRecord,
     ParsedFileMetadata,
