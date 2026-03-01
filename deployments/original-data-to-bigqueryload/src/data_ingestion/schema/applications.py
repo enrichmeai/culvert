@@ -49,7 +49,7 @@ LOA_APPLICATIONS_FIELDS = [
 
 LOAApplicationsSchema = EntitySchema(
     entity_name="applications",
-    systapplication1_id="LOA",
+    system_id="LOA",
     fields=LOA_APPLICATIONS_FIELDS,
     primary_key=["application_id"],
     description="LOA Application records",

@@ -5,7 +5,7 @@ Runs dbt transformations to create FDP models.
 
 To use:
 1. Replace <SYSTEM_ID> with your system identifier (e.g., 'MYAPP').
-2. Replace <systapplication1_id> with lowercase identifier (e.g., 'myapp').
+2. Replace <system_id> with lowercase identifier (e.g., 'myapp').
 3. Configure REQUIRED_ENTITIES if coordination is needed.
 """
 
@@ -56,7 +56,7 @@ def verify_entities(**context) -> str:
     
     checker = EntityDependencyChecker(
         project_id=PROJECT_ID,
-        systapplication1_id=SYSTEM_ID,
+        system_id=SYSTEM_ID,
         required_entities=REQUIRED_ENTITIES,
     )
     

@@ -82,7 +82,7 @@ def _build_error_payload(
                     if routing_metadata:
                         payload["file_path"] = routing_metadata.get("gcs_path")
                         payload["entity_type"] = routing_metadata.get("entity_type")
-                        payload["systapplication1_id"] = routing_metadata.get("systapplication1_id")
+                        payload["system_id"] = routing_metadata.get("system_id")
                 except Exception as e:
                     logger.warning(f"Error pulling routing metadata from XCom: {e}")
         except Exception as e:
