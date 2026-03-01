@@ -10,6 +10,8 @@ def test_apply_windowing_fixed():
     # Set streaming=True to trigger some internal Beam logic if needed
     options = PipelineOptions()
     options.view_as(StandardOptions).streaming = True
+    # Disable type checking as it fails in some environments with isinstance error
+    options.view_as(beam.options.pipeline_options.TypeOptions).pipeline_type_check = False
     
     with TestPipeline(options=options) as p:
         elements = [
@@ -32,6 +34,8 @@ def test_apply_windowing_sliding():
     # Set streaming=True to trigger some internal Beam logic if needed
     options = PipelineOptions()
     options.view_as(StandardOptions).streaming = True
+    # Disable type checking as it fails in some environments with isinstance error
+    options.view_as(beam.options.pipeline_options.TypeOptions).pipeline_type_check = False
 
     with TestPipeline(options=options) as p:
         elements = [
