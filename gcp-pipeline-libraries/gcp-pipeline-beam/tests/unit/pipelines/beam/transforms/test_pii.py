@@ -28,7 +28,7 @@ class TestMaskPIIDoFn:
         """Create a sample schema with PII fields."""
         return EntitySchema(
             entity_name="test_entity",
-            systapplication1_id="test_sys",
+            system_id="test_sys",
             fields=[
                 SchemaField(name="id", field_type="STRING", required=True),
                 SchemaField(name="email", field_type="STRING", is_pii=True, pii_type="EMAIL"),

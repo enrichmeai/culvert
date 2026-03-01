@@ -34,7 +34,7 @@ class TestPipelineJob(unittest.TestCase):
         now = datetime.utcnow()
         job = PipelineJob(
             run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
             status=JobStatus.RUNNING,
@@ -52,7 +52,7 @@ class TestPipelineJob(unittest.TestCase):
         """Test creating a failed job with error info."""
         job = PipelineJob(
             run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
             status=JobStatus.FAILED,
@@ -71,7 +71,7 @@ class TestPipelineJob(unittest.TestCase):
         before = datetime.utcnow()
         job = PipelineJob(
             run_id="test",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
@@ -85,7 +85,7 @@ class TestPipelineJob(unittest.TestCase):
         """Test source_files defaults to empty list."""
         job = PipelineJob(
             run_id="test",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
@@ -96,7 +96,7 @@ class TestPipelineJob(unittest.TestCase):
 
         job2 = PipelineJob(
             run_id="test2",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )

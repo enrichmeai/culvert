@@ -269,12 +269,12 @@ class JobControlRepository:
             query = f"""
                 SELECT * FROM `{self.full_table_id}`
                 WHERE status = 'PENDING'
-                  AND systapplication1_id = @systapplication1_id
+                  AND system_id = @system_id
                 ORDER BY created_at
             """
             job_config = bigquery.QueryJobConfig(
                 query_parameters=[
-                    bigquery.ScalarQueryParameter("systapplication1_id", "STRING", systapplication1_id),
+                    bigquery.ScalarQueryParameter("system_id", "STRING", system_id),
                 ]
             )
         else:
@@ -291,7 +291,7 @@ class JobControlRepository:
         for row in results:
             jobs.append(PipelineJob(
                 run_id=row.run_id,
-                systapplication1_id=row.systapplication1_id,
+                system_id=row.system_id,
                 entity_type=row.entity_type,
                 extract_date=row.extract_date,
                 status=JobStatus(row.status),

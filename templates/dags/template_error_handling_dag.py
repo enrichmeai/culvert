@@ -5,7 +5,7 @@ Monitors failed jobs and performs cleanup or alerting.
 
 To use:
 1. Replace <SYSTEM_ID> with your system identifier.
-2. Replace <systapplication1_id> with lowercase identifier.
+2. Replace <system_id> with lowercase identifier.
 """
 
 from datetime import datetime, timedelta

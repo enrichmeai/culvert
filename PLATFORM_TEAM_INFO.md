@@ -38,12 +38,12 @@ The Job Control system is centralized and shared across all migration pipelines 
 - **Table Definition & Schema**: [infrastructure/terraform/systems/application1/orchestration/main.tf](infrastructure/terraform/systems/application1/orchestration/main.tf) (Lines 58-86)
 
 ### Schema Highlights
-The table is partitioned by `created_at` (DAY) and clustered by `systapplication1_id`, `entity_type`, and `status`.
+The table is partitioned by `created_at` (DAY) and clustered by `system_id`, `entity_type`, and `status`.
 
 | Field Name | Type | Description |
 | :--- | :--- | :--- |
 | `run_id` | STRING | Unique pipeline run ID |
-| `systapplication1_id` | STRING | Originating system (`application1`, `application2`) |
+| `system_id` | STRING | Originating system (`application1`, `application2`) |
 | `status` | STRING | `PENDING`, `RUNNING`, `SUCCESS`, `FAILED`, etc. |
 | `started_at` | TIMESTAMP | Job start time |
 | `completed_at`| TIMESTAMP | Job completion time |

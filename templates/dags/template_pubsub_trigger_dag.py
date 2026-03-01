@@ -6,7 +6,7 @@ and triggers the corresponding ODP Load DAG.
 
 To use:
 1. Replace <SYSTEM_ID> with your system identifier (e.g., 'MYAPP').
-2. Replace <systapplication1_id> with lowercase identifier (e.g., 'myapp').
+2. Replace <system_id> with lowercase identifier (e.g., 'myapp').
 3. Configure TOPIC_NAME and SUBSCRIPTION_NAME.
 """
 
@@ -92,7 +92,7 @@ def parse_file_metadata(**context):
         "entity": entity,
         "extract_date": extract_date,
         "bucket": bucket,
-        "systapplication1_id": SYSTEM_ID
+        "system_id": SYSTEM_ID
     }
     
     context["ti"].xcom_push(key="refined_metadata", value=result)
@@ -124,8 +124,8 @@ def validate_file(**context) -> str:
         parsed = parser.parse_file_lines(lines)
 
         # Validate system ID match
-        if parsed.header.systapplication1_id != SYSTEM_ID:
-            logger.error(f"System ID mismatch: expected {SYSTEM_ID}, got {parsed.header.systapplication1_id}")
+        if parsed.header.system_id != SYSTEM_ID:
+            logger.error(f"System ID mismatch: expected {SYSTEM_ID}, got {parsed.header.system_id}")
             return "move_to_error"
 
         return "trigger_odp_load"

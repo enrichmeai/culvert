@@ -108,21 +108,21 @@ class TestOTELContext:
     def test_exception_in_span(self):
         """Test exception handling in span."""
         with pytest.raises(ValueError, match="span error"):
-            with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+            with OTELContext(run_id="run_123", system_id="Application1") as ctx:
                 with ctx.span("operation") as span:
                     raise ValueError("span error")
 
     def test_base_attributes_set(self):
         """Test base attributes are set correctly."""
-        with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+        with OTELContext(run_id="run_123", system_id="Application1") as ctx:
             assert ctx._base_attributes["run_id"] == "run_123"
-            assert ctx._base_attributes["systapplication1_id"] == "Application1"
+            assert ctx._base_attributes["system_id"] == "Application1"
 
     def test_base_attributes_with_entity(self):
         """Test base attributes include entity type."""
         with OTELContext(
             run_id="run_123",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="customers"
         ) as ctx:
             assert ctx._base_attributes["entity_type"] == "customers"
@@ -131,7 +131,7 @@ class TestOTELContext:
         """Test custom tracer name."""
         ctx = OTELContext(
             run_id="run_123",
-            systapplication1_id="Application1",
+            system_id="Application1",
             tracer_name="custom_tracer"
         )
         assert ctx._tracer is not None

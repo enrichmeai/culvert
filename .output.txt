@@ -1,658 +1,259 @@
 ============================= test session starts ==============================
-platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0
+platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- /opt/homebrew/opt/python@3.14/bin/python3.14
+cachedir: .pytest_cache
 rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core
 configfile: pyproject.toml
 plugins: mock-3.15.1, cov-7.0.0
 collected 249 items
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py . [  0%]
-.                                                                        [  0%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py . [  1%]
-................                                                         [  7%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py . [  8%]
-.                                                                        [  8%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py . [  8%]
-....                                                                     [ 10%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py . [ 10%]
-...........                                                              [ 15%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py . [ 15%]
-.....                                                                    [ 17%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py . [ 18%]
-....                                                                     [ 19%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py . [ 20%]
-..                                                                       [ 20%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py . [ 21%]
-..............                                                           [ 26%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py . [ 27%]
-.....                                                                    [ 29%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py . [ 29%]
-.                                                                        [ 30%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py . [ 30%]
-..                                                                       [ 31%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py . [ 31%]
-.............                                                            [ 36%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py F [ 37%]
-F                                                                        [ 37%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py . [ 38%]
-..                                                                       [ 38%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py . [ 39%]
-.....                                                                    [ 41%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py F [ 41%]
-.FFF                                                                     [ 43%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py F [ 43%]
-.F......                                                                 [ 46%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py . [ 47%]
-....                                                                     [ 48%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py . [ 49%]
-....................                                                     [ 57%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py . [ 57%]
-............FFFF                                                         [ 64%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py . [ 64%]
-..........                                                               [ 68%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py . [ 69%]
-..                                                                       [ 69%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py . [ 70%]
-............                                                             [ 75%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py . [ 75%]
-......                                                                   [ 77%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py . [ 78%]
-................                                                         [ 84%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py . [ 85%]
-..........                                                               [ 89%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py . [ 89%]
-....FFFFFFFFF..                                                          [ 95%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py . [ 95%]
-..........                                                               [100%]
-=================================== FAILURES ===================================
-__________________________ test_finops_labels_to_dict __________________________
-    def test_finops_labels_to_dict():
->       labels = FinOpsLabels(systapplication1_id="MySystem", environment="PROD")
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       TypeError: FinOpsLabels.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py:4: TypeError
-___________________________ test_get_standard_labels ___________________________
-    def test_get_standard_labels():
->       d = FinOpsLabels.get_standard_labels(systapplication1_id="Test", environment="Dev", run_id="123")
-            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       TypeError: FinOpsLabels.get_standard_labels() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py:13: TypeError
-_______________ TestPipelineJob.test_create_job_with_all_fields ________________
-self = <job_control.test_models.TestPipelineJob testMethod=test_create_job_with_all_fields>
-    def test_create_job_with_all_fields(self):
-        """Test creating a job with all fields."""
-        now = datetime.utcnow()
->       job = PipelineJob(
-            run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
-            entity_type="Customer",
-            extract_date=date(2026, 1, 1),
-            status=JobStatus.RUNNING,
-            started_at=now,
-            source_files=["gs://bucket/file1.csv", "gs://bucket/file2.csv"],
-            total_records=5000,
-        )
-E       TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:35: TypeError
-_________________ TestPipelineJob.test_job_created_at_default __________________
-self = <job_control.test_models.TestPipelineJob testMethod=test_job_created_at_default>
-    def test_job_created_at_default(self):
-        """Test that created_at is auto-populated."""
-        before = datetime.utcnow()
->       job = PipelineJob(
-            run_id="test",
-            systapplication1_id="Application1",
-            entity_type="Customer",
-            extract_date=date(2026, 1, 1),
-        )
-E       TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:72: TypeError
-_____________ TestPipelineJob.test_job_source_files_default_empty ______________
-self = <job_control.test_models.TestPipelineJob testMethod=test_job_source_files_default_empty>
-    def test_job_source_files_default_empty(self):
-        """Test source_files defaults to empty list."""
->       job = PipelineJob(
-            run_id="test",
-            systapplication1_id="Application1",
-            entity_type="Customer",
-            extract_date=date(2026, 1, 1),
-        )
-E       TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:86: TypeError
-___________________ TestPipelineJob.test_job_with_error_info ___________________
-self = <job_control.test_models.TestPipelineJob testMethod=test_job_with_error_info>
-    def test_job_with_error_info(self):
-        """Test creating a failed job with error info."""
->       job = PipelineJob(
-            run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
-            entity_type="Customer",
-            extract_date=date(2026, 1, 1),
-            status=JobStatus.FAILED,
-            error_code="E001",
-            error_message="File validation failed",
-            failure_stage=FailureStage.FILE_VALIDATION,
-            error_file_path="gs://bucket/errors/file.json",
-        )
-E       TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:53: TypeError
-___________________ TestJobControlRepository.test_create_job ___________________
-self = <job_control.test_repository.TestJobControlRepository testMethod=test_create_job>
-    def test_create_job(self):
-        """Test creating a job record."""
->       job = PipelineJob(
-            run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
-            entity_type="Customer",
-            extract_date=date(2026, 1, 1),
-            source_files=["gs://bucket/file.csv"],
-        )
-E       TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py:51: TypeError
-_________________ TestJobControlRepository.test_get_job_found __________________
-self = <job_control.test_repository.TestJobControlRepository testMethod=test_get_job_found>
-    def test_get_job_found(self):
-        """Test getting an existing job."""
-        mock_row = MagicMock()
-        mock_row.run_id = "test_run_001"
-        mock_row.systapplication1_id = "Application1"
-        mock_row.entity_type = "Customer"
-        mock_row.extract_date = date(2026, 1, 1)
-        mock_row.status = "SUCCESS"
-        mock_row.started_at = None
-        mock_row.completed_at = None
-        mock_row.total_records = 5000
-        mock_row.error_code = None
-        mock_row.error_message = None
-
-        mock_query_job = MagicMock()
-        mock_query_job.result.return_value = [mock_row]
-        self.mock_client.query.return_value = mock_query_job
-
-        job = self.repo.get_job("test_run_001")
-
-        self.assertIsNotNone(job)
-        self.assertEqual(job.run_id, "test_run_001")
->       self.assertEqual(job.systapplication1_id, "Application1")
-                         ^^^^^^^^^^^^^^^^^^^^^^^
-E       AttributeError: 'PipelineJob' object has no attribute 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py:150: AttributeError
-____________________ TestOTELContext.test_exception_in_span ____________________
-self = <monitoring.otel.test_context.TestOTELContext object at 0x10de80050>
-    def test_exception_in_span(self):
-        """Test exception handling in span."""
-        with pytest.raises(ValueError, match="span error"):
->           with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
-                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E           TypeError: OTELContext.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py:111: TypeError
-___________________ TestOTELContext.test_base_attributes_set ___________________
-self = <monitoring.otel.test_context.TestOTELContext object at 0x10de80160>
-    def test_base_attributes_set(self):
-        """Test base attributes are set correctly."""
->       with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-E       TypeError: OTELContext.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py:117: TypeError
-_______________ TestOTELContext.test_base_attributes_with_entity _______________
-self = <monitoring.otel.test_context.TestOTELContext object at 0x10de43350>
-    def test_base_attributes_with_entity(self):
-        """Test base attributes include entity type."""
->       with OTELContext(
-            run_id="run_123",
-            systapplication1_id="Application1",
-            entity_type="customers"
-        ) as ctx:
-E       TypeError: OTELContext.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py:123: TypeError
-___________________ TestOTELContext.test_custom_tracer_name ____________________
-self = <monitoring.otel.test_context.TestOTELContext object at 0x10de43550>
-    def test_custom_tracer_name(self):
-        """Test custom tracer name."""
->       ctx = OTELContext(
-            run_id="run_123",
-            systapplication1_id="Application1",
-            tracer_name="custom_tracer"
-        )
-E       TypeError: OTELContext.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py:132: TypeError
-___________________ TestStructuredLogger.test_all_log_levels ___________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_all_log_levels>
-    def test_all_log_levels(self):
-        """All log levels should work."""
->       logger = configure_structured_logging(
-            logger_name="test_levels",
-            stream=self.stream,
-            level=logging.DEBUG
-        )
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:172:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-run_id = None, systapplication1_id = None, entity_type = None, level = 10
-logger_name = 'test_levels', stream = <_io.StringIO object at 0x10e781120>
-    def configure_structured_logging(
-        run_id: Optional[str] = None,
-        systapplication1_id: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        level: int = logging.INFO,
-        logger_name: str = "gcp_pipeline",
-        stream: Any = None
-    ) -> StructuredLogger:
-        """
-        Configure structured JSON logging for the application.
-
-        Sets up a JSON formatter on the root logger and returns a
-        StructuredLogger instance with context pre-configured.
-
-        Args:
-            run_id: Pipeline run identifier
-            systapplication1_id: System identifier (Application1, Application2)
-            entity_type: Entity being processed
-            level: Logging level (default: INFO)
-            logger_name: Name for the logger
-            stream: Output stream (default: sys.stdout)
-
-        Returns:
-            StructuredLogger instance configured with context
-
-        Example:
-            >>> logger = configure_structured_logging(
-            ...     run_id="application1_20260105_143022",
-            ...     systapplication1_id="Application1",
-            ...     entity_type="customers"
-            ... )
-            >>> logger.info("Pipeline started")
-            >>> logger.info("Processing records", count=1000, stage="validation")
-        """
-        if stream is None:
-            stream = sys.stdout
-
-        # Get or create the logger
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-        # Remove existing handlers to avoid duplicates
-        logger.handlers.clear()
-
-        # Create JSON handler
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(level)
-        handler.setFormatter(StructuredJsonFormatter())
-        logger.addHandler(handler)
-
-        # Prevent propagation to root logger
-        logger.propagate = False
-
->       return StructuredLogger(
-            name=logger_name,
-            run_id=run_id,
-            systapplication1_id=systapplication1_id,
-            entity_type=entity_type,
-            level=level
-        )
-E       TypeError: StructuredLogger.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:258: TypeError
-__________________ TestStructuredLogger.test_context_included __________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_context_included>
-    def test_context_included(self):
-        """Context (run_id, system_id) should be included."""
->       logger = configure_structured_logging(
-            run_id="application1_20260105_123456",
-            system_id="Application1",
-            entity_type="customers",
-            logger_name="test_context",
-            stream=self.stream
-        )
-E       TypeError: configure_structured_logging() got an unexpected keyword argument 'system_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:137: TypeError
-___________________ TestStructuredLogger.test_creates_logger ___________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_creates_logger>
-    def test_creates_logger(self):
-        """StructuredLogger should create successfully."""
->       logger = StructuredLogger(
-            name="test_structured",
-            run_id="run_123",
-            system_id="Application1"
-        )
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:94:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:137: in __init__
-    self._update_context()
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-self = <gcp_pipeline_core.utilities.logging.StructuredLogger object at 0x10e769b50>
-    def _update_context(self):
-        """Update the context var with current values."""
-        context = {}
-        if self.run_id:
-            context['run_id'] = self.run_id
-        if self.system_id:
->           context['system_id'] = self.systapplication1_id
-                                   ^^^^^^^^^^^^^^^^^^^^^^^^
-E           AttributeError: 'StructuredLogger' object has no attribute 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:145: AttributeError
-______________________ TestStructuredLogger.test_log_info ______________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_log_info>
-    def test_log_info(self):
-        """info() should log at INFO level."""
->       logger = configure_structured_logging(
-            run_id="test_run",
-            system_id="Application1",
-            logger_name="test_info",
-            stream=self.stream
-        )
-E       TypeError: configure_structured_logging() got an unexpected keyword argument 'system_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:105: TypeError
-_______________ TestStructuredLogger.test_log_with_extra_fields ________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_log_with_extra_fields>
-    def test_log_with_extra_fields(self):
-        """Logger should include extra fields."""
->       logger = configure_structured_logging(
-            run_id="test_run",
-            system_id="Application1",
-            logger_name="test_extra",
-            stream=self.stream
-        )
-E       TypeError: configure_structured_logging() got an unexpected keyword argument 'system_id'
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:121: TypeError
-____________________ TestStructuredLogger.test_set_context _____________________
-self = <utilities.test_logging.TestStructuredLogger testMethod=test_set_context>
-    def test_set_context(self):
-        """set_context should update context."""
->       logger = configure_structured_logging(
-            run_id="initial_run",
-            systapplication1_id="Application1",
-            logger_name="test_set_context",
-            stream=self.stream
-        )
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:155:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-run_id = 'initial_run', systapplication1_id = 'Application1', entity_type = None
-level = 20, logger_name = 'test_set_context'
-stream = <_io.StringIO object at 0x10e781a20>
-    def configure_structured_logging(
-        run_id: Optional[str] = None,
-        systapplication1_id: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        level: int = logging.INFO,
-        logger_name: str = "gcp_pipeline",
-        stream: Any = None
-    ) -> StructuredLogger:
-        """
-        Configure structured JSON logging for the application.
-
-        Sets up a JSON formatter on the root logger and returns a
-        StructuredLogger instance with context pre-configured.
-
-        Args:
-            run_id: Pipeline run identifier
-            systapplication1_id: System identifier (Application1, Application2)
-            entity_type: Entity being processed
-            level: Logging level (default: INFO)
-            logger_name: Name for the logger
-            stream: Output stream (default: sys.stdout)
-
-        Returns:
-            StructuredLogger instance configured with context
-
-        Example:
-            >>> logger = configure_structured_logging(
-            ...     run_id="application1_20260105_143022",
-            ...     systapplication1_id="Application1",
-            ...     entity_type="customers"
-            ... )
-            >>> logger.info("Pipeline started")
-            >>> logger.info("Processing records", count=1000, stage="validation")
-        """
-        if stream is None:
-            stream = sys.stdout
-
-        # Get or create the logger
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-        # Remove existing handlers to avoid duplicates
-        logger.handlers.clear()
-
-        # Create JSON handler
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(level)
-        handler.setFormatter(StructuredJsonFormatter())
-        logger.addHandler(handler)
-
-        # Prevent propagation to root logger
-        logger.propagate = False
-
->       return StructuredLogger(
-            name=logger_name,
-            run_id=run_id,
-            systapplication1_id=systapplication1_id,
-            entity_type=entity_type,
-            level=level
-        )
-E       TypeError: StructuredLogger.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:258: TypeError
-__________ TestConfigureStructuredLogging.test_configures_json_output __________
-self = <utilities.test_logging.TestConfigureStructuredLogging testMethod=test_configures_json_output>
-    def test_configures_json_output(self):
-        """Should configure JSON output format."""
-        stream = StringIO()
->       logger = configure_structured_logging(
-            logger_name="test_json_config",
-            stream=stream
-        )
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:206:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-run_id = None, systapplication1_id = None, entity_type = None, level = 20
-logger_name = 'test_json_config', stream = <_io.StringIO object at 0x10e780dc0>
-    def configure_structured_logging(
-        run_id: Optional[str] = None,
-        systapplication1_id: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        level: int = logging.INFO,
-        logger_name: str = "gcp_pipeline",
-        stream: Any = None
-    ) -> StructuredLogger:
-        """
-        Configure structured JSON logging for the application.
-
-        Sets up a JSON formatter on the root logger and returns a
-        StructuredLogger instance with context pre-configured.
-
-        Args:
-            run_id: Pipeline run identifier
-            systapplication1_id: System identifier (Application1, Application2)
-            entity_type: Entity being processed
-            level: Logging level (default: INFO)
-            logger_name: Name for the logger
-            stream: Output stream (default: sys.stdout)
-
-        Returns:
-            StructuredLogger instance configured with context
-
-        Example:
-            >>> logger = configure_structured_logging(
-            ...     run_id="application1_20260105_143022",
-            ...     systapplication1_id="Application1",
-            ...     entity_type="customers"
-            ... )
-            >>> logger.info("Pipeline started")
-            >>> logger.info("Processing records", count=1000, stage="validation")
-        """
-        if stream is None:
-            stream = sys.stdout
-
-        # Get or create the logger
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-        # Remove existing handlers to avoid duplicates
-        logger.handlers.clear()
-
-        # Create JSON handler
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(level)
-        handler.setFormatter(StructuredJsonFormatter())
-        logger.addHandler(handler)
-
-        # Prevent propagation to root logger
-        logger.propagate = False
-
->       return StructuredLogger(
-            name=logger_name,
-            run_id=run_id,
-            systapplication1_id=systapplication1_id,
-            entity_type=entity_type,
-            level=level
-        )
-E       TypeError: StructuredLogger.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:258: TypeError
-__________ TestConfigureStructuredLogging.test_no_duplicate_handlers ___________
-self = <utilities.test_logging.TestConfigureStructuredLogging testMethod=test_no_duplicate_handlers>
-    def test_no_duplicate_handlers(self):
-        """Calling twice should not create duplicate handlers."""
-        stream = StringIO()
-
-        # Call twice
->       configure_structured_logging(logger_name="test_dup", stream=stream)
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:222:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-run_id = None, systapplication1_id = None, entity_type = None, level = 20
-logger_name = 'test_dup', stream = <_io.StringIO object at 0x10e781fc0>
-    def configure_structured_logging(
-        run_id: Optional[str] = None,
-        systapplication1_id: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        level: int = logging.INFO,
-        logger_name: str = "gcp_pipeline",
-        stream: Any = None
-    ) -> StructuredLogger:
-        """
-        Configure structured JSON logging for the application.
-
-        Sets up a JSON formatter on the root logger and returns a
-        StructuredLogger instance with context pre-configured.
-
-        Args:
-            run_id: Pipeline run identifier
-            systapplication1_id: System identifier (Application1, Application2)
-            entity_type: Entity being processed
-            level: Logging level (default: INFO)
-            logger_name: Name for the logger
-            stream: Output stream (default: sys.stdout)
-
-        Returns:
-            StructuredLogger instance configured with context
-
-        Example:
-            >>> logger = configure_structured_logging(
-            ...     run_id="application1_20260105_143022",
-            ...     systapplication1_id="Application1",
-            ...     entity_type="customers"
-            ... )
-            >>> logger.info("Pipeline started")
-            >>> logger.info("Processing records", count=1000, stage="validation")
-        """
-        if stream is None:
-            stream = sys.stdout
-
-        # Get or create the logger
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-        # Remove existing handlers to avoid duplicates
-        logger.handlers.clear()
-
-        # Create JSON handler
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(level)
-        handler.setFormatter(StructuredJsonFormatter())
-        logger.addHandler(handler)
-
-        # Prevent propagation to root logger
-        logger.propagate = False
-
->       return StructuredLogger(
-            name=logger_name,
-            run_id=run_id,
-            systapplication1_id=systapplication1_id,
-            entity_type=entity_type,
-            level=level
-        )
-E       TypeError: StructuredLogger.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:258: TypeError
-________ TestConfigureStructuredLogging.test_returns_structured_logger _________
-self = <utilities.test_logging.TestConfigureStructuredLogging testMethod=test_returns_structured_logger>
-    def test_returns_structured_logger(self):
-        """Should return StructuredLogger instance."""
-        stream = StringIO()
->       logger = configure_structured_logging(
-            run_id="test",
-            logger_name="test_return",
-            stream=stream
-        )
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py:196:
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
-run_id = 'test', systapplication1_id = None, entity_type = None, level = 20
-logger_name = 'test_return', stream = <_io.StringIO object at 0x10e781ab0>
-    def configure_structured_logging(
-        run_id: Optional[str] = None,
-        systapplication1_id: Optional[str] = None,
-        entity_type: Optional[str] = None,
-        level: int = logging.INFO,
-        logger_name: str = "gcp_pipeline",
-        stream: Any = None
-    ) -> StructuredLogger:
-        """
-        Configure structured JSON logging for the application.
-
-        Sets up a JSON formatter on the root logger and returns a
-        StructuredLogger instance with context pre-configured.
-
-        Args:
-            run_id: Pipeline run identifier
-            systapplication1_id: System identifier (Application1, Application2)
-            entity_type: Entity being processed
-            level: Logging level (default: INFO)
-            logger_name: Name for the logger
-            stream: Output stream (default: sys.stdout)
-
-        Returns:
-            StructuredLogger instance configured with context
-
-        Example:
-            >>> logger = configure_structured_logging(
-            ...     run_id="application1_20260105_143022",
-            ...     systapplication1_id="Application1",
-            ...     entity_type="customers"
-            ... )
-            >>> logger.info("Pipeline started")
-            >>> logger.info("Processing records", count=1000, stage="validation")
-        """
-        if stream is None:
-            stream = sys.stdout
-
-        # Get or create the logger
-        logger = logging.getLogger(logger_name)
-        logger.setLevel(level)
-
-        # Remove existing handlers to avoid duplicates
-        logger.handlers.clear()
-
-        # Create JSON handler
-        handler = logging.StreamHandler(stream)
-        handler.setLevel(level)
-        handler.setFormatter(StructuredJsonFormatter())
-        logger.addHandler(handler)
-
-        # Prevent propagation to root logger
-        logger.propagate = False
-
->       return StructuredLogger(
-            name=logger_name,
-            run_id=run_id,
-            systapplication1_id=systapplication1_id,
-            entity_type=entity_type,
-            level=level
-        )
-E       TypeError: StructuredLogger.__init__() got an unexpected keyword argument 'systapplication1_id'
-gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/logging.py:258: TypeError
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_prepare_message PASSED [  0%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_publish PASSED [  0%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report PASSED [  1%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report_no_data PASSED [  1%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_result PASSED [  2%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_initialization PASSED [  2%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_extra_records PASSED [  2%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_match PASSED [  3%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_mismatch PASSED [  3%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_with_errors PASSED [  4%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_zero_source PASSED [  4%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_result_to_dict PASSED [  4%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_error PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_match PASSED [  5%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_mismatch PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_error_table PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationFromTrailer::test_reconcile_from_trailer PASSED [  6%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_failure_with_logger PASSED [  7%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_success_with_logger PASSED [  7%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientInit::test_initialization PASSED [  8%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientWriteTable::test_write_to_table_success PASSED [  9%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientReadTable::test_read_table_success PASSED [  9%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientTableExists::test_table_exists PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientQuery::test_query_success PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_success PASSED [ 10%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_failure PASSED [ 11%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_success PASSED [ 11%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_gcs_api PASSED [ 12%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_general PASSED [ 12%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_success PASSED [ 12%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_error PASSED [ 13%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_success PASSED [ 13%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_empty PASSED [ 14%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_error PASSED [ 14%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_success PASSED [ 14%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_error PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_success PASSED [ 15%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_failure PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_success PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_with_complex_message PASSED [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_api PASSED [ 17%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_general PASSED [ 17%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_request_deletion_approval PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_approve_deletion PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_record_fails_without_approval PASSED [ 18%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_record_success_after_approval PASSED [ 19%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_batch PASSED [ 19%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_record_initialization PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_quarantine_lifecycle PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_checksum_consistency PASSED [ 20%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_composite_key PASSED [ 21%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_empty_records PASSED [ 21%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_missing_key_field PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_multiple_duplicates PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_no_duplicates PASSED [ 22%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_single_duplicate PASSED [ 23%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_triple_duplicate PASSED [ 23%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_empty_file PASSED [ 24%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_in_middle PASSED [ 24%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_trl_only PASSED [ 24%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_hdr PASSED [ 25%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_trl PASSED [ 25%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_trl_in_middle PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_valid_file_structure PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_whitespace_handling PASSED [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_transient_error PASSED [ 27%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_validation_error PASSED [ 27%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_integration_error PASSED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_permission_error PASSED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_connection_error PASSED [ 28%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_quota_error PASSED [ 29%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_default_config PASSED [ 29%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_custom_config PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorSeverity::test_severity_values PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorCategory::test_category_values PASSED [ 30%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestRetryStrategy::test_strategy_values PASSED [ 31%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_is_header_line PASSED [ 31%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_is_trailer_line PASSED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines PASSED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_empty_file PASSED [ 32%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_invalid_header PASSED [ 33%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_invalid_trailer PASSED [ 33%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_invalid_header PASSED [ 34%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_invalid_trailer PASSED [ 34%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_trailer_with_large_count PASSED [ 34%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_header PASSED [ 35%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_header_with_whitespace PASSED [ 35%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_trailer PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserCustomPatterns::test_custom_patterns PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserCustomPatterns::test_default_patterns_still_work PASSED [ 36%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_finops_labels_to_dict PASSED [ 37%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_get_standard_labels PASSED [ 37%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_finops_integration PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_to_job_record_finops PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_new_finops_integration PASSED [ 38%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost PASSED [ 39%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost_no_bytes PASSED [ 39%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_load_cost PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_upload_cost PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_storage_cost PASSED [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost PASSED [ 41%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields PASSED [ 41%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty PASSED [ 42%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info PASSED [ 43%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job PASSED [ 43%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_entity_status PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_not_found PASSED [ 44%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init PASSED [ 45%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init_custom_dataset_table PASSED [ 45%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_mark_failed PASSED [ 46%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_running PASSED [ 46%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_success PASSED [ 46%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_all_statuses_defined PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_from_string PASSED [ 47%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_values PASSED [ 48%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_all_stages_defined PASSED [ 48%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_failure_stage_values PASSED [ 48%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELExporterType::test_all_exporter_types_exist PASSED [ 49%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_config PASSED [ 49%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_service_version PASSED [ 50%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_factory PASSED [ 50%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_with_environment PASSED [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_url PASSED [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_token PASSED [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_config_factory PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_requires_project_id PASSED [ 52%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_factory PASSED [ 53%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_with_custom_name PASSED [ 53%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_disabled_config_factory PASSED [ 53%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_requires_endpoint PASSED [ 54%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_with_endpoint PASSED [ 54%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_otlp_config_factory PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_resource_attributes PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_service_name_from_env PASSED [ 55%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_url_from_env PASSED [ 56%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_project_from_env PASSED [ 56%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_sample_rate_from_env PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_environment_from_env PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_none_span PASSED [ 57%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_none_span PASSED [ 58%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_add_event_with_none_span PASSED [ 58%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_record_exception_with_none_span PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_ok_with_none_span PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_error_with_none_span PASSED [ 59%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_mock_span PASSED [ 60%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_mock_span PASSED [ 60%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_manager_enters_and_exits PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_with_entity_type PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_nested_span_creation PASSED [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_span_with_attributes PASSED [ 62%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_context PASSED [ 62%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_span PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_set PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_with_entity PASSED [ 63%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_custom_tracer_name PASSED [ 64%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_forwards_to_collector PASSED [ 64%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_multiple_times PASSED [ 65%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_set_gauge_forwards_to_collector PASSED [ 65%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_histogram_forwards_to_collector PASSED [ 65%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_timer_forwards_to_collector PASSED [ 66%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_get_statistics_returns_collector_stats PASSED [ 66%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_start_timer_delegates_to_collector PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_step_duration_forwards_to_collector PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_base_attributes_set_from_collector PASSED [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_labels_passed_through PASSED [ 68%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_getattr_delegates_unknown_methods PASSED [ 68%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_initialize_gcp_otlp PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_create_trace_exporter_gcp_otlp PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_create_metrics_exporter_gcp_otlp PASSED [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_configure_disabled PASSED [ 70%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_is_otel_initialized_initially_false PASSED [ 70%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_returns_noop_when_not_initialized PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_with_name PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_get_meter_returns_noop_when_not_initialized PASSED [ 71%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_create_counter_on_noop_meter PASSED [ 72%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_executes_function PASSED [ 72%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_custom_name PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_attributes PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_propagates_exception PASSED [ 73%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_preserves_return_value PASSED [ 74%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_kwargs PASSED [ 74%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestShutdownOtel::test_shutdown_when_not_initialized PASSED [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_collector_initialization PASSED [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment PASSED [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment_default_value PASSED [ 76%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_set_gauge PASSED [ 76%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_record_histogram PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_record_timer PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_timer_context PASSED [ 77%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_get_summary_includes_context PASSED [ 78%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_initialization PASSED [ 78%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_failed PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_parsed PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_processing_time PASSED [ 79%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_read PASSED [ 80%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_skipped PASSED [ 80%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validated PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validation_error_by_type PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_written PASSED [ 81%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_start_timer PASSED [ 82%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_to_job_record PASSED [ 82%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_rate_zero_reads PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_success_rate PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsWithoutEntityType::test_initialization_without_entity_type PASSED [ 83%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_extra_labels_merged PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_labels_include_context PASSED [ 84%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_complete PASSED [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_without_filename PASSED [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_bucket_only PASSED [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_with_slashes PASSED [ 86%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_no_matches PASSED [ 86%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_matches PASSED [ 87%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_custom_pattern PASSED [ 87%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_error_handling PASSED [ 87%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date PASSED [ 88%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_no_files PASSED [ 88%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_custom_pattern PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_extra_fields_included PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_includes_standard_fields PASSED [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_level_is_correct PASSED [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_message_is_correct PASSED [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_outputs_valid_json PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_all_log_levels PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_context_included PASSED [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_creates_logger PASSED [ 92%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_info PASSED [ 92%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_with_extra_fields PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_set_context PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_configures_json_output PASSED [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_no_duplicate_handlers PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_returns_structured_logger PASSED [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_returns_structured_logger PASSED [ 95%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_uses_name PASSED [ 95%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_basic PASSED [ 95%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_with_uuid PASSED [ 96%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_without_uuid PASSED [ 96%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_custom_timestamp PASSED [ 97%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_empty_job_name PASSED [ 97%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_consistency PASSED [ 97%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_valid_run_id PASSED [ 98%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_invalid_format PASSED [ 98%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_empty_run_id PASSED [ 99%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_none_run_id PASSED [ 99%]
+gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_run_id_without_uuid PASSED [100%]
 =============================== warnings summary ===============================
 tests/unit/audit/test_reconciliation.py: 15 warnings
   /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
@@ -679,12 +280,21 @@ tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost
 tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
   /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
     now = datetime.utcnow()
+tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
 tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info
+tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job
 tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found
   <string>:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
 tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
   /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:71: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
     before = datetime.utcnow()
+tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    after = datetime.utcnow()
 tests/unit/monitoring/test_metrics.py: 7 warnings
 tests/unit/monitoring/test_migration_metrics.py: 17 warnings
   /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
@@ -693,26 +303,4 @@ tests/unit/monitoring/test_migration_metrics.py: 13 warnings
   /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:119: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
     current_time = datetime.utcnow()
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-=========================== short test summary info ============================
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_finops_labels_to_dict - TypeError: FinOpsLabels.__init__() got an unexpected keyword argument 'syst...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_get_standard_labels - TypeError: FinOpsLabels.get_standard_labels() got an unexpected keyword arg...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields - TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default - TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty - TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info - TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job - TypeError: PipelineJob.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found - AttributeError: 'PipelineJob' object has no attribute 'systapplication1_id'
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_span - TypeError: OTELContext.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_set - TypeError: OTELContext.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_with_entity - TypeError: OTELContext.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_custom_tracer_name - TypeError: OTELContext.__init__() got an unexpected keyword argument 'systa...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_all_log_levels - TypeError: StructuredLogger.__init__() got an unexpected keyword argument '...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_context_included - TypeError: configure_structured_logging() got an unexpected keyword argumen...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_creates_logger - AttributeError: 'StructuredLogger' object has no attribute 'systapplication...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_info - TypeError: configure_structured_logging() got an unexpected keyword argumen...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_with_extra_fields - TypeError: configure_structured_logging() got an unexpected keyword argumen...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_set_context - TypeError: StructuredLogger.__init__() got an unexpected keyword argument '...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_configures_json_output - TypeError: StructuredLogger.__init__() got an unexpected keyword argument '...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_no_duplicate_handlers - TypeError: StructuredLogger.__init__() got an unexpected keyword argument '...
-FAILED gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_returns_structured_logger - TypeError: StructuredLogger.__init__() got an unexpected keyword argument '...
-================= 21 failed, 228 passed, 77 warnings in 1.04s ==================
+======================= 249 passed, 84 warnings in 1.12s =======================

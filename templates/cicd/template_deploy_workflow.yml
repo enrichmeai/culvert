@@ -4,9 +4,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'deployments/<systapplication1_id>-*/**'
+      - 'deployments/<system_id>-*/**'
       - 'gcp-pipeline-libraries/**'
-      - 'infrastructure/terraform/systems/<systapplication1_id>/**'
+      - 'infrastructure/terraform/systems/<system_id>/**'
   workflow_dispatch:
 
 env:
@@ -48,7 +48,7 @@ jobs:
       uses: hashicorp/setup-terraform@v3
     - name: Terraform Init/Plan/Apply
       run: |
-        cd infrastructure/terraform/systems/<systapplication1_id>
+        cd infrastructure/terraform/systems/<system_id>
         terraform init
         terraform apply -auto-approve -var="gcp_project_id=${{ secrets.GCP_PROJECT_ID }}"
 
@@ -69,7 +69,7 @@ jobs:
       run: |
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         REGION="${{ env.GCP_REGION }}"
-        COMPOSER_ENV="<systapplication1_id>-dev-composer"
+        COMPOSER_ENV="<system_id>-dev-composer"
         
         DAGS_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
           --location=$REGION \
@@ -77,5 +77,5 @@ jobs:
           --format='value(config.dagGcsPrefix)')
         
         if [ -n "$DAGS_BUCKET" ]; then
-          gsutil -m cp -r deployments/<systapplication1_id>-orchestration/dags/* ${DAGS_BUCKET}/<systapplication1_id>/
+          gsutil -m cp -r deployments/<system_id>-orchestration/dags/* ${DAGS_BUCKET}/<system_id>/
         fi
