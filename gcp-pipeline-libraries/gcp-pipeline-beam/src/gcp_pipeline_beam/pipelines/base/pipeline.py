@@ -42,30 +42,6 @@ class BasePipeline(metaclass=BasePipelineMeta):
     - Lifecycle hooks (on_start, on_success, on_failure)
 
     Subclasses must implement the `build()` method to define pipeline logic.
-
-    Attributes:
-        options: Apache Beam PipelineOptions
-        config: PipelineConfig instance with pipeline parameters
-        run_id: Unique identifier for this pipeline execution
-        audit_manager: AuditTrail instance
-        error_handler: ErrorHandler instance
-        metrics_emitter: MetricsCollector instance
-
-    Example:
-        >>> class MyPipeline(BasePipeline):
-        ...     def build(self, pipeline: beam.Pipeline):
-        ...         (pipeline
-        ...          | 'Read' >> beam.io.ReadFromText('input.txt')
-        ...          | 'Process' >> beam.Map(lambda x: x.upper())
-        ...          | 'Write' >> beam.io.WriteToText('output.txt'))
-        >>>
-        >>> options = PipelineOptions()
-        >>> config = PipelineConfig(
-        ...     run_id='run_001',
-        ...     pipeline_name='uppercase_pipeline'
-        ... )
-        >>> pipeline = MyPipeline(options, config)
-        >>> pipeline.run()
     """
 
     def __init__(
