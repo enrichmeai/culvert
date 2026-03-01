@@ -17,13 +17,13 @@ class TestPipelineJob(unittest.TestCase):
         """Test creating a job with minimal required fields."""
         job = PipelineJob(
             run_id="application1_customer_20260101_001",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
 
         self.assertEqual(job.run_id, "application1_customer_20260101_001")
-        self.assertEqual(job.systapplication1_id, "Application1")
+        self.assertEqual(job.system_id, "Application1")
         self.assertEqual(job.entity_type, "Customer")
         self.assertEqual(job.status, JobStatus.PENDING)
         self.assertIsNone(job.started_at)

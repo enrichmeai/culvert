@@ -94,17 +94,17 @@ class TestStructuredLogger(unittest.TestCase):
         logger = StructuredLogger(
             name="test_structured",
             run_id="run_123",
-            systapplication1_id="Application1"
+            system_id="Application1"
         )
         self.assertIsNotNone(logger)
         self.assertEqual(logger.run_id, "run_123")
-        self.assertEqual(logger.systapplication1_id, "Application1")
+        self.assertEqual(logger.system_id, "Application1")
 
     def test_log_info(self):
         """info() should log at INFO level."""
         logger = configure_structured_logging(
             run_id="test_run",
-            systapplication1_id="Application1",
+            system_id="Application1",
             logger_name="test_info",
             stream=self.stream
         )
@@ -120,7 +120,7 @@ class TestStructuredLogger(unittest.TestCase):
         """Logger should include extra fields."""
         logger = configure_structured_logging(
             run_id="test_run",
-            systapplication1_id="Application1",
+            system_id="Application1",
             logger_name="test_extra",
             stream=self.stream
         )
@@ -133,10 +133,10 @@ class TestStructuredLogger(unittest.TestCase):
         self.assertEqual(log_entry['stage'], 'parse')
 
     def test_context_included(self):
-        """Context (run_id, systapplication1_id) should be included."""
+        """Context (run_id, system_id) should be included."""
         logger = configure_structured_logging(
             run_id="application1_20260105_123456",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="customers",
             logger_name="test_context",
             stream=self.stream

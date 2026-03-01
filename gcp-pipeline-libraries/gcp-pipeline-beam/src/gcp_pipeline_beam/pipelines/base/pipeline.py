@@ -6,7 +6,6 @@ error handling, and monitoring capabilities.
 """
 
 import logging
-from abc import ABC, ABCMeta, abstractmethod
 from typing import Optional, Dict, Any
 
 import apache_beam as beam
@@ -24,13 +23,8 @@ from . import lifecycle
 logger = logging.getLogger(__name__)
 
 
-# Create a compatible metaclass to resolve conflicts between ABC and Beam's internal types
-class BasePipelineMeta(ABCMeta):
-    """Metaclass to resolve potential conflicts in subclassing."""
-    pass
-
-
-class BasePipeline(metaclass=BasePipelineMeta):
+# Standard base class without metaclass to avoid conflicts in Apache Beam
+class BasePipeline:
     """
     Abstract Base Pipeline class for GDW migration jobs.
 
@@ -170,7 +164,6 @@ class BasePipeline(metaclass=BasePipelineMeta):
         )
         logger.debug("Metrics emitter initialized")
 
-    @abstractmethod
     def build(self, pipeline: beam.Pipeline) -> None:
         """
         Build the pipeline logic.
@@ -192,7 +185,7 @@ class BasePipeline(metaclass=BasePipelineMeta):
             ...      | 'ProcessData' >> beam.Map(self._process)
             ...      | 'WriteOutput' >> beam.io.WriteToText('output.txt'))
         """
-        pass
+        raise NotImplementedError("Subclasses must implement build()")
 
     def run(self) -> None:
         """

@@ -6,7 +6,7 @@ def test_migration_metrics_finops_integration():
         mock_collector_instance = MockCollector.return_value
         metrics = MigrationMetrics(
             run_id="test-run",
-            systapplication1_id="test-system"
+            system_id="test-system"
         )
         
         metrics.record_cost(1.25)
@@ -53,7 +53,7 @@ def test_migration_metrics_to_job_record_finops():
         
         metrics = MigrationMetrics(
             run_id="test-run",
-            systapplication1_id="test-system"
+            system_id="test-system"
         )
         
         record = metrics.to_job_record()
@@ -67,7 +67,7 @@ def test_migration_metrics_new_finops_integration():
         mock_collector_instance = MockCollector.return_value
         metrics = MigrationMetrics(
             run_id="test-run",
-            systapplication1_id="test-system"
+            system_id="test-system"
         )
         
         metrics.record_bytes_stored(3000)

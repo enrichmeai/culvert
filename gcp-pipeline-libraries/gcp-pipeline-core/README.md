@@ -105,7 +105,7 @@ Pipeline Start
 - **State Tracking**: Granular tracking of failure stages, start/end times, and record counts.
 
 ### 4. Structured Logging
-- Standardized JSON logging with automated context injection (`run_id`, `systapplication1_id`).
+- Standardized JSON logging with automated context injection (`run_id`, `system_id`).
 - Optimized for Cloud Logging and BigQuery ingestion.
 
 ### 5. FinOps & Cost Tracking

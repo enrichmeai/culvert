@@ -158,7 +158,7 @@ from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 # Configure for Application1 system
 checker = EntityDependencyChecker(
     project_id="my-project",
-    systapplication1_id="Application1",
+    system_id="Application1",
     required_entities=["customers", "accounts", "decision"]
 )
 
@@ -210,7 +210,7 @@ The framework implements a two-tier error handling strategy: **Immediate Capture
 
 ### 1. Immediate Capture (Callbacks)
 When a task fails, the `on_failure_callback` from the library is triggered. 
-- **DLQ Publishing**: Standardized task metadata (run_id, systapplication1_id, exception) is published to a Pub/Sub DLQ.
+- **DLQ Publishing**: Standardized task metadata (run_id, system_id, exception) is published to a Pub/Sub DLQ.
 - **Audit Logging**: The error is logged to the BigQuery `error_log` table for centralized tracking.
 
 ### 2. Periodic Recovery (Error Handling DAG)

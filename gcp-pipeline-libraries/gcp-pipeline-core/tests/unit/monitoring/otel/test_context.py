@@ -71,23 +71,23 @@ class TestOTELContext:
 
     def test_context_manager_enters_and_exits(self):
         """Test context manager enters and exits cleanly."""
-        with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+        with OTELContext(run_id="run_123", system_id="Application1") as ctx:
             assert ctx is not None
             assert ctx.run_id == "run_123"
-            assert ctx.systapplication1_id == "Application1"
+            assert ctx.system_id == "Application1"
 
     def test_context_with_entity_type(self):
         """Test context with entity type."""
         with OTELContext(
             run_id="run_123",
-            systapplication1_id="Application1",
+            system_id="Application1",
             entity_type="customers"
         ) as ctx:
             assert ctx.entity_type == "customers"
 
     def test_nested_span_creation(self):
         """Test nested span creation doesn't raise."""
-        with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+        with OTELContext(run_id="run_123", system_id="Application1") as ctx:
             with ctx.span("validation") as span:
                 span.set_attribute("records", 100)
             with ctx.span("transformation") as span:
@@ -95,14 +95,14 @@ class TestOTELContext:
 
     def test_span_with_attributes(self):
         """Test span creation with custom attributes."""
-        with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+        with OTELContext(run_id="run_123", system_id="Application1") as ctx:
             with ctx.span("operation", attributes={"custom": "value"}) as span:
                 assert span is not None
 
     def test_exception_in_context(self):
         """Test exception handling in context."""
         with pytest.raises(ValueError, match="test error"):
-            with OTELContext(run_id="run_123", systapplication1_id="Application1") as ctx:
+            with OTELContext(run_id="run_123", system_id="Application1") as ctx:
                 raise ValueError("test error")
 
     def test_exception_in_span(self):

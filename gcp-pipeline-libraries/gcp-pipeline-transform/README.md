@@ -142,7 +142,7 @@ from gcp_pipeline_core.schema import EntitySchema, SchemaField
 
 CustomerSchema = EntitySchema(
     entity_name="customers",
-    systapplication1_id="Application1",
+    system_id="Application1",
     fields=[
         SchemaField(name="customer_id", field_type="STRING", required=True),
         SchemaField(name="ssn", field_type="STRING", is_pii=True),
