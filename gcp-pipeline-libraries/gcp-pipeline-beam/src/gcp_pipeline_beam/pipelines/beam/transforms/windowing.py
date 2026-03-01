@@ -95,10 +95,17 @@ class ApplyWindowing(beam.PTransform):
                 accumulation_mode=acc_mode,
                 allowed_lateness=float(self.allowed_lateness)
             )
-        except Exception:
+        except (TypeError, Exception):
             # Fallback for internal Beam type check failures in some environments (e.g., Python 3.10+ with older Beam)
-            # We disable type checking for this specific transform if it fails
-            pcoll.pipeline.options.view_as(beam.options.pipeline_options.TypeOptions).pipeline_type_check = False
+            # We disable type checking for the entire pipeline if it fails during this transform
+            try:
+                # Try to get TypeOptions if available
+                type_options = pcoll.pipeline.options.view_as(beam.options.pipeline_options.TypeOptions)
+                if type_options:
+                    type_options.pipeline_type_check = False
+            except Exception:
+                pass
+                
             return pcoll | beam.WindowInto(
                 window_fn,
                 trigger=self.trigger,

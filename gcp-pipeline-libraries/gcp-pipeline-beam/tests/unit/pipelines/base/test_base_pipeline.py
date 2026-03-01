@@ -29,12 +29,12 @@ class TestBasePipeline:
         }
 
         # Create a concrete implementation for testing
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForInit(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing initialization only
                 pass
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForInit(config=config)
 
         assert pipeline.run_id is not None
         assert pipeline.audit_manager is not None
@@ -50,12 +50,12 @@ class TestBasePipeline:
             'run_id': 'custom_run_id_123'
         }
 
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForRunId(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing initialization only
                 pass
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForRunId(config=config)
 
         assert pipeline.run_id == 'custom_run_id_123'
 
@@ -66,12 +66,12 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForGeneratedId(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing initialization only
                 pass
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForGeneratedId(config=config)
 
         # Run ID should be generated with pipeline name
         assert pipeline.run_id is not None
@@ -82,18 +82,18 @@ class TestBasePipeline:
         options = PipelineOptions()
         config = {'pipeline_name': 'test_pipeline'}
 
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForOptions(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing initialization only
                 pass
 
-        pipeline = TestPipeline(options=options, config=config)
+        pipeline = LocalTestPipelineForOptions(options=options, config=config)
 
         assert pipeline.options is options
 
     def test_on_start_hook(self):
         """Test on_start lifecycle hook."""
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForStartHook(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing hooks only
                 pass
@@ -105,7 +105,7 @@ class TestBasePipeline:
             'gcp_project_id': 'test-project'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForStartHook(config=config)
         lifecycle.on_start(
             pipeline.audit_manager,
             pipeline.metrics_emitter,
@@ -120,7 +120,7 @@ class TestBasePipeline:
 
     def test_on_failure_hook(self):
         """Test on_failure lifecycle hook."""
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForFailureHook(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing hooks only
                 pass
@@ -130,7 +130,7 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForFailureHook(config=config)
         exc = ValueError("Test error")
 
         lifecycle.on_failure(
@@ -149,7 +149,7 @@ class TestBasePipeline:
 
     def test_on_success_hook(self):
         """Test on_success lifecycle hook."""
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForSuccessHook(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing hooks only
                 pass
@@ -159,7 +159,7 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForSuccessHook(config=config)
         lifecycle.on_success(
             pipeline.audit_manager,
             pipeline.metrics_emitter,
@@ -176,7 +176,7 @@ class TestBasePipeline:
         mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
         mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
 
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForSuccess(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing pipeline execution only
                 pass
@@ -186,7 +186,8 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        # Clear any potential class cache if possible, or just use the local class
+        pipeline = LocalTestPipelineForSuccess(config=config)
         pipeline.run()
 
         # Verify pipeline ran successfully
@@ -200,7 +201,7 @@ class TestBasePipeline:
         mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
         mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
 
-        class TestPipeline(BasePipeline):
+        class LocalTestPipelineForFailure(BasePipeline):
             def build(self, pipeline):
                 # Raises exception to test failure handling
                 raise ValueError("Build failed")
@@ -210,7 +211,7 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = LocalTestPipelineForFailure(config=config)
 
         with pytest.raises(ValueError):
             pipeline.run()
@@ -222,7 +223,7 @@ class TestBasePipeline:
 
     def test_get_metrics_summary(self):
         """Test get_metrics_summary method."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForMetrics(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing metrics only
                 pass
@@ -232,7 +233,7 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = TestPipelineForMetrics(config=config)
         pipeline.metrics_emitter.increment('test_metric', 5)
 
         stats = pipeline.get_metrics_summary()
@@ -243,7 +244,7 @@ class TestBasePipeline:
 
     def test_get_error_count(self):
         """Test get_error_count method."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForErrors(BasePipeline):
             def build(self, pipeline):
                 # Empty implementation for testing error handling only
                 pass
@@ -253,7 +254,7 @@ class TestBasePipeline:
             'entity_type': 'test_entity'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = TestPipelineForErrors(config=config)
 
         # Initially should be 0
         assert pipeline.get_error_count() == 0
@@ -276,14 +277,14 @@ class TestBasePipeline:
             'output_table': 'project.dataset.table'
         }
 
-        class TestPipeline(BasePipeline):
+        class TestPipelineForConfig(BasePipeline):
             def build(self, pipeline):
                 # Verify config is accessible in build method
                 assert self._config_dict['pipeline_name'] == 'my_pipeline'
                 assert self._config_dict['entity_type'] == 'applications'
                 assert self._config_dict['source_file'] == 'gs://bucket/data.csv'
 
-        pipeline = TestPipeline(config=config)
+        pipeline = TestPipelineForConfig(config=config)
         # Create a mock pipeline object for testing
         mock_pipeline = MagicMock()
         pipeline.build(mock_pipeline)
@@ -320,7 +321,7 @@ class TestBasePipelineIntegration:
         mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
         mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
 
-        class TestPipeline(BasePipeline):
+        class TestPipelineForLifecycle(BasePipeline):
             def build(self, pipeline):
                 # Simulate processing by incrementing metric
                 self.metrics_emitter.increment('records_processed', 100)
@@ -332,7 +333,7 @@ class TestBasePipelineIntegration:
             'gcp_project_id': 'test-project'
         }
 
-        pipeline = TestPipeline(config=config)
+        pipeline = TestPipelineForLifecycle(config=config)
         pipeline.run()
 
         # Verify full lifecycle was executed
@@ -348,7 +349,7 @@ class TestBasePipelineIntegration:
         mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
         mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
 
-        class CustomPipeline(BasePipeline):
+        class CustomPipelineForHooks(BasePipeline):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 self.custom_start_called = False
@@ -365,7 +366,7 @@ class TestBasePipelineIntegration:
                 self.custom_success_called = True
 
         config = {'pipeline_name': 'custom_test', 'entity_type': 'data', 'run_id': 'test_run'}
-        pipeline = CustomPipeline(config=config)
+        pipeline = CustomPipelineForHooks(config=config)
         pipeline.run()
 
         # Verify custom hooks were called
@@ -392,13 +393,17 @@ class TestBasePipelineIntegration:
         assert standard_options.streaming is True
 
     @patch('apache_beam.io.ReadFromText')
-    def test_read_source_gcs(self, mock_read_text):
+    @patch('apache_beam.io.filesystems.FileSystems.match')
+    def test_read_source_gcs(self, mock_match, mock_read_text):
         """Test read_source with GCS."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForGCS(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        pipeline = TestPipeline(config={'pipeline_name': 'test'})
+        # Mock the match result to avoid BeamIOError
+        mock_match.return_value = [MagicMock()]
+
+        pipeline = TestPipelineForGCS(config={'pipeline_name': 'test'})
         mock_beam_pipeline = MagicMock()
         mock_beam_pipeline.__or__.return_value = MagicMock()
 
@@ -408,16 +413,16 @@ class TestBasePipelineIntegration:
         # Verify that __or__ was called
         assert mock_beam_pipeline.__or__.called
         
-        # Check if mock_read_text was called (which is applied via >>)
+        # Check if mock_read_text was called
         assert mock_read_text.called
 
     def test_read_source_pubsub(self):
         """Test read_source with Pub/Sub."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForPubSub(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        pipeline = TestPipeline(config={'pipeline_name': 'test'})
+        pipeline = TestPipelineForPubSub(config={'pipeline_name': 'test'})
         mock_beam_pipeline = MagicMock()
         mock_beam_pipeline.__or__.return_value = MagicMock()
 
@@ -437,11 +442,11 @@ class TestBasePipelineIntegration:
 
     def test_write_to_bigquery_batch(self):
         """Test write_to_bigquery in batch mode."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForBQBatch(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        pipeline = TestPipeline(config={'pipeline_name': 'test', 'streaming': False})
+        pipeline = TestPipelineForBQBatch(config={'pipeline_name': 'test', 'streaming': False})
         mock_pcoll = MagicMock()
         mock_pcoll.__or__.return_value = MagicMock()
 
@@ -462,11 +467,11 @@ class TestBasePipelineIntegration:
     def test_write_to_bigquery_dlq_gcs(self, mock_write_bq):
         """Test write_to_bigquery with GCS DLQ enabled."""
         import apache_beam as beam
-        class TestPipeline(BasePipeline):
+        class TestPipelineForBQDLQ(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        pipeline = TestPipeline(config={'pipeline_name': 'test'})
+        pipeline = TestPipelineForBQDLQ(config={'pipeline_name': 'test'})
         mock_pcoll = MagicMock()
         mock_write_result = MagicMock()
         mock_pcoll.__or__.return_value = mock_write_result
@@ -490,12 +495,12 @@ class TestBasePipelineIntegration:
 
     def test_on_heartbeat_hook(self):
         """Test on_heartbeat lifecycle hook."""
-        class TestPipeline(BasePipeline):
+        class TestPipelineForHeartbeat(BasePipeline):
             def build(self, pipeline):
                 pass
 
         config = {'pipeline_name': 'test_pipeline'}
-        pipeline = TestPipeline(config=config)
+        pipeline = TestPipelineForHeartbeat(config=config)
         pipeline.audit_manager.update_heartbeat = MagicMock()
 
         lifecycle.on_heartbeat(

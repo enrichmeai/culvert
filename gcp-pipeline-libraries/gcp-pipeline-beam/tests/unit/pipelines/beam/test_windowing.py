@@ -4,8 +4,14 @@ from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 from gcp_pipeline_beam.pipelines.beam.transforms.windowing import ApplyWindowing
 
+from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
+
 def test_apply_windowing_fixed():
-    with TestPipeline() as p:
+    # Set streaming=True to trigger some internal Beam logic if needed
+    options = PipelineOptions()
+    options.view_as(StandardOptions).streaming = True
+    
+    with TestPipeline(options=options) as p:
         elements = [
             (1, 'a'), # 1s
             (2, 'b'), # 2s
@@ -23,7 +29,11 @@ def test_apply_windowing_fixed():
         assert_that(pcoll, equal_to([2, 1]))
 
 def test_apply_windowing_sliding():
-    with TestPipeline() as p:
+    # Set streaming=True to trigger some internal Beam logic if needed
+    options = PipelineOptions()
+    options.view_as(StandardOptions).streaming = True
+
+    with TestPipeline(options=options) as p:
         elements = [
             (1, 'a'),
             (31, 'b'),
