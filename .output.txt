@@ -1,0 +1,1155 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0
+rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-beam
+configfile: pyproject.toml
+plugins: anyio-4.12.1, mock-3.15.1
+collected 370 items
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/hdr_trl/test_constants.py . [  0%]
+....                                                                     [  1%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/hdr_trl/test_parser.py . [  1%]
+.............                                                            [  5%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/hdr_trl/test_types.py . [  5%]
+.....                                                                    [  6%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_archive_policy.py . [  7%]
+...................................                                      [ 16%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_archiver.py . [ 16%]
+....................................                                     [ 26%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_checksum_validator.py . [ 26%]
+.........                                                                [ 29%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_file_validator.py . [ 29%]
+..........................................                               [ 40%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_integrity.py . [ 41%]
+......................................                                   [ 51%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_lifecycle.py . [ 51%]
+......................................                                   [ 61%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_metadata.py . [ 62%]
+.....................                                                    [ 67%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_record_count_validator.py . [ 68%]
+.....                                                                    [ 69%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/file_management/test_types.py . [ 69%]
+.......................                                                  [ 75%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py . [ 76%]
+......F.......FF.F....                                                   [ 82%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_io.py . [ 82%]
+............                                                             [ 85%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_parsers.py . [ 85%]
+............                                                             [ 89%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_publishers.py . [ 89%]
+..                                                                       [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_windowing.py F [ 90%]
+F                                                                        [ 90%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/transforms/test_enrichers.py . [ 90%]
+.                                                                        [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/transforms/test_pii.py . [ 91%]
+..                                                                       [ 91%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/validators/test_code.py . [ 92%]
+...                                                                      [ 92%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/validators/test_date.py . [ 93%]
+..                                                                       [ 93%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/validators/test_numeric.py . [ 94%]
+..                                                                       [ 94%]
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/validators/test_schema_validator.py . [ 94%]
+...................                                                      [100%]
+=================================== FAILURES ===================================
+______________________ TestBasePipeline.test_run_success _______________________
+self = <pipelines.base.test_base_pipeline.TestBasePipeline object at 0x119a32f50>
+mock_pipeline_class = <MagicMock name='Pipeline' id='4727582096'>
+    @patch('apache_beam.Pipeline')
+    def test_run_success(self, mock_pipeline_class):
+        """Test successful pipeline execution."""
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
+        mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
+
+        class LocalTestPipelineForSuccess(BasePipeline):
+            def build(self, pipeline):
+                # Empty implementation for testing pipeline execution only
+                pass
+
+        config = {
+            'pipeline_name': 'test_pipeline',
+            'entity_type': 'test_entity'
+        }
+
+        pipeline = LocalTestPipelineForSuccess(config=config)
+>       pipeline.run()
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py:190:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py:270: in run
+    with beam.Pipeline(options=self.options) as p:
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:646: in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:623: in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py:82: in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    #
+    # Licensed to the Apache Software Foundation (ASF) under one or more
+    # contributor license agreements.  See the NOTICE file distributed with
+    # this work for additional information regarding copyright ownership.
+    # The ASF licenses this file to You under the Apache License, Version 2.0
+    # (the "License"); you may not use this file except in compliance with
+    # the License.  You may obtain a copy of the License at
+    #
+    #    http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+    #
+
+    """Provides TestStream for verifying streaming runner semantics.
+
+    For internal use only; no backwards-compatibility guarantees.
+    """
+    # pytype: skip-file
+
+    from abc import ABCMeta
+    from abc import abstractmethod
+    from enum import Enum
+    from functools import total_ordering
+
+    import apache_beam as beam
+    from apache_beam import coders
+    from apache_beam import pvalue
+    from apache_beam.portability import common_urns
+    from apache_beam.portability.api import beam_interactive_api_pb2
+    from apache_beam.portability.api import beam_runner_api_pb2
+    from apache_beam.portability.api import endpoints_pb2
+    from apache_beam.transforms import PTransform
+    from apache_beam.transforms import core
+    from apache_beam.transforms import window
+    from apache_beam.transforms.timeutil import TimeDomain
+    from apache_beam.transforms.userstate import TimerSpec
+    from apache_beam.transforms.userstate import on_timer
+    from apache_beam.transforms.window import TimestampedValue
+    from apache_beam.utils import timestamp
+    from apache_beam.utils.timestamp import MIN_TIMESTAMP
+    from apache_beam.utils.timestamp import Duration
+    from apache_beam.utils.timestamp import Timestamp
+    from apache_beam.utils.windowed_value import WindowedValue
+
+    __all__ = [
+        'Event',
+        'ElementEvent',
+        'WatermarkEvent',
+        'ProcessingTimeEvent',
+        'TestStream',
+    ]
+
+
+    @total_ordering
+    class Event(metaclass=ABCMeta):  # type: ignore[misc]
+      """Test stream event to be emitted during execution of a TestStream."""
+      @abstractmethod
+      def __eq__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __hash__(self):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __lt__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def to_runner_api(self, element_coder):
+        raise NotImplementedError
+
+      @staticmethod
+      def from_runner_api(proto, element_coder):
+        if proto.HasField('element_event'):
+          event = proto.element_event
+          tag = None if event.tag == 'None' else event.tag
+          return ElementEvent([
+              TimestampedValue(
+                  element_coder.decode(tv.encoded_element),
+                  Timestamp(micros=1000 * tv.timestamp))
+              for tv in proto.element_event.elements
+          ], tag=tag) # yapf: disable
+        elif proto.HasField('watermark_event'):
+          event = proto.watermark_event
+          tag = None if event.tag == 'None' else event.tag
+          return WatermarkEvent(
+              Timestamp(micros=1000 * proto.watermark_event.new_watermark), tag=tag)
+        elif proto.HasField('processing_time_event'):
+          return ProcessingTimeEvent(
+              timestamp.Duration(
+                  micros=1000 * proto.processing_time_event.advance_duration))
+        else:
+          raise ValueError(
+              'Unknown TestStream Event type: %s' % proto.WhichOneof('event'))
+
+
+    class ElementEvent(Event):
+      """Element-producing test stream event."""
+      def __init__(self, timestamped_values, tag=None):
+        self.timestamped_values = timestamped_values
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, ElementEvent):
+          return False
+
+        return (
+            self.timestamped_values == other.timestamped_values and
+            self.tag == other.tag)
+
+      def __hash__(self):
+        return hash(self.timestamped_values)
+
+      def __lt__(self, other):
+        if not isinstance(other, ElementEvent):
+          raise TypeError
+
+        return self.timestamped_values < other.timestamped_values
+
+      def to_runner_api(self, element_coder):
+        tag = 'None' if self.tag is None else self.tag
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            element_event=beam_runner_api_pb2.TestStreamPayload.Event.AddElements(
+                elements=[
+                    beam_runner_api_pb2.TestStreamPayload.TimestampedElement(
+                        encoded_element=element_coder.encode(tv.value),
+                        timestamp=tv.timestamp.micros // 1000)
+                    for tv in self.timestamped_values
+                ],
+                tag=tag))
+
+      def __repr__(self):
+        return 'ElementEvent: <{}, {}>'.format([(e.value, e.timestamp)
+                                                for e in self.timestamped_values],
+                                               self.tag)
+
+
+    class WatermarkEvent(Event):
+      """Watermark-advancing test stream event."""
+      def __init__(self, new_watermark, tag=None):
+        self.new_watermark = Timestamp.of(new_watermark)
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          return False
+
+        return self.new_watermark == other.new_watermark and self.tag == other.tag
+
+      def __hash__(self):
+        return hash(str(self.new_watermark) + str(self.tag))
+
+      def __lt__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          raise TypeError
+
+        return self.new_watermark < other.new_watermark
+
+      def to_runner_api(self, unused_element_coder):
+        tag = 'None' if self.tag is None else self.tag
+
+        # Assert that no precision is lost.
+        assert self.new_watermark.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            watermark_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceWatermark(
+                new_watermark=self.new_watermark.micros // 1000, tag=tag))
+
+      def __repr__(self):
+        return 'WatermarkEvent: <{}, {}>'.format(self.new_watermark, self.tag)
+
+
+    class ProcessingTimeEvent(Event):
+      """Processing time-advancing test stream event."""
+      def __init__(self, advance_by):
+        self.advance_by = Duration.of(advance_by)
+
+      def __eq__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          return False
+
+        return self.advance_by == other.advance_by
+
+      def __hash__(self):
+        return hash(self.advance_by)
+
+      def __lt__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          raise TypeError
+
+        return self.advance_by < other.advance_by
+
+      def to_runner_api(self, unused_element_coder):
+        assert self.advance_by.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            processing_time_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceProcessingTime(advance_duration=self.advance_by.micros // 1000))
+
+      def __repr__(self):
+        return 'ProcessingTimeEvent: <{}>'.format(self.advance_by)
+
+
+    class WindowedValueHolderMeta(type):
+      """A metaclass that overrides the isinstance check for WindowedValueHolder.
+
+      Python does a quick test for exact match. If an instance is exactly of
+      type WindowedValueHolder, the overridden isinstance check is omitted.
+      The override is needed because WindowedValueHolder elements encoded then
+      decoded become Row elements.
+      """
+      def __instancecheck__(cls, other):
+        """Checks if a beam.Row typed instance is a WindowedValueHolder.
+        """
+        return (
+            isinstance(other, beam.Row) and hasattr(other, 'windowed_value') and
+            hasattr(other, 'urn') and
+            isinstance(other.windowed_value, WindowedValue) and
+            other.urn == common_urns.coders.ROW.urn)
+
+
+>   class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+E   TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py:226: TypeError
+----------------------------- Captured stdout call -----------------------------
+[AUDIT] Starting test_pipeline for test_entity
+[AUDIT] Run ID: test_pipeline_20260301_153842_c15a76af
+[AUDIT] Source: unknown
+[AUDIT] Completed test_pipeline
+[AUDIT] Records processed: 0
+[AUDIT] Valid: 0, Errors: 0
+[AUDIT] Duration: 0.01s
+------------------------------ Captured log call -------------------------------
+WARNING  apache_beam.options.pipeline_options:logger.py:99 Unparseable argument: gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:155 Pipeline failed with exception: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+Traceback (most recent call last):
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py", line 270, in run
+    with beam.Pipeline(options=self.options) as p:
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 646, in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 623, in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py", line 82, in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py", line 197, in exec_module
+    exec(co, module.__dict__)
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py", line 226, in <module>
+    class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+WARNING  gcp_pipeline_core.error_handling.handler:handler.py:315 WARNING: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:175 Pipeline failed: run_id=test_pipeline_20260301_153842_c15a76af
+___________ TestBasePipelineIntegration.test_full_pipeline_lifecycle ___________
+self = <pipelines.base.test_base_pipeline.TestBasePipelineIntegration object at 0x119a41490>
+mock_pipeline_class = <MagicMock name='Pipeline' id='4727445904'>
+    @patch('apache_beam.Pipeline')
+    def test_full_pipeline_lifecycle(self, mock_pipeline_class):
+        """Test complete pipeline lifecycle from start to success."""
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
+        mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
+
+        class TestPipelineForLifecycle(BasePipeline):
+            def build(self, pipeline):
+                # Simulate processing by incrementing metric
+                self.metrics_emitter.increment('records_processed', 100)
+
+        config = {
+            'pipeline_name': 'integration_test',
+            'entity_type': 'applications',
+            'source_file': 'test.csv',
+            'gcp_project_id': 'test-project'
+        }
+
+        pipeline = TestPipelineForLifecycle(config=config)
+>       pipeline.run()
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py:336:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py:270: in run
+    with beam.Pipeline(options=self.options) as p:
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:646: in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:623: in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py:82: in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    #
+    # Licensed to the Apache Software Foundation (ASF) under one or more
+    # contributor license agreements.  See the NOTICE file distributed with
+    # this work for additional information regarding copyright ownership.
+    # The ASF licenses this file to You under the Apache License, Version 2.0
+    # (the "License"); you may not use this file except in compliance with
+    # the License.  You may obtain a copy of the License at
+    #
+    #    http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+    #
+
+    """Provides TestStream for verifying streaming runner semantics.
+
+    For internal use only; no backwards-compatibility guarantees.
+    """
+    # pytype: skip-file
+
+    from abc import ABCMeta
+    from abc import abstractmethod
+    from enum import Enum
+    from functools import total_ordering
+
+    import apache_beam as beam
+    from apache_beam import coders
+    from apache_beam import pvalue
+    from apache_beam.portability import common_urns
+    from apache_beam.portability.api import beam_interactive_api_pb2
+    from apache_beam.portability.api import beam_runner_api_pb2
+    from apache_beam.portability.api import endpoints_pb2
+    from apache_beam.transforms import PTransform
+    from apache_beam.transforms import core
+    from apache_beam.transforms import window
+    from apache_beam.transforms.timeutil import TimeDomain
+    from apache_beam.transforms.userstate import TimerSpec
+    from apache_beam.transforms.userstate import on_timer
+    from apache_beam.transforms.window import TimestampedValue
+    from apache_beam.utils import timestamp
+    from apache_beam.utils.timestamp import MIN_TIMESTAMP
+    from apache_beam.utils.timestamp import Duration
+    from apache_beam.utils.timestamp import Timestamp
+    from apache_beam.utils.windowed_value import WindowedValue
+
+    __all__ = [
+        'Event',
+        'ElementEvent',
+        'WatermarkEvent',
+        'ProcessingTimeEvent',
+        'TestStream',
+    ]
+
+
+    @total_ordering
+    class Event(metaclass=ABCMeta):  # type: ignore[misc]
+      """Test stream event to be emitted during execution of a TestStream."""
+      @abstractmethod
+      def __eq__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __hash__(self):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __lt__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def to_runner_api(self, element_coder):
+        raise NotImplementedError
+
+      @staticmethod
+      def from_runner_api(proto, element_coder):
+        if proto.HasField('element_event'):
+          event = proto.element_event
+          tag = None if event.tag == 'None' else event.tag
+          return ElementEvent([
+              TimestampedValue(
+                  element_coder.decode(tv.encoded_element),
+                  Timestamp(micros=1000 * tv.timestamp))
+              for tv in proto.element_event.elements
+          ], tag=tag) # yapf: disable
+        elif proto.HasField('watermark_event'):
+          event = proto.watermark_event
+          tag = None if event.tag == 'None' else event.tag
+          return WatermarkEvent(
+              Timestamp(micros=1000 * proto.watermark_event.new_watermark), tag=tag)
+        elif proto.HasField('processing_time_event'):
+          return ProcessingTimeEvent(
+              timestamp.Duration(
+                  micros=1000 * proto.processing_time_event.advance_duration))
+        else:
+          raise ValueError(
+              'Unknown TestStream Event type: %s' % proto.WhichOneof('event'))
+
+
+    class ElementEvent(Event):
+      """Element-producing test stream event."""
+      def __init__(self, timestamped_values, tag=None):
+        self.timestamped_values = timestamped_values
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, ElementEvent):
+          return False
+
+        return (
+            self.timestamped_values == other.timestamped_values and
+            self.tag == other.tag)
+
+      def __hash__(self):
+        return hash(self.timestamped_values)
+
+      def __lt__(self, other):
+        if not isinstance(other, ElementEvent):
+          raise TypeError
+
+        return self.timestamped_values < other.timestamped_values
+
+      def to_runner_api(self, element_coder):
+        tag = 'None' if self.tag is None else self.tag
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            element_event=beam_runner_api_pb2.TestStreamPayload.Event.AddElements(
+                elements=[
+                    beam_runner_api_pb2.TestStreamPayload.TimestampedElement(
+                        encoded_element=element_coder.encode(tv.value),
+                        timestamp=tv.timestamp.micros // 1000)
+                    for tv in self.timestamped_values
+                ],
+                tag=tag))
+
+      def __repr__(self):
+        return 'ElementEvent: <{}, {}>'.format([(e.value, e.timestamp)
+                                                for e in self.timestamped_values],
+                                               self.tag)
+
+
+    class WatermarkEvent(Event):
+      """Watermark-advancing test stream event."""
+      def __init__(self, new_watermark, tag=None):
+        self.new_watermark = Timestamp.of(new_watermark)
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          return False
+
+        return self.new_watermark == other.new_watermark and self.tag == other.tag
+
+      def __hash__(self):
+        return hash(str(self.new_watermark) + str(self.tag))
+
+      def __lt__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          raise TypeError
+
+        return self.new_watermark < other.new_watermark
+
+      def to_runner_api(self, unused_element_coder):
+        tag = 'None' if self.tag is None else self.tag
+
+        # Assert that no precision is lost.
+        assert self.new_watermark.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            watermark_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceWatermark(
+                new_watermark=self.new_watermark.micros // 1000, tag=tag))
+
+      def __repr__(self):
+        return 'WatermarkEvent: <{}, {}>'.format(self.new_watermark, self.tag)
+
+
+    class ProcessingTimeEvent(Event):
+      """Processing time-advancing test stream event."""
+      def __init__(self, advance_by):
+        self.advance_by = Duration.of(advance_by)
+
+      def __eq__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          return False
+
+        return self.advance_by == other.advance_by
+
+      def __hash__(self):
+        return hash(self.advance_by)
+
+      def __lt__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          raise TypeError
+
+        return self.advance_by < other.advance_by
+
+      def to_runner_api(self, unused_element_coder):
+        assert self.advance_by.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            processing_time_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceProcessingTime(advance_duration=self.advance_by.micros // 1000))
+
+      def __repr__(self):
+        return 'ProcessingTimeEvent: <{}>'.format(self.advance_by)
+
+
+    class WindowedValueHolderMeta(type):
+      """A metaclass that overrides the isinstance check for WindowedValueHolder.
+
+      Python does a quick test for exact match. If an instance is exactly of
+      type WindowedValueHolder, the overridden isinstance check is omitted.
+      The override is needed because WindowedValueHolder elements encoded then
+      decoded become Row elements.
+      """
+      def __instancecheck__(cls, other):
+        """Checks if a beam.Row typed instance is a WindowedValueHolder.
+        """
+        return (
+            isinstance(other, beam.Row) and hasattr(other, 'windowed_value') and
+            hasattr(other, 'urn') and
+            isinstance(other.windowed_value, WindowedValue) and
+            other.urn == common_urns.coders.ROW.urn)
+
+
+>   class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+E   TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py:226: TypeError
+----------------------------- Captured stdout call -----------------------------
+[AUDIT] Starting integration_test for applications
+[AUDIT] Run ID: integration_test_20260301_153842_b6b96003
+[AUDIT] Source: test.csv
+[AUDIT] Completed integration_test
+[AUDIT] Records processed: 0
+[AUDIT] Valid: 0, Errors: 0
+[AUDIT] Duration: 0.01s
+------------------------------ Captured log call -------------------------------
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:155 Pipeline failed with exception: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+Traceback (most recent call last):
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py", line 270, in run
+    with beam.Pipeline(options=self.options) as p:
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 646, in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 623, in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py", line 82, in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py", line 197, in exec_module
+    exec(co, module.__dict__)
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py", line 226, in <module>
+    class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+WARNING  gcp_pipeline_core.error_handling.handler:handler.py:315 WARNING: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:175 Pipeline failed: run_id=integration_test_20260301_153842_b6b96003
+_________ TestBasePipelineIntegration.test_pipeline_with_custom_hooks __________
+self = <pipelines.base.test_base_pipeline.TestBasePipelineIntegration object at 0x119a41a90>
+mock_pipeline_class = <MagicMock name='Pipeline' id='4725531728'>
+    @patch('apache_beam.Pipeline')
+    def test_pipeline_with_custom_hooks(self, mock_pipeline_class):
+        """Test pipeline with custom lifecycle hooks."""
+        mock_pipeline_instance = MagicMock()
+        mock_pipeline_class.return_value.__enter__ = Mock(return_value=mock_pipeline_instance)
+        mock_pipeline_class.return_value.__exit__ = Mock(return_value=False)
+
+        class CustomPipelineForHooks(BasePipeline):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.custom_start_called = False
+                self.custom_success_called = False
+
+            def build(self, pipeline):
+                # Empty implementation for testing custom hooks
+                pass
+
+            # Mock run to simulate calling custom methods if we want to test them
+            def run(self):
+                self.custom_start_called = True
+                super().run()
+                self.custom_success_called = True
+
+        config = {'pipeline_name': 'custom_test', 'entity_type': 'data', 'run_id': 'test_run'}
+        pipeline = CustomPipelineForHooks(config=config)
+>       pipeline.run()
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py:369:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py:364: in run
+    super().run()
+gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py:270: in run
+    with beam.Pipeline(options=self.options) as p:
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:646: in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/pipeline.py:623: in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py:82: in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+<frozen importlib._bootstrap>:1176: in _find_and_load
+    ???
+<frozen importlib._bootstrap>:1147: in _find_and_load_unlocked
+    ???
+<frozen importlib._bootstrap>:690: in _load_unlocked
+    ???
+venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py:197: in exec_module
+    exec(co, module.__dict__)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+    #
+    # Licensed to the Apache Software Foundation (ASF) under one or more
+    # contributor license agreements.  See the NOTICE file distributed with
+    # this work for additional information regarding copyright ownership.
+    # The ASF licenses this file to You under the Apache License, Version 2.0
+    # (the "License"); you may not use this file except in compliance with
+    # the License.  You may obtain a copy of the License at
+    #
+    #    http://www.apache.org/licenses/LICENSE-2.0
+    #
+    # Unless required by applicable law or agreed to in writing, software
+    # distributed under the License is distributed on an "AS IS" BASIS,
+    # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    # See the License for the specific language governing permissions and
+    # limitations under the License.
+    #
+
+    """Provides TestStream for verifying streaming runner semantics.
+
+    For internal use only; no backwards-compatibility guarantees.
+    """
+    # pytype: skip-file
+
+    from abc import ABCMeta
+    from abc import abstractmethod
+    from enum import Enum
+    from functools import total_ordering
+
+    import apache_beam as beam
+    from apache_beam import coders
+    from apache_beam import pvalue
+    from apache_beam.portability import common_urns
+    from apache_beam.portability.api import beam_interactive_api_pb2
+    from apache_beam.portability.api import beam_runner_api_pb2
+    from apache_beam.portability.api import endpoints_pb2
+    from apache_beam.transforms import PTransform
+    from apache_beam.transforms import core
+    from apache_beam.transforms import window
+    from apache_beam.transforms.timeutil import TimeDomain
+    from apache_beam.transforms.userstate import TimerSpec
+    from apache_beam.transforms.userstate import on_timer
+    from apache_beam.transforms.window import TimestampedValue
+    from apache_beam.utils import timestamp
+    from apache_beam.utils.timestamp import MIN_TIMESTAMP
+    from apache_beam.utils.timestamp import Duration
+    from apache_beam.utils.timestamp import Timestamp
+    from apache_beam.utils.windowed_value import WindowedValue
+
+    __all__ = [
+        'Event',
+        'ElementEvent',
+        'WatermarkEvent',
+        'ProcessingTimeEvent',
+        'TestStream',
+    ]
+
+
+    @total_ordering
+    class Event(metaclass=ABCMeta):  # type: ignore[misc]
+      """Test stream event to be emitted during execution of a TestStream."""
+      @abstractmethod
+      def __eq__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __hash__(self):
+        raise NotImplementedError
+
+      @abstractmethod
+      def __lt__(self, other):
+        raise NotImplementedError
+
+      @abstractmethod
+      def to_runner_api(self, element_coder):
+        raise NotImplementedError
+
+      @staticmethod
+      def from_runner_api(proto, element_coder):
+        if proto.HasField('element_event'):
+          event = proto.element_event
+          tag = None if event.tag == 'None' else event.tag
+          return ElementEvent([
+              TimestampedValue(
+                  element_coder.decode(tv.encoded_element),
+                  Timestamp(micros=1000 * tv.timestamp))
+              for tv in proto.element_event.elements
+          ], tag=tag) # yapf: disable
+        elif proto.HasField('watermark_event'):
+          event = proto.watermark_event
+          tag = None if event.tag == 'None' else event.tag
+          return WatermarkEvent(
+              Timestamp(micros=1000 * proto.watermark_event.new_watermark), tag=tag)
+        elif proto.HasField('processing_time_event'):
+          return ProcessingTimeEvent(
+              timestamp.Duration(
+                  micros=1000 * proto.processing_time_event.advance_duration))
+        else:
+          raise ValueError(
+              'Unknown TestStream Event type: %s' % proto.WhichOneof('event'))
+
+
+    class ElementEvent(Event):
+      """Element-producing test stream event."""
+      def __init__(self, timestamped_values, tag=None):
+        self.timestamped_values = timestamped_values
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, ElementEvent):
+          return False
+
+        return (
+            self.timestamped_values == other.timestamped_values and
+            self.tag == other.tag)
+
+      def __hash__(self):
+        return hash(self.timestamped_values)
+
+      def __lt__(self, other):
+        if not isinstance(other, ElementEvent):
+          raise TypeError
+
+        return self.timestamped_values < other.timestamped_values
+
+      def to_runner_api(self, element_coder):
+        tag = 'None' if self.tag is None else self.tag
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            element_event=beam_runner_api_pb2.TestStreamPayload.Event.AddElements(
+                elements=[
+                    beam_runner_api_pb2.TestStreamPayload.TimestampedElement(
+                        encoded_element=element_coder.encode(tv.value),
+                        timestamp=tv.timestamp.micros // 1000)
+                    for tv in self.timestamped_values
+                ],
+                tag=tag))
+
+      def __repr__(self):
+        return 'ElementEvent: <{}, {}>'.format([(e.value, e.timestamp)
+                                                for e in self.timestamped_values],
+                                               self.tag)
+
+
+    class WatermarkEvent(Event):
+      """Watermark-advancing test stream event."""
+      def __init__(self, new_watermark, tag=None):
+        self.new_watermark = Timestamp.of(new_watermark)
+        self.tag = tag
+
+      def __eq__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          return False
+
+        return self.new_watermark == other.new_watermark and self.tag == other.tag
+
+      def __hash__(self):
+        return hash(str(self.new_watermark) + str(self.tag))
+
+      def __lt__(self, other):
+        if not isinstance(other, WatermarkEvent):
+          raise TypeError
+
+        return self.new_watermark < other.new_watermark
+
+      def to_runner_api(self, unused_element_coder):
+        tag = 'None' if self.tag is None else self.tag
+
+        # Assert that no precision is lost.
+        assert self.new_watermark.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            watermark_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceWatermark(
+                new_watermark=self.new_watermark.micros // 1000, tag=tag))
+
+      def __repr__(self):
+        return 'WatermarkEvent: <{}, {}>'.format(self.new_watermark, self.tag)
+
+
+    class ProcessingTimeEvent(Event):
+      """Processing time-advancing test stream event."""
+      def __init__(self, advance_by):
+        self.advance_by = Duration.of(advance_by)
+
+      def __eq__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          return False
+
+        return self.advance_by == other.advance_by
+
+      def __hash__(self):
+        return hash(self.advance_by)
+
+      def __lt__(self, other):
+        if not isinstance(other, ProcessingTimeEvent):
+          raise TypeError
+
+        return self.advance_by < other.advance_by
+
+      def to_runner_api(self, unused_element_coder):
+        assert self.advance_by.micros % 1000 == 0
+        return beam_runner_api_pb2.TestStreamPayload.Event(
+            processing_time_event=beam_runner_api_pb2.TestStreamPayload.Event.
+            AdvanceProcessingTime(advance_duration=self.advance_by.micros // 1000))
+
+      def __repr__(self):
+        return 'ProcessingTimeEvent: <{}>'.format(self.advance_by)
+
+
+    class WindowedValueHolderMeta(type):
+      """A metaclass that overrides the isinstance check for WindowedValueHolder.
+
+      Python does a quick test for exact match. If an instance is exactly of
+      type WindowedValueHolder, the overridden isinstance check is omitted.
+      The override is needed because WindowedValueHolder elements encoded then
+      decoded become Row elements.
+      """
+      def __instancecheck__(cls, other):
+        """Checks if a beam.Row typed instance is a WindowedValueHolder.
+        """
+        return (
+            isinstance(other, beam.Row) and hasattr(other, 'windowed_value') and
+            hasattr(other, 'urn') and
+            isinstance(other.windowed_value, WindowedValue) and
+            other.urn == common_urns.coders.ROW.urn)
+
+
+>   class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+E   TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py:226: TypeError
+----------------------------- Captured stdout call -----------------------------
+[AUDIT] Starting custom_test for data
+[AUDIT] Run ID: test_run
+[AUDIT] Source: unknown
+[AUDIT] Completed custom_test
+[AUDIT] Records processed: 0
+[AUDIT] Valid: 0, Errors: 0
+[AUDIT] Duration: 0.01s
+------------------------------ Captured log call -------------------------------
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:155 Pipeline failed with exception: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+Traceback (most recent call last):
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py", line 270, in run
+    with beam.Pipeline(options=self.options) as p:
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 646, in __exit__
+    self.result = self.run()
+                  ^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/pipeline.py", line 623, in run
+    return self.runner.run_pipeline(self, self._options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/runners/direct/direct_runner.py", line 82, in run_pipeline
+    from apache_beam.testing.test_stream import TestStream
+  File "<frozen importlib._bootstrap>", line 1176, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1147, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 690, in _load_unlocked
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/_pytest/assertion/rewrite.py", line 197, in exec_module
+    exec(co, module.__dict__)
+  File "/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/testing/test_stream.py", line 226, in <module>
+    class WindowedValueHolder(beam.Row, metaclass=WindowedValueHolderMeta):
+TypeError: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+WARNING  gcp_pipeline_core.error_handling.handler:handler.py:315 WARNING: metaclass conflict: the metaclass of a derived class must be a (non-strict) subclass of the metaclasses of all its bases
+ERROR    gcp_pipeline_beam.pipelines.base.lifecycle:lifecycle.py:175 Pipeline failed: run_id=test_run
+_______________ TestBasePipelineIntegration.test_read_source_gcs _______________
+self = <pipelines.base.test_base_pipeline.TestBasePipelineIntegration object at 0x119a42750>
+mock_match = <MagicMock name='match' id='4727404624'>
+mock_read_text = <MagicMock name='ReadFromText' id='4727405072'>
+    @patch('apache_beam.io.ReadFromText')
+    @patch('apache_beam.io.filesystems.FileSystems.match')
+    def test_read_source_gcs(self, mock_match, mock_read_text):
+        """Test read_source with GCS."""
+        class TestPipelineForGCS(BasePipeline):
+            def build(self, pipeline):
+                pass
+
+        # Mock the match result to avoid BeamIOError
+        mock_match.return_value = [MagicMock()]
+
+        pipeline = TestPipelineForGCS(config={'pipeline_name': 'test'})
+        mock_beam_pipeline = MagicMock()
+        mock_beam_pipeline.__or__.return_value = MagicMock()
+
+        source_config = {'type': 'gcs', 'path': 'gs://bucket/file.csv'}
+>       pipeline.read_source(mock_beam_pipeline, source_config)
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py:410:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+gcp-pipeline-libraries/gcp-pipeline-beam/src/gcp_pipeline_beam/pipelines/base/pipeline.py:387: in read_source
+    return pipeline | "ReadFromGCS" >> beam.io.ReadFromText(path)
+                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^
+venv311/lib/python3.11/site-packages/apache_beam/io/textio.py:808: in __init__
+    self._source = self._source_class(
+venv311/lib/python3.11/site-packages/apache_beam/io/textio.py:144: in __init__
+    super().__init__(
+venv311/lib/python3.11/site-packages/apache_beam/io/filebasedsource.py:127: in __init__
+    self._validate()
+venv311/lib/python3.11/site-packages/apache_beam/options/value_provider.py:193: in _f
+    return fnc(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+self = <apache_beam.io.textio._TextSource object at 0x119c9b350>
+    @check_accessible(['_pattern'])
+    def _validate(self):
+      """Validate if there are actual files in the specified glob pattern
+      """
+      pattern = self._pattern.get()
+
+      # Limit the responses as we only want to check if something exists
+      match_result = FileSystems.match([pattern], limits=[1])[0]
+      if len(match_result.metadata_list) <= 0:
+>       raise IOError('No files found based on the file pattern %s' % pattern)
+E       OSError: No files found based on the file pattern gs://bucket/file.csv
+venv311/lib/python3.11/site-packages/apache_beam/io/filebasedsource.py:192: OSError
+__________________________ test_apply_windowing_fixed __________________________
+    def test_apply_windowing_fixed():
+        # Set streaming=True to trigger some internal Beam logic if needed
+        options = PipelineOptions()
+        options.view_as(StandardOptions).streaming = True
+
+        with TestPipeline(options=options) as p:
+            elements = [
+                (1, 'a'), # 1s
+                (2, 'b'), # 2s
+                (61, 'c'), # 61s
+            ]
+
+            pcoll = (
+>               p
+                | beam.Create(elements)
+                | beam.Map(lambda x: beam.window.TimestampedValue(x[1], x[0]))
+                | ApplyWindowing(window_type='fixed', size=60)
+                | beam.CombineGlobally(beam.combiners.CountCombineFn()).without_defaults()
+            )
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_windowing.py:22:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+venv311/lib/python3.11/site-packages/apache_beam/transforms/ptransform.py:585: in __ror__
+    pvalueish, pvalues = self._extract_input_pvalues(left)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+self = <Create(PTransform) label=[Create] at 0x119c69f90>
+pvalueish = <apache_beam.testing.test_pipeline.TestPipeline object at 0x119c1ec10>
+    def _extract_input_pvalues(self, pvalueish):
+      """Extract all the pvalues contained in the input pvalueish.
+
+      Returns pvalueish as well as the flat inputs list as the input may have to
+      be copied as inspection may be destructive.
+
+      By default, recursively extracts tuple components and dict values.
+
+      Generally only needs to be overriden for multi-input PTransforms.
+      """
+      # pylint: disable=wrong-import-order
+      from apache_beam import pipeline
+
+      # pylint: enable=wrong-import-order
+>     if isinstance(pvalueish, pipeline.Pipeline):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E     TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
+venv311/lib/python3.11/site-packages/apache_beam/transforms/ptransform.py:647: TypeError
+_________________________ test_apply_windowing_sliding _________________________
+    def test_apply_windowing_sliding():
+        # Set streaming=True to trigger some internal Beam logic if needed
+        options = PipelineOptions()
+        options.view_as(StandardOptions).streaming = True
+
+        with TestPipeline(options=options) as p:
+            elements = [
+                (1, 'a'),
+                (31, 'b'),
+            ]
+            # Sliding window 60s, period 30s
+            # Window 1: [-30, 30) -> has 'a'
+            # Window 2: [0, 60) -> has 'a' and 'b'
+            # Window 3: [30, 90) -> has 'b'
+
+            pcoll = (
+>               p
+                | beam.Create(elements)
+                | beam.Map(lambda x: beam.window.TimestampedValue(x[1], x[0]))
+                | ApplyWindowing(window_type='sliding', size=60, period=30)
+                | beam.CombineGlobally(beam.combiners.CountCombineFn()).without_defaults()
+            )
+gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_windowing.py:47:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+venv311/lib/python3.11/site-packages/apache_beam/transforms/ptransform.py:585: in __ror__
+    pvalueish, pvalues = self._extract_input_pvalues(left)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+self = <Create(PTransform) label=[Create] at 0x119c52250>
+pvalueish = <apache_beam.testing.test_pipeline.TestPipeline object at 0x119ab6f90>
+    def _extract_input_pvalues(self, pvalueish):
+      """Extract all the pvalues contained in the input pvalueish.
+
+      Returns pvalueish as well as the flat inputs list as the input may have to
+      be copied as inspection may be destructive.
+
+      By default, recursively extracts tuple components and dict values.
+
+      Generally only needs to be overriden for multi-input PTransforms.
+      """
+      # pylint: disable=wrong-import-order
+      from apache_beam import pipeline
+
+      # pylint: enable=wrong-import-order
+>     if isinstance(pvalueish, pipeline.Pipeline):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E     TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
+venv311/lib/python3.11/site-packages/apache_beam/transforms/ptransform.py:647: TypeError
+=============================== warnings summary ===============================
+venv311/lib/python3.11/site-packages/httplib2/auth.py:20
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:20: PyparsingDeprecationWarning: 'setName' deprecated - use 'set_name'
+    token = pp.Word(tchar).setName("token")
+venv311/lib/python3.11/site-packages/httplib2/auth.py:21
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:21: PyparsingDeprecationWarning: 'leaveWhitespace' deprecated - use 'leave_whitespace'
+    token68 = pp.Combine(pp.Word("-._~+/" + pp.nums + pp.alphas) + pp.Optional(pp.Word("=").leaveWhitespace())).setName(
+venv311/lib/python3.11/site-packages/httplib2/auth.py:21
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:21: PyparsingDeprecationWarning: 'setName' deprecated - use 'set_name'
+    token68 = pp.Combine(pp.Word("-._~+/" + pp.nums + pp.alphas) + pp.Optional(pp.Word("=").leaveWhitespace())).setName(
+venv311/lib/python3.11/site-packages/httplib2/auth.py:25
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:25: PyparsingDeprecationWarning: 'setName' deprecated - use 'set_name'
+    quoted_string = pp.dblQuotedString.copy().setName("quoted-string").setParseAction(unquote)
+venv311/lib/python3.11/site-packages/httplib2/auth.py:25
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:25: PyparsingDeprecationWarning: 'setParseAction' deprecated - use 'set_parse_action'
+    quoted_string = pp.dblQuotedString.copy().setName("quoted-string").setParseAction(unquote)
+venv311/lib/python3.11/site-packages/httplib2/auth.py:26
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:26: PyparsingDeprecationWarning: 'setName' deprecated - use 'set_name'
+    auth_param_name = token.copy().setName("auth-param-name").addParseAction(downcaseTokens)
+venv311/lib/python3.11/site-packages/httplib2/auth.py:26
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:26: PyparsingDeprecationWarning: 'addParseAction' deprecated - use 'add_parse_action'
+    auth_param_name = token.copy().setName("auth-param-name").addParseAction(downcaseTokens)
+venv311/lib/python3.11/site-packages/httplib2/auth.py:28
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:28: PyparsingDeprecationWarning: 'delimitedList' deprecated - use 'DelimitedList'
+    params = pp.Dict(pp.delimitedList(pp.Group(auth_param)))
+venv311/lib/python3.11/site-packages/httplib2/auth.py:34
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/httplib2/auth.py:34: PyparsingDeprecationWarning: 'delimitedList' deprecated - use 'DelimitedList'
+    www_authenticate = pp.delimitedList(pp.Group(challenge))
+venv311/lib/python3.11/site-packages/apache_beam/testing/test_pipeline.py:36
+  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/lib/python3.11/site-packages/apache_beam/testing/test_pipeline.py:36: PytestCollectionWarning: cannot collect test class 'TestPipeline' because it has a __init__ constructor (from: tests/unit/pipelines/beam/test_windowing.py)
+    class TestPipeline(Pipeline):
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py::TestBasePipeline::test_run_success - TypeError: metaclass conflict: the metaclass of a derived class must be a (...
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py::TestBasePipelineIntegration::test_full_pipeline_lifecycle - TypeError: metaclass conflict: the metaclass of a derived class must be a (...
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py::TestBasePipelineIntegration::test_pipeline_with_custom_hooks - TypeError: metaclass conflict: the metaclass of a derived class must be a (...
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/base/test_base_pipeline.py::TestBasePipelineIntegration::test_read_source_gcs - OSError: No files found based on the file pattern gs://bucket/file.csv
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_windowing.py::test_apply_windowing_fixed - TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
+FAILED gcp-pipeline-libraries/gcp-pipeline-beam/tests/unit/pipelines/beam/test_windowing.py::test_apply_windowing_sliding - TypeError: isinstance() arg 2 must be a type, a tuple of types, or a union
+================== 6 failed, 364 passed, 10 warnings in 1.81s ==================

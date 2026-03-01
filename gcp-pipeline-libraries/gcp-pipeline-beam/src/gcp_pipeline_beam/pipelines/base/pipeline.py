@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 
 
 # Create a compatible metaclass to resolve conflicts between ABC and Beam's internal types
-class BasePipelineMeta(ABCMeta, type(beam.PTransform)):
-    """Metaclass to resolve potential conflicts in subclassing with PTransform."""
+class BasePipelineMeta(ABCMeta):
+    """Metaclass to resolve potential conflicts in subclassing."""
     pass
 
 

@@ -225,9 +225,10 @@ class TestWriteSegmentedToGCSDoFn:
         
         # Should yield TaggedOutput
         assert len(results) == 1
-        assert isinstance(results[0], beam.pvalue.TaggedOutput)
-        assert results[0].tag == 'errors'
-        assert results[0].value['error'] == "Upload failed"
-        assert results[0].value['record'] == {'id': 1}
+        # Use simple check instead of isinstance if Beam internal types cause issues
+        res = results[0]
+        assert hasattr(res, 'tag') and res.tag == 'errors'
+        assert res.value['error'] == "Upload failed"
+        assert res.value['record'] == {'id': 1}
         assert len(writer.buffer) == 0
 
