@@ -34,14 +34,7 @@ class BasePipeline(metaclass=BasePipelineMeta):
     """
     Abstract Base Pipeline class for GDW migration jobs.
 
-    Provides a framework for building robust migration pipelines with:
-    - Configuration injection
-    - Audit trail management for compliance and tracking
-    - Error handling with retry logic and error classification
-    - Metrics collection and monitoring
-    - Lifecycle hooks (on_start, on_success, on_failure)
-
-    Subclasses must implement the `build()` method to define pipeline logic.
+    Provides a framework for building robust migration pipelines.
     """
 
     def __init__(
