@@ -391,29 +391,27 @@ class TestBasePipelineIntegration:
         standard_options = pipeline.options.view_as(StandardOptions)
         assert standard_options.streaming is True
 
-    @patch('apache_beam.io.ReadFromPubSub')
     @patch('apache_beam.io.ReadFromText')
-    @patch('apache_beam.io.filesystems.FileSystems.match')
-    def test_read_source_gcs(self, mock_match, mock_read_text, mock_read_pubsub):
+    def test_read_source_gcs(self, mock_read_text):
         """Test read_source with GCS."""
         class TestPipeline(BasePipeline):
             def build(self, pipeline):
                 pass
 
-        # Mock the match result to avoid FileNotFoundError
-        mock_match.return_value = [MagicMock(path='gs://bucket/file.csv')]
-
         pipeline = TestPipeline(config={'pipeline_name': 'test'})
         mock_beam_pipeline = MagicMock()
+        mock_beam_pipeline.__or__.return_value = MagicMock()
 
         source_config = {'type': 'gcs', 'path': 'gs://bucket/file.csv'}
         pipeline.read_source(mock_beam_pipeline, source_config)
 
-        # Use mock_read_text directly instead of expecting exact call if Beam internal changes
+        # Verify that __or__ was called
+        assert mock_beam_pipeline.__or__.called
+        
+        # Check if mock_read_text was called (which is applied via >>)
         assert mock_read_text.called
 
-    @patch('apache_beam.io.ReadFromPubSub')
-    def test_read_source_pubsub(self, mock_read_pubsub):
+    def test_read_source_pubsub(self):
         """Test read_source with Pub/Sub."""
         class TestPipeline(BasePipeline):
             def build(self, pipeline):
@@ -421,11 +419,21 @@ class TestBasePipelineIntegration:
 
         pipeline = TestPipeline(config={'pipeline_name': 'test'})
         mock_beam_pipeline = MagicMock()
+        mock_beam_pipeline.__or__.return_value = MagicMock()
 
         source_config = {'type': 'pubsub', 'subscription': 'projects/project/subscriptions/sub'}
         pipeline.read_source(mock_beam_pipeline, source_config)
 
-        assert mock_read_pubsub.called or mock_beam_pipeline.apply.called
+        # Verify that __or__ was called (i.e., a transform was applied)
+        assert mock_beam_pipeline.__or__.called
+        
+        # Check if any call used ReadFromPubSub (as a label or transform)
+        found_pubsub = False
+        for call in mock_beam_pipeline.__or__.call_args_list:
+            arg = str(call[0][0])
+            if "ReadFromPubSub" in arg:
+                found_pubsub = True
+        assert found_pubsub
 
     def test_write_to_bigquery_batch(self):
         """Test write_to_bigquery in batch mode."""
