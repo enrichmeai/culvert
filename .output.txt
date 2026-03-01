@@ -1,306 +1,426 @@
-============================= test session starts ==============================
-platform darwin -- Python 3.14.3, pytest-9.0.2, pluggy-1.6.0 -- /opt/homebrew/opt/python@3.14/bin/python3.14
-cachedir: .pytest_cache
-rootdir: /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core
-configfile: pyproject.toml
-plugins: mock-3.15.1, cov-7.0.0
-collected 249 items
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_prepare_message PASSED [  0%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_audit_publisher.py::TestAuditPublisher::test_publish PASSED [  0%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report PASSED [  1%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_reconciliation_report_no_data PASSED [  1%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_get_result PASSED [  2%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_initialization PASSED [  2%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_extra_records PASSED [  2%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_match PASSED [  3%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_mismatch PASSED [  3%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_with_errors PASSED [  4%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_reconcile_counts_zero_source PASSED [  4%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationEngine::test_result_to_dict PASSED [  4%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_error PASSED [  5%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_match PASSED [  5%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_bigquery_mismatch PASSED [  6%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithBigQuery::test_reconcile_with_error_table PASSED [  6%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationFromTrailer::test_reconcile_from_trailer PASSED [  6%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_failure_with_logger PASSED [  7%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_reconciliation.py::TestReconciliationWithLogger::test_logs_success_with_logger PASSED [  7%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic PASSED [  8%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher PASSED [  8%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientInit::test_initialization PASSED [  8%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientWriteTable::test_write_to_table_success PASSED [  9%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientReadTable::test_read_table_success PASSED [  9%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientTableExists::test_table_exists PASSED [ 10%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_bigquery_client.py::TestBigQueryClientQuery::test_query_success PASSED [ 10%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_success PASSED [ 10%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientInit::test_init_failure PASSED [ 11%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_success PASSED [ 11%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_gcs_api PASSED [ 12%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientReadFile::test_read_file_error_general PASSED [ 12%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_success PASSED [ 12%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientWriteFile::test_write_file_error PASSED [ 13%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_success PASSED [ 13%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_empty PASSED [ 14%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientListFiles::test_list_files_error PASSED [ 14%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_success PASSED [ 14%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_gcs_client.py::TestGCSClientArchiveFile::test_archive_file_error PASSED [ 15%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_success PASSED [ 15%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientInit::test_init_failure PASSED [ 16%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_success PASSED [ 16%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_with_complex_message PASSED [ 16%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_api PASSED [ 17%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/clients/test_pubsub_client.py::TestPubSubClientPublishEvent::test_publish_event_error_general PASSED [ 17%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_request_deletion_approval PASSED [ 18%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_approve_deletion PASSED [ 18%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_record_fails_without_approval PASSED [ 18%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_record_success_after_approval PASSED [ 19%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_deletion.py::TestSafeDataDeletion::test_delete_batch PASSED [ 19%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_record_initialization PASSED [ 20%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_quarantine_lifecycle PASSED [ 20%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_deletion/test_types.py::TestMalformedRecord::test_checksum_consistency PASSED [ 20%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_composite_key PASSED [ 21%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_empty_records PASSED [ 21%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_missing_key_field PASSED [ 22%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_multiple_duplicates PASSED [ 22%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_no_duplicates PASSED [ 22%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_single_duplicate PASSED [ 23%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestCheckDuplicateKeys::test_triple_duplicate PASSED [ 23%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_empty_file PASSED [ 24%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_in_middle PASSED [ 24%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_hdr_trl_only PASSED [ 24%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_hdr PASSED [ 25%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_missing_trl PASSED [ 25%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_trl_in_middle PASSED [ 26%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_valid_file_structure PASSED [ 26%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/data_quality/test_validators.py::TestValidateRowTypes::test_whitespace_handling PASSED [ 26%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_transient_error PASSED [ 27%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_validation_error PASSED [ 27%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_integration_error PASSED [ 28%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_permission_error PASSED [ 28%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_connection_error PASSED [ 28%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_handler.py::TestErrorClassifier::test_classify_quota_error PASSED [ 29%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_default_config PASSED [ 29%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_models.py::TestErrorConfig::test_custom_config PASSED [ 30%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorSeverity::test_severity_values PASSED [ 30%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestErrorCategory::test_category_values PASSED [ 30%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/error_handling/test_types.py::TestRetryStrategy::test_strategy_values PASSED [ 31%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_is_header_line PASSED [ 31%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_is_trailer_line PASSED [ 32%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines PASSED [ 32%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_empty_file PASSED [ 32%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_invalid_header PASSED [ 33%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_file_lines_invalid_trailer PASSED [ 33%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_invalid_header PASSED [ 34%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_invalid_trailer PASSED [ 34%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_trailer_with_large_count PASSED [ 34%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_header PASSED [ 35%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_header_with_whitespace PASSED [ 35%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserDefaults::test_parse_valid_trailer PASSED [ 36%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserCustomPatterns::test_custom_patterns PASSED [ 36%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/file_management/hdr_trl/test_parser.py::TestHDRTRLParserCustomPatterns::test_default_patterns_still_work PASSED [ 36%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_finops_labels_to_dict PASSED [ 37%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_labels.py::test_get_standard_labels PASSED [ 37%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_finops_integration PASSED [ 38%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_to_job_record_finops PASSED [ 38%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_metrics_integration.py::test_migration_metrics_new_finops_integration PASSED [ 38%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost PASSED [ 39%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_query_cost_no_bytes PASSED [ 39%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_load_cost PASSED [ 40%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_upload_cost PASSED [ 40%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_gcs_storage_cost PASSED [ 40%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost PASSED [ 41%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields PASSED [ 41%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job PASSED [ 42%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default PASSED [ 42%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty PASSED [ 42%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info PASSED [ 43%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job PASSED [ 43%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_entity_status PASSED [ 44%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found PASSED [ 44%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_not_found PASSED [ 44%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init PASSED [ 45%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_init_custom_dataset_table PASSED [ 45%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_mark_failed PASSED [ 46%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_running PASSED [ 46%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_repository.py::TestJobControlRepository::test_update_status_success PASSED [ 46%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_all_statuses_defined PASSED [ 47%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_from_string PASSED [ 47%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestJobStatus::test_job_status_values PASSED [ 48%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_all_stages_defined PASSED [ 48%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_types.py::TestFailureStage::test_failure_stage_values PASSED [ 48%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELExporterType::test_all_exporter_types_exist PASSED [ 49%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_config PASSED [ 49%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_default_service_version PASSED [ 50%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_factory PASSED [ 50%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_config_with_environment PASSED [ 51%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_url PASSED [ 51%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_requires_token PASSED [ 51%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_config_factory PASSED [ 52%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_requires_project_id PASSED [ 52%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_factory PASSED [ 53%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_console_config_with_custom_name PASSED [ 53%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_disabled_config_factory PASSED [ 53%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_requires_endpoint PASSED [ 54%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_otlp_with_endpoint PASSED [ 54%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_otlp_config_factory PASSED [ 55%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_resource_attributes PASSED [ 55%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_service_name_from_env PASSED [ 55%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_dynatrace_url_from_env PASSED [ 56%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_gcp_project_from_env PASSED [ 56%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_sample_rate_from_env PASSED [ 57%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_config.py::TestOTELConfig::test_environment_from_env PASSED [ 57%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_none_span PASSED [ 57%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_none_span PASSED [ 58%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_add_event_with_none_span PASSED [ 58%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_record_exception_with_none_span PASSED [ 59%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_ok_with_none_span PASSED [ 59%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_status_error_with_none_span PASSED [ 59%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attribute_with_mock_span PASSED [ 60%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestSpanContext::test_set_attributes_with_mock_span PASSED [ 60%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_manager_enters_and_exits PASSED [ 61%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_context_with_entity_type PASSED [ 61%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_nested_span_creation PASSED [ 61%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_span_with_attributes PASSED [ 62%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_context PASSED [ 62%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_exception_in_span PASSED [ 63%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_set PASSED [ 63%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_base_attributes_with_entity PASSED [ 63%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_context.py::TestOTELContext::test_custom_tracer_name PASSED [ 64%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_forwards_to_collector PASSED [ 64%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_increment_multiple_times PASSED [ 65%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_set_gauge_forwards_to_collector PASSED [ 65%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_histogram_forwards_to_collector PASSED [ 65%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_timer_forwards_to_collector PASSED [ 66%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_get_statistics_returns_collector_stats PASSED [ 66%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_start_timer_delegates_to_collector PASSED [ 67%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_record_step_duration_forwards_to_collector PASSED [ 67%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_base_attributes_set_from_collector PASSED [ 67%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_labels_passed_through PASSED [ 68%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_metrics_bridge.py::TestOTELMetricsBridge::test_getattr_delegates_unknown_methods PASSED [ 68%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_initialize_gcp_otlp PASSED [ 69%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_create_trace_exporter_gcp_otlp PASSED [ 69%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_provider.py::TestOTELProvider::test_create_metrics_exporter_gcp_otlp PASSED [ 69%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_configure_disabled PASSED [ 70%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestConfigureOtel::test_is_otel_initialized_initially_false PASSED [ 70%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_returns_noop_when_not_initialized PASSED [ 71%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetTracer::test_get_tracer_with_name PASSED [ 71%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_get_meter_returns_noop_when_not_initialized PASSED [ 71%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestGetMeter::test_create_counter_on_noop_meter PASSED [ 72%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_executes_function PASSED [ 72%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_custom_name PASSED [ 73%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_attributes PASSED [ 73%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_propagates_exception PASSED [ 73%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_preserves_return_value PASSED [ 74%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestTraceFunction::test_trace_function_with_kwargs PASSED [ 74%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/otel/test_tracing.py::TestShutdownOtel::test_shutdown_when_not_initialized PASSED [ 75%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_collector_initialization PASSED [ 75%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment PASSED [ 75%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_counter_increment_default_value PASSED [ 76%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_set_gauge PASSED [ 76%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_record_histogram PASSED [ 77%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_record_timer PASSED [ 77%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_metrics.py::TestMetricsCollector::test_timer_context PASSED [ 77%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_get_summary_includes_context PASSED [ 78%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_initialization PASSED [ 78%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_failed PASSED [ 79%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_parsed PASSED [ 79%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_processing_time PASSED [ 79%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_read PASSED [ 80%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_skipped PASSED [ 80%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validated PASSED [ 81%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_validation_error_by_type PASSED [ 81%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_record_written PASSED [ 81%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_start_timer PASSED [ 82%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_to_job_record PASSED [ 82%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_rate_zero_reads PASSED [ 83%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetrics::test_validation_success_rate PASSED [ 83%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsWithoutEntityType::test_initialization_without_entity_type PASSED [ 83%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_extra_labels_merged PASSED [ 84%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/monitoring/test_migration_metrics.py::TestMigrationMetricsLabels::test_labels_include_context PASSED [ 84%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_complete PASSED [ 85%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_without_filename PASSED [ 85%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_bucket_only PASSED [ 85%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestBuildGcsPath::test_build_gcs_path_with_slashes PASSED [ 86%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_no_matches PASSED [ 86%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_matches PASSED [ 87%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_with_custom_pattern PASSED [ 87%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverSplitFiles::test_discover_split_files_error_handling PASSED [ 87%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date PASSED [ 88%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_no_files PASSED [ 88%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_gcs_discovery.py::TestDiscoverFilesByDate::test_discover_files_by_date_custom_pattern PASSED [ 89%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_extra_fields_included PASSED [ 89%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_includes_standard_fields PASSED [ 89%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_level_is_correct PASSED [ 90%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_message_is_correct PASSED [ 90%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredJsonFormatter::test_outputs_valid_json PASSED [ 91%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_all_log_levels PASSED [ 91%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_context_included PASSED [ 91%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_creates_logger PASSED [ 92%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_info PASSED [ 92%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_log_with_extra_fields PASSED [ 93%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestStructuredLogger::test_set_context PASSED [ 93%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_configures_json_output PASSED [ 93%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_no_duplicate_handlers PASSED [ 94%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestConfigureStructuredLogging::test_returns_structured_logger PASSED [ 94%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_returns_structured_logger PASSED [ 95%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_logging.py::TestGetLogger::test_get_logger_uses_name PASSED [ 95%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_basic PASSED [ 95%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_with_uuid PASSED [ 96%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_without_uuid PASSED [ 96%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_custom_timestamp PASSED [ 97%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_empty_job_name PASSED [ 97%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestGenerateRunId::test_generate_run_id_consistency PASSED [ 97%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_valid_run_id PASSED [ 98%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_invalid_format PASSED [ 98%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_empty_run_id PASSED [ 99%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_none_run_id PASSED [ 99%]
-gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/utilities/test_run_id.py::TestValidateRunId::test_validate_run_id_without_uuid PASSED [100%]
-=============================== warnings summary ===============================
-tests/unit/audit/test_reconciliation.py: 15 warnings
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/reconciliation.py:53: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
-tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic
-tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py:27: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    self.start_time = datetime.utcnow()
-tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_basic
-tests/unit/audit/test_trail.py::TestAuditTrail::test_audit_trail_with_publisher
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/audit/trail.py:81: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    self.end_time = datetime.utcnow()
-tests/unit/data_deletion/test_deletion.py: 7 warnings
-tests/unit/data_deletion/test_types.py: 4 warnings
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/data_deletion/types.py:64: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    self.first_detected = first_detected or datetime.utcnow()
-tests/unit/finops/test_tracker.py::test_estimate_query_cost
-tests/unit/finops/test_tracker.py::test_estimate_query_cost_no_bytes
-tests/unit/finops/test_tracker.py::test_estimate_load_cost
-tests/unit/finops/test_tracker.py::test_estimate_gcs_upload_cost
-tests/unit/finops/test_tracker.py::test_estimate_gcs_storage_cost
-tests/unit/finops/test_tracker.py::test_estimate_pubsub_publish_cost
-  <string>:12: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    now = datetime.utcnow()
-tests/unit/job_control/test_models.py::TestPipelineJob::test_create_job_with_all_fields
-tests/unit/job_control/test_models.py::TestPipelineJob::test_create_minimal_job
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_source_files_default_empty
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_with_error_info
-tests/unit/job_control/test_repository.py::TestJobControlRepository::test_create_job
-tests/unit/job_control/test_repository.py::TestJobControlRepository::test_get_job_found
-  <string>:17: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:71: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    before = datetime.utcnow()
-tests/unit/job_control/test_models.py::TestPipelineJob::test_job_created_at_default
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/tests/unit/job_control/test_models.py:78: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    after = datetime.utcnow()
-tests/unit/monitoring/test_metrics.py: 7 warnings
-tests/unit/monitoring/test_migration_metrics.py: 17 warnings
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:34: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    self.start_time = datetime.utcnow()
-tests/unit/monitoring/test_migration_metrics.py: 13 warnings
-  /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/monitoring/metrics.py:119: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
-    current_time = datetime.utcnow()
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-======================= 249 passed, 84 warnings in 1.12s =======================
+{
+  "completedAt": "2026-03-01T17:44:31Z",
+  "conclusion": "success",
+  "databaseId": 65315656891,
+  "name": "Test Libraries (gcp-pipeline-beam)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "completed",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:38Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:37Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:30Z",
+      "conclusion": "success",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:30Z",
+      "conclusion": "success",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "2026-03-01T17:44:30Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:30Z",
+      "conclusion": "success",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "2026-03-01T17:44:30Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:31Z",
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "2026-03-01T17:44:30Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:31Z",
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 11,
+      "startedAt": "2026-03-01T17:44:31Z",
+      "status": "completed"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656891"
+}
+{
+  "completedAt": "2026-03-01T17:44:08Z",
+  "conclusion": "success",
+  "databaseId": 65315656894,
+  "name": "Test Libraries (gcp-pipeline-core)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "completed",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:41Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:02Z",
+      "conclusion": "success",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:41Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:06Z",
+      "conclusion": "success",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "2026-03-01T17:44:02Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:06Z",
+      "conclusion": "success",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "2026-03-01T17:44:06Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:06Z",
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "2026-03-01T17:44:06Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:06Z",
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 11,
+      "startedAt": "2026-03-01T17:44:06Z",
+      "status": "completed"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656894"
+}
+{
+  "completedAt": "2026-03-01T17:44:39Z",
+  "conclusion": "success",
+  "databaseId": 65315656900,
+  "name": "Test Libraries (gcp-pipeline-tester)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "completed",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:32Z",
+      "conclusion": "success",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:36Z",
+      "conclusion": "success",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "2026-03-01T17:44:32Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:36Z",
+      "conclusion": "success",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "2026-03-01T17:44:36Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:36Z",
+      "conclusion": "success",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "2026-03-01T17:44:36Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:36Z",
+      "conclusion": "success",
+      "name": "Complete job",
+      "number": 11,
+      "startedAt": "2026-03-01T17:44:36Z",
+      "status": "completed"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656900"
+}
+{
+  "completedAt": "0001-01-01T00:00:00Z",
+  "conclusion": "",
+  "databaseId": 65315656885,
+  "name": "Test Libraries (gcp-pipeline-orchestration)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "in_progress",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:41Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:41Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:41Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:41Z",
+      "status": "in_progress"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656885"
+}
+{
+  "completedAt": "0001-01-01T00:00:00Z",
+  "conclusion": "",
+  "databaseId": 65315656899,
+  "name": "Test Libraries (gcp-pipeline-transform)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "in_progress",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:41Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:44:26Z",
+      "conclusion": "success",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:41Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "2026-03-01T17:44:26Z",
+      "status": "in_progress"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656899"
+}
+{
+  "completedAt": "0001-01-01T00:00:00Z",
+  "conclusion": "",
+  "databaseId": 65315656902,
+  "name": "Test Libraries (gcp-pipeline-framework)",
+  "startedAt": "2026-03-01T17:43:37Z",
+  "status": "in_progress",
+  "steps": [
+    {
+      "completedAt": "2026-03-01T17:43:39Z",
+      "conclusion": "success",
+      "name": "Set up job",
+      "number": 1,
+      "startedAt": "2026-03-01T17:43:38Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Run actions/checkout@v4",
+      "number": 2,
+      "startedAt": "2026-03-01T17:43:39Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "2026-03-01T17:43:40Z",
+      "conclusion": "success",
+      "name": "Set up Python",
+      "number": 3,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "completed"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Install dependencies",
+      "number": 4,
+      "startedAt": "2026-03-01T17:43:40Z",
+      "status": "in_progress"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Run Tests",
+      "number": 5,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Set up Python",
+      "number": 9,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    },
+    {
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "name": "Post Run actions/checkout@v4",
+      "number": 10,
+      "startedAt": "0001-01-01T00:00:00Z",
+      "status": "pending"
+    }
+  ],
+  "url": "https://github.com/enrichmeai/legacy-migration-reference/actions/runs/22548906766/job/65315656902"
+}
