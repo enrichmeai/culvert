@@ -4,7 +4,7 @@ Entity Dependency Checker.
 Library provides the MECHANISM for checking entity dependencies.
 Pipelines provide their own CONFIGURATION.
 
-The library is GENERIC - no systapplication1-specific configuration.
+The library is GENERIC - no system specific configuration.
 Each pipeline defines its own entity dependencies.
 
 Usage:
