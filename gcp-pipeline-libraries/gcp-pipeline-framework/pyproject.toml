@@ -4,24 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-framework"
-version = "1.0.1"
+version = "1.0.2"
 description = "Umbrella package for GCP Data Migration Pipeline Libraries"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "gcp-pipeline-core==1.0.1",
-    "gcp-pipeline-beam==1.0.1",
-    "gcp-pipeline-orchestration==1.0.1",
-    "gcp-pipeline-transform==1.0.1",
-    "gcp-pipeline-tester==1.0.1",
+    "gcp-pipeline-core==1.0.2",
+    "gcp-pipeline-beam==1.0.2",
+    "gcp-pipeline-orchestration==1.0.2",
+    "gcp-pipeline-transform==1.0.2",
+    "gcp-pipeline-tester==1.0.2",
 ]
 
 [project.optional-dependencies]
-core = ["gcp-pipeline-core==1.0.1"]
-beam = ["gcp-pipeline-beam==1.0.1"]
-orchestration = ["gcp-pipeline-orchestration==1.0.1"]
-transform = ["gcp-pipeline-transform==1.0.1"]
-tester = ["gcp-pipeline-tester==1.0.1"]
+core = ["gcp-pipeline-core==1.0.2"]
+beam = ["gcp-pipeline-beam==1.0.2"]
+orchestration = ["gcp-pipeline-orchestration==1.0.2"]
+transform = ["gcp-pipeline-transform==1.0.2"]
+tester = ["gcp-pipeline-tester==1.0.2"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
