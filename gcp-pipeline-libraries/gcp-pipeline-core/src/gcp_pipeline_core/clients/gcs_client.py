@@ -29,6 +29,85 @@ class GCSClient:
             logger.error("Failed to initialize GCS client: %s", exc)
             raise
 
+    def file_exists(self, bucket: str, path: str) -> bool:
+        """Check if a file exists in GCS.
+
+        Args:
+            bucket: GCS bucket name
+            path: Path to file in bucket
+
+        Returns:
+            True if file exists, False otherwise
+        """
+        try:
+            bucket_obj = self.client.bucket(bucket)
+            blob = bucket_obj.blob(path)
+            exists = blob.exists()
+            logger.debug("File existence check %s/%s: %s", bucket, path, exists)
+            return exists
+        except GoogleAPIError as exc:
+            logger.error("GCS API error checking existence of %s/%s: %s",
+                        bucket, path, exc)
+            return False
+        except Exception as exc:
+            logger.error("Error checking existence of %s/%s: %s",
+                        bucket, path, exc)
+            return False
+
+    def blob_exists(self, gcs_uri: str) -> bool:
+        """Check if a blob exists given a full GCS URI.
+
+        Args:
+            gcs_uri: Full GCS URI (gs://bucket/path/to/file)
+
+        Returns:
+            True if blob exists, False otherwise
+
+        Raises:
+            ValueError: If URI format is invalid
+        """
+        if not gcs_uri.startswith("gs://"):
+            raise ValueError(f"Invalid GCS URI format: {gcs_uri}")
+
+        # Parse gs://bucket/path format
+        parts = gcs_uri[5:].split("/", 1)
+        bucket = parts[0]
+        path = parts[1] if len(parts) > 1 else ""
+
+        return self.file_exists(bucket, path)
+
+    def validate_files_exist(self, bucket: str, paths: List[str]) -> dict:
+        """Validate multiple files exist in GCS.
+
+        Args:
+            bucket: GCS bucket name
+            paths: List of file paths to check
+
+        Returns:
+            Dict with 'existing', 'missing', and 'all_exist' keys
+        """
+        existing = []
+        missing = []
+
+        for path in paths:
+            if self.file_exists(bucket, path):
+                existing.append(path)
+            else:
+                missing.append(path)
+
+        result = {
+            'existing': existing,
+            'missing': missing,
+            'all_exist': len(missing) == 0,
+            'total': len(paths),
+            'found': len(existing)
+        }
+
+        logger.info("File validation: %d/%d files exist in %s",
+                   len(existing), len(paths), bucket)
+
+        return result
+
     def read_file(self, bucket: str, path: str) -> str:
         """Read file from GCS.
 

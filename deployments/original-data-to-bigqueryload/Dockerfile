@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Beam SDK and common dependencies (Optimized for Python 3.11)
 RUN pip install --no-cache-dir \
-    apache-beam[gcp]==2.53.0 \
+    apache-beam[gcp]==2.56.0 \
     google-cloud-storage \
     google-cloud-bigquery \
     google-cloud-pubsub \

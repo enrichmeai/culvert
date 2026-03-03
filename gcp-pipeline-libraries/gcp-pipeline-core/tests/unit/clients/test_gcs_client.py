@@ -237,3 +237,144 @@ class TestGCSClientArchiveFile:
             with pytest.raises(IOError) as exc_info:
                 client.archive_file("test-bucket", "source.txt", "archive/source.txt")
             assert "Failed to archive" in str(exc_info.value)
+
+
+class TestGCSClientFileExists:
+    """Tests for GCSClient.file_exists method."""
+
+    def test_file_exists_true(self):
+        """Test file_exists returns True when file exists."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_blob = MagicMock()
+            mock_blob.exists.return_value = True
+            mock_bucket = MagicMock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.return_value = mock_bucket
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.file_exists("test-bucket", "existing-file.txt")
+
+            assert result is True
+            mock_gcs_client.bucket.assert_called_once_with("test-bucket")
+            mock_bucket.blob.assert_called_once_with("existing-file.txt")
+            mock_blob.exists.assert_called_once()
+
+    def test_file_exists_false(self):
+        """Test file_exists returns False when file doesn't exist."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_blob = MagicMock()
+            mock_blob.exists.return_value = False
+            mock_bucket = MagicMock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.return_value = mock_bucket
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.file_exists("test-bucket", "missing-file.txt")
+
+            assert result is False
+
+    def test_file_exists_error_returns_false(self):
+        """Test file_exists returns False on error (graceful degradation)."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            from google.api_core.exceptions import GoogleAPIError
+
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.side_effect = GoogleAPIError("API error")
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.file_exists("test-bucket", "file.txt")
+
+            assert result is False
+
+
+class TestGCSClientBlobExists:
+    """Tests for GCSClient.blob_exists method."""
+
+    def test_blob_exists_valid_uri(self):
+        """Test blob_exists with valid GCS URI."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_blob = MagicMock()
+            mock_blob.exists.return_value = True
+            mock_bucket = MagicMock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.return_value = mock_bucket
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.blob_exists("gs://my-bucket/path/to/file.csv")
+
+            assert result is True
+            mock_gcs_client.bucket.assert_called_once_with("my-bucket")
+            mock_bucket.blob.assert_called_once_with("path/to/file.csv")
+
+    def test_blob_exists_invalid_uri_raises(self):
+        """Test blob_exists raises ValueError for invalid URI."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_client_class.return_value = MagicMock()
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+
+            with pytest.raises(ValueError) as exc_info:
+                client.blob_exists("s3://invalid-bucket/file.txt")
+            assert "Invalid GCS URI format" in str(exc_info.value)
+
+
+class TestGCSClientValidateFilesExist:
+    """Tests for GCSClient.validate_files_exist method."""
+
+    def test_validate_files_all_exist(self):
+        """Test validate_files_exist when all files exist."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_blob = MagicMock()
+            mock_blob.exists.return_value = True
+            mock_bucket = MagicMock()
+            mock_bucket.blob.return_value = mock_blob
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.return_value = mock_bucket
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.validate_files_exist("test-bucket", ["file1.txt", "file2.txt"])
+
+            assert result['all_exist'] is True
+            assert result['existing'] == ["file1.txt", "file2.txt"]
+            assert result['missing'] == []
+            assert result['total'] == 2
+            assert result['found'] == 2
+
+    def test_validate_files_some_missing(self):
+        """Test validate_files_exist when some files are missing."""
+        with patch('gcp_pipeline_core.clients.gcs_client.storage.Client') as mock_client_class:
+            mock_bucket = MagicMock()
+            # First file exists, second doesn't
+            mock_blob_exists = MagicMock()
+            mock_blob_exists.exists.return_value = True
+            mock_blob_missing = MagicMock()
+            mock_blob_missing.exists.return_value = False
+            mock_bucket.blob.side_effect = [mock_blob_exists, mock_blob_missing]
+            mock_gcs_client = MagicMock()
+            mock_gcs_client.bucket.return_value = mock_bucket
+            mock_client_class.return_value = mock_gcs_client
+
+            GCSClient = _reload_gcs_client()
+            client = GCSClient(project="test-project")
+            result = client.validate_files_exist("test-bucket", ["exists.txt", "missing.txt"])
+
+            assert result['all_exist'] is False
+            assert result['existing'] == ["exists.txt"]
+            assert result['missing'] == ["missing.txt"]
+            assert result['total'] == 2
+            assert result['found'] == 1
+
