@@ -9,7 +9,7 @@ description = "Beam ingestion library for GCP data pipelines"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "apache-beam[gcp]",
+    "apache-beam[gcp]==2.56.0",
     "gcp-pipeline-core",
 ]
 

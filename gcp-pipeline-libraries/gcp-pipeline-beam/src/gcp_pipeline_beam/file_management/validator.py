@@ -2,10 +2,11 @@
 File Validator Module
 
 Validates files for existence, integrity, and format compliance.
+Uses GCSClient from gcp-pipeline-core for GCS operations.
 """
 
-from google.cloud import storage
-from typing import List, Callable, Tuple
+from typing import List, Callable, Tuple, Optional
+from gcp_pipeline_core.clients import GCSClient
 import csv
 import io
 import logging
@@ -16,40 +17,48 @@ logger = logging.getLogger(__name__)
 class FileValidator:
     """
     Validates files for existence, integrity, and format compliance.
+
+    Uses GCSClient from gcp-pipeline-core for all GCS operations,
+    ensuring consistency across the platform.
     """
 
-    def __init__(self, gcs_bucket: str, encoding: str = 'utf-8'):
+    def __init__(
+        self,
+        gcs_bucket: str,
+        encoding: str = 'utf-8',
+        gcs_client: Optional[GCSClient] = None,
+        project: Optional[str] = None
+    ):
         """
         Initialize file validator.
 
         Args:
             gcs_bucket: GCS bucket name
             encoding: File encoding (default: utf-8)
+            gcs_client: Optional pre-configured GCSClient instance
+            project: GCP project ID (used if gcs_client not provided)
         """
         self.gcs_bucket = gcs_bucket
         self.encoding = encoding
-        self.storage_client = storage.Client()
+        self.gcs_client = gcs_client or GCSClient(project=project)
 
     def validate_file_exists(self, gcs_path: str) -> bool:
         """
         Check if file exists in GCS.
+
+        Uses GCSClient.file_exists() from gcp-pipeline-core.
         """
-        try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            return blob.exists()
-        except Exception as e:
-            logger.error(f"Error checking file existence: {e}")
-            return False
+        return self.gcs_client.file_exists(self.gcs_bucket, gcs_path)
 
     def validate_file_not_empty(self, gcs_path: str) -> bool:
         """
         Check if file is not empty.
         """
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            return blob.size > 0 if blob.exists() else False
+            if not self.gcs_client.file_exists(self.gcs_bucket, gcs_path):
+                return False
+            content = self.gcs_client.read_file(self.gcs_bucket, gcs_path)
+            return len(content.strip()) > 0
         except Exception as e:
             logger.error(f"Error checking file size: {e}")
             return False
@@ -59,11 +68,7 @@ class FileValidator:
         Detect file corruption (truncated files, encoding issues).
         """
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-
-            # Try to read first and last lines to detect truncation
-            content = blob.download_as_string().decode(self.encoding)
+            content = self.gcs_client.read_file(self.gcs_bucket, gcs_path)
             lines = content.split('\n')
 
             # Check if file ends properly
@@ -80,9 +85,7 @@ class FileValidator:
         """
         errors = []
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            content = blob.download_as_string().decode(self.encoding)
+            content = self.gcs_client.read_file(self.gcs_bucket, gcs_path)
 
             # Parse CSV
             reader = csv.reader(io.StringIO(content))
@@ -114,9 +117,8 @@ class FileValidator:
         Check if file encoding is valid (UTF-8).
         """
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            blob.download_as_string().decode(self.encoding)
+            # GCSClient.read_file() already decodes as UTF-8
+            self.gcs_client.read_file(self.gcs_bucket, gcs_path)
             return True
         except UnicodeDecodeError:
             logger.error(f"File {gcs_path} has invalid encoding")
@@ -131,9 +133,7 @@ class FileValidator:
         """
         errors = []
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            content = blob.download_as_string().decode(self.encoding)
+            content = self.gcs_client.read_file(self.gcs_bucket, gcs_path)
 
             # Parse CSV
             reader = csv.DictReader(io.StringIO(content))
@@ -157,9 +157,7 @@ class FileValidator:
         Check if CSV uses expected delimiter.
         """
         try:
-            bucket = self.storage_client.bucket(self.gcs_bucket)
-            blob = bucket.blob(gcs_path)
-            content = blob.download_as_string().decode(self.encoding)
+            content = self.gcs_client.read_file(self.gcs_bucket, gcs_path)
             first_line = content.split('\n')[0]
             return delimiter in first_line
         except Exception as e:

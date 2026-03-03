@@ -20,20 +20,27 @@ from gcp_pipeline_beam.file_management.validator import FileValidator
 class TestFileValidatorInit:
     """Test FileValidator initialization."""
 
-    @patch('gcp_pipeline_beam.file_management.validator.storage.Client')
-    def test_init_default_encoding(self, mock_storage):
+    @patch('gcp_pipeline_beam.file_management.validator.GCSClient')
+    def test_init_default_encoding(self, mock_gcs_client):
         """Test initialization with default encoding."""
         validator = FileValidator(gcs_bucket="test-bucket")
 
         assert validator.gcs_bucket == "test-bucket"
         assert validator.encoding == 'utf-8'
 
-    @patch('gcp_pipeline_beam.file_management.validator.storage.Client')
-    def test_init_custom_encoding(self, mock_storage):
+    @patch('gcp_pipeline_beam.file_management.validator.GCSClient')
+    def test_init_custom_encoding(self, mock_gcs_client):
         """Test initialization with custom encoding."""
         validator = FileValidator(gcs_bucket="test-bucket", encoding='latin-1')
 
         assert validator.encoding == 'latin-1'
+
+    def test_init_with_injected_client(self):
+        """Test initialization with injected GCSClient."""
+        mock_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_client)
+
+        assert validator.gcs_client == mock_client
 
 
 class TestValidateFileExists:
@@ -41,33 +48,25 @@ class TestValidateFileExists:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_file_exists(self, validator_with_mocks):
         """Test when file exists."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
 
         result = validator.validate_file_exists("path/to/file.csv")
 
         assert result is True
+        mock_gcs_client.file_exists.assert_called_once_with("test-bucket", "path/to/file.csv")
 
     def test_file_not_exists(self, validator_with_mocks):
         """Test when file doesn't exist."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = False
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = False
 
         result = validator.validate_file_exists("path/to/missing.csv")
 
@@ -75,8 +74,8 @@ class TestValidateFileExists:
 
     def test_file_exists_error(self, validator_with_mocks):
         """Test error handling."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.side_effect = Exception("GCS Error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = False
 
         result = validator.validate_file_exists("path/to/file.csv")
 
@@ -88,25 +87,16 @@ class TestValidateFileNotEmpty:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_file_not_empty(self, validator_with_mocks):
         """Test when file has content."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 1024
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = "header\ndata row\n"
 
         result = validator.validate_file_not_empty("file.csv")
 
@@ -114,9 +104,9 @@ class TestValidateFileNotEmpty:
 
     def test_file_empty(self, validator_with_mocks):
         """Test when file is empty."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 0
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = ""
 
         result = validator.validate_file_not_empty("empty.csv")
 
@@ -124,8 +114,8 @@ class TestValidateFileNotEmpty:
 
     def test_file_not_exists(self, validator_with_mocks):
         """Test when file doesn't exist."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = False
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = False
 
         result = validator.validate_file_not_empty("missing.csv")
 
@@ -133,8 +123,9 @@ class TestValidateFileNotEmpty:
 
     def test_file_not_empty_error(self, validator_with_mocks):
         """Test error handling."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.side_effect = Exception("Error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.side_effect = Exception("Error")
 
         result = validator.validate_file_not_empty("file.csv")
 
@@ -146,24 +137,15 @@ class TestValidateFileNotCorrupt:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_file_not_corrupt(self, validator_with_mocks, sample_csv_content):
         """Test valid file detection."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         result = validator.validate_file_not_corrupt("file.csv")
 
@@ -171,9 +153,9 @@ class TestValidateFileNotCorrupt:
 
     def test_file_truncated(self, validator_with_mocks):
         """Test truncated file detection."""
-        validator, mock_blob = validator_with_mocks
+        validator, mock_gcs_client = validator_with_mocks
         # Single line without newline at end
-        mock_blob.download_as_string.return_value = b"header"
+        mock_gcs_client.read_file.return_value = "header"
 
         result = validator.validate_file_not_corrupt("truncated.csv")
 
@@ -182,8 +164,8 @@ class TestValidateFileNotCorrupt:
 
     def test_file_with_proper_ending(self, validator_with_mocks):
         """Test file with proper newline ending."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = b"header\ndata\n"
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = "header\ndata\n"
 
         result = validator.validate_file_not_corrupt("file.csv")
 
@@ -191,8 +173,8 @@ class TestValidateFileNotCorrupt:
 
     def test_file_encoding_error(self, validator_with_mocks):
         """Test encoding error detection."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = b'\xff\xfe invalid utf-8'
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid')
 
         result = validator.validate_file_not_corrupt("bad_encoding.csv")
 
@@ -205,24 +187,15 @@ class TestValidateCsvFormat:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_valid_csv_format(self, validator_with_mocks, sample_csv_content):
         """Test valid CSV format."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         is_valid, errors = validator.validate_csv_format("file.csv")
 
@@ -231,8 +204,8 @@ class TestValidateCsvFormat:
 
     def test_csv_missing_columns(self, validator_with_mocks, sample_csv_content):
         """Test CSV with missing expected columns."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         is_valid, errors = validator.validate_csv_format(
             "file.csv",
@@ -244,8 +217,8 @@ class TestValidateCsvFormat:
 
     def test_csv_no_header(self, validator_with_mocks):
         """Test CSV without header."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = b""
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = ""
 
         is_valid, errors = validator.validate_csv_format("empty.csv")
 
@@ -254,8 +227,8 @@ class TestValidateCsvFormat:
 
     def test_csv_with_all_expected_columns(self, validator_with_mocks, sample_csv_content):
         """Test CSV with all expected columns present."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         is_valid, errors = validator.validate_csv_format(
             "file.csv",
@@ -271,24 +244,15 @@ class TestValidateEncoding:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_valid_utf8_encoding(self, validator_with_mocks):
         """Test valid UTF-8 encoding."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = "Hello, World! 世界".encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = "Hello, World! 世界"
 
         result = validator.validate_encoding("file.csv")
 
@@ -296,9 +260,8 @@ class TestValidateEncoding:
 
     def test_invalid_encoding(self, validator_with_mocks):
         """Test invalid encoding."""
-        validator, mock_blob = validator_with_mocks
-        # Invalid UTF-8 sequence
-        mock_blob.download_as_string.return_value = b'\xff\xfe'
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid')
 
         result = validator.validate_encoding("file.csv")
 
@@ -310,26 +273,16 @@ class TestGetValidationErrors:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_blob.exists.return_value = True
-            mock_blob.size = 1024
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_get_validation_errors_none(self, validator_with_mocks, sample_csv_content):
         """Test no validation errors for valid file."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         errors = validator.get_validation_errors("file.csv")
 
@@ -337,8 +290,8 @@ class TestGetValidationErrors:
 
     def test_get_validation_errors_file_not_exists(self, validator_with_mocks):
         """Test errors when file doesn't exist."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = False
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = False
 
         errors = validator.get_validation_errors("missing.csv")
 
@@ -347,8 +300,9 @@ class TestGetValidationErrors:
 
     def test_get_validation_errors_empty_file(self, validator_with_mocks):
         """Test errors for empty file."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.size = 0
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = ""
 
         errors = validator.get_validation_errors("empty.csv")
 
@@ -357,10 +311,9 @@ class TestGetValidationErrors:
 
     def test_get_validation_errors_aggregated(self, validator_with_mocks):
         """Test that multiple errors are aggregated."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 0  # Empty
-        mock_blob.download_as_string.return_value = b""  # No content
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = ""
 
         errors = validator.get_validation_errors("bad.csv")
 
@@ -373,24 +326,15 @@ class TestValidateSampleRecord:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_validate_sample_record_success(self, validator_with_mocks, sample_csv_content):
         """Test sample record validation success."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = sample_csv_content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = sample_csv_content
 
         # Validator function that always passes
         def pass_validator(record):
@@ -403,8 +347,8 @@ class TestValidateSampleRecord:
 
     def test_validate_sample_record_no_data(self, validator_with_mocks):
         """Test sample record validation with no data."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.return_value = b"id,name\n"  # Header only
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.return_value = "id,name\n"
 
         # Validator function that always passes
         def pass_validator(record):
@@ -421,25 +365,16 @@ class TestEdgeCases:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_very_large_file(self, validator_with_mocks):
         """Test handling of large file size."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 10 * 1024 * 1024 * 1024  # 10GB
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = "header\n" + "data\n" * 1000
 
         result = validator.validate_file_not_empty("large.csv")
 
@@ -447,8 +382,8 @@ class TestEdgeCases:
 
     def test_special_characters_in_path(self, validator_with_mocks):
         """Test file path with special characters."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
 
         result = validator.validate_file_exists("path/with spaces/file-name_2025.csv")
 
@@ -456,9 +391,9 @@ class TestEdgeCases:
 
     def test_unicode_content(self, validator_with_mocks):
         """Test handling of unicode content."""
-        validator, mock_blob = validator_with_mocks
+        validator, mock_gcs_client = validator_with_mocks
         content = "id,name\n1,日本語\n2,한국어\n3,العربية\n"
-        mock_blob.download_as_string.return_value = content.encode('utf-8')
+        mock_gcs_client.read_file.return_value = content
 
         is_valid, errors = validator.validate_csv_format("unicode.csv")
 
@@ -470,25 +405,16 @@ class TestValidatorEdgeCases:
 
     @pytest.fixture
     def validator_with_mocks(self):
-        """Create validator with mocked GCS."""
-        with patch('gcp_pipeline_beam.file_management.validator.storage.Client') as mock_storage:
-            mock_client = Mock()
-            mock_storage.return_value = mock_client
-
-            mock_bucket = Mock()
-            mock_blob = Mock()
-            mock_bucket.blob.return_value = mock_blob
-            mock_client.bucket.return_value = mock_bucket
-
-            validator = FileValidator(gcs_bucket="test-bucket")
-
-            yield validator, mock_blob
+        """Create validator with mocked GCSClient."""
+        mock_gcs_client = Mock()
+        validator = FileValidator(gcs_bucket="test-bucket", gcs_client=mock_gcs_client)
+        yield validator, mock_gcs_client
 
     def test_validate_csv_no_data_rows(self, validator_with_mocks):
         """Test CSV validation with header only (no data rows)."""
-        validator, mock_blob = validator_with_mocks
-        content = "id,name,email\n"  # Header only, no data
-        mock_blob.download_as_string.return_value = content.encode('utf-8')
+        validator, mock_gcs_client = validator_with_mocks
+        content = "id,name,email\n"
+        mock_gcs_client.read_file.return_value = content
 
         is_valid, errors = validator.validate_csv_format("header_only.csv")
 
@@ -497,8 +423,8 @@ class TestValidatorEdgeCases:
 
     def test_validate_csv_with_exception(self, validator_with_mocks):
         """Test CSV validation when exception occurs."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.side_effect = Exception("Download error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = Exception("Download error")
 
         is_valid, errors = validator.validate_csv_format("error.csv")
 
@@ -508,9 +434,8 @@ class TestValidatorEdgeCases:
 
     def test_validate_encoding_unicode_error(self, validator_with_mocks):
         """Test encoding validation with invalid UTF-8."""
-        validator, mock_blob = validator_with_mocks
-        # Invalid UTF-8 bytes
-        mock_blob.download_as_string.return_value = b'\x80\x81\x82'
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid')
 
         result = validator.validate_encoding("invalid.csv")
 
@@ -518,8 +443,8 @@ class TestValidatorEdgeCases:
 
     def test_validate_encoding_exception(self, validator_with_mocks):
         """Test encoding validation with download error."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.side_effect = Exception("Network error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = Exception("Network error")
 
         result = validator.validate_encoding("error.csv")
 
@@ -527,9 +452,9 @@ class TestValidatorEdgeCases:
 
     def test_validate_sample_records_with_validation_errors(self, validator_with_mocks):
         """Test sample record validation with record-level errors."""
-        validator, mock_blob = validator_with_mocks
+        validator, mock_gcs_client = validator_with_mocks
         content = "id,name,email\n1,John,invalid_email\n2,Jane,also_invalid\n"
-        mock_blob.download_as_string.return_value = content.encode('utf-8')
+        mock_gcs_client.read_file.return_value = content
 
         def record_validator(record):
             errors = []
@@ -544,12 +469,12 @@ class TestValidatorEdgeCases:
         )
 
         assert is_valid is False
-        assert len(errors) >= 2  # Both records fail
+        assert len(errors) >= 2
 
     def test_validate_sample_records_exception(self, validator_with_mocks):
         """Test sample record validation with exception."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.side_effect = Exception("Read error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = Exception("Read error")
 
         def simple_validator(record):
             return True, []
@@ -564,10 +489,9 @@ class TestValidatorEdgeCases:
 
     def test_validate_sample_records_respects_sample_size(self, validator_with_mocks):
         """Test that sample validation respects sample_size limit."""
-        validator, mock_blob = validator_with_mocks
-        # Create content with 20 rows
+        validator, mock_gcs_client = validator_with_mocks
         rows = "id,name\n" + "\n".join([f"{i},Name{i}" for i in range(20)])
-        mock_blob.download_as_string.return_value = rows.encode('utf-8')
+        mock_gcs_client.read_file.return_value = rows
 
         validation_count = [0]
 
@@ -582,13 +506,13 @@ class TestValidatorEdgeCases:
         )
 
         assert is_valid is True
-        assert validation_count[0] == 5  # Should only validate 5 records
+        assert validation_count[0] == 5
 
     def test_validate_delimiter_different_delimiter(self, validator_with_mocks):
         """Test delimiter validation with pipe delimiter."""
-        validator, mock_blob = validator_with_mocks
+        validator, mock_gcs_client = validator_with_mocks
         content = "id|name|email\n1|John|john@test.com\n"
-        mock_blob.download_as_string.return_value = content.encode('utf-8')
+        mock_gcs_client.read_file.return_value = content
 
         result = validator.validate_delimiter("test.csv", delimiter='|')
 
@@ -596,9 +520,9 @@ class TestValidatorEdgeCases:
 
     def test_validate_delimiter_wrong_delimiter(self, validator_with_mocks):
         """Test delimiter validation when delimiter doesn't match."""
-        validator, mock_blob = validator_with_mocks
+        validator, mock_gcs_client = validator_with_mocks
         content = "id,name,email\n1,John,john@test.com\n"
-        mock_blob.download_as_string.return_value = content.encode('utf-8')
+        mock_gcs_client.read_file.return_value = content
 
         result = validator.validate_delimiter("test.csv", delimiter='|')
 
@@ -606,8 +530,8 @@ class TestValidatorEdgeCases:
 
     def test_validate_delimiter_exception(self, validator_with_mocks):
         """Test delimiter validation with exception."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.download_as_string.side_effect = Exception("Error")
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.read_file.side_effect = Exception("Error")
 
         result = validator.validate_delimiter("test.csv", delimiter=',')
 
@@ -615,8 +539,8 @@ class TestValidatorEdgeCases:
 
     def test_get_validation_errors_file_not_exists(self, validator_with_mocks):
         """Test get_validation_errors returns early for missing file."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = False
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = False
 
         errors = validator.get_validation_errors("missing.csv")
 
@@ -625,67 +549,45 @@ class TestValidatorEdgeCases:
 
     def test_get_validation_errors_aggregates_all_errors(self, validator_with_mocks):
         """Test that get_validation_errors collects all error types."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 0  # Empty file
-        mock_blob.download_as_string.return_value = b'\x80\x81'  # Invalid UTF-8
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.return_value = ""
 
         errors = validator.get_validation_errors("bad_file.csv")
 
-        assert len(errors) >= 1  # At least empty file error
+        assert len(errors) >= 1
 
     def test_get_validation_errors_multiple_issues(self, validator_with_mocks):
         """Test file with multiple validation issues."""
-        validator, mock_blob = validator_with_mocks
-        mock_blob.exists.return_value = True
-        mock_blob.size = 10
-        # Invalid UTF-8 content that also isn't valid CSV
-        mock_blob.download_as_string.return_value = b'\x80\x81\x82'
+        validator, mock_gcs_client = validator_with_mocks
+        mock_gcs_client.file_exists.return_value = True
+        mock_gcs_client.read_file.side_effect = UnicodeDecodeError('utf-8', b'', 0, 1, 'invalid')
 
         errors = validator.get_validation_errors("multi_error.csv")
 
-        # Should capture encoding error
         assert len(errors) >= 1
 
 
 class TestValidatorWithCustomEncoding:
     """Test FileValidator with different encoding settings."""
 
-    @patch('gcp_pipeline_beam.file_management.validator.storage.Client')
-    def test_latin1_encoding(self, mock_storage):
+    def test_latin1_encoding(self):
         """Test validation with latin-1 encoding."""
-        mock_client = Mock()
-        mock_storage.return_value = mock_client
-        mock_bucket = Mock()
-        mock_blob = Mock()
-        mock_bucket.blob.return_value = mock_blob
-        mock_client.bucket.return_value = mock_bucket
+        mock_gcs_client = Mock()
+        mock_gcs_client.read_file.return_value = "id,café\n1,naïve\n"
 
-        # Latin-1 encoded content
-        content = "id,café\n1,naïve\n"
-        mock_blob.download_as_string.return_value = content.encode('latin-1')
-
-        validator = FileValidator(gcs_bucket="test-bucket", encoding='latin-1')
+        validator = FileValidator(gcs_bucket="test-bucket", encoding='latin-1', gcs_client=mock_gcs_client)
 
         result = validator.validate_encoding("latin1.csv")
 
         assert result is True
 
-    @patch('gcp_pipeline_beam.file_management.validator.storage.Client')
-    def test_utf8_sig_encoding(self, mock_storage):
+    def test_utf8_sig_encoding(self):
         """Test validation with UTF-8 BOM encoding."""
-        mock_client = Mock()
-        mock_storage.return_value = mock_client
-        mock_bucket = Mock()
-        mock_blob = Mock()
-        mock_bucket.blob.return_value = mock_blob
-        mock_client.bucket.return_value = mock_bucket
+        mock_gcs_client = Mock()
+        mock_gcs_client.read_file.return_value = "\ufeffid,name\n1,Test\n"
 
-        # UTF-8 with BOM
-        content = "\ufeffid,name\n1,Test\n"
-        mock_blob.download_as_string.return_value = content.encode('utf-8-sig')
-
-        validator = FileValidator(gcs_bucket="test-bucket", encoding='utf-8-sig')
+        validator = FileValidator(gcs_bucket="test-bucket", encoding='utf-8-sig', gcs_client=mock_gcs_client)
 
         result = validator.validate_encoding("bom.csv")
 

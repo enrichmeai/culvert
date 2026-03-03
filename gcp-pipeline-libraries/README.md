@@ -259,7 +259,7 @@ Each library is already self-contained with its own `pyproject.toml`, `src/` dir
     ```toml
     dependencies = [
         "gcp-pipeline-core @ git+https://github.com/your-org/gcp-pipeline-libraries.git#subdirectory=gcp-pipeline-core",
-        "apache-beam[gcp]>=2.50.0",
+        "apache-beam[gcp]==2.56.0",
     ]
     ```
 
