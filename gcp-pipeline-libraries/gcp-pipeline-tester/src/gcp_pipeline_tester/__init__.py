@@ -10,7 +10,7 @@ Example:
     >>> from gcp_pipeline_tester.mocks import MockGCS, MockBigQuery
 """
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 from .base import (
     TestResult,

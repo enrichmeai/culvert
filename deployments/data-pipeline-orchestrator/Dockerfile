@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install shared libraries from PyPI
 RUN pip install --no-cache-dir \
-    gcp-pipeline-framework[core,orchestration]>=1.0.0
+    gcp-pipeline-framework[core,orchestration]>=1.0.5
 
 # Copy deployment code
 COPY deployments/data-pipeline-orchestrator /app/deployments/data-pipeline-orchestrator
