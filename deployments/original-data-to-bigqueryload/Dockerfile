@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir \
 
 # Install shared libraries from PyPI
 RUN pip install --no-cache-dir \
-    gcp-pipeline-framework[core,beam]>=1.0.0
+    gcp-pipeline-framework[core,beam]>=1.0.5
 
 # Copy deployment code
 COPY deployments/original-data-to-bigqueryload /app/deployments/original-data-to-bigqueryload

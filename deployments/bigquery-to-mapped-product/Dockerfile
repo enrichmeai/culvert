@@ -10,7 +10,7 @@ RUN pip install dbt-bigquery
 
 # Install shared libraries from PyPI
 RUN pip install --no-cache-dir \
-    gcp-pipeline-framework[core,transform]>=1.0.0
+    gcp-pipeline-framework[core,transform]>=1.0.5
 
 # Copy deployment code
 COPY deployments/bigquery-to-mapped-product /app/deployments/bigquery-to-mapped-product

@@ -9,9 +9,9 @@ description = "CDP Segmentation Example - GCS to BigQuery and GCS exports"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "apache-beam[gcp]>=2.52.0",
-    "gcp-pipeline-core",
-    "gcp-pipeline-beam",
+    "apache-beam[gcp]==2.56.0",
+    "gcp-pipeline-core>=1.0.5",
+    "gcp-pipeline-beam>=1.0.5",
 ]
 
 [project.optional-dependencies]
