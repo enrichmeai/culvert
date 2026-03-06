@@ -41,6 +41,13 @@ from .bigquery import (
     BatchWriteToBigQueryDoFn,
     ReadFromBigQueryDoFn,
 )
+from .bigquery_retry import (
+    ResilientWriteToBigQueryDoFn,
+    BatchResilientWriteToBigQueryDoFn,
+    BigQueryRetryConfig,
+    BigQueryErrorType,
+    BigQueryErrorClassifier,
+)
 
 __all__ = [
     'ReadFromGCSDoFn',
@@ -51,5 +58,11 @@ __all__ = [
     'WriteToBigQueryDoFn',
     'BatchWriteToBigQueryDoFn',
     'ReadFromBigQueryDoFn',
+    # Resilient BigQuery writers with explicit retry logic
+    'ResilientWriteToBigQueryDoFn',
+    'BatchResilientWriteToBigQueryDoFn',
+    'BigQueryRetryConfig',
+    'BigQueryErrorType',
+    'BigQueryErrorClassifier',
 ]
 

@@ -34,6 +34,12 @@ from .filters import FilterRecordsDoFn
 from .transformers import TransformRecordDoFn
 from .enrichers import EnrichWithMetadataDoFn
 from .deduplicators import DeduplicateRecordsDoFn
+from .csv_parser import (
+    RobustCsvParseDoFn,
+    CSVParserConfig,
+    CSVErrorType,
+    DetectDelimiterDoFn,
+)
 
 __all__ = [
     'ParseCsvLine',
@@ -44,5 +50,10 @@ __all__ = [
     'TransformRecordDoFn',
     'EnrichWithMetadataDoFn',
     'DeduplicateRecordsDoFn',
+    # Robust CSV parsing
+    'RobustCsvParseDoFn',
+    'CSVParserConfig',
+    'CSVErrorType',
+    'DetectDelimiterDoFn',
 ]
 

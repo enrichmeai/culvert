@@ -1,0 +1,275 @@
+name: Deploy to GKE
+
+on:
+  # Automatic deployment on push to main
+  push:
+    branches:
+      - main
+    paths:
+      - 'deployments/data-pipeline-orchestrator/dags/**'
+      - 'deployments/original-data-to-bigqueryload/**'
+      - 'infrastructure/k8s/**'
+      - 'gcp-pipeline-libraries/**'
+
+  # Manual trigger with options
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      deploy_dataflow_templates:
+        description: 'Deploy Dataflow Flex Templates'
+        required: false
+        default: false
+        type: boolean
+      dags_only:
+        description: 'Only sync DAGs (skip infrastructure)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  GCP_REGION: 'europe-west2'
+  GKE_CLUSTER: 'pipeline-cluster'
+  GKE_ZONE: 'europe-west2-a'
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    # Skip tests only if manually triggered with dags_only=true
+    if: ${{ github.event_name == 'push' || !inputs.dags_only }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
+
+    - name: Run library tests
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-beam
+        pip install -e .[dev]
+        pytest tests/unit -v --tb=short
+
+  deploy-dataflow-templates:
+    name: Deploy Dataflow Templates
+    runs-on: ubuntu-latest
+    needs: test
+    # Deploy templates on manual trigger with flag, or on push if ingestion code changed
+    if: |
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_dataflow_templates && !inputs.dags_only) ||
+      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'deployments/original-data-to-bigqueryload'))
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build Ingestion Docker Image
+      run: |
+        echo "Building Ingestion Docker image..."
+        gcloud builds submit \
+          --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/ingestion-pipeline:latest \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          . -f deployments/original-data-to-bigqueryload/Dockerfile
+
+    - name: Create Dataflow Flex Template
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        TEMPLATE_BUCKET="gs://${PROJECT_ID}-dataflow-templates"
+        
+        # Create bucket if not exists
+        gsutil mb -l ${{ env.GCP_REGION }} ${TEMPLATE_BUCKET} 2>/dev/null || true
+        
+        gcloud dataflow flex-template build \
+          ${TEMPLATE_BUCKET}/templates/ingestion-pipeline.json \
+          --image-gcr-path gcr.io/${PROJECT_ID}/ingestion-pipeline:latest \
+          --sdk-language PYTHON \
+          --flex-template-base-image PYTHON3 \
+          --project ${PROJECT_ID}
+
+  deploy-dags-to-gke:
+    name: Deploy DAGs to GKE Airflow
+    runs-on: ubuntu-latest
+    needs: [test]
+    # Always deploy DAGs on push or manual trigger (unless test failed)
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Setup GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Sync DAGs to GCS
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        DAGS_BUCKET="gs://${PROJECT_ID}-airflow-dags"
+        
+        # Create bucket if not exists
+        gsutil mb -l ${{ env.GCP_REGION }} ${DAGS_BUCKET} 2>/dev/null || true
+        
+        # Sync DAGs
+        echo "Syncing DAGs to ${DAGS_BUCKET}..."
+        gsutil -m rsync -r -d deployments/data-pipeline-orchestrator/dags/ ${DAGS_BUCKET}/
+        
+        echo "DAGs synced successfully"
+
+    - name: Restart Airflow Scheduler
+      run: |
+        echo "Restarting Airflow scheduler to pick up new DAGs..."
+        kubectl rollout restart deployment/airflow-scheduler -n airflow || echo "Scheduler not found"
+
+    - name: Verify Deployment
+      run: |
+        echo "Checking Airflow pods..."
+        kubectl get pods -n airflow
+        
+        echo ""
+        echo "Listing DAGs in GCS..."
+        gsutil ls gs://${{ secrets.GCP_PROJECT_ID }}-airflow-dags/
+
+  deploy-k8s-resources:
+    name: Deploy Kubernetes Resources
+    runs-on: ubuntu-latest
+    needs: test
+    # Deploy k8s resources on push (if infra changed) or manual trigger (unless dags_only)
+    if: |
+      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'infrastructure/k8s')) ||
+      (github.event_name == 'workflow_dispatch' && !inputs.dags_only)
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Apply Kubernetes Resources
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        
+        # Create namespace
+        kubectl apply -f infrastructure/k8s/workloads/namespace.yaml
+        
+        # Apply service accounts (replace PROJECT_ID)
+        sed "s/PROJECT_ID/${PROJECT_ID}/g" infrastructure/k8s/workloads/serviceaccount.yaml | kubectl apply -f -
+        
+        echo "Kubernetes resources applied"
+
+    - name: Check Airflow Installation
+      run: |
+        if kubectl get deployment airflow-scheduler -n airflow &>/dev/null; then
+          echo "✅ Airflow is already deployed"
+          kubectl get pods -n airflow
+        else
+          echo "⚠️ Airflow not found. Install using Helm:"
+          echo ""
+          echo "  helm repo add apache-airflow https://airflow.apache.org"
+          echo "  helm repo update"
+          echo "  helm install airflow apache-airflow/airflow \\"
+          echo "    --namespace airflow \\"
+          echo "    --values infrastructure/k8s/airflow/values.yaml"
+        fi
+
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-dags-to-gke, deploy-k8s-resources]
+    if: always()
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Setup GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Validate Resources
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        
+        echo "=============================================="
+        echo "  Validating GKE Deployment"
+        echo "=============================================="
+        
+        echo ""
+        echo "🎯 GKE Cluster:"
+        kubectl cluster-info | head -2
+        
+        echo ""
+        echo "📦 Airflow Pods:"
+        kubectl get pods -n airflow 2>/dev/null || echo "  ⚠️ Airflow namespace not found"
+        
+        echo ""
+        echo "📁 DAGs in GCS:"
+        gsutil ls gs://${PROJECT_ID}-airflow-dags/ 2>/dev/null || echo "  ⚠️ DAGs bucket not found"
+        
+        echo ""
+        echo "🚀 Dataflow Templates:"
+        gsutil ls gs://${PROJECT_ID}-dataflow-templates/templates/ 2>/dev/null || echo "  ⚠️ No templates found"
+        
+        echo ""
+        echo "=============================================="
+        echo "✅ Validation Complete"
+        echo "=============================================="
+

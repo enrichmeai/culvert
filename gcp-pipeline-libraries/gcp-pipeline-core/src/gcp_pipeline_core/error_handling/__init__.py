@@ -8,7 +8,26 @@ Used by: ALL pipelines, Beam transforms, Airflow DAGs
 """
 
 from .types import ErrorSeverity, ErrorCategory, RetryStrategy
-from .errors import GDWError, GDWValidationError, GDWTransformError, GDWIntegrationError, GDWResourceError
+from .errors import (
+    GDWError,
+    GDWValidationError,
+    GDWTransformError,
+    GDWIntegrationError,
+    GDWResourceError,
+    # CSV Errors
+    CSVParseError,
+    CSVFieldCountError,
+    CSVEncodingError,
+    CSVDelimiterError,
+    CSVCorruptionError,
+    # BigQuery Errors
+    BigQueryError,
+    BigQueryQuotaError,
+    BigQueryRateLimitError,
+    BigQueryTableLockError,
+    BigQueryTimeoutError,
+    BigQuerySchemaError,
+)
 from .models import PipelineError, ErrorConfig
 from .handler import ErrorHandler, ErrorClassifier, RetryPolicy
 from .storage import ErrorStorageBackend, InMemoryErrorStorage, GCSErrorStorage
@@ -19,12 +38,25 @@ __all__ = [
     'ErrorSeverity',
     'ErrorCategory',
     'RetryStrategy',
-    # Exceptions
+    # Base Exceptions
     'GDWError',
     'GDWValidationError',
     'GDWTransformError',
     'GDWIntegrationError',
     'GDWResourceError',
+    # CSV Parsing Exceptions
+    'CSVParseError',
+    'CSVFieldCountError',
+    'CSVEncodingError',
+    'CSVDelimiterError',
+    'CSVCorruptionError',
+    # BigQuery Exceptions
+    'BigQueryError',
+    'BigQueryQuotaError',
+    'BigQueryRateLimitError',
+    'BigQueryTableLockError',
+    'BigQueryTimeoutError',
+    'BigQuerySchemaError',
     # Models
     'PipelineError',
     'ErrorConfig',
