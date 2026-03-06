@@ -6,10 +6,24 @@ Complete scripts for setting up, testing, and managing GCP infrastructure for th
 
 | Action | Command |
 |--------|---------|
-| **Deploy Everything** | `./scripts/gcp/deploy_all.sh all` |
+| **Setup GKE Infrastructure** | `./scripts/gcp/setup_gke_infrastructure.sh` |
+| **Deploy to GKE** | `./scripts/gcp/deploy_to_gke.sh` |
+| **Deploy DAGs Only** | `./scripts/gcp/deploy_to_gke.sh --dags-only` |
 | **Reset Everything** | `./scripts/gcp/00_full_reset.sh` |
-| **Test Generic Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
-| **Test Generic Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
+| **Test Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
+
+---
+
+## Architecture
+
+```
+Deployments:
+├── data-pipeline-orchestrator/     # Airflow DAGs (runs on GKE)
+├── original-data-to-bigqueryload/  # Beam ingestion (runs on Dataflow)
+├── bigquery-to-mapped-product/     # dbt transforms (runs on BigQuery)
+├── mainframe-segment-transform/    # Segment processing
+└── spanner-to-bigquery-load/       # Spanner source
+```
 
 ---
 
@@ -47,18 +61,77 @@ gh auth login
 
 ## Scripts Overview
 
+### Infrastructure Setup
+
 | Script | Purpose | When to Use |
 |--------|---------|-------------|
-| `00_full_reset.sh` | Delete ALL resources | Start fresh / cleanup |
+| `setup_gke_infrastructure.sh` | Create GKE cluster, buckets, datasets, Pub/Sub | **Start here for GKE** |
 | `01_enable_services.sh` | Enable GCP APIs | First time setup |
 | `02_create_state_bucket.sh` | Create Terraform state bucket | First time setup |
-| `03_create_infrastructure.sh` | Create buckets, datasets, Pub/Sub | After reset or first time |
+| `03_create_infrastructure.sh` | Create buckets, datasets, Pub/Sub (legacy) | Without GKE |
 | `setup_github_actions.sh` | Create service account for CI/CD | First time setup |
+
+### Deployment
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `deploy_to_gke.sh` | Deploy DAGs and k8s resources | Regular deployments |
+| `deploy_to_gke.sh --dags-only` | Sync DAGs only | Quick DAG updates |
+| `deploy_to_gke.sh --dataflow-templates` | Build and deploy Dataflow templates | When ingestion code changes |
+| `deploy_all.sh` | Run all setup steps (legacy) | Cloud Composer setup |
+
+### Verification & Testing
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
 | `05_verify_setup.sh` | Verify all resources exist | After any setup step |
 | `06_test_pipeline.sh` | Upload test data | Testing pipeline |
+
+### Cleanup
+
+| Script | Purpose | When to Use |
+|--------|---------|-------------|
+| `00_full_reset.sh` | Delete ALL resources | Start fresh |
 | `07_cleanup.sh` | Delete infrastructure (partial) | Cleanup specific deployment |
-| `deploy_all.sh` | Run all setup steps | One-command setup |
-| `e2e_test_em.sh` | End-to-end Generic test | Testing |
+| `cleanup_all.sh` | Cleanup including GKE | Full cleanup |
+
+---
+
+## GKE Deployment (Recommended)
+
+### One-Time Setup
+
+```bash
+# 1. Create all infrastructure (GKE, buckets, BigQuery, Pub/Sub)
+./scripts/gcp/setup_gke_infrastructure.sh
+
+# 2. Install Airflow on GKE
+helm repo add apache-airflow https://airflow.apache.org
+helm repo update
+helm install airflow apache-airflow/airflow \
+  --namespace airflow --create-namespace \
+  --values infrastructure/k8s/airflow/values.yaml
+
+# 3. Deploy DAGs
+./scripts/gcp/deploy_to_gke.sh --dags-only
+```
+
+### Regular Deployments
+
+```bash
+# Deploy DAGs only (fast)
+./scripts/gcp/deploy_to_gke.sh --dags-only
+
+# Deploy everything including Dataflow templates
+./scripts/gcp/deploy_to_gke.sh --dataflow-templates
+```
+
+### Access Airflow UI
+
+```bash
+kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
+# Open http://localhost:8080
+```
 
 ---
 

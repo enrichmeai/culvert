@@ -59,6 +59,7 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install pytest pytest-mock
         pip install -e gcp-pipeline-libraries/gcp-pipeline-core
         pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
         pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
@@ -66,7 +67,7 @@ jobs:
     - name: Run library tests
       run: |
         cd gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e .[dev]
+        pip install -e .[dev] || pip install -e .
         pytest tests/unit -v --tb=short
 
   deploy-dataflow-templates:
