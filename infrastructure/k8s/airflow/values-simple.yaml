@@ -1,4 +1,4 @@
-# Airflow Helm Values for GKE Deployment
+# Airflow Helm Values for GKE Deployment (Simplified)
 #
 # Usage:
 #   helm install airflow apache-airflow/airflow \
@@ -8,13 +8,13 @@
 # Use KubernetesExecutor for dynamic pod creation
 executor: KubernetesExecutor
 
-# Airflow image (use official or custom)
+# Airflow image
 images:
   airflow:
     repository: apache/airflow
     tag: 2.8.1-python3.11
 
-# Database (use built-in PostgreSQL)
+# Database (use built-in PostgreSQL for simplicity)
 postgresql:
   enabled: true
 
@@ -50,7 +50,7 @@ scheduler:
 workers:
   replicas: 0
 
-# DAG configuration
+# DAG configuration - use git-sync disabled, we'll sync from GCS
 dags:
   gitSync:
     enabled: false
@@ -109,7 +109,7 @@ serviceAccount:
   annotations:
     iam.gke.io/gcp-service-account: airflow-sa@joseph-antony-aruja.iam.gserviceaccount.com
 
-# Environment variables
+# Environment variables (simple key-value format)
 env:
   - name: AIRFLOW__CORE__DAGS_FOLDER
     value: "/opt/airflow/dags"
@@ -117,35 +117,6 @@ env:
     value: "True"
   - name: GCP_PROJECT_ID
     value: "joseph-antony-aruja"
-
-# =============================================================================
-# CRITICAL: Install required Python packages for DAGs
-# DAGs require gcp-pipeline-core and gcp-pipeline-orchestration
-# =============================================================================
-config:
-  webserver:
-    # Enable loading of example DAGs if needed
-    load_examples: "False"
-
-# Install pip packages - these are installed at container startup
-# This is the key setting for installing custom packages
-_airflowLocalSettings: |
-  from airflow.configuration import conf
-  import subprocess
-  import sys
-  import os
-  
-  # Install required packages for DAGs
-  packages = [
-      "gcp-pipeline-core",
-      "gcp-pipeline-orchestration",
-  ]
-  
-  for pkg in packages:
-      try:
-          __import__(pkg.replace("-", "_"))
-      except ImportError:
-          subprocess.check_call([sys.executable, "-m", "pip", "install", pkg, "--quiet"])
 
 # Logging
 logs:
