@@ -24,19 +24,29 @@ class ErrorClassifier:
     TRANSIENT_ERRORS = frozenset({
         'TimeoutError', 'ConnectionError', 'BrokenPipeError',
         'OSError', 'IOError', 'TemporaryError', 'ServiceUnavailable',
-        'TooManyRequests', 'ResourceExhausted'
+        'TooManyRequests', 'ResourceExhausted',
+        # BigQuery transient errors
+        'BigQueryQuotaError', 'BigQueryRateLimitError', 'BigQueryTableLockError',
+        'BigQueryTimeoutError',
     })
 
     # Validation error types (don't retry)
     VALIDATION_ERRORS = frozenset({
         'ValueError', 'TypeError', 'ValidationError', 'KeyError',
-        'AttributeError', 'DataValidationError'
+        'AttributeError', 'DataValidationError',
+        # CSV parsing errors
+        'CSVParseError', 'CSVFieldCountError', 'CSVEncodingError',
+        'CSVDelimiterError', 'CSVCorruptionError',
+        # BigQuery schema errors
+        'BigQuerySchemaError',
     })
 
     # Integration error types (retry with backoff)
     INTEGRATION_ERRORS = frozenset({
         'NotFound', 'AuthenticationError', 'PermissionError',
-        'QuotaExceeded', 'ServiceError', 'ApiError'
+        'QuotaExceeded', 'ServiceError', 'ApiError',
+        # BigQuery integration errors
+        'BigQueryError',
     })
 
     @staticmethod

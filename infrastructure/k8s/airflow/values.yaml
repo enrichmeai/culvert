@@ -1,0 +1,199 @@
+# Airflow Helm Values for GKE Deployment
+#
+# Usage:
+#   helm install airflow apache-airflow/airflow \
+#     --namespace airflow \
+#     --values values.yaml
+#
+# Prerequisites:
+#   1. GKE cluster with Workload Identity enabled
+#   2. GCS bucket for DAGs: gs://${PROJECT_ID}-airflow-dags
+#   3. Service account with appropriate permissions
+
+# Use KubernetesExecutor for dynamic pod creation
+executor: KubernetesExecutor
+
+# Airflow image (use official or custom)
+images:
+  airflow:
+    repository: apache/airflow
+    tag: 2.8.1-python3.11
+
+# Database (use Cloud SQL in production)
+postgresql:
+  enabled: true  # Set to false if using Cloud SQL
+
+# Redis (not needed for KubernetesExecutor)
+redis:
+  enabled: false
+
+# Web server
+webserver:
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+  service:
+    type: LoadBalancer  # Or ClusterIP with Ingress
+
+# Scheduler
+scheduler:
+  replicas: 1
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1"
+
+# Workers (only used as templates for KubernetesExecutor)
+workers:
+  replicas: 0  # KubernetesExecutor creates pods dynamically
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+
+# DAG configuration
+dags:
+  # Disable git sync - we use GCS
+  gitSync:
+    enabled: false
+  persistence:
+    enabled: false
+
+# Mount DAGs from GCS
+extraVolumes:
+  - name: dags-gcs
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: dags-gcs
+    mountPath: /opt/airflow/dags
+
+# Sync DAGs from GCS on startup and periodically
+extraInitContainers:
+  - name: gcs-sync-init
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    command:
+      - /bin/bash
+      - -c
+      - |
+        gsutil -m rsync -r gs://${GCP_PROJECT_ID}-airflow-dags /opt/airflow/dags
+    env:
+      - name: GCP_PROJECT_ID
+        valueFrom:
+          configMapKeyRef:
+            name: airflow-config
+            key: GCP_PROJECT_ID
+    volumeMounts:
+      - name: dags-gcs
+        mountPath: /opt/airflow/dags
+
+# Sidecar for continuous DAG sync
+extraContainers:
+  - name: gcs-sync
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    command:
+      - /bin/bash
+      - -c
+      - |
+        while true; do
+          gsutil -m rsync -r gs://${GCP_PROJECT_ID}-airflow-dags /opt/airflow/dags
+          sleep 60
+        done
+    env:
+      - name: GCP_PROJECT_ID
+        valueFrom:
+          configMapKeyRef:
+            name: airflow-config
+            key: GCP_PROJECT_ID
+    volumeMounts:
+      - name: dags-gcs
+        mountPath: /opt/airflow/dags
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# Service account with Workload Identity
+serviceAccount:
+  create: true
+  name: airflow-worker
+  annotations:
+    # Replace PROJECT_ID with your project
+    iam.gke.io/gcp-service-account: pipeline-sa@PROJECT_ID.iam.gserviceaccount.com
+
+# Environment variables
+env:
+  - name: GCP_PROJECT_ID
+    valueFrom:
+      configMapKeyRef:
+        name: airflow-config
+        key: GCP_PROJECT_ID
+  - name: AIRFLOW__CORE__DAGS_FOLDER
+    value: /opt/airflow/dags
+  - name: AIRFLOW__KUBERNETES__NAMESPACE
+    value: workloads
+  - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_REPOSITORY
+    value: apache/airflow
+  - name: AIRFLOW__KUBERNETES__WORKER_CONTAINER_TAG
+    value: 2.8.1-python3.11
+  - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+    value: "True"
+  - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS_ON_FAILURE
+    value: "False"
+
+# Extra pip packages for operators
+extraPipPackages:
+  - apache-airflow-providers-google==10.12.0
+  - apache-airflow-providers-cncf-kubernetes==7.11.0
+  - gcp-pipeline-core
+  - gcp-pipeline-orchestration
+
+# ConfigMap for configuration
+extraConfigMaps:
+  airflow-config:
+    data:
+      GCP_PROJECT_ID: "YOUR_PROJECT_ID"  # Replace this
+      GCP_REGION: "europe-west2"
+
+# Pod template for KubernetesExecutor workers
+podTemplate: |
+  apiVersion: v1
+  kind: Pod
+  metadata:
+    name: dummy
+    annotations:
+      iam.gke.io/gcp-service-account: pipeline-sa@PROJECT_ID.iam.gserviceaccount.com
+  spec:
+    serviceAccountName: airflow-worker
+    containers:
+      - name: base
+        image: apache/airflow:2.8.1-python3.11
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+    restartPolicy: Never
+
+# Logging
+logs:
+  persistence:
+    enabled: false
+  # Use Cloud Logging instead
+
