@@ -1,11 +1,20 @@
-# Custom Airflow Docker Image with Pipeline Libraries
+# =============================================================================
+# Custom Airflow Docker Image for GKE Deployment
+# =============================================================================
+# This is THE Airflow runtime image used by the Helm chart on GKE.
+# It includes gcp-pipeline-core and gcp-pipeline-orchestration libraries
+# that the DAGs depend on.
 #
-# Build:
-#   docker build -t gcr.io/<PROJECT_ID>/airflow-custom:latest -f Dockerfile.airflow .
+# Build locally:
+#   docker build -t gcr.io/<PROJECT_ID>/airflow-custom:latest .
 #   docker push gcr.io/<PROJECT_ID>/airflow-custom:latest
 #
-# Or with Cloud Build:
-#   gcloud builds submit --tag gcr.io/<PROJECT_ID>/airflow-custom:latest -f Dockerfile.airflow .
+# Build with Cloud Build:
+#   cd infrastructure/k8s/airflow
+#   gcloud builds submit --tag gcr.io/<PROJECT_ID>/airflow-custom:latest .
+#
+# Note: DAGs are NOT baked into this image. They are synced from GCS at runtime.
+# =============================================================================
 
 FROM apache/airflow:2.8.1-python3.11
 
