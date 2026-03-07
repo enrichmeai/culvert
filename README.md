@@ -2,6 +2,83 @@
 
 A **standardized framework** for moving data from legacy mainframe systems to Google Cloud Platform. It uses shared libraries to handle common tasks like audit, security, and error handling, while allowing each system to have its own specific configuration.
 
+> **Last Updated:** March 2026 | **Version:** 2.0
+
+---
+
+## 🚀 Quick Start
+
+### One-Command Setup
+
+```bash
+# 1. Set GCP project
+gcloud config set project YOUR_PROJECT_ID
+
+# 2. Create all infrastructure (GKE, GCS, BigQuery, Pub/Sub)
+./scripts/gcp/setup_gke_infrastructure.sh
+
+# 3. Verify everything is configured
+./scripts/gcp/verify_infrastructure.sh
+
+# 4. Build custom Airflow image
+cd infrastructure/k8s/airflow && gcloud builds submit --tag gcr.io/$(gcloud config get-value project)/airflow-custom:latest .
+
+# 5. Install Airflow on GKE
+helm install airflow apache-airflow/airflow \
+  --namespace airflow --create-namespace \
+  --version 1.11.0 \
+  --set images.airflow.repository=gcr.io/$(gcloud config get-value project)/airflow-custom \
+  --set images.airflow.tag=latest \
+  --set executor=KubernetesExecutor \
+  --set webserver.service.type=LoadBalancer
+
+# 6. Deploy DAGs
+gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud config get-value project)-airflow-dags/
+
+# 7. Run end-to-end test
+./scripts/gcp/e2e_automation_test.sh
+
+# 8. Clean up (avoid charges when not in use)
+./scripts/gcp/00_full_reset.sh --force
+```
+
+### Key Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `./scripts/gcp/setup_gke_infrastructure.sh` | Create all GCP resources |
+| `./scripts/gcp/verify_infrastructure.sh` | Verify infrastructure status |
+| `./scripts/gcp/e2e_automation_test.sh` | Run end-to-end test |
+| `./scripts/gcp/00_full_reset.sh` | Delete all resources (stop charges) |
+
+---
+
+## Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              GKE CLUSTER                                    │
+│  ┌─────────────────────────────────────────────────────────────────────┐   │
+│  │                    AIRFLOW (Orchestration Only)                      │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │   │
+│  │  │  Scheduler  │  │  Webserver  │  │   Workers   │                  │   │
+│  │  │   (Pod)     │  │   (Pod)     │  │   (Pods)    │                  │   │
+│  │  └─────────────┘  └─────────────┘  └─────────────┘                  │   │
+│  └─────────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                   │ Triggers
+                    ┌──────────────┴──────────────┐
+                    ▼                              ▼
+┌───────────────────────────────┐  ┌───────────────────────────────┐
+│         DATAFLOW              │  │         BIGQUERY              │
+│   (Google Managed)            │  │    (Google Managed)           │
+│  ┌─────────────────────────┐  │  │  ┌─────────────────────────┐  │
+│  │  Beam Ingestion Jobs    │  │  │  │  dbt Transformations    │  │
+│  │  GCS → ODP              │  │  │  │  ODP → FDP              │  │
+│  └─────────────────────────┘  │  │  └─────────────────────────┘  │
+└───────────────────────────────┘  └───────────────────────────────┘
+```
+
 ---
 
 ## Why Use This Framework?

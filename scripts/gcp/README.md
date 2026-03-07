@@ -2,15 +2,88 @@
 
 Complete scripts for setting up, testing, and managing GCP infrastructure for the Legacy Migration Pipeline.
 
+> **Last Updated:** March 2026
+
 ## Quick Reference
 
 | Action | Command |
 |--------|---------|
-| **Setup GKE Infrastructure** | `./scripts/gcp/setup_gke_infrastructure.sh` |
+| **Full Infrastructure Setup** | `./scripts/gcp/setup_gke_infrastructure.sh` |
+| **Verify Infrastructure** | `./scripts/gcp/verify_infrastructure.sh` |
+| **End-to-End Test** | `./scripts/gcp/e2e_automation_test.sh` |
 | **Deploy to GKE** | `./scripts/gcp/deploy_to_gke.sh` |
-| **Deploy DAGs Only** | `./scripts/gcp/deploy_to_gke.sh --dags-only` |
-| **Reset Everything** | `./scripts/gcp/00_full_reset.sh` |
-| **Test Pipeline** | `./scripts/gcp/06_test_pipeline.sh generic` |
+| **Reset Everything** | `./scripts/gcp/00_full_reset.sh --force` |
+
+## Scripts Overview
+
+### Infrastructure Setup
+
+| Script | Description |
+|--------|-------------|
+| `setup_gke_infrastructure.sh` | **MAIN SETUP** - Creates GKE, GCS, BigQuery, Pub/Sub, service accounts |
+| `01_enable_services.sh` | Enable required GCP APIs only |
+| `02_create_state_bucket.sh` | Create Terraform state bucket |
+| `03_create_infrastructure.sh` | Create infrastructure via Terraform |
+
+### Verification & Testing
+
+| Script | Description |
+|--------|-------------|
+| `verify_infrastructure.sh` | **NEW** - Verify all resources are properly configured |
+| `e2e_automation_test.sh` | **NEW** - Run end-to-end pipeline test |
+| `05_verify_setup.sh` | Legacy verification script |
+| `06_test_pipeline.sh` | Test specific pipeline |
+
+### Deployment
+
+| Script | Description |
+|--------|-------------|
+| `deploy_to_gke.sh` | Deploy Airflow and DAGs to GKE |
+| `deploy_all.sh` | Deploy everything (legacy) |
+| `quick_deploy.sh` | Quick deployment for testing |
+
+### Cleanup
+
+| Script | Description |
+|--------|-------------|
+| `00_full_reset.sh` | **DELETE EVERYTHING** - Avoid charges |
+| `07_cleanup.sh` | Clean up specific resources |
+| `quick_cleanup.sh` | Quick cleanup |
+
+---
+
+## Typical Workflow
+
+```bash
+# 1. Set project
+gcloud config set project YOUR_PROJECT_ID
+
+# 2. Setup infrastructure
+./scripts/gcp/setup_gke_infrastructure.sh
+
+# 3. Verify setup
+./scripts/gcp/verify_infrastructure.sh
+
+# 4. Build Airflow image
+cd infrastructure/k8s/airflow
+gcloud builds submit --tag gcr.io/$(gcloud config get-value project)/airflow-custom:latest .
+
+# 5. Install Airflow
+helm install airflow apache-airflow/airflow \
+  --namespace airflow --create-namespace \
+  --version 1.11.0 \
+  --set images.airflow.repository=gcr.io/$(gcloud config get-value project)/airflow-custom \
+  --set images.airflow.tag=latest
+
+# 6. Deploy DAGs
+gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud config get-value project)-airflow-dags/
+
+# 7. Run E2E test
+./scripts/gcp/e2e_automation_test.sh
+
+# 8. Clean up (when done)
+./scripts/gcp/00_full_reset.sh --force
+```
 
 ---
 
