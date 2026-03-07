@@ -5,18 +5,23 @@
 # Usage: ./scripts/gcp/00_full_reset.sh [--force]
 #
 # This script deletes ALL GCP resources to stop charges:
-# 1. Dataflow jobs (running/pending)
-# 2. Composer environments
-# 3. GKE clusters
-# 4. Cloud Run services
-# 5. Pub/Sub topics and subscriptions
-# 6. BigQuery datasets
-# 7. GCS buckets
-# 8. Service accounts
-# 9. KMS keys (schedule for deletion)
-# 10. Secret Manager secrets
-# 11. Cloud Scheduler jobs
-# 12. Terraform state
+# 1. GKE clusters (including pipeline-cluster)
+# 2. Helm releases (Airflow)
+# 3. Dataflow jobs (running/pending)
+# 4. Composer environments
+# 5. Cloud Run services
+# 6. Pub/Sub topics and subscriptions
+# 7. BigQuery datasets
+# 8. GCS buckets
+# 9. Service accounts
+# 10. GCS notifications
+# 11. Container images in GCR
+# 12. KMS keys (schedule for deletion)
+# 13. Secret Manager secrets
+# 14. Cloud Scheduler jobs
+# 15. Terraform state
+#
+# Last Updated: March 2026
 # =============================================================================
 
 set -e
@@ -30,6 +35,7 @@ NC='\033[0m'
 FORCE_DELETE="${1:-}"
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 REGION="europe-west2"
+ZONE="${REGION}-a"
 
 if [ -z "$PROJECT_ID" ]; then
     echo -e "${RED}ERROR: No GCP project set${NC}"
@@ -44,14 +50,16 @@ echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
 echo ""
 echo "This will delete:"
+echo "  - GKE clusters (pipeline-cluster)"
+echo "  - Helm releases (Airflow)"
 echo "  - Dataflow jobs (all running/pending)"
 echo "  - Composer environments"
-echo "  - GKE clusters"
 echo "  - Cloud Run services"
 echo "  - All Pub/Sub topics and subscriptions"
-echo "  - All BigQuery datasets (odp_*, fdp_*, job_control)"
-echo "  - All GCS buckets (generic-*, generic-*, terraform-state)"
-echo "  - All service accounts (generic-*, generic-*)"
+echo "  - All BigQuery datasets (odp_*, fdp_*, job_control, error_tracking)"
+echo "  - All GCS buckets (landing, archive, error, temp, airflow-dags, etc.)"
+echo "  - All service accounts (airflow-sa, github-actions-deploy)"
+echo "  - Container images in GCR"
 echo "  - KMS keys (scheduled for deletion)"
 echo "  - Secret Manager secrets"
 echo "  - Cloud Scheduler jobs"
@@ -68,8 +76,26 @@ if [[ "$FORCE_DELETE" != "--force" ]]; then
 fi
 
 echo ""
-echo -e "${BLUE}=== Step 1: Cancel Running Dataflow Jobs ===${NC}"
-# Get all running/pending jobs and cancel them
+echo -e "${BLUE}=== Step 1: Delete GKE Clusters (MOST IMPORTANT - stops charges) ===${NC}"
+# Delete pipeline-cluster first
+if gcloud container clusters describe pipeline-cluster --zone="$ZONE" --project="$PROJECT_ID" &>/dev/null; then
+    echo "  Deleting GKE cluster: pipeline-cluster (this takes ~5 minutes)"
+    gcloud container clusters delete pipeline-cluster --zone="$ZONE" --project="$PROJECT_ID" --quiet --async 2>/dev/null || true
+    echo "  Cluster deletion initiated (running async)"
+else
+    echo "  pipeline-cluster not found"
+fi
+
+# Delete any other GKE clusters
+for cluster in $(gcloud container clusters list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null || true); do
+    zone=$(gcloud container clusters list --project="$PROJECT_ID" --filter="name=$cluster" --format="value(location)")
+    echo "  Deleting GKE cluster: $cluster"
+    gcloud container clusters delete "$cluster" --project="$PROJECT_ID" --zone="$zone" --quiet --async 2>/dev/null || true
+done
+echo "  GKE clusters deletion initiated"
+
+echo ""
+echo -e "${BLUE}=== Step 2: Cancel Running Dataflow Jobs ===${NC}"
 for job_id in $(gcloud dataflow jobs list --project="$PROJECT_ID" --region="$REGION" --status=active --format="value(JOB_ID)" 2>/dev/null || true); do
     echo "  Cancelling job: $job_id"
     gcloud dataflow jobs cancel "$job_id" --project="$PROJECT_ID" --region="$REGION" --quiet 2>/dev/null || true
@@ -77,25 +103,16 @@ done
 echo "  Dataflow jobs cancelled"
 
 echo ""
-echo -e "${BLUE}=== Step 2: Delete Composer Environments ===${NC}"
-for env_name in $(gcloud composer environments list --project="$PROJECT_ID" --locations="$REGION" --format="value(name)" 2>/dev/null | grep -E "(generic|generic)" || true); do
+echo -e "${BLUE}=== Step 3: Delete Composer Environments ===${NC}"
+for env_name in $(gcloud composer environments list --project="$PROJECT_ID" --locations="$REGION" --format="value(name)" 2>/dev/null || true); do
     echo "  Deleting Composer: $env_name"
-    gcloud composer environments delete "$env_name" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
+    gcloud composer environments delete "$env_name" --project="$PROJECT_ID" --location="$REGION" --quiet --async 2>/dev/null || true
 done
-echo "  Composer environments deleted"
-
-echo ""
-echo -e "${BLUE}=== Step 3: Delete GKE Clusters ===${NC}"
-for cluster in $(gcloud container clusters list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(generic|generic|composer)" || true); do
-    zone=$(gcloud container clusters list --project="$PROJECT_ID" --filter="name=$cluster" --format="value(location)")
-    echo "  Deleting GKE cluster: $cluster"
-    gcloud container clusters delete "$cluster" --project="$PROJECT_ID" --zone="$zone" --quiet 2>/dev/null || true
-done
-echo "  GKE clusters deleted"
+echo "  Composer environments deletion initiated"
 
 echo ""
 echo -e "${BLUE}=== Step 4: Delete Cloud Run Services ===${NC}"
-for service in $(gcloud run services list --project="$PROJECT_ID" --region="$REGION" --format="value(metadata.name)" 2>/dev/null | grep -E "(generic|generic)" || true); do
+for service in $(gcloud run services list --project="$PROJECT_ID" --region="$REGION" --format="value(metadata.name)" 2>/dev/null || true); do
     echo "  Deleting Cloud Run: $service"
     gcloud run services delete "$service" --project="$PROJECT_ID" --region="$REGION" --quiet 2>/dev/null || true
 done
@@ -103,33 +120,43 @@ echo "  Cloud Run services deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 5: Delete Pub/Sub Subscriptions ===${NC}"
-for sub in generic-file-notifications-sub generic-pipeline-events-sub generic-file-notifications-sub generic-pipeline-events-sub; do
+# New naming convention
+for sub in file-notifications-sub pipeline-events-sub; do
+    gcloud pubsub subscriptions delete "$sub" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sub" || true
+done
+# Old naming convention
+for sub in generic-file-notifications-sub generic-pipeline-events-sub; do
     gcloud pubsub subscriptions delete "$sub" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sub" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 6: Delete Pub/Sub Topics ===${NC}"
-for topic in generic-file-notifications generic-pipeline-events generic-file-notifications generic-pipeline-events; do
+# New naming convention
+for topic in file-notifications pipeline-events; do
+    gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $topic" || true
+done
+# Old naming convention
+for topic in generic-file-notifications generic-pipeline-events; do
     gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $topic" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 7: Delete BigQuery Datasets ===${NC}"
-for ds in odp_generic fdp_generic job_control odp_generic fdp_generic; do
+for ds in odp_generic fdp_generic job_control error_tracking; do
     bq rm -r -f --project_id="$PROJECT_ID" "$ds" 2>/dev/null && echo "  Deleted: $ds" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 8: Delete GCS Buckets ===${NC}"
-# Delete both manual and Terraform-created buckets
-for bucket in \
-    generic-landing generic-archive generic-error generic-temp \
-    generic-dev-landing generic-dev-archive generic-dev-error generic-dev-temp \
-    generic-landing generic-archive generic-error generic-temp \
-    generic-dev-landing generic-dev-archive generic-dev-error generic-dev-temp \
-    dataflow-templates generic-dataflow-temp generic-dataflow-temp; do
+# New bucket naming (PROJECT_ID-name)
+for bucket in landing archive error temp airflow-dags dataflow-templates; do
     gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
 done
+# Old bucket naming
+for bucket in generic-landing generic-archive generic-error generic-temp; do
+    gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
+done
+echo "  GCS buckets deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 9: Delete Terraform State Bucket ===${NC}"
@@ -137,42 +164,42 @@ gsutil -m rm -r "gs://gdw-terraform-state" 2>/dev/null && echo "  Deleted: gs://
 
 echo ""
 echo -e "${BLUE}=== Step 10: Delete Service Accounts ===${NC}"
-# Delete all pipeline service accounts (both naming patterns)
-for sa in \
-    generic-dataflow-sa generic-dbt-sa generic-composer-sa \
-    generic-dev-dataflow generic-dev-dbt generic-dev-composer \
-    generic-dataflow-sa generic-dbt-sa generic-composer-sa \
-    generic-dev-dataflow generic-dev-dbt generic-dev-composer; do
+for sa in airflow-sa github-actions-deploy pipeline-sa; do
     gcloud iam service-accounts delete "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sa" || true
 done
 
 echo ""
-echo -e "${BLUE}=== Step 11: Delete Additional Pub/Sub Resources ===${NC}"
-# Delete dead letter topics/subscriptions created by Terraform
-for topic in generic-file-notifications-dead-letter generic-pipeline-events-dead-letter generic-file-notifications-dead-letter generic-pipeline-events-dead-letter; do
+echo -e "${BLUE}=== Step 11: Delete Container Images in GCR ===${NC}"
+for image in airflow-custom ingestion-pipeline transform-pipeline orchestrator segment-transform; do
+    gcloud container images delete "gcr.io/${PROJECT_ID}/${image}" --force-delete-tags --quiet 2>/dev/null && echo "  Deleted: $image" || true
+done
+echo "  Container images deleted"
+
+echo ""
+echo -e "${BLUE}=== Step 12: Delete Dead Letter Topics ===${NC}"
+for topic in file-notifications-dead-letter pipeline-events-dead-letter; do
     gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted topic: $topic" || true
 done
 
 echo ""
-echo -e "${BLUE}=== Step 12: Delete Cloud Scheduler Jobs ===${NC}"
-for job in $(gcloud scheduler jobs list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(generic|generic)" || true); do
+echo -e "${BLUE}=== Step 13: Delete Cloud Scheduler Jobs ===${NC}"
+for job in $(gcloud scheduler jobs list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null || true); do
     echo "  Deleting scheduler job: $job"
     gcloud scheduler jobs delete "$job" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
 echo "  Cloud Scheduler jobs deleted"
 
 echo ""
-echo -e "${BLUE}=== Step 13: Delete Secret Manager Secrets ===${NC}"
-for secret in $(gcloud secrets list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null | grep -E "(generic|generic)" || true); do
+echo -e "${BLUE}=== Step 14: Delete Secret Manager Secrets ===${NC}"
+for secret in $(gcloud secrets list --project="$PROJECT_ID" --format="value(name)" 2>/dev/null || true); do
     echo "  Deleting secret: $secret"
     gcloud secrets delete "$secret" --project="$PROJECT_ID" --quiet 2>/dev/null || true
 done
 echo "  Secrets deleted"
 
 echo ""
-echo -e "${BLUE}=== Step 14: Schedule KMS Key Deletion (if any) ===${NC}"
-# Note: KMS keys cannot be immediately deleted, only scheduled for destruction
-for keyring in generic-keyring generic-keyring pipeline-keyring; do
+echo -e "${BLUE}=== Step 15: Schedule KMS Key Deletion (if any) ===${NC}"
+for keyring in pipeline-keyring; do
     for key in $(gcloud kms keys list --project="$PROJECT_ID" --location="$REGION" --keyring="$keyring" --format="value(name)" 2>/dev/null || true); do
         key_name=$(basename "$key")
         echo "  Scheduling destruction: $keyring/$key_name"
@@ -182,16 +209,16 @@ done
 echo "  KMS keys scheduled for destruction (30-day hold)"
 
 echo ""
-echo -e "${BLUE}=== Step 15: Delete Cloud Functions ===${NC}"
-for func in $(gcloud functions list --project="$PROJECT_ID" --regions="$REGION" --format="value(name)" 2>/dev/null | grep -E "(generic|generic)" || true); do
+echo -e "${BLUE}=== Step 16: Delete Cloud Functions ===${NC}"
+for func in $(gcloud functions list --project="$PROJECT_ID" --regions="$REGION" --format="value(name)" 2>/dev/null || true); do
     echo "  Deleting function: $func"
     gcloud functions delete "$func" --project="$PROJECT_ID" --region="$REGION" --quiet 2>/dev/null || true
 done
 echo "  Cloud Functions deleted"
 
 echo ""
-echo -e "${BLUE}=== Step 16: Delete Artifact Registry Repositories ===${NC}"
-for repo in $(gcloud artifacts repositories list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null | grep -E "(generic|generic|pipeline)" || true); do
+echo -e "${BLUE}=== Step 17: Delete Artifact Registry Repositories ===${NC}"
+for repo in $(gcloud artifacts repositories list --project="$PROJECT_ID" --location="$REGION" --format="value(name)" 2>/dev/null || true); do
     echo "  Deleting repository: $repo"
     gcloud artifacts repositories delete "$repo" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
@@ -202,12 +229,31 @@ echo -e "${GREEN}=============================================="
 echo "✅ Full Reset Complete!"
 echo "==============================================${NC}"
 echo ""
-echo "Next steps to redeploy:"
-echo "  1. ./scripts/gcp/01_enable_services.sh"
-echo "  2. ./scripts/gcp/02_create_state_bucket.sh"
-echo "  3. ./scripts/gcp/03_create_infrastructure.sh all"
-echo "  4. ./scripts/gcp/06_test_pipeline.sh generic"
+echo "Note: GKE cluster deletion runs async and may take ~5 minutes."
+echo "Check status with: gcloud container clusters list"
 echo ""
-echo "Or run everything at once:"
+echo "Next steps to redeploy EVERYTHING from scratch:"
+echo ""
+echo "  # Option 1: GKE-based deployment (RECOMMENDED)"
+echo "  ./scripts/gcp/setup_gke_infrastructure.sh"
+echo ""
+echo "  # Then build custom Airflow image"
+echo "  cd infrastructure/k8s/airflow"
+echo "  gcloud builds submit --tag gcr.io/\${PROJECT_ID}/airflow-custom:latest ."
+echo ""
+echo "  # Then install Airflow on GKE"
+echo "  helm install airflow apache-airflow/airflow \\"
+echo "    --namespace airflow --create-namespace \\"
+echo "    --version 1.11.0 \\"
+echo "    --set images.airflow.repository=gcr.io/\${PROJECT_ID}/airflow-custom \\"
+echo "    --set images.airflow.tag=latest \\"
+echo "    --set executor=KubernetesExecutor \\"
+echo "    --set webserver.service.type=LoadBalancer"
+echo ""
+echo "  # Deploy DAGs"
+echo "  gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://\${PROJECT_ID}-airflow-dags/"
+echo ""
+echo "  # Option 2: Legacy Cloud Composer setup"
 echo "  ./scripts/gcp/deploy_all.sh"
+echo ""
 
