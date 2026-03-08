@@ -14,7 +14,7 @@ NC='\033[0m'
 
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 REGION="europe-west2"
-STATE_BUCKET="gdw-terraform-state"
+STATE_BUCKET="gcp-pipeline-terraform-state"
 
 if [ -z "$PROJECT_ID" ]; then
     echo -e "${RED}ERROR: No GCP project set${NC}"
