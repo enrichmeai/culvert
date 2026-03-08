@@ -5,7 +5,7 @@ Factory for creating standardized migration DAGs with config-driven approach.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -100,7 +100,7 @@ class DAGFactory:
             'depends_on_past': False,
             'email_on_failure': True,
             'retries': 3,
-            'retry_delay': __import__('datetime').timedelta(minutes=5),
+            'retry_delay': timedelta(minutes=5),
         }
         if default_args:
             base_default_args.update(default_args)

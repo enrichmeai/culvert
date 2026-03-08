@@ -179,13 +179,17 @@ with DAG(
 
             logger.info(f"File validated: {metadata.header.system_id}/{metadata.header.entity_type}")
 
-            # Log to audit trail
-            audit = AuditTrail(project_id=PROJECT_ID)
-            audit.log_event(
-                event_type="FILE_VALIDATED",
-                system_id=SYSTEM_ID,
-                entity=file_metadata.get("entity"),
-                details={"file": data_file, "record_count": metadata.trailer.record_count}
+            # Log to audit trail — AuditTrail(run_id, pipeline_name, entity_type)
+            run_id = context["run_id"]
+            audit = AuditTrail(
+                run_id=run_id,
+                pipeline_name="pubsub_trigger_dag",
+                entity_type=file_metadata.get("entity", "unknown"),
+            )
+            audit.record_processing_start(source_file=data_file)
+            audit.log_entry(
+                status="INFO",
+                message=f"File validated: record_count={metadata.trailer.record_count}",
             )
 
             return "trigger_odp_load"

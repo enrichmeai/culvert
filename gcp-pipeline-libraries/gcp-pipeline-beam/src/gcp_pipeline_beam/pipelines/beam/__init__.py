@@ -64,6 +64,15 @@ from .io import (
 
 from .pubsub import PublishToPubSubDoFn
 from .builder import BeamPipelineBuilder
+from .resource_config import (
+    ResourceConfigurator,
+    WorkerConfig,
+    DockerConfig,
+    FileSizeCategory,
+    get_optimal_pipeline_options,
+    get_docker_config,
+    print_resource_recommendations,
+)
 
 __all__ = [
     # Transforms
@@ -86,5 +95,13 @@ __all__ = [
     'PublishToPubSubDoFn',
     # Builder
     'BeamPipelineBuilder',
+    # Resource Configuration
+    'ResourceConfigurator',
+    'WorkerConfig',
+    'DockerConfig',
+    'FileSizeCategory',
+    'get_optimal_pipeline_options',
+    'get_docker_config',
+    'print_resource_recommendations',
 ]
 

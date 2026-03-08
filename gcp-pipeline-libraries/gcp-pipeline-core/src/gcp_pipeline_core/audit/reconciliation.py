@@ -25,10 +25,13 @@ Usage:
     >>> print(result.status)  # "RECONCILED" or "MISMATCH"
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, Any, Optional
 from enum import Enum
+
+_logger = logging.getLogger(__name__)
 
 
 class ReconciliationStatus(Enum):
@@ -298,20 +301,11 @@ class ReconciliationEngine:
             'status': result.status.value,
         }
 
-        if self.logger:
-            if result.is_reconciled:
-                self.logger.info("Reconciliation passed", **log_data)
-            else:
-                self.logger.warning("Reconciliation failed", **log_data)
+        log_fn = self.logger if self.logger else _logger
+        if result.is_reconciled:
+            log_fn.info("Reconciliation passed: %s", log_data)
         else:
-            status_symbol = '✓' if result.is_reconciled else '✗'
-            print(f"\n[RECONCILIATION] {self.entity_type}")
-            print(f"  Expected records:    {result.expected_count}")
-            print(f"  Actual records:      {result.actual_count}")
-            print(f"  Error records:       {result.error_count}")
-            print(f"  Difference:          {result.difference}")
-            print(f"  Match percentage:    {result.match_percentage:.2f}%")
-            print(f"  Status:              {status_symbol} {result.status.value}")
+            log_fn.warning("Reconciliation failed: %s", log_data)
 
     def get_result(self) -> Optional[ReconciliationResult]:
         """Get the last reconciliation result."""

@@ -94,6 +94,7 @@ A reference implementation for the CDP layer is available at `deployments/cdp-se
 *   **Implementation**: Apache Beam on Cloud Dataflow.
 *   **Split File Handling**: The framework automatically detects and reassembles files split at the 25MB threshold by watching for the `.ok` signal file and using pattern-based discovery.
 *   **Validation**: Uses `HDRTRLParser` for envelope validation and `SchemaValidator` for record-level integrity before writing to ODP.
+*   **Resource Configuration**: Automatic worker type and memory configuration based on file size. See [BEAM_FILE_PROCESSING_GUIDE.md](BEAM_FILE_PROCESSING_GUIDE.md) for sizing guidelines.
 
 ### 5.3 Transformation (Unit 2)
 *   **Pattern**: Push-down SQL.

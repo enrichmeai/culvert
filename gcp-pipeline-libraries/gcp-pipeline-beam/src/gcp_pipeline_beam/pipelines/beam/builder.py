@@ -75,18 +75,14 @@ class BeamPipelineBuilder:
         """
         logger.info(f"Reading CSV from {len(gcs_paths)} file(s)")
 
-        if field_names:
-            self.current_pcoll = (
-                self.pipeline
-                | 'CreatePaths' >> beam.Create(gcs_paths)
-                | 'ReadCSV' >> beam.ParDo(ReadCSVFromGCSDoFn())
-            )
-        else:
-            self.current_pcoll = (
-                self.pipeline
-                | 'CreatePaths' >> beam.Create(gcs_paths)
-                | 'ReadCSV' >> beam.ParDo(ReadCSVFromGCSDoFn())
-            )
+        # When field_names are provided by the caller, the CSV has no header row.
+        # When omitted, the first row is treated as the header.
+        skip_header = field_names is None
+        self.current_pcoll = (
+            self.pipeline
+            | 'CreatePaths' >> beam.Create(gcs_paths)
+            | 'ReadCSV' >> beam.ParDo(ReadCSVFromGCSDoFn(skip_header=skip_header))
+        )
 
         return self
 
