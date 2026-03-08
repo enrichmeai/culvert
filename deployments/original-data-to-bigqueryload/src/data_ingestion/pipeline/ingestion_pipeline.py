@@ -26,9 +26,9 @@ Library Components Used:
   - gcp_pipeline_beam.pipelines.beam.transforms.SchemaValidateRecordDoFn
 
 Entities:
-  - customers → odp_em.customers
-  - accounts → odp_em.accounts
-  - decision → odp_em.decision
+  - customers → odp_generic.customers
+  - accounts → odp_generic.accounts
+  - decision → odp_generic.decision
 
 OTEL Configuration:
   Set environment variables for Dynatrace integration:
@@ -41,7 +41,7 @@ Usage:
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Iterator, Optional
 
 import apache_beam as beam
@@ -78,18 +78,18 @@ from data_ingestion.schema import EMCustomerSchema, EMAccountSchema, EMDecisionS
 EM_ENTITY_CONFIG = {
     "customers": {
         "schema": EMCustomerSchema,
-        "output_table": "odp_em.customers",
-        "error_table": "odp_em.customers_errors",
+        "output_table": "odp_generic.customers",
+        "error_table": "odp_generic.customers_errors",
     },
     "accounts": {
         "schema": EMAccountSchema,
-        "output_table": "odp_em.accounts",
-        "error_table": "odp_em.accounts_errors",
+        "output_table": "odp_generic.accounts",
+        "error_table": "odp_generic.accounts_errors",
     },
     "decision": {
         "schema": EMDecisionSchema,
-        "output_table": "odp_em.decision",
-        "error_table": "odp_em.decision_errors",
+        "output_table": "odp_generic.decision",
+        "error_table": "odp_generic.decision_errors",
     },
 }
 
@@ -131,7 +131,7 @@ class EMPipeline(BasePipeline):
             AddAuditColumnsDoFn(
                 self.run_id,
                 gdw_opts.input_pattern,
-                datetime.utcnow().strftime('%Y-%m-%d')
+                datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
             )
         )
 
@@ -225,7 +225,7 @@ class AddAuditColumnsDoFn(beam.DoFn):
     def process(self, record: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
         record['_run_id'] = self.run_id
         record['_source_file'] = self.source_file
-        record['_processed_at'] = datetime.utcnow().isoformat()
+        record['_processed_at'] = datetime.now(tz=timezone.utc).isoformat()
         record['_extract_date'] = self.extract_date
         yield record
 

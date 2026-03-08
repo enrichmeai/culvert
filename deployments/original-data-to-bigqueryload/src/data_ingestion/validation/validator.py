@@ -54,8 +54,18 @@ class EMValidator:
         records: List[Dict[str, Any]],
         entity_name: str
     ) -> Tuple[List[Dict], List[Dict]]:
-        """Validate individual records."""
-        return self.record_validator.validate_records(records, entity_name)
+        """
+        Validate a batch of records against the entity schema.
+
+        Args:
+            records: List of record dicts
+            entity_name: Entity name (customers, accounts, decision, applications)
+
+        Returns:
+            Tuple of (valid_records, invalid_records)
+        """
+        result = self.record_validator.validate_records_batch(records, entity_name)
+        return result["valid_records"], result["invalid_records"]
 
     def check_duplicates(
         self,

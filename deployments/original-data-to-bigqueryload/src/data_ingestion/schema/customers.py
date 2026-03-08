@@ -34,6 +34,7 @@ EM_CUSTOMER_FIELDS = [
         field_type="STRING",
         required=True,
         is_pii=True,
+        pii_type="SSN",
         description="Social Security Number (PII)",
     ),
     SchemaField(
@@ -41,6 +42,7 @@ EM_CUSTOMER_FIELDS = [
         field_type="DATE",
         required=True,
         is_pii=True,
+        pii_type="DATE_OF_BIRTH",
         description="Date of birth (PII)",
     ),
     SchemaField(

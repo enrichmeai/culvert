@@ -7,7 +7,7 @@ Supports multiple backends for metric storage.
 
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional
 
 from .types import MetricValue
@@ -31,7 +31,7 @@ class MetricsCollector:
         """
         self.pipeline_name = pipeline_name
         self.run_id = run_id
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(tz=timezone.utc)
 
         # Metric storage
         self.counters: Dict[str, int] = defaultdict(int)
@@ -116,7 +116,7 @@ class MetricsCollector:
         Returns:
             Dictionary containing summary statistics
         """
-        current_time = datetime.utcnow()
+        current_time = datetime.now(tz=timezone.utc)
         stats = {
             'pipeline_name': self.pipeline_name,
             'run_id': self.run_id,

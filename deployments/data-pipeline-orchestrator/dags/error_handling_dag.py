@@ -35,11 +35,8 @@ from airflow.models import Variable
 
 # Import from gcp_pipeline_core library
 from gcp_pipeline_core.error_handling import (
-    ErrorHandler,
-    ErrorClassifier,
     ErrorSeverity,
     ErrorCategory,
-    RetryStrategy,
 )
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
 from gcp_pipeline_core.audit import AuditTrail
@@ -62,20 +59,27 @@ default_args = {
 # GCP Configuration - use Airflow Variables
 PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 REGION = Variable.get("gcp_region", default_var="europe-west2")
-DATASET_ID = 'odp_em'
-ERROR_DATASET_ID = 'odp_em'  # Errors stored in same dataset
+DATASET_ID = 'odp_generic'
+ERROR_DATASET_ID = 'odp_generic'  # Errors stored in same dataset
 
 # Error handling configuration
 ERROR_THRESHOLDS = {
-    'VALIDATION': 100,  # Batch size for validation errors
-    'TRANSFORMATION': 50,  # Smaller batch for transformation errors
-    'PERSISTENCE': 25,  # Smaller batch for persistence errors
-    'INTEGRATION': 50,
+    ErrorCategory.VALIDATION.value: 100,
+    ErrorCategory.TRANSFORMATION.value: 50,
+    ErrorCategory.INTEGRATION.value: 50,
+    ErrorCategory.RESOURCE.value: 25,
 }
 
-RETRYABLE_ERROR_CATEGORIES = ['INTEGRATION', 'RESOURCE', 'TRANSFORMATION']
-MANUAL_REVIEW_CATEGORIES = ['VALIDATION', 'CONFIGURATION']
-CRITICAL_CATEGORIES = ['CRITICAL']
+RETRYABLE_ERROR_CATEGORIES = [
+    ErrorCategory.INTEGRATION.value,
+    ErrorCategory.RESOURCE.value,
+    ErrorCategory.TRANSFORMATION.value,
+]
+MANUAL_REVIEW_CATEGORIES = [
+    ErrorCategory.VALIDATION.value,
+    ErrorCategory.CONFIGURATION.value,
+]
+CRITICAL_CATEGORIES = [ErrorSeverity.CRITICAL.value]
 
 # Initialize DAG
 dag = DAG(
@@ -95,17 +99,18 @@ def check_for_errors(**context) -> str:
     Check for new errors in error tables.
 
     Queries error tables and routes to appropriate handling path:
-    - retryable: errors that can be automatically reprocessed
-    - manual_review: errors requiring human intervention
-    - skip: no errors to process
+    - handle_critical_errors: any error with severity=CRITICAL
+    - handle_retryable_errors: INTEGRATION, RESOURCE, TRANSFORMATION categories
+    - request_manual_review: VALIDATION, CONFIGURATION categories
+    - no_errors: nothing to process
     """
     from google.cloud import bigquery
 
     client = bigquery.Client(project=PROJECT_ID)
 
-    # Query for unresolved errors
-    query = f"""
-    SELECT 
+    # Query for unresolved errors grouped by category
+    category_query = f"""
+    SELECT
         error_category,
         COUNT(*) as error_count
     FROM `{PROJECT_ID}.{ERROR_DATASET_ID}.error_log`
@@ -115,18 +120,30 @@ def check_for_errors(**context) -> str:
     GROUP BY error_category
     """
 
+    # Separate query for critical severity — severity and category are distinct dimensions
+    critical_query = f"""
+    SELECT COUNT(*) as critical_count
+    FROM `{PROJECT_ID}.{ERROR_DATASET_ID}.error_log`
+    WHERE resolved = False
+        AND severity = '{ErrorSeverity.CRITICAL.value}'
+        AND TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), timestamp, MINUTE) < 30
+    """
+
     try:
-        result = client.query(query).result()
-        errors_by_category = {row.error_category: row.error_count for row in result}
+        errors_by_category = {
+            row.error_category: row.error_count
+            for row in client.query(category_query).result()
+        }
+        critical_count = list(client.query(critical_query).result())[0].critical_count
 
-        logger.info(f"Found errors: {errors_by_category}")
+        logger.info(f"Found errors by category: {errors_by_category}, critical_count={critical_count}")
         context['task_instance'].xcom_push(key='errors_by_category', value=errors_by_category)
+        context['task_instance'].xcom_push(key='critical_count', value=critical_count)
 
-        # Determine routing
         has_retryable = any(cat in errors_by_category for cat in RETRYABLE_ERROR_CATEGORIES)
         has_manual = any(cat in errors_by_category for cat in MANUAL_REVIEW_CATEGORIES)
 
-        if has_critical_errors(errors_by_category):
+        if critical_count > 0:
             return 'handle_critical_errors'
         elif has_retryable:
             return 'handle_retryable_errors'
@@ -140,12 +157,14 @@ def check_for_errors(**context) -> str:
         return 'error_checking_failed'
 
 
-def has_critical_errors(errors: Dict[str, int]) -> bool:
-    """Check if any critical errors exist"""
-    for category in CRITICAL_CATEGORIES:
-        if category in errors and errors[category] > 0:
-            return True
-    return False
+def has_critical_errors(errors_by_category: Dict[str, int]) -> bool:
+    """
+    Check if any retryable-category errors exist.
+
+    Note: Critical SEVERITY detection is handled via a dedicated SQL query
+    in check_for_errors(). This helper checks category-level routing only.
+    """
+    return any(cat in errors_by_category for cat in RETRYABLE_ERROR_CATEGORIES)
 
 
 def get_retryable_errors(**context) -> List[Dict]:
@@ -294,17 +313,23 @@ def mark_errors_as_reprocessing(errors: List[Dict]):
 
     error_ids = [e['error_id'] for e in errors]
 
-    query = f"""
-    UPDATE `{PROJECT_ID}.{ERROR_DATASET_ID}.error_log`
-    SET 
+    query = """
+    UPDATE `{project}.{dataset}.error_log`
+    SET
         retry_count = retry_count + 1,
         last_retry_timestamp = CURRENT_TIMESTAMP(),
         status = 'REPROCESSING'
-    WHERE error_id IN ({','.join([f"'{eid}'" for eid in error_ids])})
-    """
+    WHERE error_id IN UNNEST(@error_ids)
+    """.format(project=PROJECT_ID, dataset=ERROR_DATASET_ID)
+
+    job_config = bigquery.QueryJobConfig(
+        query_parameters=[
+            bigquery.ArrayQueryParameter("error_ids", "STRING", error_ids)
+        ]
+    )
 
     try:
-        client.query(query).result()
+        client.query(query, job_config=job_config).result()
         logger.info(f"Marked {len(errors)} errors for reprocessing")
     except Exception as e:
         logger.error(f"Failed to mark errors: {e}")
@@ -435,8 +460,8 @@ def generate_error_report(**context) -> str:
 
 with dag:
 
-    # Task 1: Check for errors
-    check_errors = PythonOperator(
+    # Task 1: Check for errors and branch based on error type
+    check_errors = BranchPythonOperator(
         task_id='check_for_errors',
         python_callable=check_for_errors,
         provide_context=True,

@@ -10,7 +10,8 @@
     count(distinct id) / count(*) * 100 as uniqueness_pct,
     max(created_at) as last_updated
   from {{ table_name }}
-  where completeness_pct >= {{ var('quality_completeness_threshold', 95) }}
-    and uniqueness_pct >= {{ var('quality_uniqueness_threshold', 100) }}
+  having
+    count(case when id is not null then 1 end) / count(*) * 100 >= {{ var('quality_completeness_threshold', 95) }}
+    and count(distinct id) / count(*) * 100 >= {{ var('quality_uniqueness_threshold', 100) }}
 {% endmacro %}
 

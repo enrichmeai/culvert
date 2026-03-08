@@ -1,7 +1,7 @@
 """Unit tests for job control models (dataclasses)."""
 
 import unittest
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from gcp_pipeline_core.job_control import (
     JobStatus,
@@ -31,7 +31,7 @@ class TestPipelineJob(unittest.TestCase):
 
     def test_create_job_with_all_fields(self):
         """Test creating a job with all fields."""
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         job = PipelineJob(
             run_id="application1_customer_20260101_001",
             system_id="Application1",
@@ -68,14 +68,14 @@ class TestPipelineJob(unittest.TestCase):
 
     def test_job_created_at_default(self):
         """Test that created_at is auto-populated."""
-        before = datetime.utcnow()
+        before = datetime.now(tz=timezone.utc)
         job = PipelineJob(
             run_id="test",
             system_id="Application1",
             entity_type="Customer",
             extract_date=date(2026, 1, 1),
         )
-        after = datetime.utcnow()
+        after = datetime.now(tz=timezone.utc)
 
         self.assertIsNotNone(job.created_at)
         self.assertGreaterEqual(job.created_at, before)

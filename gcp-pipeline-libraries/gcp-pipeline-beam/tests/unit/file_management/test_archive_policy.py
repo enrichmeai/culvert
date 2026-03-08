@@ -12,7 +12,7 @@ Tests cover:
 import pytest
 import tempfile
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import patch, Mock
 
@@ -218,7 +218,7 @@ class TestArchivePolicyEngineResolvePath:
         )
 
         # Should use current date
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         expected_prefix = f"archive/data/{now.year:04d}/{now.month:02d}/{now.day:02d}/"
         assert path.startswith(expected_prefix)
         assert path.endswith("data.csv")

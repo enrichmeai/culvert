@@ -513,7 +513,7 @@ def get_docker_config(file_size_mb: float) -> DockerConfig:
 
 def print_resource_recommendations(file_size_mb: float) -> None:
     """
-    Print resource recommendations for a given file size.
+    Log resource recommendations for a given file size.
 
     Args:
         file_size_mb: File size in megabytes
@@ -521,29 +521,18 @@ def print_resource_recommendations(file_size_mb: float) -> None:
     config = ResourceConfigurator()
     summary = config.get_recommendation_summary(file_size_mb)
 
-    print(f"\n{'='*60}")
-    print(f"Resource Recommendations for {file_size_mb} MB file")
-    print(f"{'='*60}")
-    print(f"Category: {summary['category'].upper()}")
+    logger.info("Resource Recommendations for %.1f MB file | category=%s",
+                file_size_mb, summary['category'].upper())
 
     if summary['should_split']:
-        print(f"\n⚠️  WARNING: File should be split for optimal processing")
+        logger.warning("File should be split for optimal processing: %.1f MB", file_size_mb)
 
-    print(f"\n📊 Dataflow Configuration:")
-    for key, value in summary['dataflow'].items():
-        print(f"   {key}: {value}")
+    logger.info("Dataflow Configuration: %s", summary['dataflow'])
+    logger.info("Docker Configuration: memory=%s cpu=%s",
+                summary['docker']['memory_limit'], summary['docker']['cpu_limit'])
+    logger.info("Estimates: processing_minutes=%s cost_usd=%s",
+                summary['estimates']['processing_minutes'], summary['estimates']['cost_usd'])
 
-    print(f"\n🐳 Docker Configuration:")
-    print(f"   Memory: {summary['docker']['memory_limit']}")
-    print(f"   CPU: {summary['docker']['cpu_limit']}")
-
-    print(f"\n⏱️  Estimates:")
-    print(f"   Processing Time: ~{summary['estimates']['processing_minutes']} minutes")
-    print(f"   Estimated Cost: ~${summary['estimates']['cost_usd']}")
-
-    print(f"\n💡 Recommendations:")
     for rec in summary['recommendations']:
-        print(f"   • {rec}")
-
-    print(f"{'='*60}\n")
+        logger.info("Recommendation: %s", rec)
 

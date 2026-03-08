@@ -15,7 +15,7 @@
 */
 
 with source as (
-    select * from {{ source('odp_em', 'accounts') }}
+    select * from {{ source('odp_generic', 'accounts') }}
     {% if is_incremental() %}
     where _processed_at > (select max(_processed_at) from {{ this }})
     {% endif %}

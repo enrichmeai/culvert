@@ -16,9 +16,9 @@ LANDING_BUCKET_TEMPLATE = "gs://{project}-landing-{env}/generic"
 ARCHIVE_BUCKET_TEMPLATE = "gs://{project}-archive-{env}/generic"
 ERROR_BUCKET_TEMPLATE = "gs://{project}-error-{env}/generic"
 
-# BigQuery datasets
-ODP_DATASET = "odp_em"
-FDP_DATASET = "fdp_em"
+# BigQuery datasets — must match Terraform: infrastructure/terraform/systems/generic/
+ODP_DATASET = "odp_generic"
+FDP_DATASET = "fdp_generic"
 
 # ODP Tables
 ODP_CUSTOMERS_TABLE = "customers"

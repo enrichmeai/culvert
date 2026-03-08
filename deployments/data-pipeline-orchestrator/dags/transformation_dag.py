@@ -13,7 +13,7 @@ Flow:
 Tags: generic, fdp, dbt, transformation
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import os
 import logging
 
@@ -62,7 +62,7 @@ def verify_all_entities_loaded(**context) -> str:
     Uses EntityDependencyChecker from gcp_pipeline_core library.
     Returns branch task ID based on result.
     """
-    extract_date = context.get("ds_nodash", datetime.now().strftime("%Y%m%d"))
+    extract_date = context.get("ds_nodash", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
 
     checker = EntityDependencyChecker(
         project_id=PROJECT_ID,

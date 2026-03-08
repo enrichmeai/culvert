@@ -6,7 +6,7 @@ Record enrichment DoFns for Apache Beam pipelines.
 
 import logging
 from typing import Dict, Any, Iterator
-from datetime import datetime
+from datetime import datetime, timezone
 
 import apache_beam as beam
 
@@ -85,7 +85,7 @@ class EnrichWithMetadataDoFn(beam.DoFn):
             **element,
             '_run_id': self.run_id,
             'pipeline_name': self.pipeline_name,
-            '_processed_at': datetime.utcnow().isoformat(),
+            '_processed_at': datetime.now(tz=timezone.utc).isoformat(),
             **self.metadata
         }
         yield enriched

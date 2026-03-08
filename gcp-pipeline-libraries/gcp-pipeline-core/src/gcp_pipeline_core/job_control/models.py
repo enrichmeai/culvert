@@ -1,7 +1,7 @@
 """Job control data models."""
 
 from dataclasses import dataclass, field
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import Optional, List
 
 from .types import JobStatus, FailureStage
@@ -54,7 +54,7 @@ class PipelineJob:
     failure_stage: Optional[FailureStage] = None
 
     # Audit
-    created_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: Optional[datetime] = None
 
     # FinOps

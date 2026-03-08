@@ -7,7 +7,7 @@ Tracks pipeline executions and enables data lineage tracking.
 
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any
 from .records import AuditRecord, AuditEntry
 from .publisher import AuditPublisher
@@ -27,7 +27,7 @@ class AuditTrail:
         self.run_id = run_id
         self.pipeline_name = pipeline_name
         self.entity_type = entity_type
-        self.start_time = datetime.utcnow()
+        self.start_time = datetime.now(tz=timezone.utc)
         self.records_processed = 0
         self.records_valid = 0
         self.records_error = 0
@@ -38,7 +38,7 @@ class AuditTrail:
     def log_entry(self, status: str, message: str, context: Dict[str, Any] = None):
         """Log a specific audit entry"""
         entry = AuditEntry(
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(tz=timezone.utc),
             run_id=self.run_id,
             entity_type=self.entity_type,
             status=status,
@@ -81,7 +81,7 @@ class AuditTrail:
 
     def record_processing_end(self, success: bool = True):
         """Record end of processing"""
-        self.end_time = datetime.utcnow()
+        self.end_time = datetime.now(tz=timezone.utc)
         duration = (self.end_time - self.start_time).total_seconds()
 
         # Create audit record

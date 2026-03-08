@@ -261,7 +261,7 @@ class DynamicPipelineSelector:
             return routing
 
         # Validate structure if columns provided
-        file_type = FileType[routing["file_type"].upper()]
+        file_type = FileType.__members__.get(routing["file_type"].upper(), FileType.UNKNOWN)
         if csv_columns:
             is_valid, errors = self.router.validate_file_structure(
                 file_type,

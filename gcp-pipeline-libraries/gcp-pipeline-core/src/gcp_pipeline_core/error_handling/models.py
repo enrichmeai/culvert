@@ -4,7 +4,7 @@ Data models for error handling.
 
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from .types import ErrorSeverity, ErrorCategory, RetryStrategy
@@ -49,7 +49,7 @@ class PipelineError:
     next_retry_timestamp: Optional[datetime] = None
 
     # Status
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
     resolved: bool = False
     resolution_notes: Optional[str] = None
 

@@ -6,7 +6,7 @@ Extracts and manages file metadata.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from google.cloud import storage
@@ -148,5 +148,5 @@ class FileMetadataExtractor:
             row_count=self.get_csv_row_count(gcs_path),
             columns=self.get_csv_columns(gcs_path),
             checksum=self.get_file_checksum(gcs_path),
-            extracted_at=datetime.utcnow().isoformat()
+            extracted_at=datetime.now(tz=timezone.utc).isoformat()
         )

@@ -6,7 +6,7 @@ Google Cloud Storage read and write DoFns for Apache Beam pipelines.
 
 import logging
 from typing import Dict, List, Any, Iterator, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 import apache_beam as beam
 from apache_beam.io.gcp.gcsio import GcsIO
@@ -144,7 +144,7 @@ class WriteToGCSDoFn(beam.DoFn):
         """
         try:
             # Generate filename with timestamp
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')
             filename = f"{self.prefix}output_{timestamp}_{self.write_count}.{self.extension}"
             gcs_path = f"gs://{self.bucket}/{filename}"
 
@@ -446,7 +446,7 @@ class WriteSegmentedToGCSDoFn(beam.DoFn):
             import json
 
             # Generate filename
-            timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')
             filename = f"{self.prefix}segment_{timestamp}_{self.segment_count}.{self.extension}"
             gcs_path = f"gs://{self.bucket}/{filename}"
 

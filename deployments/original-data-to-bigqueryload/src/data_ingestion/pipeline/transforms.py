@@ -6,7 +6,7 @@ Uses library components - no duplication.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, List, Iterator
 
 import apache_beam as beam
@@ -106,7 +106,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
                 'error': f'Field count mismatch: expected {len(self.headers)}, got {len(values)}',
                 '_run_id': self.run_id,
                 '_source_file': self.source_file,
-                '_processed_at': datetime.utcnow().isoformat(),
+                '_processed_at': datetime.now(tz=timezone.utc).isoformat(),
             })
             return
 
@@ -122,7 +122,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
                 'errors': errors,
                 '_run_id': self.run_id,
                 '_source_file': self.source_file,
-                '_processed_at': datetime.utcnow().isoformat(),
+                '_processed_at': datetime.now(tz=timezone.utc).isoformat(),
             })
         else:
             self.valid_count.inc()
@@ -130,7 +130,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
                 **record,
                 '_run_id': self.run_id,
                 '_source_file': self.source_file,
-                '_processed_at': datetime.utcnow().isoformat(),
+                '_processed_at': datetime.now(tz=timezone.utc).isoformat(),
             })
 
 
@@ -146,6 +146,6 @@ class AddAuditColumnsDoFn(beam.DoFn):
             **record,
             '_run_id': self.run_id,
             '_source_file': self.source_file,
-            '_processed_at': datetime.utcnow().isoformat(),
+            '_processed_at': datetime.now(tz=timezone.utc).isoformat(),
         }
 
