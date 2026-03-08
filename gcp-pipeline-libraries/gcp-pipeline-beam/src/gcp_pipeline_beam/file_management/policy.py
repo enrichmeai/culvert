@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from typing import Dict, Optional, List, Any
 from enum import Enum
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import yaml
 import logging
@@ -305,7 +305,7 @@ class ArchivePolicyEngine:
         suffix = Path(filename).suffix
 
         # Set defaults using current UTC time
-        now = datetime.utcnow()
+        now = datetime.now(tz=timezone.utc)
         year = year if year is not None else now.year
         month = month if month is not None else now.month
         day = day if day is not None else now.day
@@ -405,7 +405,7 @@ class ArchivePolicyEngine:
         stem = path_obj.stem
         suffix = path_obj.suffix
         parent = path_obj.parent
-        timestamp = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        timestamp = datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')
         return str(parent / f"{stem}_{timestamp}{suffix}")
 
     def _apply_uuid_collision(self, path: str) -> str:

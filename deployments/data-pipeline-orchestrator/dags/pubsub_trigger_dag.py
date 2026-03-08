@@ -12,8 +12,9 @@ Flow:
 Tags: generic, trigger, pubsub
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any
+from urllib.parse import urlparse
 import json
 import logging
 import os
@@ -209,7 +210,8 @@ with DAG(
 
         client = storage.Client()
         source_bucket = client.bucket(file_metadata.get("bucket"))
-        error_bucket_name = ERROR_BUCKET.replace("gs://", "").split("/")[0]
+        parsed = urlparse(ERROR_BUCKET)
+        error_bucket_name = parsed.netloc
         dest_bucket = client.bucket(error_bucket_name)
 
         # Move both data file and .ok file
@@ -219,7 +221,7 @@ with DAG(
                 blob_path = file_path.replace(f"gs://{file_metadata.get('bucket')}/", "")
                 source_blob = source_bucket.blob(blob_path)
                 if source_blob.exists():
-                    dest_path = f"validation_errors/{datetime.now().strftime('%Y%m%d')}/{blob_path}"
+                    dest_path = f"validation_errors/{datetime.now(tz=timezone.utc).strftime('%Y%m%d')}/{blob_path}"
                     source_bucket.copy_blob(source_blob, dest_bucket, dest_path)
                     source_blob.delete()
                     logger.info(f"Moved {blob_path} to error bucket")
@@ -253,7 +255,7 @@ with DAG(
     trigger_odp = TriggerDagRunOperator(
         task_id="trigger_odp_load",
         trigger_dag_id="data_ingestion_dag",
-        conf={"file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') }}"},
+        conf={"file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}"},
         wait_for_completion=False,
     )
 

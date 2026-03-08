@@ -6,7 +6,7 @@ Main entry point for Generic Dataflow pipeline.
 
 import argparse
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
@@ -71,8 +71,9 @@ def run_pipeline(argv=None):
         # Read file content
         file_content = (
             p
-            | 'ReadFile' >> beam.io.ReadFromText(input_file)
-            | 'CombineLines' >> beam.CombineGlobally(lambda lines: '\n'.join(lines))
+            | 'MatchFiles' >> beam.io.fileio.MatchFiles(input_file)
+            | 'ReadMatches' >> beam.io.fileio.ReadMatches()
+            | 'ReadContent' >> beam.Map(lambda f: f.read_utf8())
         )
 
         # Validate file structure

@@ -317,7 +317,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         Returns:
             Unique job name string
         """
-        execution_date = context["execution_date"].strftime("%Y%m%d-%H%M%S")
+        execution_date = (context.get("logical_date") or context.get("execution_date")).strftime("%Y%m%d-%H%M%S")
         mode = self.processing_mode.value
         # Job names must match pattern [a-z]([-a-z0-9]*[a-z0-9])?
         job_name = f"{self.job_name_prefix}-{self.pipeline_name}-{mode}-{execution_date}".lower()

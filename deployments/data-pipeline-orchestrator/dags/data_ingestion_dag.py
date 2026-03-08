@@ -13,7 +13,8 @@ Flow:
 Tags: generic, odp, dataflow
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import json
 import os
 import logging
 
@@ -42,6 +43,26 @@ REGION = Variable.get("gcp_region", default_var="europe-west2")
 DATAFLOW_TEMPLATE_BUCKET = Variable.get("dataflow_templates_bucket", default_var=f"{PROJECT_ID}-generic-dev-temp")
 
 # ============================================================================
+# CALLBACKS
+# ============================================================================
+
+def mark_job_failed(context):
+    """
+    On-failure callback — marks job as FAILED in job control.
+
+    Called automatically by Airflow when any task in the DAG fails.
+    Ensures job_control table always reflects true pipeline state.
+    """
+    run_id = context["ti"].xcom_pull(key="run_id")
+    task_id = context["task_instance"].task_id
+
+    if run_id:
+        repo = JobControlRepository(project_id=PROJECT_ID)
+        repo.update_status(run_id, JobStatus.FAILED)
+        logger.error(f"Job {run_id} marked as FAILED — failed task: {task_id}")
+
+
+# ============================================================================
 # DAG DEFINITION
 # ============================================================================
 
@@ -53,16 +74,18 @@ default_args = {
     'retries': 3,
     'retry_delay': timedelta(minutes=5),
     'start_date': datetime(2026, 1, 1),
+    'on_failure_callback': mark_job_failed,
 }
 
 
 def create_job_record(**context):
     """Create job control record before processing."""
     conf = context.get("dag_run").conf or {}
-    file_metadata = conf.get("file_metadata", {})
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
 
     entity = file_metadata.get("entity", "unknown")
-    extract_date = file_metadata.get("extract_date", datetime.now().strftime("%Y%m%d"))
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
     data_file = file_metadata.get("data_file", "")
     run_id = context.get("run_id", f"generic_{entity}_{extract_date}")
 
@@ -71,9 +94,9 @@ def create_job_record(**context):
         run_id=run_id,
         system_id=SYSTEM_ID,
         entity_type=entity,
-        extract_date=datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now().date(),
+        extract_date=datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now(tz=timezone.utc).date(),
         source_files=[data_file],
-        started_at=datetime.utcnow(),
+        started_at=datetime.now(tz=timezone.utc),
     )
     repo.create_job(job)
     repo.update_status(run_id, JobStatus.RUNNING)
@@ -92,8 +115,9 @@ def check_all_entities_loaded(**context) -> str:
     - 'wait_for_entities' if still waiting
     """
     conf = context.get("dag_run").conf or {}
-    file_metadata = conf.get("file_metadata", {})
-    extract_date = file_metadata.get("extract_date", datetime.now().strftime("%Y%m%d"))
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
 
     checker = EntityDependencyChecker(
         project_id=PROJECT_ID,
@@ -151,7 +175,7 @@ with DAG(
         source_type='gcs',
         processing_mode='batch',
         input_path='{{ dag_run.conf.file_metadata.data_file }}',
-        output_table=f'{PROJECT_ID}:odp_em.{{{{ dag_run.conf.file_metadata.entity }}}}',
+        output_table=f'{PROJECT_ID}:odp_generic.{{{{ dag_run.conf.file_metadata.entity }}}}',
         template_path=f'gs://{DATAFLOW_TEMPLATE_BUCKET}/templates/generic_pipeline.json',
         use_template=True, # Set to False to run generic_pipeline.py directly from GCS
         additional_params={

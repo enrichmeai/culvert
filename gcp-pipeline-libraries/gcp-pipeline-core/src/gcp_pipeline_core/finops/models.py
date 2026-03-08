@@ -1,7 +1,7 @@
 """FinOps utilities for GCP data pipelines."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Optional
 
 
@@ -31,7 +31,7 @@ class CostMetrics:
     slot_millis: int = 0
     compute_units: float = 0.0
     labels: Dict[str, str] = field(default_factory=dict)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
 
     @property
     def cost_per_record(self) -> float:

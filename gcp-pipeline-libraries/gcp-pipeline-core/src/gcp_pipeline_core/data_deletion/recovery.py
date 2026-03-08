@@ -4,7 +4,7 @@ Recovery management for point-in-time restoration and rollback.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 
 logger = logging.getLogger(__name__)
@@ -57,7 +57,7 @@ class RecoveryManager:
 
         recovery_point = RecoveryPoint(
             checkpoint_name=checkpoint_name,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
             state=state,
             malformed_records=records_data
         )

@@ -17,7 +17,7 @@ Usage:
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional, Dict, Any, Iterator
 from dataclasses import dataclass
@@ -152,18 +152,18 @@ class ParseDebeziumCDCDoFn(beam.DoFn):
             # Parse event timestamp
             event_ts_ms = event.get("ts_ms", 0)
             if event_ts_ms:
-                record["_cdc_event_time"] = datetime.utcfromtimestamp(
-                    event_ts_ms / 1000
-                ).isoformat() + "Z"
+                record["_cdc_event_time"] = datetime.fromtimestamp(
+                    event_ts_ms / 1000, tz=timezone.utc
+                ).isoformat()
             else:
-                record["_cdc_event_time"] = datetime.utcnow().isoformat() + "Z"
+                record["_cdc_event_time"] = datetime.now(tz=timezone.utc).isoformat()
 
             # Add source timestamp if available
             source_ts_ms = source.get("ts_ms", 0)
             if source_ts_ms:
-                record["_cdc_source_time"] = datetime.utcfromtimestamp(
-                    source_ts_ms / 1000
-                ).isoformat() + "Z"
+                record["_cdc_source_time"] = datetime.fromtimestamp(
+                    source_ts_ms / 1000, tz=timezone.utc
+                ).isoformat()
 
             self.parse_success_counter.inc()
             yield record
@@ -211,7 +211,7 @@ class ParseSimpleCDCDoFn(beam.DoFn):
             record["_cdc_source_table"] = event.get("table")
             record["_cdc_event_time"] = event.get(
                 "timestamp",
-                datetime.utcnow().isoformat() + "Z"
+                datetime.now(tz=timezone.utc).isoformat() + "Z"
             )
 
             self.parse_success.inc()

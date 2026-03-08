@@ -27,7 +27,7 @@ Usage:
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from enum import Enum
 
@@ -53,7 +53,7 @@ class ReconciliationResult:
     status: ReconciliationStatus
     difference: int
     match_percentage: float
-    timestamp: str = field(default_factory=lambda: datetime.utcnow().isoformat())
+    timestamp: str = field(default_factory=lambda: datetime.now(tz=timezone.utc).isoformat())
     message: str = ""
 
     @property

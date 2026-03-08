@@ -22,7 +22,7 @@ import logging
 import csv
 from typing import Dict, List, Any, Tuple, Optional
 from dataclasses import dataclass, asdict, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from google.cloud import bigquery
 
@@ -345,7 +345,7 @@ class DualRunComparison:
         # Build report
         report = ComparisonReport(
             job_name=self.job_name,
-            comparison_date=datetime.utcnow().isoformat(),
+            comparison_date=datetime.now(tz=timezone.utc).isoformat(),
             total_checks=len(self.results),
             passed_checks=passed,
             warning_checks=warned,

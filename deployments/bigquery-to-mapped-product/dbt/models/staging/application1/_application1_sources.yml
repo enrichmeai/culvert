@@ -3,7 +3,7 @@ version: 2
 sources:
   - name: odp_generic
     description: "Generic Original Data Product tables"
-    database: "{{ var('gcp_project') }}"
+    database: "{{ var('gcp_project_id') }}"
     schema: odp_generic
     tables:
       - name: customers

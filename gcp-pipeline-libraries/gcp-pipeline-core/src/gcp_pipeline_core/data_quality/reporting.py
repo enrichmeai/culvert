@@ -2,12 +2,15 @@
 Data quality reporting and report generation.
 """
 
+import logging
 from dataclasses import dataclass, asdict
 from typing import List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .types import QualityCheckResult
 from .scoring import ScoreCalculator
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,7 +42,7 @@ class ReportGenerator:
 
         report = QualityReport(
             entity_type=entity_type,
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(tz=timezone.utc).isoformat(),
             overall_score=overall_score,
             overall_grade=overall_grade,
             passed=all(check.passed for check in check_results),
@@ -62,22 +65,17 @@ class ReportGenerator:
 
     @staticmethod
     def print_report(report: QualityReport):
-        """Print human-readable quality report"""
-        print(f"\n{'='*70}")
-        print(f"DATA QUALITY REPORT - {report.entity_type.upper()}")
-        print(f"{'='*70}")
-        print(f"Overall Score: {report.overall_score*100:.2f}%")
-        print(f"Overall Grade: {report.overall_grade}")
-        print(f"Status: {'✓ PASSED' if report.passed else '✗ FAILED'}")
-        print(f"Timestamp: {report.timestamp}")
-        print(f"\n{'Dimension':<20} {'Check':<30} {'Score':<10} {'Status':<10}")
-        print(f"{'-'*70}")
+        """Log human-readable quality report"""
+        logger.info("DATA QUALITY REPORT - %s | score=%.2f%% grade=%s status=%s timestamp=%s",
+                    report.entity_type.upper(),
+                    report.overall_score * 100,
+                    report.overall_grade,
+                    "PASSED" if report.passed else "FAILED",
+                    report.timestamp)
 
         for check in report.checks:
-            status = '✓ PASS' if check['passed'] else '✗ FAIL'
-            print(f"{check['dimension']:<20} {check['check_name']:<30} {check['score']*100:>6.2f}%   {status}")
-            if check['failed_records'] > 0:
-                print(f"  → {check['failed_records']:,} records failed this check")
-
-        print(f"{'='*70}\n")
+            level = logging.INFO if check['passed'] else logging.WARNING
+            logger.log(level, "check=%s dimension=%s score=%.2f%% failed_records=%s",
+                       check['check_name'], check['dimension'],
+                       check['score'] * 100, check['failed_records'])
 

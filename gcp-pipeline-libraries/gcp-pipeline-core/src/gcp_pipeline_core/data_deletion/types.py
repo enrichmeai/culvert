@@ -3,7 +3,7 @@ Data deletion types, enums, and data structures.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Any, Optional
 from enum import Enum
 import hashlib
@@ -61,7 +61,7 @@ class MalformedRecord:
         self.original_data = original_data
         self.reasons = reasons
         self.severity = severity
-        self.first_detected = first_detected or datetime.utcnow()
+        self.first_detected = first_detected or datetime.now(tz=timezone.utc)
         self.quarantine_level = QuarantineLevel.REVIEW_ONLY
         self.checksum = self._calculate_checksum()
 

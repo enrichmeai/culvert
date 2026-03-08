@@ -35,11 +35,11 @@ class TestOrchestrationSensors:
     @patch('airflow.providers.google.cloud.hooks.bigquery.BigQueryHook.__init__', return_value=None)
     @patch('airflow.providers.google.cloud.hooks.bigquery.BigQueryHook.get_first')
     def test_dataflow_streaming_sensor(self, mock_get_first, mock_hook_init):
-        from datetime import datetime
-        
+        from datetime import datetime, timezone
+
         # Recent heartbeat (staleness = 5 mins)
         mock_get_first.side_effect = [
-            (datetime.utcnow(),), # first call in poke
+            (datetime.now(tz=timezone.utc),), # first call in poke
             (5,) # second call (staleness)
         ]
         
@@ -55,7 +55,7 @@ class TestOrchestrationSensors:
         
         # Old heartbeat (staleness = 20 mins)
         mock_get_first.side_effect = [
-            (datetime.utcnow(),),
+            (datetime.now(tz=timezone.utc),),
             (20,)
         ]
         
