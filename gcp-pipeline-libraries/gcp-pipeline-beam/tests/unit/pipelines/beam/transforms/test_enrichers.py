@@ -88,19 +88,17 @@ class TestEnrichWithMetadataDoFn:
     def test_processed_at_uses_datetime(self, enricher):
         """
         When the clock is controlled via patch, _processed_at must reflect it.
-        This verifies the field is populated from datetime.utcnow(), not some other source.
+        This verifies the field is populated from datetime.now(), not some other source.
         """
-        fixed_iso = "2026-03-07T12:00:00"
-        fixed_dt = datetime(2026, 3, 7, 12, 0, 0)
+        fixed_iso = "2026-03-08T12:00:00+00:00"
 
         with patch(
             "gcp_pipeline_beam.pipelines.beam.transforms.enrichers.datetime"
         ) as mock_dt:
-            mock_dt.utcnow.return_value = fixed_dt
-            type(fixed_dt)  # ensure it's a real datetime for isoformat
-            mock_dt.utcnow.return_value = type(
-                "FakeDT", (), {"isoformat": lambda self: fixed_iso}
-            )()
+            # Mock datetime.now() to return a fake datetime with isoformat
+            mock_now = type("FakeDT", (), {"isoformat": lambda self: fixed_iso})()
+            mock_dt.now.return_value = mock_now
+
             (result,) = enricher.process({"id": "1"})
 
-        assert "2026-03-07" in result["_processed_at"]
+        assert result["_processed_at"] == fixed_iso
