@@ -25,6 +25,22 @@ from gcp_pipeline_beam.pipelines.beam.io.bigquery_retry import (
 )
 
 
+# Helper functions for testing tagged outputs without isinstance issues
+def is_tagged_output(obj) -> bool:
+    """Check if object is a TaggedOutput without isinstance issues."""
+    return hasattr(obj, 'tag') and hasattr(obj, 'value')
+
+
+def get_main_outputs(results: list) -> list:
+    """Extract main (non-tagged) outputs from results."""
+    return [r for r in results if not is_tagged_output(r)]
+
+
+def get_tagged_outputs(results: list, tag: str) -> list:
+    """Extract tagged outputs with specific tag from results."""
+    return [r for r in results if is_tagged_output(r) and r.tag == tag]
+
+
 class TestBigQueryRetryConfig:
     """Tests for BigQueryRetryConfig dataclass."""
 
@@ -239,12 +255,23 @@ class TestResilientWriteToBigQueryDoFn:
 
     @pytest.fixture
     def writer(self):
-        """Create a writer instance."""
+        """Create a fresh writer instance for each test."""
         return ResilientWriteToBigQueryDoFn(
             project='test-project',
             dataset='test_dataset',
             table='test_table',
             config=BigQueryRetryConfig(max_retries=3),
+            run_id='test-run-123'
+        )
+
+    @pytest.fixture
+    def writer_with_low_retries(self):
+        """Create a writer with max_retries=2 for dead letter tests."""
+        return ResilientWriteToBigQueryDoFn(
+            project='test-project',
+            dataset='test_dataset',
+            table='test_table',
+            config=BigQueryRetryConfig(max_retries=2),
             run_id='test-run-123'
         )
 
@@ -283,25 +310,22 @@ class TestResilientWriteToBigQueryDoFn:
         mock_sleep.assert_called_once()
 
     @patch('gcp_pipeline_beam.pipelines.beam.io.bigquery_retry.time.sleep')
-    def test_dead_letter_after_max_retries(self, mock_sleep, writer):
+    def test_dead_letter_after_max_retries(self, mock_sleep, writer_with_low_retries):
         """Test routing to dead letter after exhausting retries."""
         mock_client = MagicMock()
         # Always fail with retryable error
         mock_client.insert_rows_json.return_value = [
             {'errors': [{'message': 'Quota exceeded'}]}
         ]
-        writer.client = mock_client
-        writer.table_ref = 'test-project.test_dataset.test_table'
-        writer.config = BigQueryRetryConfig(max_retries=2)
+        writer_with_low_retries.client = mock_client
+        writer_with_low_retries.table_ref = 'test-project.test_dataset.test_table'
 
         record = {'id': '1', 'name': 'Test'}
-        results = list(writer.process(record))
+        results = list(writer_with_low_retries.process(record))
 
         # Should route to dead_letter
-        import apache_beam as beam
-        tagged_outputs = [r for r in results if isinstance(r, beam.pvalue.TaggedOutput)]
+        tagged_outputs = get_tagged_outputs(results, 'dead_letter')
         assert len(tagged_outputs) == 1
-        assert tagged_outputs[0].tag == 'dead_letter'
         assert tagged_outputs[0].value['retry_count'] == 2
 
     @patch('gcp_pipeline_beam.pipelines.beam.io.bigquery_retry.time.sleep')
@@ -318,10 +342,8 @@ class TestResilientWriteToBigQueryDoFn:
         record = {'id': '1', 'date': 'not-a-date'}
         results = list(writer.process(record))
 
-        import apache_beam as beam
-        tagged_outputs = [r for r in results if isinstance(r, beam.pvalue.TaggedOutput)]
+        tagged_outputs = get_tagged_outputs(results, 'errors')
         assert len(tagged_outputs) == 1
-        assert tagged_outputs[0].tag == 'errors'
         mock_sleep.assert_not_called()  # No retry for non-retryable errors
 
 

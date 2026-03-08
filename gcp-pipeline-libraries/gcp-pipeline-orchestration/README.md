@@ -268,7 +268,7 @@ from gcp_pipeline_orchestration.callbacks import on_failure_callback
 ## Tests
 
 ```bash
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v
-# 52 passed
+python3.11 -m pytest tests/ -v
+# 49 passed, 2 skipped (airflow-dependent tests skip cleanly when airflow not installed; all pass in CI)
 ```
 

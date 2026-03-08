@@ -1,4 +1,9 @@
 import pytest
+
+# Skip entire module if airflow is not installed
+pytest.importorskip("airflow", reason="apache-airflow required for sensor tests")
+
+import pytest
 from unittest.mock import MagicMock, patch
 from gcp_pipeline_orchestration.sensors.pubsub import PubSubCompletionSensor
 from gcp_pipeline_orchestration.sensors.dataflow import DataflowStreamingSensor

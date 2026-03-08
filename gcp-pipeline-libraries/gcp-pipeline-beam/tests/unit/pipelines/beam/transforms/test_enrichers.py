@@ -1,56 +1,106 @@
-"""Unit tests for enrichment transforms."""
+"""
+Unit tests for EnrichWithMetadataDoFn.
+
+Good-practice patterns demonstrated here:
+- Real apache_beam import — no sys.modules patching (that causes test-order pollution)
+- Use unittest.mock.patch only at method scope when a specific dependency must be controlled
+- Fixtures for DoFn construction — keeps tests DRY
+- Tests assert observable behaviour, not implementation details
+"""
+
+from datetime import datetime
+from unittest.mock import patch
 
 import pytest
-import sys
-from unittest.mock import MagicMock
-
-# Mock apache_beam before importing anything that uses it
-mock_beam = MagicMock()
-mock_beam.DoFn = object # Use a real class to avoid mock issues with inheritance
-sys.modules["apache_beam"] = mock_beam
-sys.modules["apache_beam.options"] = MagicMock()
-sys.modules["apache_beam.options.pipeline_options"] = MagicMock()
-sys.modules["apache_beam.transforms"] = MagicMock()
-sys.modules["apache_beam.metrics"] = MagicMock()
-sys.modules["apache_beam.io"] = MagicMock()
-sys.modules["apache_beam.io.gcp"] = MagicMock()
-sys.modules["apache_beam.io.gcp.gcsio"] = MagicMock()
-sys.modules["apache_beam.io.gcp.bigquery"] = MagicMock()
 
 from gcp_pipeline_beam.pipelines.beam.transforms.enrichers import EnrichWithMetadataDoFn
 
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def enricher() -> EnrichWithMetadataDoFn:
+    """Standard enricher with run_id and pipeline_name only."""
+    return EnrichWithMetadataDoFn(run_id="run-123", pipeline_name="test-pipeline")
+
+
+# ---------------------------------------------------------------------------
+# Core behaviour
+# ---------------------------------------------------------------------------
+
+
 class TestEnrichWithMetadataDoFn:
-    """Tests for EnrichWithMetadataDoFn."""
+    """Verify metadata injection behaviour of EnrichWithMetadataDoFn."""
 
-    def test_enrichment_adds_metadata(self):
-        """Test that enricher adds expected metadata to record."""
-        run_id = "run-123"
-        pipeline_name = "test-pipeline"
+    def test_adds_run_id_to_record(self, enricher):
+        """Given a plain record, _run_id should be injected."""
+        (result,) = enricher.process({"id": "1"})
+        assert result["_run_id"] == "run-123"
+
+    def test_adds_pipeline_name_to_record(self, enricher):
+        """Given a plain record, pipeline_name should be injected."""
+        (result,) = enricher.process({"id": "1"})
+        assert result["pipeline_name"] == "test-pipeline"
+
+    def test_adds_processed_at_timestamp(self, enricher):
+        """Given a plain record, _processed_at should be a non-empty ISO string."""
+        (result,) = enricher.process({"id": "1"})
+        assert "_processed_at" in result
+        assert isinstance(result["_processed_at"], str)
+        assert len(result["_processed_at"]) > 0
+
+    def test_preserves_all_original_fields(self, enricher):
+        """Given a record with multiple fields, none should be lost."""
+        record = {"id": "1", "name": "Alice", "value": 42}
+        (result,) = enricher.process(record)
+        assert result["id"] == "1"
+        assert result["name"] == "Alice"
+        assert result["value"] == 42
+
+    def test_extra_metadata_kwargs_are_injected(self):
+        """Given extra keyword arguments, they should appear as top-level fields."""
         enricher = EnrichWithMetadataDoFn(
-            run_id=run_id,
-            pipeline_name=pipeline_name,
+            run_id="r1",
+            pipeline_name="pipe",
             environment="test",
-            version="1.0"
+            version="1.0",
         )
-        
-        record = {"id": "1", "data": "original"}
-        results = list(enricher.process(record))
-        
-        assert len(results) == 1
-        enriched = results[0]
-        
-        assert enriched["id"] == "1"
-        assert enriched["data"] == "original"
-        assert enriched["_run_id"] == run_id
-        assert enriched["pipeline_name"] == pipeline_name
-        assert enriched["environment"] == "test"
-        assert enriched["version"] == "1.0"
-        assert "_processed_at" in enriched
+        (result,) = enricher.process({"id": "1"})
+        assert result["environment"] == "test"
+        assert result["version"] == "1.0"
 
-    def test_enrichment_preserves_original_data(self):
-        """Test that original data is not lost or corrupted."""
-        enricher = EnrichWithMetadataDoFn("run-1", "test")
-        record = {"complex": {"nested": [1, 2, 3]}}
-        
-        results = list(enricher.process(record))
-        assert results[0]["complex"] == record["complex"]
+    def test_original_record_is_not_mutated(self, enricher):
+        """process() must not modify the original record dict in place."""
+        record = {"id": "1"}
+        original = dict(record)
+        list(enricher.process(record))
+        assert record == original
+
+    def test_nested_values_are_preserved(self, enricher):
+        """Nested structures in the record should pass through unchanged."""
+        record = {"id": "1", "complex": {"nested": [1, 2, 3]}}
+        (result,) = enricher.process(record)
+        assert result["complex"] == {"nested": [1, 2, 3]}
+
+    def test_processed_at_uses_datetime(self, enricher):
+        """
+        When the clock is controlled via patch, _processed_at must reflect it.
+        This verifies the field is populated from datetime.utcnow(), not some other source.
+        """
+        fixed_iso = "2026-03-07T12:00:00"
+        fixed_dt = datetime(2026, 3, 7, 12, 0, 0)
+
+        with patch(
+            "gcp_pipeline_beam.pipelines.beam.transforms.enrichers.datetime"
+        ) as mock_dt:
+            mock_dt.utcnow.return_value = fixed_dt
+            type(fixed_dt)  # ensure it's a real datetime for isoformat
+            mock_dt.utcnow.return_value = type(
+                "FakeDT", (), {"isoformat": lambda self: fixed_iso}
+            )()
+            (result,) = enricher.process({"id": "1"})
+
+        assert "2026-03-07" in result["_processed_at"]

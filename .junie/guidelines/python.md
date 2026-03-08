@@ -43,3 +43,41 @@ Mandatory type hints for all function signatures and complex class attributes. T
 ## Project Structure Awareness
 -   `gcp-pipeline-libraries/`: Shared code. Changes here affect all deployments.
 -   `deployments/`: System-specific logic. Dependencies on libraries are declared in `pyproject.toml`.
+
+## Python Version
+-   **Target: Python 3.11**. The CI pipeline and local dev both use `python3.11`.
+-   Do **not** use `datetime.utcnow()` — deprecated in 3.12. Use `datetime.now(tz=timezone.utc)`.
+-   Do **not** use `datetime.utcfromtimestamp(ts)`. Use `datetime.fromtimestamp(ts, tz=timezone.utc)`.
+
+## Logging Rules
+-   All operational output goes through `logging`. **Never use `print()`** in library code.
+-   Logger per module: `logger = logging.getLogger(__name__)`
+-   Pass structured data as the second arg, not as `**kwargs`: `logger.warning("msg: %s", data_dict)`
+    -   `logger.warning("Reconciliation failed", **data)` → **TypeError at runtime**
+    -   `logger.warning("Reconciliation failed: %s", data)` → correct
+
+## Library Boundary Rules
+-   `gcp-pipeline-core`: MUST NOT import `apache_beam` or `apache_airflow`
+-   `gcp-pipeline-beam`: MUST NOT import `apache_airflow`
+-   `gcp-pipeline-orchestration`: MUST NOT import `apache_beam`
+-   DoFns MUST route errors to tagged outputs — never raise inside `process()`
+
+## Error Handling Patterns
+
+```python
+# Right: route to tagged output
+def process(self, element):
+    try:
+        yield self._parse(element)
+    except Exception as exc:
+        logger.error("Parse failed: %s", exc)
+        yield beam.pvalue.TaggedOutput("errors", {"raw": element, "error": str(exc)})
+
+# Wrong: raises inside process — kills the bundle
+def process(self, element):
+    result = self._parse(element)  # raises on bad input
+    yield result
+```
+
+## See Also
+-   [testing.md](.junie/guidelines/testing.md) — Test standards, fixture design, mock scope rules

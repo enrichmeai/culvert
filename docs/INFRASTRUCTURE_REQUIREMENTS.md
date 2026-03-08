@@ -345,4 +345,5 @@ Tests:
 2. **DAG Development:** See [DAG_DEVELOPMENT_GUIDE.md](DAG_DEVELOPMENT_GUIDE.md)
 3. **Testing:** See [E2E_TESTING_GUIDE.md](E2E_TESTING_GUIDE.md)
 4. **Production Release:** See [PRODUCTION_RELEASE_GUIDE.md](PRODUCTION_RELEASE_GUIDE.md)
+5. **File Processing & Resource Sizing:** See [BEAM_FILE_PROCESSING_GUIDE.md](BEAM_FILE_PROCESSING_GUIDE.md)
 

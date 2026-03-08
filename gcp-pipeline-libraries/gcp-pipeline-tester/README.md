@@ -173,7 +173,7 @@ class TestBeamTransforms(BaseBeamTest):
         
         result = (pipeline
             | beam.Create(['"id","name"\n"1","John"'])
-            | beam.ParDo(ParseCsvLine(['id', 'name']))
+            | beam.ParDo(RobustCsvParseDoFn(['id', 'name']))
         )
         
         self.assert_pcollection_contains(result, {'id': '1', 'name': 'John'})

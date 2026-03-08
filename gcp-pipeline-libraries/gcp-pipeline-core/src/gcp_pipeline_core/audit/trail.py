@@ -6,10 +6,13 @@ Tracks pipeline executions and enables data lineage tracking.
 """
 
 import hashlib
+import logging
 from datetime import datetime
 from typing import List, Dict, Any
 from .records import AuditRecord, AuditEntry
 from .publisher import AuditPublisher
+
+logger = logging.getLogger(__name__)
 
 
 class AuditTrail:
@@ -43,7 +46,7 @@ class AuditTrail:
             context=context or {}
         )
         self.entries.append(entry)
-        print(f"[AUDIT] {status}: {message}")
+        logger.info("[AUDIT] %s: %s", status, message)
 
     def get_entries_by_status(self, status: str) -> List[AuditEntry]:
         """Get entries with a specific status"""
@@ -72,9 +75,9 @@ class AuditTrail:
             self.metadata.update(metadata)
 
         # Log start
-        print(f"[AUDIT] Starting {self.pipeline_name} for {self.entity_type}")
-        print(f"[AUDIT] Run ID: {self.run_id}")
-        print(f"[AUDIT] Source: {source_file}")
+        logger.info("[AUDIT] Starting %s for %s", self.pipeline_name, self.entity_type)
+        logger.info("[AUDIT] Run ID: %s", self.run_id)
+        logger.info("[AUDIT] Source: %s", source_file)
 
     def record_processing_end(self, success: bool = True):
         """Record end of processing"""
@@ -97,18 +100,19 @@ class AuditTrail:
         )
 
         # Log completion
-        print(f"[AUDIT] Completed {self.pipeline_name}")
-        print(f"[AUDIT] Records processed: {self.records_processed}")
-        print(f"[AUDIT] Valid: {self.records_valid}, Errors: {self.records_error}")
-        print(f"[AUDIT] Duration: {duration:.2f}s")
+        logger.info("[AUDIT] Completed %s", self.pipeline_name)
+        logger.info(
+            "[AUDIT] Records processed: %d (valid=%d, errors=%d, duration=%.2fs)",
+            self.records_processed, self.records_valid, self.records_error, duration,
+        )
 
         # Publish record if publisher is configured
         if self.publisher:
             try:
                 msg_id = self.publisher.publish(audit_record)
-                print(f"[AUDIT] Published audit record: {msg_id}")
+                logger.info("[AUDIT] Published audit record: %s", msg_id)
             except Exception as e:
-                print(f"[AUDIT] Failed to publish audit record: {e}")
+                logger.error("[AUDIT] Failed to publish audit record: %s", e)
 
         return audit_record
 

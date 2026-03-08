@@ -66,7 +66,7 @@ Pipeline Start
       ▼
 ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
 │ generate_   │───►│ AuditTrail  │───►│ Structured  │
-│ run_id()    │    │ .start()    │    │ Logging     │
+│ run_id()    │    │ .record_processing_start()    │    │ Logging     │
 └─────────────┘    └─────────────┘    └─────────────┘
       │                  │                  │
       ▼                  ▼                  ▼
@@ -145,7 +145,7 @@ from gcp_pipeline_core.finops import BigQueryCostTracker, FinOpsLabels, track_bq
 ## Tests
 
 ```bash
-PYTHONPATH=src python -m pytest tests/unit/ -v
-# 208 passed
+python3.11 -m pytest tests/ -v
+# 256 passed
 ```
 

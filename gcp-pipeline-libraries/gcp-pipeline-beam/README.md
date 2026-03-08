@@ -33,9 +33,9 @@ Ingestion library - Beam pipelines, transforms, file management.
   │                              ▼                                   │
   │  ┌─────────────────────────────────────────────────────────┐    │
   │  │                   Beam Transforms                        │    │
-  │  │  • ParseCsvLine (parse CSV to dict)                     │    │
-  │  │  • ValidateRecordDoFn (schema validation)               │    │
-  │  │  • AddAuditColumnsDoFn (add _run_id, etc.)              │    │
+  │  │  • RobustCsvParseDoFn (parse CSV to dict)               │    │
+  │  │  • SchemaValidateRecordDoFn (schema validation)               │    │
+  │  │  • EnrichWithMetadataDoFn (add _run_id, etc.)              │    │
   │  └─────────────────────────────────────────────────────────┘    │
   │                              │                                   │
   │                              ▼                                   │
@@ -66,7 +66,7 @@ Ingestion library - Beam pipelines, transforms, file management.
                      │     • Validate TRL  │
                      │     • Check count   │
                      │                     │
-                     │  2. ParseCsvLine    │
+                     │  2. CSV Parser      │
                      │     • CSV to dict   │
                      │                     │
                      │  3. SchemaValidator │
@@ -74,7 +74,7 @@ Ingestion library - Beam pipelines, transforms, file management.
                      │     • Types         │
                      │     • Allowed vals  │────► Invalid ──► Error bucket
                      │                     │
-                     │  4. AddAuditColumns │
+                     │  4. EnrichMetadata  │
                      │     • _run_id       │
                      │     • _source_file  │
                      │     • _processed_at │
@@ -168,7 +168,7 @@ The system supports processing files that have been split into multiple parts. T
 | `file_management/` | HDR/TRL parsing, archival | `HDRTRLParser`, `FileArchiver` |
 | `validators/` | Schema-driven validation | `SchemaValidator`, `ValidationError` |
 | `pipelines/base/` | Base classes | `BasePipeline`, `PipelineConfig` |
-| `pipelines/beam/transforms/` | Beam DoFns | `ParseCsvLine`, `ValidateRecordDoFn` |
+| `pipelines/beam/transforms/` | Beam DoFns | `RobustCsvParseDoFn`, `SchemaValidateRecordDoFn` |
 
 ---
 
@@ -181,7 +181,7 @@ The system supports processing files that have been split into multiple parts. T
 
 ### 2. Fluent Pipeline API
 - **BeamPipelineBuilder**: Provides a clean, chainable interface for building pipelines:
-    - `read_csv()` / `read_avro()`
+    - `read_csv()` / `read_from_bigquery()`
     - `validate()` (Schema-driven)
     - `transform()` (Custom business logic)
     - `write_to_bigquery()` / `write_to_gcs()`
@@ -209,15 +209,73 @@ The system supports processing files that have been split into multiple parts. T
 from gcp_pipeline_beam.file_management import HDRTRLParser, FileArchiver
 from gcp_pipeline_beam.validators import SchemaValidator
 from gcp_pipeline_beam.pipelines.base import BasePipeline, PipelineConfig
-from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine, ValidateRecordDoFn
+from gcp_pipeline_beam.pipelines.beam.transforms import RobustCsvParseDoFn, SchemaValidateRecordDoFn
 ```
+
+---
+
+## Resource Configuration
+
+The library includes automatic resource configuration based on file sizes. This helps optimize Dataflow worker types and Docker resource limits.
+
+### Quick Usage
+
+```python
+from gcp_pipeline_beam.pipelines.beam import (
+    ResourceConfigurator,
+    get_optimal_pipeline_options,
+    get_docker_config,
+    print_resource_recommendations,
+)
+
+# Get recommendations for a 500 MB file
+print_resource_recommendations(500)
+
+# Get optimized pipeline options for Dataflow
+options = get_optimal_pipeline_options(
+    file_size_mb=500,
+    project_id="my-project",
+    region="europe-west2"
+)
+
+# Get Docker configuration
+docker_config = get_docker_config(500)
+print(f"Memory limit: {docker_config.memory_limit}")
+print(f"CPU limit: {docker_config.cpu_limit}")
+```
+
+### File Size Guidelines
+
+| File Size | Category | Dataflow Worker | Docker Memory |
+|-----------|----------|-----------------|---------------|
+| < 100 MB | Small | n1-standard-2 | 4G |
+| 100 MB - 1 GB | Medium | n1-standard-4 | 8G |
+| 1 GB - 10 GB | Large | n1-highmem-8 | 16G |
+| 10 GB - 100 GB | XLarge | n1-highmem-16 | 32G |
+| > 100 GB | **Split Required** | Split files first | N/A |
+
+### Auto-Configure from GCS File
+
+```python
+config = ResourceConfigurator(project_id="my-project")
+
+# Auto-detect file size and get optimal options
+options = config.get_pipeline_options_for_file("gs://bucket/large-file.csv")
+
+# Get full recommendation summary
+summary = config.get_recommendation_summary(5000)  # 5 GB
+print(f"Should split: {summary['should_split']}")
+print(f"Estimated cost: ${summary['estimates']['cost_usd']}")
+```
+
+For complete documentation, see [BEAM_FILE_PROCESSING_GUIDE.md](../../docs/BEAM_FILE_PROCESSING_GUIDE.md).
 
 ---
 
 ## Tests
 
 ```bash
-PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -v
-# 358 passed
+python3.11 -m pytest tests/ -v
+# 478 passed
 ```
 

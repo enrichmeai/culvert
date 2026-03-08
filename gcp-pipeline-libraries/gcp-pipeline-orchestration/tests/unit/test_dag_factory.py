@@ -1,5 +1,8 @@
 import pytest
 from datetime import datetime
+
+# Skip entire module if airflow is not installed
+pytest.importorskip("airflow", reason="apache-airflow required for DAG factory tests")
 from gcp_pipeline_orchestration import DAGFactory, ValidationError
 
 class TestDAGFactory:

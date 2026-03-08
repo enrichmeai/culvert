@@ -1,6 +1,6 @@
 # Libraries
 
-4-library architecture for mainframe-to-GCP data migration.
+5-library architecture for mainframe-to-GCP data migration.
 
 ---
 
@@ -63,14 +63,14 @@ This library is designed as a **Best-in-Class Foundation** for Mainframe-to-GCP 
 *   **Idempotency by Design**: Built-in `AuditTrail` and `DuplicateDetector` ensure that pipeline restarts do not result in duplicate data, a critical requirement for financial migrations.
 *   **Local Development Stubbing**: Innovative "Airflow-free" and "Beam-free" testing stubs allow for DAG and transform validation without a live GCP environment.
 *   **Schema-Driven Governance**: Centralized `EntitySchema` definitions drive automated validation, PII masking, and BigQuery schema generation.
+*   **In-flight PII Masking (`MaskPIIDoFn`)**: Automatically masks SSN, EMAIL, FULL, PARTIAL, and REDACTED field types during Beam processing before records reach BigQuery. Driven by `EntitySchema.is_pii` and `pii_type` field flags.
 *   **Metadata-Driven Enrichment**: Reusable dbt macros that interpret enrichment rules from metadata, keeping transformation logic project-agnostic.
 
 ### 🔴 Absolute Must (Production Readiness)
 
 These items are critical for achieving a production-ready state and ensuring data security and operational integrity:
 
-*   **E2E Validation**: Final verification of the `run_id` lineage across all 4 libraries and 3 deployment units.
-*   **In-flight PII Masking (`MaskPIIDoFn`)**: Implementation of the automated masking transform in `gcp-pipeline-beam` to ensure sensitive data is protected before it hits BigQuery.
+*   **E2E Validation**: Final verification of the `run_id` lineage across all 5 libraries and deployment units.
 *   **BigQuery Partitioning**: Mandatory implementation of partitioning in dbt models (using `extract_date`) to prevent cost overruns and ensure query performance.
 *   **Audit & Reconciliation Hardening**: Verification of source-to-target counts via the `AuditTrail` and `JobControl` repository.
 *   **Terraform & IAM Consistency**: Ensuring service account permissions are strictly aligned across all environments.
@@ -307,25 +307,25 @@ When changes are made across multiple libraries, you can apply a unified Git tag
 You can now run tests for each library using `pytest` directly from its directory, as the `pythonpath` is configured in `pyproject.toml` or `pytest.ini`.
 
 ```bash
-# Core
+# Run with Python 3.11
 cd gcp-pipeline-core
-pytest
+python3.11 -m pytest tests/ -v
 
 # Beam
 cd ../gcp-pipeline-beam
-pytest
+python3.11 -m pytest tests/ -v
 
 # Orchestration
 cd ../gcp-pipeline-orchestration
-pytest
+python3.11 -m pytest tests/ -v
 
 # Transform
 cd ../gcp-pipeline-transform
-pytest
+python3.11 -m pytest tests/ -v
 
 # Tester
 cd ../gcp-pipeline-tester
-pytest
+python3.11 -m pytest tests/ -v
 ```
 
 Alternatively, you can run tests for all libraries from the project root:
@@ -335,7 +335,14 @@ Alternatively, you can run tests for all libraries from the project root:
 
 ---
 
-## Total: 618 tests passing ✅
+## Total: 834 tests passing ✅
+
+| Library | Tests |
+|---------|-------|
+| gcp-pipeline-core | 256 |
+| gcp-pipeline-beam | 478 |
+| gcp-pipeline-tester | 100 |
+| **Total** | **834** |
 
 ---
 
