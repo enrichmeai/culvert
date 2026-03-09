@@ -1,108 +1,230 @@
 # DAG Development Guide
 
-This document provides guidelines for creating new Airflow DAGs for legacy migration projects. It covers naming conventions, template usage, and configuration requirements.
+This document provides guidelines for creating Airflow DAGs for GCP pipeline deployments. It covers naming conventions, template usage, pattern selection, and configuration requirements.
 
 ## Overview
 
-Each data source (system) typically requires a set of four DAGs:
-1. **PubSub Trigger DAG**: Senses file arrivals and initiates the pipeline.
-2. **ODP Load DAG**: Loads raw files into the Operational Data Platform (BigQuery).
-3. **FDP Transform DAG**: Runs dbt transformations to create Functional Data Products.
-4. **Error Handling DAG**: Monitors and manages failures.
+Each pipeline system requires a set of four DAGs that work together:
+
+| DAG | Purpose |
+|-----|---------|
+| **PubSub Trigger DAG** | Senses `.ok` file arrivals from GCS via Pub/Sub and initiates the pipeline |
+| **ODP Load DAG** | Submits Dataflow jobs to load raw files into ODP tables in BigQuery |
+| **FDP Transform DAG** | Runs dbt transformations to produce Foundation Data Products |
+| **Error Handling DAG** | Monitors `job_control` and manages failures and retries |
+
+---
 
 ## Naming Conventions
 
-Consistency in naming is crucial for automated monitoring and maintenance.
+Consistency in naming is critical for automated monitoring and maintenance.
 
-### 1. System Identifier
-* Use a short, unique code for each system (e.g., `Generic`, `Generic`, `CRM`).
-* In code, use uppercase for constants (`SYSTEM_ID = "Generic"`) and lowercase for paths/IDs (`systgeneric_id = "generic"`).
+### System Identifier
 
-### 2. DAG IDs
-Follow the pattern: `{systgeneric_id}_{dag_purpose}_dag`
-* `generic_pubsub_trigger_dag`
-* `generic_odp_genericd_dag`
-* `generic_fdp_transform_dag`
-* `generic_error_handling_dag`
+Each system has two forms of its identifier:
 
-### 3. File Names
-Match the DAG ID:
-* `generic_pubsub_trigger_dag.py`
+| Form | Use Case | Example |
+|------|----------|---------|
+| `SYSTEM_ID` (uppercase) | Python constants, environment variables | `GENERIC` |
+| `system_id` (lowercase) | DAG IDs, file names, GCS paths, Pub/Sub topics | `generic` |
 
-### 4. Task IDs
-Use snake_case and keep them descriptive:
-* `pull_messages`
-* `validate_file`
-* `run_dataflow_pipeline`
-* `run_dbt_models`
+> **Convention:** Use `<SYSTEM_ID>` and `<system_id>` as placeholders in templates. Replace both when scaffolding a new system.
+
+### DAG IDs
+
+Follow the pattern: `{system_id}_{dag_purpose}_dag`
+
+```
+generic_pubsub_trigger_dag
+generic_odp_load_dag
+generic_fdp_transform_dag
+generic_error_handling_dag
+```
+
+### File Names
+
+Match the DAG ID exactly:
+
+```
+deployments/generic-orchestration/dags/
+├── generic_pubsub_trigger_dag.py
+├── generic_odp_load_dag.py
+├── generic_fdp_transform_dag.py
+└── generic_error_handling_dag.py
+```
+
+### Task IDs
+
+Use `snake_case`, descriptive names:
+
+```
+pull_pubsub_messages
+validate_ok_file
+create_job_control_record
+run_dataflow_pipeline
+check_entity_dependencies
+run_dbt_models
+mark_job_complete
+```
+
+---
 
 ## Using Templates
 
-Templates are located in `templates/dags/`. To automate the creation of a new orchestration unit:
-
-### Automated Scaffolding (Recommended)
-
-Run the provided script to create all DAGs and the GitHub deployment workflow:
-
-```bash
-./scripts/scaffold_orchestration.sh <systgeneric_id>
-```
-
-Example: `./scripts/scaffold_orchestration.sh crm`
-
-This script will:
-1. Create `deployments/<systgeneric_id>-orchestration/dags/`.
-2. Copy all DAG templates and replace placeholders.
-3. Create `.github/workflows/deploy-<systgeneric_id>.yml` for automated deployment.
+Templates are located in `templates/dags/`. Copy and replace placeholders for each new system.
 
 ### Manual Scaffolding
 
-1. Create a new orchestration folder in `deployments/`:
-   ```bash
-   mkdir -p deployments/<systgeneric_id>-orchestration/dags
-   ```
-2. Copy the templates:
-   ```bash
-   cp templates/dags/template_*.py deployments/<systgeneric_id>-orchestration/dags/
-   ```
-3. Rename the files replacing `template_` with `<systgeneric_id>_`.
-4. **Search and Replace**:
-   * Replace `<SYSTEM_ID>` with your system code (e.g., `MYAPP`).
-   * Replace `<systgeneric_id>` with lowercase (e.g., `myapp`).
-5. **CI/CD setup**:
-   * Copy `templates/cicd/template_deploy_workflow.yml` to `.github/workflows/deploy-<systgeneric_id>.yml`.
-   * Replace placeholders in the workflow file.
-6. **Customize Configuration**:
-   * In `odp_genericd_dag`, update `REQUIRED_ENTITIES` if your system has multiple dependent entities.
-   * In `fdp_transform_dag`, update the dbt model selectors.
+```bash
+SYSTEM="myapp"
 
-## Configuration per Requirement
+# 1. Create the orchestration folder
+mkdir -p deployments/${SYSTEM}-orchestration/dags
 
-### Single Entity System (e.g., Generic)
-If your system only provides one file that should be processed immediately:
-* Set `REQUIRED_ENTITIES = ["your_entity"]` in ODP Load.
-* The dependency checker will pass as soon as that single entity is loaded.
+# 2. Copy DAG templates
+cp templates/dags/template_pubsub_trigger_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_pubsub_trigger_dag.py
 
-### Multi-Entity Coordination (e.g., Generic)
-If your transformation requires multiple files to arrive before starting (e.g., Customers + Accounts):
-1. Define all entities in `REQUIRED_ENTITIES`.
-2. The `ODP Load DAG` will run for each file.
-3. The `BranchPythonOperator` will only trigger the `FDP Transform DAG` once the last required entity for that date is successfully loaded.
+cp templates/dags/template_odp_load_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
 
-### PubSub Configuration
-* Ensure the landing bucket has GCS notifications enabled to the correct PubSub topic.
-* The topic should follow the pattern: `projects/{project}/topics/{systgeneric_id}-file-arrivals`.
+cp templates/dags/template_fdp_transform_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
+
+cp templates/dags/template_error_handling_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_error_handling_dag.py
+
+# 3. Replace placeholders throughout
+find deployments/${SYSTEM}-orchestration/dags/ -name "*.py" \
+  -exec sed -i "s/<SYSTEM_ID>/MYAPP/g; s/<system_id>/${SYSTEM}/g" {} \;
+
+# 4. Copy the CI/CD workflow template
+cp templates/cicd/template_deploy_workflow.yml \
+   .github/workflows/deploy-${SYSTEM}.yml
+```
+
+After copying, open each file and set system-specific values:
+
+| Placeholder | Replace With | Example |
+|-------------|-------------|---------|
+| `<SYSTEM_ID>` | Uppercase system constant | `MYAPP` |
+| `<system_id>` | Lowercase system identifier | `myapp` |
+| `REQUIRED_ENTITIES` | Entity list for this system | `['customers', 'accounts']` |
+| `<dbt_selector>` | dbt model selector | `staging.myapp` |
+
+---
+
+## Pattern Selection
+
+Choose the orchestration pattern based on your transformation requirements.
+
+### MAP Pattern (Single Entity)
+
+Use when a system provides **one file type** that maps directly to one ODP table and one FDP model.
+
+Example: Applications entity → `odp_generic.applications` → `fdp_generic.applications`
+
+```python
+# In the ODP Load DAG
+SYSTEM_ID = "MYAPP"
+REQUIRED_ENTITIES = ["applications"]  # Only one entity
+
+# EntityDependencyChecker resolves immediately for this single entity
+dependency_met = EntityDependencyChecker(
+    system_id=SYSTEM_ID,
+    required_entities=REQUIRED_ENTITIES,
+).check(run_id=run_id, extract_date=extract_date)
+```
+
+### JOIN Pattern (Multi-Entity Coordination)
+
+Use when the FDP transformation **requires multiple entities** to be present before dbt can run (e.g., a JOIN across Customers + Accounts + Decision).
+
+```python
+# In the ODP Load DAG
+SYSTEM_ID = "GENERIC"
+REQUIRED_ENTITIES = ["customers", "accounts", "decision"]
+
+# EntityDependencyChecker waits until all three entities are loaded
+# for the same extract_date before triggering the FDP transform DAG
+dependency_met = EntityDependencyChecker(
+    system_id=SYSTEM_ID,
+    required_entities=REQUIRED_ENTITIES,
+).check(run_id=run_id, extract_date=extract_date)
+```
+
+The `ODP Load DAG` runs independently for each arriving file. The `BranchPythonOperator` only triggers `FDP Transform DAG` when the last required entity for the extract date is loaded.
+
+---
+
+## Pub/Sub Configuration
+
+```python
+# Topic follows this naming pattern
+PUBSUB_TOPIC = f"projects/{PROJECT_ID}/topics/{system_id}-file-notifications"
+
+# Subscription
+PUBSUB_SUBSCRIPTION = f"projects/{PROJECT_ID}/subscriptions/{system_id}-file-sub"
+```
+
+Ensure the GCS landing bucket has OBJECT_FINALIZE notifications configured to publish to this topic. See [GCP Deployment Guide](./GCP_DEPLOYMENT_GUIDE.md) for infrastructure setup.
+
+---
 
 ## Testing
 
-1. **Local Validation**: Ensure the DAG parses without syntax errors.
-2. **Unit Tests**: Add unit tests in `deployments/<systgeneric_id>-orchestration/tests/`.
-3. **Manual Trigger**: Use the Airflow UI to trigger the PubSub DAG with a mock configuration to test the flow.
+### 1. DAG Parse Validation
 
-## Common placeholders to replace:
-| Placeholder | Example | Description |
-|-------------|---------|-------------|
-| `<SYSTEM_ID>` | `Generic` | Short uppercase system name |
-| `<systgeneric_id>` | `generic` | Short lowercase system name |
-| `REQUIRED_ENTITIES` | `['customers', 'accounts']` | List of entities to wait for |
-| `dbt run --select staging.<systgeneric_id>` | `staging.generic` | dbt selector for staging models |
+```bash
+cd deployments/{system_id}-orchestration
+python dags/{system_id}_pubsub_trigger_dag.py
+python dags/{system_id}_odp_load_dag.py
+python dags/{system_id}_fdp_transform_dag.py
+```
+
+No output = no syntax errors.
+
+### 2. Unit Tests
+
+```bash
+pytest deployments/{system_id}-orchestration/tests/unit/ -v
+```
+
+### 3. Manual Trigger via Airflow UI
+
+1. Navigate to the Airflow UI (Cloud Composer or `kubectl port-forward svc/airflow-webserver 8080:8080`)
+2. Trigger the PubSub DAG with a mock `dag_run.conf`:
+
+```json
+{
+  "file_metadata": {
+    "data_file": "gs://{PROJECT_ID}-generic-dev-landing/generic/customers/test_customers_20260101.csv",
+    "trigger_file": "gs://{PROJECT_ID}-generic-dev-landing/generic/customers/customers.csv.ok",
+    "entity": "customers",
+    "extract_date": "20260101"
+  }
+}
+```
+
+---
+
+## Common Placeholder Reference
+
+| Placeholder | Form | Example |
+|-------------|------|---------|
+| `<SYSTEM_ID>` | Uppercase constant | `GENERIC` |
+| `<system_id>` | Lowercase identifier | `generic` |
+| `REQUIRED_ENTITIES` | Python list | `['customers', 'accounts', 'decision']` |
+| `<dbt_selector>` | dbt model path | `staging.generic` |
+| `<extract_date_nodash>` | Airflow template | `{{ ds_nodash }}` |
+
+---
+
+## Related Documentation
+
+| Guide | Description |
+|-------|-------------|
+| [Creating a New Deployment](./CREATING_NEW_DEPLOYMENT_GUIDE.md) | End-to-end scaffolding for all three units |
+| [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md) | How DAGs coordinate ingestion → ODP → FDP |
+| [Error Handling Guide](./ERROR_HANDLING_GUIDE.md) | Error classification and dead letter patterns |
+| [GKE Deployment Guide](./GKE_DEPLOYMENT_GUIDE.md) | Self-hosted Airflow on GKE (alternative pattern) |

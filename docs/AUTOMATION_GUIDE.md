@@ -1,78 +1,144 @@
 # End-to-End Automation Strategy
 
-This document outlines the automated testing and deployment strategy for the Legacy Migration Framework.
+This document outlines the automated testing and deployment strategy for GCP pipeline deployments.
 
-## 1. Automation Layers
+---
 
-We use a layered approach to automation to ensure stability and fast feedback loops.
+## Automation Layers
 
 | Layer | Scope | Frequency | Tooling |
-| :--- | :--- | :--- | :--- |
-| **Local** | Unit tests, Linting | Every change | `pytest`, `flake8`, `run_all_checks.sh` |
-| **CI (Continuous Integration)** | Library validation, PR checks | Every Push/PR | GitHub Actions |
-| **E2E (End-to-End)** | Full GCS-to-BQ flow | Daily / Deployment | `deploy_and_test_e2e.sh`, GCP |
+|-------|-------|-----------|---------|
+| **Local** | Unit tests, linting | Every change | `pytest`, `flake8` |
+| **CI (Continuous Integration)** | Library validation, PR checks | Every push / PR | GitHub Actions |
+| **E2E (End-to-End)** | Full GCS → Dataflow → BigQuery flow | Per deployment / daily | GCP, `deploy_and_test_e2e.sh` |
 
-## 2. Local Automation
+---
 
-Before pushing code, run the master check script:
+## Local Automation
+
+Before pushing, run all checks locally:
 
 ```bash
-./scripts/automation/run_all_checks.sh
+# From repository root
+
+# Run library tests
+cd gcp-pipeline-libraries
+pytest -v --tb=short
+
+# Run unit tests for a specific deployment
+cd deployments/original-data-to-bigqueryload
+pip install -e ".[dev]"
+PYTHONPATH=src pytest tests/unit -v --tb=short
+
+# Validate DAGs parse without errors
+python deployments/data-pipeline-orchestrator/dags/generic_pubsub_trigger_dag.py
+python deployments/data-pipeline-orchestrator/dags/generic_odp_load_dag.py
+
+# Compile dbt models
+cd deployments/bigquery-to-mapped-product/dbt
+dbt compile
+```
+
+---
+
+## CI/CD — GitHub Actions
+
+The repository uses path-filtered GitHub Actions workflows to deploy only what changed.
+
+### Primary Workflow: `deploy-generic.yml`
+
+Triggers on push to `main` when files in any of these paths change:
+
+```
+deployments/data-pipeline-orchestrator/dags/**
+deployments/original-data-to-bigqueryload/**
+deployments/bigquery-to-mapped-product/**
+infrastructure/**
+```
+
+**Jobs run in order:**
+
+1. `fetch-version` — resolves `gcp-pipeline-framework` version from PyPI
+2. `test` — installs framework from PyPI, runs unit tests
+3. `deploy-dataflow` — builds Dataflow Flex Template (ingestion)
+4. `deploy-dbt` — deploys dbt models (transformation)
+5. `deploy-airflow` — syncs DAGs to Cloud Composer (orchestration)
+6. `validate` — verifies deployed resources in GCP
+
+### Alternative Workflow: `deploy-gke.yml`
+
+Same pipeline logic, but syncs DAGs to GCS for GKE-hosted Airflow instead of Cloud Composer. See [GKE Deployment Guide](./GKE_DEPLOYMENT_GUIDE.md).
+
+### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `GCP_SA_KEY` | Service account JSON key with deploy permissions |
+| `GCP_PROJECT_ID` | Target GCP project ID |
+
+---
+
+## GCP End-to-End Test
+
+To verify the full pipeline against a live GCP environment after deployment:
+
+```bash
+# Test the Generic system
+./scripts/automation/deploy_and_test_e2e.sh generic dev
 ```
 
 This script:
-1. Runs all 700+ library tests.
-2. Runs unit tests for deployment units (e.g., `generic-ingestion`).
-3. Performs basic linting checks.
 
-## 3. GCP E2E Automation
-
-To verify the entire pipeline in a GCP environment:
+1. **Pre-flight check** — verifies GCS buckets, BigQuery datasets, Pub/Sub topics exist
+2. **Generate test data** — creates sample CSV files with HDR/TRL envelopes matching the Generic schema
+3. **Upload to landing** — copies files to `gs://{PROJECT_ID}-generic-dev-landing/generic/{entity}/`
+4. **Trigger pipeline** — uploads the `.ok` file to activate the Pub/Sub notification
+5. **Poll for completion** — queries `job_control.pipeline_jobs` table until status is `COMPLETED` or `FAILED`
+6. **Assert results** — verifies ODP and FDP tables contain the expected record counts
 
 ```bash
-# Test the Generic system (default)
-./scripts/automation/deploy_and_test_e2e.sh generic
+# Manual trigger for a specific entity (without deploying)
+gsutil cp tests/fixtures/customers_20260101.csv \
+  gs://${PROJECT_ID}-generic-dev-landing/generic/customers/
 
-# Test the Generic system
-./scripts/automation/deploy_and_test_e2e.sh generic
+gsutil cp tests/fixtures/customers.csv.ok \
+  gs://${PROJECT_ID}-generic-dev-landing/generic/customers/
 ```
 
-### Automation Flow:
-1. **Pre-flight Check**: Verifies if GCP infrastructure (Buckets, BigQuery, Pub/Sub) exists.
-2. **Infrastructure Deployment**: If missing, runs Terraform/Quick Deploy scripts.
-3. **Data Ingestion**: Generates sample CSV files with HDR/TRL envelopes and uploads them to GCS.
-4. **Triggering**: Uploads `.ok` files to trigger the Orchestration layer.
-5. **Validation**: Queries the `job_control.pipeline_jobs` table to verify successful status.
+---
 
-## 4. CI/CD Orchestration
+## CI/CD Architecture
 
-The framework uses a decoupled, multi-repository configuration to manage shared dependencies and independent system lifecycles.
+All three deployment units share one repository but deploy independently via path filters:
 
-### Libraries Monorepo Pipeline
-Shared libraries are managed in a single monorepo to ensure consistency.
-- **Root Orchestrator**: Acts as the master controller for the library repository.
-- **Unified Tagging**: It creates a synchronized version tag (e.g., `libs-1.0.42`) across all libraries when changes are merged.
-- **Library CI**: Triggers individual pipelines to guarantee stability.
+```
+Push to main
+     │
+     ├── Changed: deployments/original-data-to-bigqueryload/**
+     │        └── Triggers: build Dataflow Flex Template → upload to GCS
+     │
+     ├── Changed: deployments/bigquery-to-mapped-product/**
+     │        └── Triggers: dbt run → BigQuery FDP models updated
+     │
+     └── Changed: deployments/data-pipeline-orchestrator/dags/**
+              └── Triggers: sync DAGs → Cloud Composer environment
+```
 
-### Independent Deployment Pipelines
-Each deployment unit (Ingestion, Transformation, Orchestration) resides in its own repository for maximum isolation.
-- **Isolation**: Changes to `generic-ingestion` only trigger its specific repository's pipeline.
-- **Dependency Management**: Pipelines install specific library versions from the central artifact repository.
-- **Focused Stages**: 
-    - **Ingestion**: Handles Dataflow flex-template builds.
-    - **Transformation**: Manages dbt model deployments.
-    - **Orchestration**: Deploys Airflow DAGs to Cloud Composer.
+Each job installs `gcp-pipeline-framework=={resolved_version}` from PyPI — no local library builds required.
 
-This architecture removes the need for a global project-wide "master" pipeline, favoring a decentralized approach that scales with the number of migration systems.
+---
 
-### 5. CI/CD Pipeline (GitHub Actions)
+## Future Enhancements
 
-The repository is configured with GitHub Actions (`.github/workflows/ci-automation.yml`) to:
-- Run all unit tests on every PR.
-- Perform syntax checks on all automation scripts.
-- Block merging if tests fail.
+- **Performance testing** — automated injection of 1GB+ split files to validate Dataflow auto-scaling
+- **Chaos testing** — automated upload of partial files (missing `.ok`) to verify error handling paths
+- **FinOps validation** — automated verification that all Dataflow jobs carry required cost labels via `gcp-pipeline-core`
 
-## 5. Future Enhancements
-- **Performance Testing**: Automated injection of 1GB+ files to test Dataflow scaling.
-- **Chaos Engineering**: Automated deletion of partial files to test framework resilience.
-- **Cost Automation**: Automated verification of FinOps labels using the `gcp-pipeline-core` library.
+---
+
+## References
+
+- [`deploy-generic.yml`](../.github/workflows/deploy-generic.yml) — primary CI/CD workflow
+- [`deploy-gke.yml`](../.github/workflows/deploy-gke.yml) — alternative GKE workflow
+- [GCP Deployment Guide](./GCP_DEPLOYMENT_GUIDE.md) — infrastructure setup required before CI/CD runs
+- [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md) — what the automation is testing end-to-end
