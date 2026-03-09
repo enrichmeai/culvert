@@ -412,9 +412,10 @@ jobs:
         reference:
           - dir: original-data-to-bigqueryload
             name: gcp-pipeline-ref-ingestion
-          # Add more references here as needed:
-          # - dir: bigquery-to-mapped-product
-          #   name: gcp-pipeline-ref-transform
+          - dir: bigquery-to-mapped-product
+            name: gcp-pipeline-ref-transform
+          - dir: data-pipeline-orchestrator
+            name: gcp-pipeline-ref-orchestration
 
     steps:
     - uses: actions/checkout@v4
@@ -594,8 +595,10 @@ jobs:
         echo "| Package | Status | Install |" >> $GITHUB_STEP_SUMMARY
         echo "|---------|--------|---------|" >> $GITHUB_STEP_SUMMARY
         echo "| gcp-pipeline-ref-ingestion | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-ingestion\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-transform | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-transform\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-orchestration | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-orchestration\` |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Usage:** After installing, run \`gcp-ref-ingestion extract ./my-project\` to copy reference code." >> $GITHUB_STEP_SUMMARY
+        echo "**Usage:** \`pip install gcp-pipeline-ref-ingestion gcp-pipeline-ref-transform gcp-pipeline-ref-orchestration\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ needs.check-conditions.outputs.should_deploy }}" == "true" ]; then
