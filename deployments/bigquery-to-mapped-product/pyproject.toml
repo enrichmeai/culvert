@@ -3,19 +3,46 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "bigquery-to-mapped-product"
-version = "1.0.1"
-description = "Generic FDP Transformation - dbt models for ODP to FDP (JOIN: 3 sources → 1 target)"
+name = "gcp-pipeline-ref-transform"
+version = "1.0.6"
+description = "GCP Pipeline Reference: Generic FDP Transformation — dbt models for ODP to FDP (JOIN + MAP patterns)"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
+keywords = ["gcp", "bigquery", "dbt", "transformation", "reference", "example"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
 dependencies = [
     "dbt-bigquery>=1.5.0",
-    "gcp-pipeline-transform>=1.0.5",
+    "gcp-pipeline-framework>=1.0.6",
 ]
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/bigquery-to-mapped-product"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dbt*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.sql", "*.yml", "*.yaml", "*.csv", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
 
