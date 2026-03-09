@@ -102,3 +102,8 @@ profiles.yml
 NEXT_PROMPT.md
 ANALYSIS_AND_PROMPT.md
 
+
+# Additional venv directories
+.venv_*/
+venv*/
+.venv*/
