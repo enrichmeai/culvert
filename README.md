@@ -1,55 +1,50 @@
-# Legacy Mainframe to GCP Data Migration Framework
+# GCP Pipeline Reference Implementation
 
-A **standardized framework** for moving data from legacy mainframe systems to Google Cloud Platform. It uses shared libraries to handle common tasks like audit, security, and error handling, while allowing each system to have its own specific configuration.
+A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
 
-> **Last Updated:** March 2026 | **Version:** 2.0
+> **Last Updated:** March 2026 | **Version:** 1.0.6
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
-### One-Command Setup
+### Deploy via Push to Main
+
+The primary deployment path is automated via GitHub Actions on push to `main`:
 
 ```bash
-# 1. Set GCP project
+# 1. Set GCP project and authenticate
 gcloud config set project YOUR_PROJECT_ID
+gcloud auth login
 
-# 2. Create all infrastructure (GKE, GCS, BigQuery, Pub/Sub)
-./scripts/gcp/setup_gke_infrastructure.sh
+# 2. Create all infrastructure (one-time per environment)
+./scripts/gcp/01_enable_services.sh
+./scripts/gcp/02_create_state_bucket.sh
+./scripts/gcp/03_create_infrastructure.sh all
 
-# 3. Verify everything is configured
-./scripts/gcp/verify_infrastructure.sh
+# 3. Add required GitHub secrets
+gh secret set GCP_SA_KEY < /tmp/gcp-sa-key.json
+gh secret set GCP_PROJECT_ID --body 'YOUR_PROJECT_ID'
 
-# 4. Build custom Airflow image
-cd infrastructure/k8s/airflow && gcloud builds submit --tag gcr.io/$(gcloud config get-value project)/airflow-custom:latest .
+# 4. Push to main — CI/CD deploys all three units automatically
+git push origin main
 
-# 5. Install Airflow on GKE
-helm install airflow apache-airflow/airflow \
-  --namespace airflow --create-namespace \
-  --version 1.11.0 \
-  --set images.airflow.repository=gcr.io/$(gcloud config get-value project)/airflow-custom \
-  --set images.airflow.tag=latest \
-  --set executor=KubernetesExecutor \
-  --set webserver.service.type=LoadBalancer
+# 5. Verify deployment
+gh run list --workflow=deploy-generic.yml --limit 3
 
-# 6. Deploy DAGs
-gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud config get-value project)-airflow-dags/
-
-# 7. Run end-to-end test
-./scripts/gcp/e2e_automation_test.sh
-
-# 8. Clean up (avoid charges when not in use)
-./scripts/gcp/00_full_reset.sh --force
+# 6. Run end-to-end test
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 ### Key Scripts
 
 | Script | Purpose |
 |--------|---------|
-| `./scripts/gcp/setup_gke_infrastructure.sh` | Create all GCP resources |
-| `./scripts/gcp/verify_infrastructure.sh` | Verify infrastructure status |
-| `./scripts/gcp/e2e_automation_test.sh` | Run end-to-end test |
-| `./scripts/gcp/00_full_reset.sh` | Delete all resources (stop charges) |
+| `./scripts/gcp/01_enable_services.sh` | Enable required GCP APIs |
+| `./scripts/gcp/02_create_state_bucket.sh` | Create Terraform state bucket |
+| `./scripts/gcp/03_create_infrastructure.sh` | Create GCS, BigQuery, Pub/Sub resources |
+| `./scripts/gcp/05_verify_setup.sh` | Verify infrastructure is ready |
+| `./scripts/gcp/06_test_pipeline.sh` | Run end-to-end pipeline test |
 
 ---
 
@@ -57,18 +52,15 @@ gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud co
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                              GKE CLUSTER                                    │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                    AIRFLOW (Orchestration Only)                      │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                  │   │
-│  │  │  Scheduler  │  │  Webserver  │  │   Workers   │                  │   │
-│  │  │   (Pod)     │  │   (Pod)     │  │   (Pods)    │                  │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘                  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                   │ Triggers
-                    ┌──────────────┴──────────────┐
-                    ▼                              ▼
+│                    CLOUD COMPOSER (Managed Airflow)                          │
+│  ┌────────────────────────────────────────────────────────────────────────┐  │
+│  │  Airflow Scheduler + Webserver + Workers (Google-managed)              │  │
+│  │  DAGs: Trigger → Validate → Load → Transform                          │  │
+│  └────────────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │ Orchestrates
+                    ┌──────────────────┴──────────────────┐
+                    ▼                                      ▼
 ┌───────────────────────────────┐  ┌───────────────────────────────┐
 │         DATAFLOW              │  │         BIGQUERY              │
 │   (Google Managed)            │  │    (Google Managed)           │
@@ -81,147 +73,138 @@ gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud co
 
 ---
 
-## Why Use This Framework?
+## Why Use This Reference Implementation?
 
-## Quick Start
+### 1. Standards-Based, Production-Ready Patterns
 
-### Installation
+The framework abstracts enterprise-grade cross-cutting concerns into versioned, reusable libraries available on PyPI:
 
-The entire framework can be installed via the umbrella package:
+- **Audit Trail:** Centralised tracking via `gcp-pipeline-core`.
+- **Ingestion Patterns:** Standardised Beam pipelines in `gcp-pipeline-beam`.
+- **Orchestration:** Reusable Airflow operators and DAG factories in `gcp-pipeline-orchestration`.
+- **Transformation Macros:** Shared dbt macros in `gcp-pipeline-transform`.
+- **Testing Utilities:** Base classes and mocks in `gcp-pipeline-tester`.
 
-```bash
-pip install gcp-pipeline-framework
-```
+Detailed information: [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
 
-This will install all the libraries listed below. Alternatively, you can install only the specific libraries you need.
+### 2. Two Proven Patterns in One Reference System
 
-### Library Features
+The Generic system simultaneously demonstrates:
 
-The libraries provide shared features across all systems:
-*   **Audit Trail:** Centralized tracking via `gcp-pipeline-core`.
-*   **Ingestion Patterns:** Standardized Beam pipelines in `gcp-pipeline-beam`.
-*   **Orchestration:** Reusable Airflow operators in `gcp-pipeline-orchestration`.
-*   **Transformation Macros:** Shared dbt macros in `gcp-pipeline-transform`.
-*   **Testing Utilities:** Base classes and mocks in `gcp-pipeline-tester`.
-
-Detailed information can be found in our [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
-
-#### Technology Links
-*   [Google Cloud Platform (GCP)](https://cloud.google.com/docs)
-*   [Apache Beam](https://beam.apache.org/documentation/)
-*   [Apache Airflow](https://airflow.apache.org/docs/)
-*   [dbt (data build tool)](https://docs.getdbt.com/)
-*   [Terraform](https://developer.hashicorp.com/terraform/docs)
-
-### 2. Flexible and Extensible
-The architecture is designed to work with different tools. While we provide ready-to-use patterns for **Apache Beam** (ingestion) and **dbt** (transformation), you can plug in your own tools if needed. 
-
-**Community Driven Standards:** Anyone can contribute a new standardized pattern (called a "paved path") as long as it follows our [Core Governance Rules](./docs/TECHNICAL_ARCHITECTURE.md#106-governance-for-custom-paved-paths). This model is supported by multiple teams across the **the enterprise platform**, encouraging shared ownership and consistent quality.
+- **JOIN pattern** (from Application A): 3 source entities (Customers, Accounts, Decision) → 3 ODP tables → 2 FDP tables. All 3 entities must complete before transformation triggers.
+- **MAP pattern** (from Application B): 1 source entity (Applications) → 1 ODP table → 1 FDP table. Transformation triggers immediately on ODP load.
 
 ### 3. Reliability and Visibility
-The framework makes it easy to track and fix issues:
-*   **Job Tracking:** Every run has a unique ID, making it easy to see exactly what happened to a specific file.
-*   **FinOps & Cost Visibility:** Built-in cost estimation for BigQuery, GCS, and Pub/Sub, with automated labeling for precise cost allocation and budget management.
-*   **Automatic Error Handling:** Built-in systems to retry failed tasks and move bad data to a "Dead Letter Queue" for investigation.
-*   **Clear Logs:** Standardized logging that is easy to search in the Google Cloud console.
 
-### Cloud Cost Savings
+- **Job Tracking:** Every run has a unique `run_id`, providing end-to-end lineage from source file to FDP row.
+- **FinOps & Cost Visibility:** Built-in cost estimation for BigQuery, GCS, and Pub/Sub, with automated labelling for precise cost allocation.
+- **Automatic Error Handling:** Exponential backoff at task level; failed files routed to error bucket with structured error report.
+- **Structured Logs:** Standardised JSON logging searchable in Cloud Logging.
 
-By consolidating multiple systems into three unified deployment units (Ingestion, Transformation, and Orchestration), we significantly reduce GCP infrastructure costs and management overhead:
+### Deployment Footprint
 
-| Unit | Merged Systems | Benefit |
-|------|----------------|---------|
-| **Ingestion** | EM + LOA | Unified Beam/Dataflow Docker image for all 4 entities. |
-| **Orchestration** | EM + LOA | Single Airflow DAG set managing the entire functional flow. |
-| **Transformation** | EM + LOA | Unified dbt project for all staging and FDP models. |
+By consolidating Application A and Application B into three unified deployment units, the reference implementation reduces infrastructure overhead significantly:
 
-**Key Benefits:**
-- **Reduced Deployment Footprint**: 3 deployments instead of 6+.
-- **Standardized Python 3.11**: All units run on a stable, high-performance Python 3.11 environment.
-- **Docker-First**: All units are containerized and triggered via Pub/Sub for maximum efficiency.
-- **Independent Scaling**: Each functional unit scales based on load, not per-system.
-- **Faster Builds**: Merged components share dependencies, leading to faster CI/CD cycles.
+| Unit | Entities Covered | Benefit |
+|------|-----------------|---------|
+| **Ingestion** (`original-data-to-bigqueryload`) | Customers, Accounts, Decision, Applications | Single Dataflow Flex Template image |
+| **Transformation** (`bigquery-to-mapped-product`) | All FDP models | Unified dbt project |
+| **Orchestration** (`data-pipeline-orchestrator`) | Full pipeline coordination | Single DAG set via Cloud Composer |
 
 ---
 
-### Deployment Workflow
+## Deployment Workflow
 
-In a production environment, the framework follows a decoupled multi-repository strategy:
-1.  **Libraries Monorepo**: All shared libraries (`core`, `beam`, `orchestration`, `transform`, `tester`) are managed in a single repository (e.g., `gcp-pipeline-libraries`). This repository orchestrates unified tagging and CI for all libraries.
-2.  **Independent Deployment Repositories**: Each system component (e.g., `application1-ingestion`, `application1-transformation`) resides in its own dedicated repository. Each has its own CI/CD for independent CI/CD, allowing teams to deploy changes to specific systems without impacting others.
+### Automatic Deployment (Recommended)
 
-This structure provides global stability for shared components while maintaining local agility for specific data pipelines.
+Push to `main` triggers `deploy-generic.yml` automatically for changes in:
+- `deployments/original-data-to-bigqueryload/**` → Rebuilds and deploys Dataflow Flex Template
+- `deployments/bigquery-to-mapped-product/**` → Deploys dbt models
+- `deployments/data-pipeline-orchestrator/**` → Uploads DAGs to Cloud Composer
+- `infrastructure/terraform/**` → Updates GCP infrastructure
 
----
-
-## 🚀 Getting Started
-
-The framework is designed to be simple to use. You can set up a new migration by following our guides and using our pre-built templates.
-
-### Environment Auto-Setup (venv)
-To ensure your IDE can resolve all modules immediately on open, initialize the root virtual environment and install dependencies:
+### Manual Trigger
 
 ```bash
-# From the repository root
-./scripts/setup_ide_context.sh
+# Trigger full Generic deployment
+gh workflow run deploy-generic.yml
 
-# Then activate it in your shell (optional but recommended)
+# Check workflow status
+gh run list --workflow=deploy-generic.yml --limit 3
+```
+
+### Library Publishing
+
+```bash
+# Publish libraries to PyPI AND trigger deployment
+git commit -m "release: description [publish:deploy]"
+
+# Publish libraries to PyPI only
+git commit -m "chore: update version [publish:pypi]"
+```
+
+---
+
+## Getting Started
+
+### Local Environment Setup
+
+```bash
+# Set up the root venv for IDE resolution
+./scripts/setup_ide_context.sh
 source venv/bin/activate
 ```
 
-- PyCharm/IntelliJ: Set the project interpreter to the virtualenv at ./venv.
-- VS Code: If you have Python extension, it will usually auto-detect ./venv; otherwise select it manually.
+- **PyCharm/IntelliJ:** Set project interpreter to `./venv`.
+- **VS Code:** The Python extension will usually auto-detect `./venv`.
 
 | Resource | Description |
 | :--- | :--- |
-| **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | **Start Here!** Step-by-step guide to adding a new system. |
-| **[Execution Guide](#-execution-guide)** | How to run tests and pipelines. |
-| **[DAG Templates](./templates/dags/)** | Pre-built templates for scheduling your jobs. |
-| **[Library Features](./gcp-pipeline-libraries/README.md)** | Overview of built-in features like Audit, FinOps, PII Masking, and Data Quality. |
-| **[FinOps Guide](./gcp-pipeline-libraries/gcp-pipeline-core/README.md#5-finops--cost-tracking)** | Detailed guide for cost tracking and labeling. |
+| **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | Step-by-step guide to adding a new system |
+| **[GCP Deployment Guide](./docs/GCP_DEPLOYMENT_GUIDE.md)** | Infrastructure setup and CI/CD reference |
+| **[Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md)** | Deep-dive into deployments, DAGs, and integration patterns |
+| **[Production Release Guide](./docs/PRODUCTION_RELEASE_GUIDE.md)** | Senior developer handover and release checklist |
 
 ---
 
-## 🛠 Execution Guide
-
-The framework supports local testing and cloud-based validation.
+## Execution Guide
 
 ### 1. Local Environment Setup
 
-Each part of a system has its own isolated environment. Use the setup script to get started:
+Each deployment has its own isolated environment:
 
 ```bash
-# Example: Setup the ingestion part for the Application1 system
-./scripts/setup_deployment_venv.sh application1-ingestion
-
-# Activate the environment
-source deployments/application1-ingestion/venv/bin/activate
+# Set up the ingestion deployment environment
+./scripts/setup_deployment_venv.sh original-data-to-bigqueryload
+source deployments/original-data-to-bigqueryload/venv/bin/activate
 ```
-
-This script sets up everything you need to develop and test locally.
 
 ### 2. Running Tests
 
 #### Library Tests
-To run all shared library tests (900+ tests):
+
 ```bash
 ./scripts/run_library_tests.sh
 ```
 
-#### System-Specific Tests
-To run tests for a specific system component (using embedded libraries):
+#### Deployment Tests
+
 ```bash
 cd deployments/original-data-to-bigqueryload
+python -m pytest tests/unit/
+
+cd deployments/bigquery-to-mapped-product
+python -m pytest tests/unit/
+
+cd deployments/data-pipeline-orchestrator
 python -m pytest tests/unit/
 ```
 
 ### 3. Local Execution
 
 #### Running Ingestion Locally
-You can test ingestion on your own machine without using Google Cloud. This is great for checking if your file parsing and data rules are working correctly.
 
 ```bash
-# Activate the ingestion environment
 cd deployments/original-data-to-bigqueryload
 python -m data_ingestion.pipeline.main \
     --input_file=path/to/local/file.csv \
@@ -231,7 +214,6 @@ python -m data_ingestion.pipeline.main \
 ```
 
 #### Running Transformation Locally
-You can also run your data transformation rules (dbt) locally:
 
 ```bash
 cd deployments/bigquery-to-mapped-product/dbt
@@ -240,72 +222,71 @@ dbt run --profiles-dir . --target dev
 
 ### 4. Cloud Validation
 
-To test the full flow on Google Cloud, use the simulation script. This mimics a file arriving from a mainframe:
-
 ```bash
-# Simulates a file arrival for the generic ingestion pipeline
+# Simulate a file arrival for the generic ingestion pipeline
 ./scripts/gcp/06_test_pipeline.sh generic
 ```
 
-This script performs the following actions:
-1.  Generates sample CSV data with valid HDR/TRL records.
-2.  Uploads the data files to the Landing Bucket.
-3.  Uploads the `.ok` trigger file.
-4.  Publishes a message to the Pub/Sub topic to trigger the Airflow DAG.
+This script:
+1. Generates sample CSV data with valid HDR/TRL records.
+2. Uploads data files to the landing bucket.
+3. Uploads the `.ok` trigger file.
+4. Publishes a message to the `generic-file-notifications` Pub/Sub topic.
 
 ---
 
-## [Architecture](./docs/TECHNICAL_ARCHITECTURE.md)
+## Architecture
 
-### 4-Library Model (Grouped under gcp-pipeline-framework)
+### 5-Library Model (Published as `gcp-pipeline-framework`)
+
+Libraries are consumed from PyPI (`pip install gcp-pipeline-framework==1.0.6`) and are **not embedded** in this repository.
 
 ```
-gcp-pipeline-core (Foundation - NO beam, NO airflow)
+gcp-pipeline-core (Foundation — no Beam, no Airflow)
         ↓
    ┌────┴────┐
    ↓         ↓
 gcp-pipeline-beam         gcp-pipeline-orchestration
-(Ingestion - beam)        (Control - airflow)
+(Ingestion — Beam)        (Control — Airflow)
+        ↓                          ↓
+gcp-pipeline-transform    gcp-pipeline-tester
+(dbt macros)              (Test utilities)
 ```
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
-| [`gcp-pipeline-framework`](./gcp-pipeline-libraries/gcp-pipeline-framework/) | **Umbrella package** - Installs all libraries below | - |
-| [`gcp-pipeline-core`](./gcp-pipeline-libraries/gcp-pipeline-core/) | Audit, monitoring, FinOps, error handling, job control | 219 |
-| [`gcp-pipeline-beam`](./gcp-pipeline-libraries/gcp-pipeline-beam/) | Beam pipelines, transforms, file management | 359 |
-| [`gcp-pipeline-orchestration`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/) | Airflow DAGs, sensors, operators | 58 |
-| [`gcp-pipeline-transform`](./gcp-pipeline-libraries/gcp-pipeline-transform/) | dbt macros for audit columns, PII masking | - |
-| [`gcp-pipeline-tester`](./gcp-pipeline-libraries/gcp-pipeline-tester/) | Mocks, fixtures, base test classes | 101 |
+| [`gcp-pipeline-framework`](https://pypi.org/project/gcp-pipeline-framework/) | Umbrella package — installs all libraries below | - |
+| `gcp-pipeline-core` | Audit, monitoring, FinOps, error handling, job control | 219 |
+| `gcp-pipeline-beam` | Beam pipelines, transforms, HDR/TRL parsing, file management | 359 |
+| `gcp-pipeline-orchestration` | Airflow DAGs, sensors, operators, DAG factory | 58 |
+| `gcp-pipeline-transform` | dbt macros for audit columns and PII masking | - |
+| `gcp-pipeline-tester` | Mocks, fixtures, base test classes | 101 |
 
-### 3-Unit Deployment Model (Consolidated)
+### 3-Unit Deployment Model
 
-The framework now uses a consolidated, generic 3-unit deployment model (Ingestion, Transformation, Orchestration) to prove all patterns in a unified manner.
-
-| Unit | Purpose | Source Components |
+| Unit | Deployment Folder | Covers |
 | :--- | :--- | :--- |
-| **Ingestion** | [original-data-to-bigqueryload](./deployments/original-data-to-bigqueryload/) | Customers, Accounts, Decision, Applications |
-| **Transformation** | [bigquery-to-mapped-product](./deployments/bigquery-to-mapped-product/) | dbt models for all generic targets |
-| **Orchestration** | [data-pipeline-orchestrator](./deployments/data-pipeline-orchestrator/) | Airflow DAGs for coordination |
+| **Ingestion** | [`original-data-to-bigqueryload`](./deployments/original-data-to-bigqueryload/) | Dataflow Flex Template; reads HDR/TRL CSV files from GCS, loads to ODP |
+| **Transformation** | [`bigquery-to-mapped-product`](./deployments/bigquery-to-mapped-product/) | dbt models transforming ODP to FDP |
+| **Orchestration** | [`data-pipeline-orchestrator`](./deployments/data-pipeline-orchestrator/) | Airflow DAGs on Cloud Composer; Pub/Sub sensing, validation, coordination |
 
-Specialized patterns are maintained in dedicated projects:
-*   **Spanner**: [spanner-to-bigquery-load](./deployments/spanner-to-bigquery-load/)
-*   **Mainframe Segment**: [mainframe-segment-transform](./deployments/mainframe-segment-transform/)
-
-**Note:** In the `deployments` folder, libraries are currently embedded directly within each unit's `libs/` folder until they are formally published.
+Specialised patterns maintained in separate deployments (not part of the active Generic CI/CD):
+- **Spanner:** [`spanner-to-bigquery-load`](./deployments/spanner-to-bigquery-load/)
+- **Mainframe Segment:** [`mainframe-segment-transform`](./deployments/mainframe-segment-transform/)
 
 ---
 
 ## End-to-End Flow
 
 ```
-MAINFRAME           GCS LANDING         AIRFLOW              DATAFLOW            dbt
-─────────           ───────────         ───────              ────────            ───
+MAINFRAME           GCS LANDING         CLOUD COMPOSER       DATAFLOW            dbt
+─────────           ───────────         ──────────────       ────────            ───
 
 Extract     ───────►  .csv files   ──┐
-CSV files             + .ok file     │
-(HDR/TRL)                            ▼
+CSV files             + .ok file     │ OBJECT_FINALIZE
+(HDR/TRL)                            ▼ notification
                                 ┌─────────────┐
-                                │ Pub/Sub     │
+                                │ Pub/Sub     │ generic-file-notifications
                                 │ Sensor      │
                                 └──────┬──────┘
                                        │
@@ -333,19 +314,18 @@ CSV files             + .ok file     │
 
 ```
 HDR|Generic|CUSTOMERS|20260101           ← Header: System, Entity, Date
-customer_id,name,ssn,status         ← CSV headers
-1001,John Doe,123-45-6789,ACTIVE    ← Data rows
+customer_id,name,ssn,status              ← CSV column headers
+1001,John Doe,123-45-6789,ACTIVE         ← Data rows
 1002,Jane Smith,987-65-4321,ACTIVE
-TRL|RecordCount=2|Checksum=a1b2c3d4 ← Trailer: Count, Checksum
+TRL|RecordCount=2|Checksum=a1b2c3d4      ← Trailer: Count, Checksum
 ```
 
 ### Split File Handling
 
-Files > 25MB are split by mainframe with naming: `customers_1.csv`, `customers_2.csv`
+Files > 25MB are split by the mainframe using the naming convention `customers_1.csv`, `customers_2.csv`. A single `.ok` file signals all splits are complete:
 
-Single `.ok` file signals all splits are complete:
 ```
-gs://landing/generic/customers/
+gs://{PROJECT_ID}-generic-{ENV}-landing/generic/customers/
 ├── customers_1.csv
 ├── customers_2.csv
 └── customers.csv.ok    ← Triggers processing of ALL splits
@@ -355,91 +335,75 @@ gs://landing/generic/customers/
 
 ## Reference Implementations
 
-### Generic Ingestion - JOIN Pattern (3-to-3)
+### JOIN Pattern (from Application A)
 
 | Aspect | Value |
 |--------|-------|
 | Source Entities | 3 (Customers, Accounts, Decision) |
-| ODP Tables | 3 |
-| FDP Tables | 2 (`event_transaction_excess`, `portfolio_account_excess`) |
-| Dependency | Wait for all 3 entities before FDP transformation |
+| ODP Tables | 3 (`odp_generic.customers`, `odp_generic.accounts`, `odp_generic.decision`) |
+| FDP Tables | 2 (`fdp_generic.event_transaction_excess`, `fdp_generic.portfolio_account_excess`) |
+| Dependency | All 3 entities must reach SUCCESS before FDP transformation triggers |
 
-### Generic Ingestion - MAP Pattern (1-to-1)
+### MAP Pattern (from Application B)
 
 | Aspect | Value |
 |--------|-------|
 | Source Entities | 1 (Applications) |
-| ODP Tables | 1 |
-| FDP Tables | 1 (`portfolio_account_facility`) |
-| Dependency | Immediate trigger after ODP load |
+| ODP Tables | 1 (`odp_generic.applications`) |
+| FDP Tables | 1 (`fdp_generic.portfolio_account_facility`) |
+| Dependency | Transformation triggers immediately after ODP load |
 
-### Spanner Transformation - FEDERATED Pattern
+### Spanner Transformation — FEDERATED Pattern
 
 | Aspect | Value |
 |--------|-------|
 | Source System | Cloud Spanner |
-| ODP Tables | 0 (Bypassed) |
+| ODP Tables | 0 (bypassed) |
 | FDP Tables | 1 (`spanner_customer_summary`) |
 | Technology | dbt + `EXTERNAL_QUERY` |
-| Pattern | Low-Friction Federated Transformation |
+| Pattern | Low-friction federated transformation |
 
 ---
 
 ## Project Structure
 
 ```
-gcp-pipeline-libraries/
-├── [`gcp-pipeline-core/`](./gcp-pipeline-libraries/gcp-pipeline-core/)           # Foundation
-├── [`gcp-pipeline-beam/`](./gcp-pipeline-libraries/gcp-pipeline-beam/)           # Ingestion
-├── [`gcp-pipeline-orchestration/`](./gcp-pipeline-libraries/gcp-pipeline-orchestration/)  # Control
-├── [`gcp-pipeline-transform/`](./gcp-pipeline-libraries/gcp-pipeline-transform/)      # dbt macros
-└── [`gcp-pipeline-tester/`](./gcp-pipeline-libraries/gcp-pipeline-tester/)         # Testing utilities
+gcp-pipeline-libraries/                                    # Library source (published to PyPI)
+├── gcp-pipeline-core/                                     # Foundation
+├── gcp-pipeline-beam/                                     # Ingestion
+├── gcp-pipeline-orchestration/                            # Control
+├── gcp-pipeline-transform/                                # dbt macros
+└── gcp-pipeline-tester/                                   # Testing utilities
 
-[deployments/](./deployments/)
-├── [`original-data-to-bigqueryload/`](./deployments/original-data-to-bigqueryload/) # Generic Ingestion
-├── [`bigquery-to-mapped-product/`](./deployments/bigquery-to-mapped-product/)       # Generic Transformation
-├── [`data-pipeline-orchestrator/`](./deployments/data-pipeline-orchestrator/)      # Generic Orchestration
-├── [`spanner-to-bigquery-load/`](./deployments/spanner-to-bigquery-load/)          # Spanner Federated
-└── [`mainframe-segment-transform/`](./deployments/mainframe-segment-transform/)    # Mainframe Segment
+deployments/
+├── original-data-to-bigqueryload/                         # Generic Ingestion (Dataflow Flex Template)
+├── bigquery-to-mapped-product/                            # Generic Transformation (dbt)
+├── data-pipeline-orchestrator/                            # Generic Orchestration (Cloud Composer)
+├── spanner-to-bigquery-load/                              # Spanner Federated (specialist)
+└── mainframe-segment-transform/                           # Mainframe Segment (specialist)
 
 infrastructure/terraform/
-└── systems/generic/               # Generic 3-unit infrastructure
-    ├── ingestion/                 # GCS, Pub/Sub, BQ ODP
-    ├── transformation/            # BigQuery FDP
-    └── orchestration/             # Service accounts, IAM, Composer
-```,search:
+└── systems/generic/
+    ├── ingestion/                                         # GCS, Pub/Sub, BQ ODP
+    ├── transformation/                                    # BigQuery FDP
+    └── orchestration/                                     # Service accounts, IAM, Composer
+```
 
 ---
 
-## Key Concepts
-
-| Term | Definition |
-|------|------------|
-| **ODP** | Original Data Product - Raw 1:1 copy of mainframe data |
-| **FDP** | Foundation Data Product - Transformed, business-ready |
-| **HDR/TRL** | Header/Trailer records for file validation |
-| **.ok file** | Signal file indicating transfer complete |
-| **Split Files** | Large files (>25MB) split by mainframe |
-
----
-
-## Quick Start
-
-### Run All Tests
+## Run All Tests
 
 ```bash
-# Libraries (737 tests)
+# Library tests (737 tests)
 cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-tester && PYTHONPATH=src python -m pytest tests/unit/ -q
 
-# Embedded Deployments (46 tests)
-cd ../../deployments/application2-ingestion && \
-  python -m pytest tests/unit/ -q
-
-cd ../application1-ingestion && \
-  python -m pytest tests/unit/ -q
+# Deployment tests
+cd ../../deployments/original-data-to-bigqueryload && python -m pytest tests/unit/ -q
+cd ../bigquery-to-mapped-product && python -m pytest tests/unit/ -q
+cd ../data-pipeline-orchestrator && python -m pytest tests/unit/ -q
 ```
 
 ---
@@ -452,9 +416,23 @@ cd ../application1-ingestion && \
 | gcp-pipeline-beam | 359 |
 | gcp-pipeline-orchestration | 58 |
 | gcp-pipeline-tester | 101 |
-| application2-ingestion (embedded) | 20 |
-| application1-ingestion (embedded) | 26 |
+| original-data-to-bigqueryload | 46 |
 | **Total** | **783** |
+
+---
+
+## Key Concepts
+
+| Term | Definition |
+|------|------------|
+| **ODP** | Original Data Product — raw 1:1 copy of mainframe data in BigQuery |
+| **FDP** | Foundation Data Product — transformed, business-ready data |
+| **HDR/TRL** | Header/Trailer records for file envelope validation |
+| **.ok file** | Signal file indicating all data file transfers are complete |
+| **Split Files** | Files > 25MB split by the mainframe; a single `.ok` covers all splits |
+| **JOIN pattern** | Multi-entity pipeline requiring all entities to load before FDP transform |
+| **MAP pattern** | Single-entity pipeline with immediate FDP trigger |
+| **run_id** | Unique correlation ID propagated across all layers for end-to-end lineage |
 
 ---
 
@@ -463,37 +441,30 @@ cd ../application1-ingestion && \
 | Guide | Description |
 |-------|-------------|
 | [E2E Functional Flow](./docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
-| [Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md) | Technical deep-dive into deployments, DAGs, and Hybrid Integration |
-| [Standard Migration Tasks](./docs/STANDARD_MIGRATION_TASKS.md) | Major tasks and ticket templates for new systems |
+| [Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md) | Technical deep-dive into deployments, DAGs, and integration patterns |
+| [paved path Proposal](./docs/PAVED_PATH_PROPOSAL.md) | Enterprise paved path proposal for the the enterprise platform |
+| [GCP Deployment Guide](./docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
+| [Production Release Guide](./docs/PRODUCTION_RELEASE_GUIDE.md) | Senior developer handover and release checklist |
+| [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) | Alternative: self-hosted Airflow on GKE |
 | [Audit Integration](./docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
 | [Pub/Sub & KMS](./docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
 | [Error Handling](./docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
 | [Data Quality](./docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
-| [GCP Deployment](./docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
-| [GCP Deployment Config](./docs/GCP_DEPLOYMENT_CONFIGURATION.md) | Environment configuration |
-| [GCP Deployment Testing](./docs/GCP_DEPLOYMENT_TESTING_GUIDE.md) | Testing deployed infrastructure |
-| [Complete Testing](./docs/COMPLETE_TESTING_GUIDE.md) | Full testing guide |
-| [BDD Testing](./docs/BDD_TESTING_GUIDE.md) | Behavior-driven development tests |
-| [E2E Testing](./docs/E2E_TESTING_GUIDE.md) | End-to-end testing |
-| [Docker Compose](./docs/DOCKER_COMPOSE_GUIDE.md) | Local development with Docker |
-| [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add new system migration |
-| [Production Release](./docs/PRODUCTION_RELEASE_GUIDE.md) | Senior dev handover and release guide |
+| [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add a new system migration |
+| [Standard Migration Tasks](./docs/STANDARD_MIGRATION_TASKS.md) | Ticket templates for new systems |
 
 ---
 
 ## Technology Stack
 
-The framework leverages several Google Cloud services and open-source technologies to ensure a scalable, reliable, and secure migration process.
-
-| Layer | Technology | Key Documentation |
-|-------|------------|-------------------|
-| **Storage** | [Google Cloud Storage (GCS)](https://cloud.google.com/storage) | [GCS Documentation](https://cloud.google.com/storage/docs) |
-| **Messaging** | [Cloud Pub/Sub](https://cloud.google.com/pubsub) | [Pub/Sub Documentation](https://cloud.google.com/pubsub/docs) |
-| **Security** | [Cloud KMS](https://cloud.google.com/kms) | [KMS Documentation](https://cloud.google.com/kms/docs) |
-| **Processing** | [Apache Beam](https://beam.apache.org/) on [Cloud Dataflow](https://cloud.google.com/dataflow) | [Beam Docs](https://beam.apache.org/documentation/), [Dataflow Docs](https://cloud.google.com/dataflow/docs) |
-| **Orchestration** | [Apache Airflow](https://airflow.apache.org/) on [Cloud Composer](https://cloud.google.com/composer) | [Airflow Docs](https://airflow.apache.org/docs/), [Composer Docs](https://cloud.google.com/composer/docs) |
-| **Transformation** | [dbt (Data Build Tool)](https://www.getdbt.com/) | [dbt Documentation](https://docs.getdbt.com/docs/introduction) |
-| **Data Warehouse** | [BigQuery](https://cloud.google.com/bigquery) | [BigQuery Documentation](https://cloud.google.com/bigquery/docs) |
+| Layer | Technology | Documentation |
+|-------|------------|---------------|
+| **Storage** | [Google Cloud Storage (GCS)](https://cloud.google.com/storage) | [GCS Docs](https://cloud.google.com/storage/docs) |
+| **Messaging** | [Cloud Pub/Sub](https://cloud.google.com/pubsub) | [Pub/Sub Docs](https://cloud.google.com/pubsub/docs) |
+| **Security** | [Cloud KMS](https://cloud.google.com/kms) | [KMS Docs](https://cloud.google.com/kms/docs) |
+| **Processing** | [Apache Beam](https://beam.apache.org/) on [Cloud Dataflow](https://cloud.google.com/dataflow) | [Beam Docs](https://beam.apache.org/documentation/) |
+| **Orchestration** | [Apache Airflow](https://airflow.apache.org/) on [Cloud Composer](https://cloud.google.com/composer) | [Composer Docs](https://cloud.google.com/composer/docs) |
+| **Transformation** | [dbt (Data Build Tool)](https://www.getdbt.com/) | [dbt Docs](https://docs.getdbt.com/docs/introduction) |
+| **Data Warehouse** | [BigQuery](https://cloud.google.com/bigquery) | [BigQuery Docs](https://cloud.google.com/bigquery/docs) |
 | **Monitoring** | [Cloud Monitoring](https://cloud.google.com/monitoring) | [Operations Suite Docs](https://cloud.google.com/stackdriver/docs) |
 | **Infrastructure** | [Terraform](https://www.terraform.io/) | [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs) |
-

@@ -2,8 +2,8 @@
 
 **Ticket ID:** LIBRARY-E2E-001  
 **Status:** Requirements Complete  
-**Last Updated:** January 1, 2026  
-**Version:** 1.0
+**Last Updated:** March 2026
+**Version:** 1.1
 
 ---
 
@@ -12,12 +12,12 @@
 1. [Executive Summary](#-executive-summary)
    - [High-Level E2E Flow](#high-level-e2e-flow)
    - [Key Concepts](#key-concepts)
-   - [System Comparison](#systgeneric-comparison)
+   - [System Comparison](#system-comparison)
    - [Technology Stack](#technology-stack)
 2. [Complete Data Flow Diagram](#-complete-data-flow-diagram)
 3. [Source Systems](#-source-systems)
-   - [System 1: Generic (Application A)](#systgeneric-1-generic-excess-management)
-   - [System 2: Generic (Application B Application)](#systgeneric-2-generic-loan-origination-application)
+   - [JOIN Pattern: Generic (Application A)](#join-pattern-generic-excess-management)
+   - [MAP Pattern: Generic (Application B Application)](#map-pattern-generic-loan-origination-application)
 4. [End-to-End Processing Flow](#-end-to-end-processing-flow)
    - [Stage 1: File Landing & Detection](#stage-1-file-landing--detection)
    - [Stage 2: Orchestration & Validation](#stage-2-orchestration--validation)
@@ -36,7 +36,11 @@
 
 ## 📋 EXECUTIVE SUMMARY
 
-This document provides the complete end-to-end functional requirements for the legacy mainframe-to-GCP data migration framework. The framework migrates data from mainframe systems through a standardized pipeline into BigQuery data products. 
+This document provides the complete end-to-end functional requirements for the GCP Pipeline Reference Implementation. The framework migrates data from legacy mainframe systems through a standardised, event-driven pipeline into BigQuery data products.
+
+The **Generic system** is a combined reference demonstrating two distinct pipeline patterns simultaneously:
+- **JOIN pattern** (from Application A): 3 source entities → 3 ODP tables → 2 FDP tables. All 3 entities must complete before transformation triggers.
+- **MAP pattern** (from Application B): 1 source entity → 1 ODP table → 1 FDP table. Transformation triggers immediately after ODP load. 
 
 ### Why the 3-Unit Deployment model?
 By decoupling **Ingestion**, **Transformation**, and **Orchestration** into independent units, the framework simplifies the end-to-end lifecycle:
@@ -84,23 +88,25 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 | **TRL** | Trailer record in CSV file containing record count and checksum |
 | **.ok file** | Signal file indicating transfer completion |
 
-### Migration Scope
+### Reference Scope
 
-| System | Description |
-|--------|-------------|
-| **Generic** | Example of a multi-entity system with dependencies |
-| **Generic** | Example of a single-entity system |
+| Pattern | Origin | Description |
+|---------|--------|-------------|
+| **JOIN** | Application A | Multi-entity system: all 3 entities required before FDP transformation |
+| **MAP** | Application B | Single-entity system: immediate trigger after ODP load |
+
+Both patterns are deployed together as the **Generic** reference system.
 
 ### System Comparison
 
-| Aspect | Generic | Generic |
-|--------|------------------------|------------------------|
-| **Source Entities** | 3 (e.g., Customers, Accounts, Decision) | 1 (e.g., Applications) |
-| **Extract Schedule** | Staggered (e.g., 4 PM, 5 AM) | Daily |
-| **Dependency Wait** | Yes - wait for all entities | No - immediate trigger |
-| **ODP Tables** | Multiple tables | Single table |
-| **FDP Tables** | 2 (event_transaction_excess, portfolio_account_excess) | 1 (portfolio_account_facility) |
-| **Transformation** | MULTI-TARGET (JOIN/MAP) | MAP 1 source → 1 target |
+| Aspect | JOIN Pattern (Application A) | MAP Pattern (Application B) |
+|--------|----------------------------------|-------------------------------|
+| **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
+| **Extract Schedule** | Staggered: Customers/Accounts 4 PM, Decision 5 AM | Daily |
+| **Dependency Wait** | Yes — all 3 entities must succeed | No — immediate trigger |
+| **ODP Tables** | 3 tables | 1 table |
+| **FDP Tables** | 2 (`event_transaction_excess`, `portfolio_account_excess`) | 1 (`portfolio_account_facility`) |
+| **Transformation** | JOIN (3 sources) + MAP (1 source) → 2 targets | MAP: 1 source → 1 target |
 
 ### Technology Stack
 
@@ -114,22 +120,23 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 | **Data Warehouse** | BigQuery |
 | **Monitoring** | Cloud Monitoring, custom metrics |
 
-### Functional Library Split (4-Layer Model)
+### Functional Library Split (5-Library Model)
 
-To ensure clean dependency management and independent scaling, the framework is split into four specialized libraries:
+To ensure clean dependency management and independent scaling, the framework is split into five specialised libraries, all published to PyPI under `gcp-pipeline-framework`:
 
 1. **`gcp-pipeline-core`**: The lightweight foundation containing Audit Trails, Error Handling models, and Job Control interfaces. Zero dependencies on Beam or Airflow.
-2. **`gcp-pipeline-beam`**: The ingestion engine. Contains `BasePipeline` and GCS/BigQuery connectors. Used by Ingestion deployment units.
-3. **`gcp-pipeline-orchestration`**: The control plane logic. Contains `BasePubSubPullSensor`, `DAGFactory`, and Airflow operators. No dependency on Beam.
-4. **`gcp-pipeline-transform`**: The SQL logic layer. Contains shared dbt macros and SQL templates for standardized transformations.
+2. **`gcp-pipeline-beam`**: The ingestion engine. Contains `BasePipeline`, `HDRTRLParser`, and GCS/BigQuery connectors. Used by Ingestion deployment units.
+3. **`gcp-pipeline-orchestration`**: The control plane logic. Contains `BasePubSubPullSensor`, `DAGFactory`, `EntityDependencyChecker`, and Airflow operators. No dependency on Beam.
+4. **`gcp-pipeline-transform`**: The SQL logic layer. Contains shared dbt macros for PII masking, audit column injection, and code mapping.
+5. **`gcp-pipeline-tester`**: Mocks, fixtures, and base test classes for consistent pipeline testing across all units.
 
 ### Deployment Architecture (3-Unit Model)
 
-Each system migration (e.g., Generic, Generic) is organized into three independent deployment units:
+The Generic reference system is organised into three independent deployment units:
 
-1. **Ingestion Unit (`*-ingestion`)**: Handles GCS → ODP load. Packages Beam code as Dataflow Flex Templates.
-2. **Transformation Unit (`*-transformation`)**: Handles ODP → FDP transformation. Manages dbt models and SQL logic.
-3. **Orchestration Unit (`*-orchestration`)**: The "Conductor". Manages Airflow DAGs and Pub/Sub sensing logic.
+1. **Ingestion Unit (`original-data-to-bigqueryload`)**: Handles GCS → ODP load. Packaged as a Dataflow Flex Template.
+2. **Transformation Unit (`bigquery-to-mapped-product`)**: Handles ODP → FDP transformation. Manages dbt models and SQL logic.
+3. **Orchestration Unit (`data-pipeline-orchestrator`)**: The conductor. Manages Airflow DAGs deployed to Cloud Composer, Pub/Sub sensing, and cross-unit coordination.
 
 ### Security & Encryption
 
@@ -149,7 +156,7 @@ Each system migration (e.g., Generic, Generic) is organized into three independe
 │                                    MAINFRAME SYSTEMS                                     │
 │                                                                                          │
 │    ┌────────────────────────────────┐         ┌────────────────────────────────┐        │
-│    │         Generic SYSTEM              │         │         Generic SYSTEM             │        │
+│    │      JOIN PATTERN (Excess Mgmt)     │         │   MAP PATTERN (Application B)  │        │
 │    │  ┌──────────┐ ┌──────────┐    │         │  ┌──────────────────────┐      │        │
 │    │  │Customers │ │ Accounts │    │         │  │    Applications      │      │        │
 │    │  │ (4 PM)   │ │ (4 PM)   │    │         │  │       (Daily)        │      │        │
@@ -213,7 +220,7 @@ Each system migration (e.g., Generic, Generic) is organized into three independe
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
-│                    STAGE 3: ODP GenericD (APACHE BEAM / DATAFLOW)                            │
+│                    STAGE 3: ODP LOAD (APACHE BEAM / DATAFLOW)                               │
 │                                                                                          │
 │    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐        │
 │    │ Read CSV     │───►│ Parse Records│───►│ Add Audit    │───►│ Write to     │        │
@@ -266,7 +273,7 @@ Each system migration (e.g., Generic, Generic) is organized into three independe
 │                         │                                  │                            │
 │                         ▼                                  ▼                            │
 │    ┌──────────────────────────────────┐    ┌──────────────────────────────────┐       │
-│    │           Generic FLOW                │    │           Generic FLOW               │       │
+│    │         JOIN PATTERN FLOW            │    │         MAP PATTERN FLOW             │       │
 │    │                                  │    │                                  │       │
 │    │  odp_generic.customers ──┐            │    │  odp_generic.applications            │       │
 │    │  odp_generic.accounts  ──┼──► JOIN ──┐│    │           │                      │       │
@@ -274,7 +281,7 @@ Each system migration (e.g., Generic, Generic) is organized into three independe
 │    │                     │           ││    │           ▼                      │       │
 │    │                     ▼           ││    │    ┌───────────────────┐         │       │
 │    │    ┌───────────────────────────┐││    │    │ FDP:              │         │       │
-│    │    │fdp_generic.                    │││    │    │ PortfolioAccount- │         │       │
+│    │    │fdp_generic:                   │││    │    │ PortfolioAccount- │         │       │
 │    │    │event_transaction_excess   │││    │    │ Facility          │         │       │
 │    │    │portfolio_account_excess   │││    │    └───────────────────┘         │       │
 │    │    └───────────────────────────┘││    │                                  │       │
@@ -298,7 +305,7 @@ Each system migration (e.g., Generic, Generic) is organized into three independe
 
 ## 🏢 SOURCE SYSTEMS
 
-### System 1: Generic (Application A)
+### JOIN Pattern: Generic (Application A)
 
 #### Entities & Tables
 
@@ -382,7 +389,7 @@ Each file contains three record types:
 
 ---
 
-### System 2: Generic (Application B Application)
+### MAP Pattern: Generic (Application B Application)
 
 #### Entities & Tables
 
@@ -419,25 +426,25 @@ Same structure as Generic system:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### Generic Data Flow Summary
+#### MAP Pattern Data Flow Summary
 
-Generic has a **simpler flow** compared to Generic:
+The MAP pattern has a simpler flow compared to the JOIN pattern:
 - **Single extract** (Applications) instead of 3 entities
-- **No dependency wait** - Transform triggers immediately after ODP load
-- **Two FDP outputs** from single ODP source
+- **No dependency wait** — transformation triggers immediately after ODP load
+- **One FDP output** (`fdp_generic.portfolio_account_facility`) from a single ODP source
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Generic DATA FLOW                                               │
+│ MAP PATTERN DATA FLOW                                       │
 │                                                             │
 │  ┌─────────────────┐                                        │
-│  │ Generic Extract     │  Single daily extract                  │
+│  │ Daily Extract   │  Single daily extract                  │
 │  │ (Applications)  │                                        │
 │  └────────┬────────┘                                        │
 │           │                                                 │
 │           ▼                                                 │
 │  ┌─────────────────┐                                        │
-│  │ ODP Load        │  odp_generic.applications                  │
+│  │ ODP Load        │  odp_generic.applications              │
 │  │ (1:1 Mapping)   │                                        │
 │  └────────┬────────┘                                        │
 │           │                                                 │
@@ -463,42 +470,43 @@ Generic has a **simpler flow** compared to Generic:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-#### Generic BigQuery Dataset Structure
+#### MAP Pattern: BigQuery Dataset Structure
 
 ```
 BigQuery Project: {project_id}
 │
-├── odp_generic                              # ODP: Original Data Product (Raw)
-│   └── applications                     # 1:1 mapping of Generic.APPLICATIONS
+├── odp_generic
+│   └── applications                     # 1:1 mapping of mainframe APPLICATIONS
 │
-└── fdp_generic                              # FDP: Foundation Data Product (Transformed)
-    ├── event_transaction_excess         # FDP 1: Event/Transaction focused view
-    └── portfolio_account_excess         # FDP 2: Portfolio/Account focused view
+└── fdp_generic
+    └── portfolio_account_facility       # MAP pattern FDP output
 ```
 
-#### Generic Entity Dependency Configuration
+The MAP pattern shares the same `odp_generic` and `fdp_generic` datasets as the JOIN pattern.
+
+#### MAP Pattern: Entity Dependency Configuration
 
 ```python
-# Generic has single entity - no dependency wait required
+# MAP pattern: single entity — no dependency wait required
 
 SYSTEM_ENTITY_DEPENDENCIES = {
-    "generic": {
+    "generic_join": {     # JOIN pattern: Customers + Accounts + Decision
         "entities": ["customers", "accounts", "decision"],
         "required_count": 3,
         "trigger_next_stage": "transformation"
     },
-    "generic": {
+    "generic_map": {      # MAP pattern: Applications only
         "entities": ["applications"],
-        "required_count": 1,  # Single entity - immediate trigger
+        "required_count": 1,  # Single entity — immediate trigger
         "trigger_next_stage": "transformation"
     }
 }
 ```
 
-#### Generic Transformation DAG
+#### MAP Pattern: Transformation DAG
 
 ```python
-# Generic Transformation DAG: generic_transformation_dag
+# MAP Pattern Transformation DAG: generic_map_transformation_dag
 # Triggered immediately after successful ODP load (no dependency wait)
 
 [check_odp_ready]  ──► Verify applications ODP table has data for extract_date
@@ -517,7 +525,7 @@ SYSTEM_ENTITY_DEPENDENCIES = {
         └── On Failure ──► [log_dbt_errors] ──► [send_alert]
 ```
 
-#### Generic FDP Table Schemas
+#### JOIN Pattern: FDP Table Schemas (event_transaction_excess, portfolio_account_excess)
 
 **FDP 1: event_transaction_excess**
 
@@ -593,7 +601,7 @@ PARTITION BY _extract_date
 CLUSTER BY portfolio_id, account_id;
 ```
 
-#### Generic dbt Models
+#### JOIN Pattern: dbt Models
 
 **File:** `transformations/dbt/models/fdp_generic/event_transaction_excess.sql`
 
@@ -695,16 +703,16 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 
 ---
 
-## 📊 SYSTEM COMPARISON: Generic vs Generic
+## 📊 PATTERN COMPARISON: JOIN vs MAP
 
-| Aspect | Generic (Application A) | Generic (Application B Application) |
-|--------|------------------------|-------------------------------------|
+| Aspect | JOIN Pattern (Application A) | MAP Pattern (Application B) |
+|--------|----------------------------------|-------------------------------|
 | **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
-| **Extract Schedule** | Customers/Accounts: 4 PM, Decision: 5 AM | TBD |
-| **Dependency Wait** | Yes - wait for all 3 entities | No - immediate trigger |
-| **ODP Tables** | 3 tables | 1 table |
-| **FDP Tables** | 2 (event_transaction_excess, portfolio_account_excess) | 1 (portfolio_account_facility) |
-| **Transformation Type** | MULTI-TARGET (JOIN/MAP) | MAP 1 source → 1 target |
+| **Extract Schedule** | Customers/Accounts: 4 PM; Decision: 5 AM | Daily |
+| **Dependency Wait** | Yes — all 3 entities must succeed | No — immediate trigger |
+| **ODP Tables** | 3 (`customers`, `accounts`, `decision`) | 1 (`applications`) |
+| **FDP Tables** | 2 (`event_transaction_excess`, `portfolio_account_excess`) | 1 (`portfolio_account_facility`) |
+| **Transformation Type** | Multi-source JOIN (3 → 2 targets) | Single-source MAP (1 → 1 target) |
 
 ---
 
@@ -758,7 +766,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 ┌─────────────────────────────────────────────────────────────┐
 │ PUB/SUB NOTIFICATION                                        │
 │                                                             │
-│  Topic: file-landing-notifications                          │
+│  Topic: generic-file-notifications                          │
 │  Message attributes:                                        │
 │    - bucketId: landing-bucket                               │
 │    - objectId: generic/customers/customers.csv.ok                │
@@ -809,15 +817,15 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ CLOUD COMPOSER (Apache Airflow)                             │
+│ CLOUD COMPOSER (Managed Apache Airflow)                     │
 │                                                             │
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ PubSubPullSensor                                     │   │
 │  │ ─────────────────                                    │   │
-│  │ - Subscription: file-landing-sub                     │   │
+│  │ - Subscription: generic-file-notifications-sub        │   │
 │  │ - Filter: .ok files only                             │   │
 │  │ - Extracts metadata from message                     │   │
-│  │ - Pushes to XCom: systgeneric_id, entity_type, file_path  │   │
+│  │ - Pushes to XCom: system_id, entity_type, file_path   │   │
 │  └──────────────────────┬──────────────────────────────┘   │
 │                         │                                   │
 │                         ▼                                   │
@@ -825,7 +833,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 │  │ Pipeline Router Task                                 │   │
 │  │ ────────────────────                                 │   │
 │  │ - Reads metadata from XCom                           │   │
-│  │ - Determines: system (Generic/Generic), entity, file path     │   │
+│  │ - Determines: system_id (generic), entity, file path      │   │
 │  │ - Selects appropriate pipeline configuration         │   │
 │  │ - Routes to entity-specific processing               │   │
 │  └──────────────────────┬──────────────────────────────┘   │
@@ -915,7 +923,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 #### Stage 2 DAG Structure
 
 ```python
-# DAG: generic_file_processing_dag / generic_file_processing_dag
+# DAG: generic_file_processing_dag (handles both JOIN and MAP pattern entities)
 
 [PubSubPullSensor] 
         │
@@ -942,7 +950,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 |-----------------|--------|---------|
 | `bucket_id` | Message attribute | `landing-bucket` |
 | `object_path` | Message attribute | `generic/customers/customers.csv.ok` |
-| `systgeneric_id` | Parsed from path | `generic` |
+| `system_id` | Parsed from path | `generic` |
 | `entity_type` | Parsed from path | `customers` |
 | `ok_file_name` | Parsed from path | `customers.csv.ok` |
 | `base_file_pattern` | Derived | `customers*.csv` |
@@ -1033,7 +1041,7 @@ Post successful file validation and data quality checks, data is loaded directly
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ STAGE 3: ODP GenericD TO BIGQUERY                               │
+│ STAGE 3: ODP LOAD TO BIGQUERY                                   │
 │                                                             │
 │  Input: Validated CSV files from GCS                        │
 │  Output: BigQuery ODP tables (1:1 mainframe mapping)        │
@@ -1088,11 +1096,16 @@ Post successful file validation and data quality checks, data is loaded directly
 ```
 BigQuery Project: {project_id}
 │
-aa
+├── odp_generic                         # Generic ODP dataset (all entities)
+│   ├── customers                   # 1:1 mapping of mainframe CUSTOMERS
+│   ├── accounts                    # 1:1 mapping of mainframe ACCOUNTS
+│   ├── decision                    # 1:1 mapping of mainframe DECISION
+│   └── applications                # 1:1 mapping of mainframe APPLICATIONS
 │
-└── odp_generic                         # Generic system ODP dataset
-    ├── applications                # 1:1 mapping of Generic tables
-    └── ...
+└── fdp_generic                         # Generic FDP dataset (all targets)
+    ├── event_transaction_excess    # JOIN pattern output
+    ├── portfolio_account_excess    # JOIN pattern output
+    └── portfolio_account_facility  # MAP pattern output
 ```
 
 #### ODP Table Schema Pattern
@@ -1253,7 +1266,7 @@ gs://error-bucket/
 ```json
 {
   "run_id": "generic_customers_20260101_160500",
-  "systgeneric_id": "generic",
+  "system_id": "generic",
   "entity_type": "customers",
   "extract_date": "2026-01-01",
   "failed_at": "2026-01-01T16:15:00.000Z",
@@ -1284,7 +1297,7 @@ gs://error-bucket/
 
 CREATE TABLE job_control.pipeline_jobs (
     run_id              STRING NOT NULL,        -- Unique run identifier
-    systgeneric_id           STRING NOT NULL,        -- Generic, Generic
+    system_id                STRING NOT NULL,        -- Source system identifier (e.g., generic)
     entity_type         STRING NOT NULL,        -- customers, accounts, etc.
     extract_date        DATE NOT NULL,          -- Extract date from header
     
@@ -1339,7 +1352,7 @@ PARTITION BY DATE(extract_date);
 | `DQ_DUPLICATE_PK` | Data Quality | Duplicate primary keys found |
 | `DQ_CORRUPTION` | Data Quality | File corruption detected |
 | `DATAFLOW_FAILED` | ODP Load | Dataflow pipeline failed |
-| `BQ_GenericD_FAILED` | ODP Load | BigQuery load failed |
+| `BQ_LOAD_FAILED` | ODP Load | BigQuery load failed |
 
 #### Move to Error Folder Task
 
@@ -1410,7 +1423,7 @@ def update_job_status_failure(
     """
     query = """
         UPDATE `{project}.job_control.pipeline_jobs`
-        SET 
+        SET
             status = 'FAILED',
             error_code = @error_code,
             error_message = @error_message,
@@ -1520,7 +1533,7 @@ gs://archive-bucket/
         },
         "condition": {
           "age": 90,
-          "matchesPrefix": ["generic/", "generic/"]
+          "matchesPrefix": ["generic/"]
         }
       },
       {
@@ -1530,7 +1543,7 @@ gs://archive-bucket/
         },
         "condition": {
           "age": 1,
-          "matchesPrefix": ["generic/", "generic/"]
+          "matchesPrefix": ["generic/"]
         }
       }
     ]
@@ -1620,9 +1633,9 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Generic ENTITY DEPENDENCY CHECK                                  │
+│ JOIN PATTERN: ENTITY DEPENDENCY CHECK                           │
 │                                                             │
-│  Required Entities for Generic System:                           │
+│  Required Entities (JOIN pattern — Application A):          │
 │    ☑ Customers  (Daily @ 4:00 PM)                          │
 │    ☑ Accounts   (Daily @ 4:00 PM)                          │
 │    ☑ Decision   (Daily @ 5:00 AM)                          │
@@ -1652,10 +1665,10 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 │  │          │                                           │   │
 │  │          ▼                                           │   │
 │  │   ┌─────────────────────────────────────────────┐   │   │
-│  │   │ ALL 3 ENTITIES GenericDED FOR EXTRACT DATE?     │   │   │
+│  │   │ ALL 3 ENTITIES LOADED FOR EXTRACT DATE?         │   │   │
 │  │   │                                             │   │   │
 │  │   │  Check job_control.pipeline_jobs:           │   │   │
-│  │   │    - systgeneric_id = 'generic'                       │   │   │
+│  │   │    - system_id = 'generic'                           │   │   │
 │  │   │    - extract_date = '2026-01-01'            │   │   │
 │  │   │    - status = 'SUCCESS'                     │   │   │
 │  │   │    - entity_type IN (customers, accounts,   │   │   │
@@ -1676,17 +1689,19 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 # LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
 # PIPELINE provides the configuration (entities, counts, triggers)
 
-# Example: Blueprint pipeline configuration (deployments/generic/src/generic/config.py)
-Generic_ENTITY_DEPENDENCIES = {
+# JOIN pattern configuration (Application A entities)
+# deployments/data-pipeline-orchestrator/src/config.py
+JOIN_ENTITY_DEPENDENCIES = {
     "entities": ["customers", "accounts", "decision"],
     "required_count": 3,
     "trigger_next_stage": "transformation"
 }
 
-# Example: Blueprint pipeline configuration (deployments/generic/src/generic/config.py)
-Generic_ENTITY_DEPENDENCIES = {
+# MAP pattern configuration (Application B — immediate trigger)
+# deployments/data-pipeline-orchestrator/src/config.py
+MAP_ENTITY_DEPENDENCIES = {
     "entities": ["applications"],
-    "required_count": 1,  # Single entity - immediate trigger
+    "required_count": 1,  # Single entity — immediate trigger
     "trigger_next_stage": "transformation"
 }
 
@@ -1695,7 +1710,7 @@ from gcp_pipeline_orchestration import EntityDependencyChecker
 
 checker = EntityDependencyChecker(
     project_id="my-project",
-    dependencies=Generic_ENTITY_DEPENDENCIES  # Pipeline provides config
+    dependencies=JOIN_ENTITY_DEPENDENCIES  # Pipeline provides config
 )
 
 if checker.all_entities_loaded("generic", extract_date):
@@ -1704,10 +1719,10 @@ if checker.all_entities_loaded("generic", extract_date):
 
 #### Dependency Check Table
 
-| System | Required Entities | All Required? | Trigger Condition |
-|--------|-------------------|---------------|-------------------|
-| **Generic** | Customers, Accounts, Decision | Yes, all 3 | All 3 SUCCESS for same extract_date |
-| **Generic** | Applications | No (single entity) | Immediate after ODP load SUCCESS |
+| Pattern | Required Entities | Dependency Wait? | Trigger Condition |
+|---------|-------------------|-----------------|-------------------|
+| **JOIN** (Application A) | Customers, Accounts, Decision | Yes — all 3 | All 3 reach SUCCESS for same `extract_date` |
+| **MAP** (Application B) | Applications | No | Immediate after ODP load SUCCESS |
 
 #### Dependency Check Query
 
@@ -1723,8 +1738,8 @@ SELECT
         ELSE 'WAITING'
     END as transform_status
 FROM `{project}.job_control.pipeline_jobs`
-WHERE 
-    systgeneric_id = 'generic'
+WHERE
+    system_id = 'generic'
     AND extract_date = @extract_date
     AND status = 'SUCCESS'
     AND entity_type IN ('customers', 'accounts', 'decision')
@@ -1736,63 +1751,63 @@ GROUP BY extract_date;
 ```python
 # check_all_entities_loaded task
 
-def check_all_entities_loaded(systgeneric_id: str, extract_date: str) -> bool:
+def check_all_entities_loaded(system_id: str, extract_date: str) -> bool:
     """
     Check if all required entities for a system are loaded to ODP.
-    
+
     Args:
-        systgeneric_id: System identifier (generic, generic)
+        system_id: System identifier (e.g., 'generic')
         extract_date: Extract date to check
-    
+
     Returns:
-        True if all entities loaded, False otherwise
+        True if all required entities are loaded, False otherwise
     """
-    required_entities = SYSTEM_ENTITY_DEPENDENCIES[systgeneric_id]["entities"]
-    required_count = SYSTEM_ENTITY_DEPENDENCIES[systgeneric_id]["required_count"]
-    
+    required_entities = SYSTEM_ENTITY_DEPENDENCIES[system_id]["entities"]
+    required_count = SYSTEM_ENTITY_DEPENDENCIES[system_id]["required_count"]
+
     query = """
         SELECT COUNT(DISTINCT entity_type) as loaded_count
         FROM `{project}.job_control.pipeline_jobs`
-        WHERE 
-            systgeneric_id = @systgeneric_id
+        WHERE
+            system_id = @system_id
             AND extract_date = @extract_date
             AND status = 'SUCCESS'
             AND entity_type IN UNNEST(@required_entities)
     """
-    
+
     result = bq_client.query(query, parameters={
-        "systgeneric_id": systgeneric_id,
+        "system_id": system_id,
         "extract_date": extract_date,
         "required_entities": required_entities
     })
-    
+
     loaded_count = list(result)[0]["loaded_count"]
-    
+
     return loaded_count == required_count
 
 
-def trigger_transformation_if_ready(systgeneric_id: str, extract_date: str) -> str:
+def trigger_transformation_if_ready(system_id: str, extract_date: str) -> str:
     """
     Trigger transformation stage if all entities are loaded.
     Called after each successful ODP load.
-    
+
     Returns:
         'TRIGGERED' if transformation started, 'WAITING' otherwise
     """
-    if check_all_entities_loaded(systgeneric_id, extract_date):
-        # All entities loaded - trigger transformation DAG
+    if check_all_entities_loaded(system_id, extract_date):
+        # All entities loaded — trigger transformation DAG
         trigger_dag(
-            dag_id=f"{systgeneric_id}_transformation_dag",
+            dag_id=f"{system_id}_transformation_dag",
             conf={
-                "systgeneric_id": systgeneric_id,
+                "system_id": system_id,
                 "extract_date": extract_date,
-                "run_id": generate_run_id(systgeneric_id, "transform", extract_date)
+                "run_id": generate_run_id(system_id, "transform", extract_date)
             }
         )
         return "TRIGGERED"
     else:
-        # Still waiting for other entities
-        log.info(f"Waiting for all {systgeneric_id} entities to load for {extract_date}")
+        # Still waiting for other entities (JOIN pattern)
+        log.info(f"Waiting for all {system_id} entities to load for {extract_date}")
         return "WAITING"
 ```
 
@@ -1834,22 +1849,22 @@ def trigger_transformation_if_ready(systgeneric_id: str, extract_date: str) -> s
 -- Tracks which entities are loaded for each extract date
 
 CREATE TABLE job_control.entity_load_status (
-    systgeneric_id           STRING NOT NULL,
-    extract_date        DATE NOT NULL,
-    entity_type         STRING NOT NULL,
-    status              STRING NOT NULL,        -- SUCCESS, FAILED, PENDING
-    run_id              STRING,
-    loaded_at           TIMESTAMP,
-    record_count        INT64,
-    
-    PRIMARY KEY (systgeneric_id, extract_date, entity_type) NOT ENFORCED
+    system_id            STRING NOT NULL,        -- e.g., 'generic'
+    extract_date         DATE NOT NULL,
+    entity_type          STRING NOT NULL,
+    status               STRING NOT NULL,        -- SUCCESS, FAILED, PENDING
+    run_id               STRING,
+    loaded_at            TIMESTAMP,
+    record_count         INT64,
+
+    PRIMARY KEY (system_id, extract_date, entity_type) NOT ENFORCED
 )
 PARTITION BY extract_date;
 
--- View: Ready for transformation
+-- View: Identify extract dates ready for transformation
 CREATE VIEW job_control.v_ready_for_transformation AS
-SELECT 
-    systgeneric_id,
+SELECT
+    system_id,
     extract_date,
     COUNT(*) as entities_loaded,
     ARRAY_AGG(entity_type) as entities,
@@ -1857,10 +1872,12 @@ SELECT
     MAX(loaded_at) as last_load
 FROM job_control.entity_load_status
 WHERE status = 'SUCCESS'
-GROUP BY systgeneric_id, extract_date
-HAVING 
-    (systgeneric_id = 'generic' AND COUNT(*) = 3)
-    OR (systgeneric_id = 'generic' AND COUNT(*) = ...)  -- Define Generic count
+GROUP BY system_id, extract_date
+HAVING
+    -- JOIN pattern: all 3 entities must be loaded
+    (system_id = 'generic' AND COUNT(*) = 3
+     AND ARRAY_LENGTH(ARRAY(SELECT e FROM UNNEST(ARRAY_AGG(entity_type)) AS e
+                            WHERE e IN ('customers', 'accounts', 'decision'))) = 3)
 ;
 ```
 
@@ -1870,9 +1887,9 @@ HAVING
 
 Once all 3 Generic entities (customers, accounts, decision) are loaded to ODP, the dbt transformation is triggered to create the **Foundation Data Product (FDP)**.
 
-#### Foundation Data Product: GenericAttributes
+#### JOIN Pattern: Foundation Data Products
 
-The **GenericAttributes** FDP is created by joining and transforming data from all 3 ODP tables using an **Attribute Mapping File**.
+The JOIN pattern FDP tables (`event_transaction_excess`, `portfolio_account_excess`) are created by joining and transforming data from all 3 ODP tables using an **Attribute Mapping File**.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -1904,7 +1921,7 @@ The **GenericAttributes** FDP is created by joining and transforming data from a
 │  │ DBT TRANSFORMATION                                   │   │
 │  │ ──────────────────                                   │   │
 │  │                                                      │   │
-│  │  dbt run --select fdp.generic                          │   │
+│  │  dbt run --select fdp_generic                          │   │
 │  │                                                      │   │
 │  │  Transformations Applied:                            │   │
 │  │    1. event_transaction_excess: Join customers +     │   │
@@ -1936,17 +1953,16 @@ The **GenericAttributes** FDP is created by joining and transforming data from a
 ```
 BigQuery Project: {project_id}
 │
-├── odp_generic                          # ODP: Original Data Product (Raw)
-│   ├── customers                   # 1:1 mapping of Generic.CUSTOMERS
-│   ├── accounts                    # 1:1 mapping of Generic.ACCOUNTS
-│   └── decision                    # 1:1 mapping of Generic.DECISION
+├── odp_generic                          # ODP: Original Data Product (all entities)
+│   ├── customers                   # JOIN pattern — 1:1 mapping of mainframe CUSTOMERS
+│   ├── accounts                    # JOIN pattern — 1:1 mapping of mainframe ACCOUNTS
+│   ├── decision                    # JOIN pattern — 1:1 mapping of mainframe DECISION
+│   └── applications                # MAP pattern  — 1:1 mapping of mainframe APPLICATIONS
 │
-├── fdp_generic                          # FDP: Foundation Data Product (Transformed)
-│   ├── event_transaction_excess    # Joined customer-account view
-│   └── portfolio_account_excess    # Decision-based portfolio view
-│
-└── odp_generic                         # Generic system (similar pattern)
-    └── ...
+└── fdp_generic                          # FDP: Foundation Data Product (all targets)
+    ├── event_transaction_excess    # JOIN pattern output: joined customer-account view
+    ├── portfolio_account_excess    # JOIN pattern output: decision-based portfolio view
+    └── portfolio_account_facility  # MAP pattern output: loan facility records
 ```
 
 #### Attribute Mapping File
@@ -1998,8 +2014,8 @@ decision,decision_reason,decision_reason,STRING,DIRECT,false,Reason for decision
 -- Stores mainframe code to business value mappings
 
 CREATE TABLE reference.code_mappings (
-    systgeneric_id       STRING,
-    entity_type     STRING,
+    system_id        STRING,
+    entity_type      STRING,
     field_name      STRING,
     source_code     STRING,
     target_value    STRING,
@@ -2087,11 +2103,11 @@ FROM {{ ref('stg_generic_decision') }}
 
 ```sql
 -- Macro: Map code to description using reference table
-{% macro map_code(systgeneric_id, entity_type, field_name, source_column) %}
+{% macro map_code(system_id, entity_type, field_name, source_column) %}
     COALESCE(
-        (SELECT target_value 
-         FROM {{ ref('code_mappings') }} 
-         WHERE systgeneric_id = '{{ systgeneric_id }}'
+        (SELECT target_value
+         FROM {{ ref('code_mappings') }}
+         WHERE system_id = '{{ system_id }}'
            AND entity_type = '{{ entity_type }}'
            AND field_name = '{{ field_name }}'
            AND source_code = {{ source_column }}
@@ -2115,7 +2131,7 @@ FROM {{ ref('stg_generic_decision') }}
 #### Stage 4 DAG Tasks
 
 ```python
-# Transformation DAG: generic_transformation_dag
+# JOIN Pattern Transformation DAG: generic_join_transformation_dag
 
 [check_odp_ready]  ──► Verify all 3 ODP tables have data for extract_date
         │
@@ -2161,7 +2177,7 @@ On successful completion of the FDP transformation job, the audit table is updat
 CREATE TABLE audit.transformation_audit (
     audit_id                STRING NOT NULL,        -- Unique audit record ID
     run_id                  STRING NOT NULL,        -- Transformation run ID
-    systgeneric_id               STRING NOT NULL,        -- Generic, Generic
+    system_id                    STRING NOT NULL,        -- Source system identifier (e.g., generic)
     extract_date            DATE NOT NULL,          -- Extract date being processed
     
     -- Transformation details
@@ -2203,7 +2219,7 @@ CREATE TABLE audit.transformation_audit (
     created_by              STRING DEFAULT SESSION_USER()
 )
 PARTITION BY DATE(extract_date)
-CLUSTER BY systgeneric_id, transformation_type;
+CLUSTER BY system_id, transformation_type;
 ```
 
 #### Update Audit Table Task
@@ -2213,7 +2229,7 @@ CLUSTER BY systgeneric_id, transformation_type;
 
 def update_audit_table(
     run_id: str,
-    systgeneric_id: str,
+    system_id: str,
     extract_date: str,
     source_entities: List[dict],
     target_record_count: int,
@@ -2224,10 +2240,10 @@ def update_audit_table(
 ) -> None:
     """
     Record transformation audit entry after successful FDP job.
-    
+
     Args:
         run_id: Transformation run ID
-        systgeneric_id: System identifier (generic, generic)
+        system_id: System identifier (e.g., 'generic')
         extract_date: Extract date processed
         source_entities: List of source entity details
         target_record_count: Records written to FDP
@@ -2236,20 +2252,19 @@ def update_audit_table(
         dbt_run_id: dbt run identifier
         status: Final status (SUCCESS, FAILED, PARTIAL)
     """
-    
+
     # Calculate totals
     source_total = sum(e['record_count'] for e in source_entities)
     duration = int((completed_at - started_at).total_seconds())
-    
+
     audit_record = {
         "audit_id": f"audit_{run_id}",
         "run_id": run_id,
-        "systgeneric_id": systgeneric_id,
+        "system_id": system_id,
         "extract_date": extract_date,
         "transformation_type": "ODP_TO_FDP",
-        "source_dataset": f"odp_{systgeneric_id}",
-        "target_dataset": f"fdp_{systgeneric_id}",
-        "target_table": f"{systgeneric_id}_attributes",
+        "source_dataset": f"odp_{system_id}",
+        "target_dataset": f"fdp_{system_id}",
         "source_entities": source_entities,
         "source_total_records": source_total,
         "target_record_count": target_record_count,
@@ -2260,7 +2275,6 @@ def update_audit_table(
         "duration_seconds": duration,
         "status": status,
         "dbt_run_id": dbt_run_id,
-        "dbt_model_name": f"fdp_{systgeneric_id}.{systgeneric_id}_attributes"
     }
     
     # Insert audit record
@@ -2277,29 +2291,29 @@ def record_fdp_audit(**context):
     
     # Get details from previous tasks
     run_id = context['dag_run'].conf['run_id']
-    systgeneric_id = context['dag_run'].conf['systgeneric_id']
+    system_id = context['dag_run'].conf['system_id']
     extract_date = context['dag_run'].conf['extract_date']
-    
-    # Get source entity counts from ODP
+
+    # Get source entity counts from ODP (JOIN pattern: 3 entities)
     source_entities = [
         {"entity_name": "customers", "record_count": get_odp_count("customers", extract_date), "odp_run_id": get_odp_run_id("customers", extract_date)},
         {"entity_name": "accounts", "record_count": get_odp_count("accounts", extract_date), "odp_run_id": get_odp_run_id("accounts", extract_date)},
         {"entity_name": "decision", "record_count": get_odp_count("decision", extract_date), "odp_run_id": get_odp_run_id("decision", extract_date)},
     ]
-    
+
     # Get FDP record count
-    target_count = get_fdp_count(f"fdp_{systgeneric_id}.{systgeneric_id}_attributes", extract_date)
-    
+    target_count = get_fdp_count(f"fdp_{system_id}.event_transaction_excess", extract_date)
+
     # Get timing from XCom
     started_at = ti.xcom_pull(task_ids='run_dbt_fdp', key='start_time')
     completed_at = datetime.utcnow()
-    
+
     # Get dbt run ID
     dbt_run_id = ti.xcom_pull(task_ids='run_dbt_fdp', key='dbt_run_id')
-    
+
     update_audit_table(
         run_id=run_id,
-        systgeneric_id=systgeneric_id,
+        system_id=system_id,
         extract_date=extract_date,
         source_entities=source_entities,
         target_record_count=target_count,
@@ -2316,7 +2330,7 @@ def record_fdp_audit(**context):
 {
   "audit_id": "audit_generic_transform_20260101_170000",
   "run_id": "generic_transform_20260101_170000",
-  "systgeneric_id": "generic",
+  "system_id": "generic",
   "extract_date": "2026-01-01",
   "transformation_type": "ODP_TO_FDP",
   "source_dataset": "odp_generic",
@@ -2413,21 +2427,21 @@ CLUSTER BY customer_id, _run_id;
 - On failure: move to error folder, update job status, send alert
 
 ### Stage 3: ODP Load
-- Apache Beam pipeline reads validated CSV files
-- Parses records, skips HDR/TRL
-- Adds audit columns (_run_id, _source_file, _processed_ts, _extract_date)
-- Loads 1:1 to BigQuery ODP tables
-- On success: archive files, update job status
-- Generic: Wait for all 3 entities before Stage 4
-- Generic: Immediate trigger to Stage 4
+- Apache Beam pipeline (Dataflow Flex Template) reads validated CSV files
+- Parses records, skips HDR/TRL envelope rows
+- Adds audit columns (`_run_id`, `_source_file`, `_processed_ts`, `_extract_date`)
+- Loads 1:1 to BigQuery ODP tables (`odp_generic.*`)
+- On success: archive files to `{PROJECT_ID}-generic-{ENV}-archive`, update job status to SUCCESS
+- **JOIN pattern**: `EntityDependencyChecker` waits for all 3 entities (customers, accounts, decision) before triggering Stage 4
+- **MAP pattern**: Transformation triggered immediately after applications ODP load
 
 ### Stage 4: FDP Transformation
-- dbt transformation using attribute mapping
-- Code translations (mainframe codes → business values)
-- PII masking applied
-- Generic: Join customers + accounts ODP tables → event_transaction_excess FDP, Map decision ODP → portfolio_account_excess FDP
-- Generic: Map applications ODP → portfolio_account_facility FDP
-- Update audit table on completion
+- Cloud Composer triggers dbt (`bigquery-to-mapped-product`)
+- dbt applies attribute mapping, code translations, and PII masking macros from `gcp-pipeline-transform`
+- **JOIN pattern**: Joins `odp_generic.customers` + `odp_generic.accounts` → `fdp_generic.event_transaction_excess`; maps `odp_generic.decision` → `fdp_generic.portfolio_account_excess`
+- **MAP pattern**: Maps `odp_generic.applications` → `fdp_generic.portfolio_account_facility`
+- Transformation audit record written to `audit.transformation_audit`
+- Job status updated to SUCCESS in `job_control.pipeline_jobs`
 
 ---
 
@@ -2436,30 +2450,26 @@ CLUSTER BY customer_id, _run_id;
 ```
 BigQuery Project: {project_id}
 │
-├── odp_generic                              # Generic ODP (Original Data Product)
-│   ├── customers                       # 1:1 mapping of Generic.CUSTOMERS
-│   ├── accounts                        # 1:1 mapping of Generic.ACCOUNTS
-│   └── decision                        # 1:1 mapping of Generic.DECISION
+├── odp_generic                              # ODP: Original Data Product (all entities)
+│   ├── customers                       # JOIN pattern — 1:1 mapping of CUSTOMERS
+│   ├── accounts                        # JOIN pattern — 1:1 mapping of ACCOUNTS
+│   ├── decision                        # JOIN pattern — 1:1 mapping of DECISION
+│   └── applications                    # MAP pattern  — 1:1 mapping of APPLICATIONS
 │
-├── fdp_generic                              # Generic FDP (Foundation Data Product)
-│   ├── event_transaction_excess        # Joined customer-account view
-│   └── portfolio_account_excess        # Decision-based portfolio view
+├── fdp_generic                              # FDP: Foundation Data Product (all targets)
+│   ├── event_transaction_excess        # JOIN pattern output: joined customer-account view
+│   ├── portfolio_account_excess        # JOIN pattern output: decision-based portfolio view
+│   └── portfolio_account_facility      # MAP pattern output: loan facility records
 │
-├── odp_generic                             # Generic ODP (Original Data Product)
-│   └── applications                    # 1:1 mapping of Generic.APPLICATIONS
+├── job_control                          # Pipeline coordination tables
+│   ├── pipeline_jobs                   # Job status tracking (run_id, status, extract_date)
+│   └── entity_load_status              # Per-entity load status for dependency checking
 │
-├── fdp_generic                             # Generic FDP (Foundation Data Product)
-│   └── portfolio_account_facility      # Loan facility records
+├── audit                                # Audit tables
+│   └── transformation_audit            # Transformation audit log (ODP → FDP)
 │
-├── job_control                         # Pipeline control tables
-│   ├── pipeline_jobs                   # Job status tracking
-│   └── entity_load_status              # Entity load status
-│
-├── audit                               # Audit tables
-│   └── transformation_audit            # Transformation audit log
-│
-└── reference                           # Reference data
-    └── code_mappings                   # Mainframe code translations
+└── reference                            # Reference data
+    └── code_mappings                   # Mainframe code-to-business-value translations
 ```
 
 ---
@@ -2477,29 +2487,33 @@ BigQuery Project: {project_id}
 
 ### Bucket Layout
 
-```
-gs://landing-bucket/                    # Landing zone (source files)
-├── generic/
-│   ├── customers/
-│   ├── accounts/
-│   └── decision/
-└── generic/
-    └── applications/
+GCS buckets are environment-scoped: `{PROJECT_ID}-generic-{ENV}-{purpose}`.
 
-gs://archive-bucket/                    # Archive (3-month retention)
+```
+gs://{PROJECT_ID}-generic-{ENV}-landing/      # Landing zone (source files from mainframe)
+├── generic/
+│   ├── customers/                            # Customers data + .ok files
+│   ├── accounts/                             # Accounts data + .ok files
+│   └── decision/                             # Decision data + .ok files
+└── generic/
+    └── applications/                         # Applications data + .ok files
+
+gs://{PROJECT_ID}-generic-{ENV}-archive/      # Archive (3-month retention, Nearline storage)
 ├── generic/{entity}/{YYYY}/{MM}/{DD}/
 └── generic/{entity}/{YYYY}/{MM}/{DD}/
 
-gs://error-bucket/                      # Error files (quarantine)
+gs://{PROJECT_ID}-generic-{ENV}-error/        # Error files (quarantine on failure)
 ├── generic/{entity}/{YYYY}/{MM}/{DD}/
 │   └── error_report.json
 └── generic/{entity}/{YYYY}/{MM}/{DD}/
     └── error_report.json
+
+gs://{PROJECT_ID}-generic-{ENV}-temp/         # Dataflow temp/staging files
 ```
 
 ---
 
-## ✅ IMPLGenericENTATION PHASES
+## ✅ IMPLEMENTATION PHASES
 
 | Phase | Description | Status |
 |-------|-------------|--------|
@@ -2530,7 +2544,7 @@ gs://error-bucket/                      # Error files (quarantine)
 | `DQ_DUPLICATE_PK` | Data Quality | Duplicate primary keys found |
 | `DQ_CORRUPTION` | Data Quality | File corruption detected |
 | `DATAFLOW_FAILED` | ODP Load | Dataflow pipeline failed |
-| `BQ_GenericD_FAILED` | ODP Load | BigQuery load failed |
+| `BQ_LOAD_FAILED` | ODP Load | BigQuery write operation failed |
 
 ### B. Job Status Values
 
