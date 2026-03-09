@@ -1,96 +1,200 @@
-# 🚀 Creating a New Deployment Guide
+# Creating a New Deployment Guide
 
-This guide provides step-by-step instructions for creating a new migration pipeline deployment using the decoupled architecture of 4 functional libraries and 3 deployment units.
+This guide provides step-by-step instructions for creating a new pipeline deployment using the decoupled, library-first architecture: 5 specialised libraries and 3 independent deployment units.
 
-## 📋 Overview
+## Overview
 
-The framework follows a **decoupled, library-first** approach. To create a new deployment for a system (e.g., `mysystem`), you create three independent deployment units that consume specialized libraries.
+The framework follows a **library-first** approach. To create a new deployment for a system (e.g., `myapp`), you create three independent deployment units that consume versioned libraries from PyPI.
 
-### 4 Specialized Libraries
+### 5 Specialised Libraries (`gcp-pipeline-framework==1.0.6`)
 
-1.  **`gcp-pipeline-core`**: Shared models (Audit, JobControl). No Beam/Airflow dependencies.
-2.  **`gcp-pipeline-beam`**: Ingestion logic. Depends on `apache-beam`.
-3.  **`gcp-pipeline-orchestration`**: Airflow sensors and DAG factories. Depends on `apache-airflow`.
-4.  **`gcp-pipeline-transform`**: Shared dbt macros and SQL logic.
+All five libraries are distributed as a single PyPI umbrella package:
+
+```
+pip install gcp-pipeline-framework==1.0.6
+```
+
+| Library | Purpose | Depends On |
+|---------|---------|------------|
+| `gcp-pipeline-core` | Shared models — Audit, JobControl, EntitySchema | None |
+| `gcp-pipeline-beam` | Dataflow ingestion — Beam DoFns, transforms, I/O | `gcp-pipeline-core` |
+| `gcp-pipeline-orchestration` | Airflow sensors, DAG factories, dependency checking | `gcp-pipeline-core` |
+| `gcp-pipeline-transform` | dbt macros and SQL patterns for FDP models | `gcp-pipeline-core` |
+| `gcp-pipeline-tester` | Testing utilities — fixtures, mocks, BDD helpers | `gcp-pipeline-core` |
 
 ### 3 Independent Deployment Units
 
-1.  **`mysystgeneric-ingestion`**: Handles GCS → ODP load. Uses `gcp-pipeline-beam`.
-2.  **`mysystgeneric-transformation`**: Handles ODP → FDP transformation. Uses `gcp-pipeline-transform`.
-3.  **`mysystgeneric-orchestration`**: The "Conductor" (Airflow). Uses `gcp-pipeline-orchestration`.
+| Unit | Folder Convention | Library Used |
+|------|-------------------|-------------|
+| Ingestion | `{system_id}-ingestion` | `gcp-pipeline-beam` |
+| Transformation | `{system_id}-transformation` | `gcp-pipeline-transform` |
+| Orchestration | `{system_id}-orchestration` | `gcp-pipeline-orchestration` |
+
+Each unit is an independent Python project with its own `Dockerfile`, `pyproject.toml`, and CI/CD step.
 
 ---
 
-## 🛠 Step-by-Step Instructions
+## Step-by-Step Instructions
 
 ### 1. Create the Deployment Structure
 
-The easiest way to start is by copying the structure of an existing deployment or using the provided templates.
+Start by copying the structure of an existing deployment or using the provided templates.
 
 ```bash
-SYSTEM="mysystem"
-mkdir -p deployments/${SYSTEM}-ingestion
-mkdir -p deployments/${SYSTEM}-transformation/dbt
+SYSTEM="myapp"
+mkdir -p deployments/${SYSTEM}-ingestion/src/${SYSTEM}_ingestion/{pipeline,schema,config}
+mkdir -p deployments/${SYSTEM}-ingestion/tests/unit
+mkdir -p deployments/${SYSTEM}-transformation/dbt/{models,macros,tests}
 mkdir -p deployments/${SYSTEM}-orchestration/dags
 ```
 
-### 2. Set Up Ingestion Unit (`mysystgeneric-ingestion`)
+### 2. Set Up the Ingestion Unit (`{system_id}-ingestion`)
 
-- **Define Schema**: Create `mysystgeneric_ingestion/schema/your_entity.py` using `gcp_pipeline_core.schema.EntitySchema`. This is the single source of truth for validation and PII.
-- **Pipeline**: Inherit from `gcp_pipeline_beam.pipelines.base.BasePipeline`. Use the `BeamPipelineBuilder` for a fluent, easy-to-read configuration.
-- **Ease of Use**: The library handles HDR/TRL parsing, PII masking, and audit injection automatically if you use the standard `DoFns`.
+**Define Entity Schemas** — the single source of truth for validation and PII:
 
-### 3. Set Up Transformation Unit (`mysystgeneric-transformation`)
+```python
+# src/{system_id}_ingestion/schema/customers.py
+from gcp_pipeline_core.schema import EntitySchema
 
-- **dbt Project**: Initialize your dbt project in `dbt/`.
-- **Macro Integration**: In `dbt_project.yml`, add:
-  ```yaml
-  macro-paths: ["macros", "../../gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros"]
-  ```
-- **Generic Macros**: Use `{{ add_audit_columns() }}` in your staging models and `{{ mask_pii(col, 'PII_TYPE') }}` in your FDP models. This ensures you follow the "Generic-First" and "Zero-Bleed" policies without writing custom SQL.
+class CustomersSchema(EntitySchema):
+    entity_name = "customers"
+    primary_key = "customer_id"
+    pii_fields = ["ssn", "date_of_birth"]
+    required_fields = ["customer_id", "full_name"]
+```
 
-### 4. Set Up Orchestration Unit (`mysystgeneric-orchestration`)
+**Build the Pipeline** — inherit from the base class and use `BeamPipelineBuilder`:
 
-- **Leverage Templates**: Use the standardized templates from `templates/dags/` to jumpstart your DAG development:
-  ```bash
-  cp templates/dags/template_pubsub_trigger_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_trigger_dag.py
-  cp templates/dags/template_odp_genericd_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_genericd_dag.py
-  cp templates/dags/template_fdp_transform_dag.py deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
-  ```
-- **Customization**:
-  - **JOIN Pattern**: For multi-entity joins, use `EntityDependencyChecker` in your load DAG to wait for all entities.
-  - **MAP Pattern**: For single-entity systems, bypass the dependency check and trigger the transformation immediately.
-- **Ease of Customization**: The templates use a modular design. Simply update the `<SYSTEM_ID>` and `<ENTITY>` placeholders.
+```python
+# src/{system_id}_ingestion/pipeline/runner.py
+from gcp_pipeline_beam.pipelines.beam.builder import FluentBeamPipelineBuilder
 
-### 5. Verify Execution
+def run(options):
+    builder = FluentBeamPipelineBuilder(options)
+    builder.read_from_gcs() \
+           .parse_csv_with_hdr_trl() \
+           .validate_records() \
+           .mask_pii() \
+           .write_to_bigquery()
+    builder.run()
+```
 
-Before submitting your PR, verify that your new deployment works correctly:
+The library handles HDR/TRL parsing, PII masking, and audit injection automatically when using the standard DoFns.
 
-1.  **Unit Tests**: Run `python -m pytest tests/unit/` in each unit directory.
-2.  **Local Beam Run**: Run your pipeline with the `DirectRunner` using sample data.
-3.  **dbt Compile**: Run `dbt compile` in your transformation unit.
-4.  **DAG Parse**: Run `python dags/*.py` to ensure no syntax errors.
+### 3. Set Up the Transformation Unit (`{system_id}-transformation`)
+
+**Initialise your dbt project** and integrate the shared macros:
+
+```yaml
+# dbt_project.yml
+macro-paths:
+  - macros
+  - ../../gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros
+```
+
+**Use shared macros in your models:**
+
+```sql
+-- models/staging/stg_{system_id}__customers.sql
+{{ config(materialized='view') }}
+
+SELECT
+    customer_id,
+    full_name,
+    {{ mask_pii('ssn', 'SSN') }} AS ssn_masked,
+    {{ add_audit_columns() }}
+FROM {{ source('{system_id}_odp', 'customers') }}
+```
+
+### 4. Set Up the Orchestration Unit (`{system_id}-orchestration`)
+
+**Use the DAG templates** from `templates/dags/`:
+
+```bash
+SYSTEM="myapp"
+cp templates/dags/template_pubsub_trigger_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_pubsub_trigger_dag.py
+
+cp templates/dags/template_odp_load_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
+
+cp templates/dags/template_fdp_transform_dag.py \
+   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
+```
+
+**Replace placeholders** in each copied file:
+
+| Placeholder | Replace With | Example |
+|-------------|-------------|---------|
+| `<SYSTEM_ID>` | Uppercase system constant | `MYAPP` |
+| `<system_id>` | Lowercase path/ID | `myapp` |
+| `REQUIRED_ENTITIES` | List of entities for this system | `['customers', 'accounts']` |
+
+**Customise for your pattern:**
+
+- **MAP Pattern** (single entity): Set `REQUIRED_ENTITIES = ["your_entity"]`. The dependency checker passes immediately on that entity loading.
+- **JOIN Pattern** (multi-entity): List all entities in `REQUIRED_ENTITIES`. The `BranchPythonOperator` only triggers the FDP transform once the last required entity for the date is loaded.
+
+### 5. Write Tests
+
+```bash
+# Ingestion unit tests
+cd deployments/${SYSTEM}-ingestion
+pip install -e ".[dev]"
+pytest tests/unit/ -v
+
+# dbt compilation check
+cd deployments/${SYSTEM}-transformation/dbt
+dbt compile
+
+# DAG syntax check
+cd deployments/${SYSTEM}-orchestration
+python dags/${SYSTEM}_pubsub_trigger_dag.py
+```
+
+### 6. Add CI/CD
+
+Copy the CI/CD template workflow:
+
+```bash
+cp templates/cicd/template_deploy_workflow.yml \
+   .github/workflows/deploy-${SYSTEM}.yml
+```
+
+Replace `<system_id>` and `<SYSTEM_ID>` throughout the workflow file, then set the required GitHub secrets for your environment.
 
 ---
 
-## 🏗 Using the Templates
+## Using the Templates
 
-The `templates/` directory provides more than just DAGs:
+The `templates/` directory provides ready-to-use starting points:
 
-- **`templates/dags/`**: Standardized, library-integrated Airflow DAGs.
-- **`templates/cicd/`**: Template CI/CD workflows for deploying each unit.
+| Template Location | Contents |
+|-------------------|---------|
+| `templates/dags/` | Standardised, library-integrated Airflow DAGs |
+| `templates/cicd/` | CI/CD workflow template for deploying each unit |
 
 ---
 
-## ✅ Checklist for Readiness
+## Readiness Checklist
 
-1. [ ] **System ID** is consistent across all three units.
-2. [ ] **Ingestion Unit** successfully builds a Dataflow Flex Template.
-3. [ ] **Transformation Unit** runs dbt models and passes data quality tests.
-4. [ ] **Orchestration Unit** correctly senses .ok files and triggers the child units in order.
-5. [ ] **Audit Trail** is consistent across all three units via the `core` library.
+- [ ] **System ID** is consistent (uppercase constant + lowercase path) across all three units
+- [ ] **Entity schemas** defined using `EntitySchema` from `gcp-pipeline-core`
+- [ ] **Ingestion unit** builds a Dataflow Flex Template successfully
+- [ ] **Transformation unit** runs `dbt compile` without errors
+- [ ] **Orchestration unit** DAGs parse without syntax errors
+- [ ] **Audit trail** flows consistently through all three units via `gcp-pipeline-core`
+- [ ] **Unit tests** pass in each deployment unit
+- [ ] **CI/CD workflow** triggers on push to `main` for the relevant paths
 
-## 📚 Reference Implementations
+---
 
-- **[Generic Orchestration Example](../deployments/generic-orchestration/README.md)**: Split pattern (1 source → 2 targets).
-- **[Generic Orchestration Example](../deployments/generic-orchestration/README.md)**: Join pattern (3 sources → 1 target).
+## Reference Implementations
+
+The Generic system demonstrates both orchestration patterns:
+
+- [Generic Ingestion (JOIN pattern)](../deployments/original-data-to-bigqueryload/README.md) — 3 entities (Customers, Accounts, Decision) → ODP → FDP
+- [Generic Transformation (MAP + JOIN)](../deployments/bigquery-to-mapped-product/README.md) — ODP tables → FDP via dbt
+- [Generic Orchestration](../deployments/data-pipeline-orchestrator/README.md) — Cloud Composer DAGs coordinating ingestion and transformation
+
+> **See also:** [Technical Architecture](./TECHNICAL_ARCHITECTURE.md) for the JOIN vs MAP pattern decision guide.

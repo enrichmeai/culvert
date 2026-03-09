@@ -166,11 +166,14 @@ All production-grade scripts are in `scripts/gcp/`:
 
 ## 6. CI/CD Commit Keywords
 
-| Keyword in Commit Message | Effect |
-|--------------------------|--------|
-| *(no keyword, push to main)* | Path-filtered auto-deployment of changed units |
-| `[publish:deploy]` | Publish `gcp-pipeline-framework` to PyPI, then trigger full deployment |
-| `[publish:pypi]` | Publish `gcp-pipeline-framework` to PyPI only |
+| Keyword in Commit Message | Target | Effect |
+|--------------------------|--------|--------|
+| *(no keyword, push to main)* | — | Path-filtered auto-deployment of changed deployment units |
+| `[publish]` or `[publish:lib]` | TestPyPI | Publish all libraries to TestPyPI for pre-release validation |
+| `[publish:pypi]` | PyPI | Publish all libraries to production PyPI only |
+| `[publish:deploy]` | PyPI + GCP | Publish to PyPI, then validate `original-data-to-bigqueryload` and `postgres-cdc-streaming` |
+
+> **Note:** `v*` tags and GitHub releases also trigger publishing to production PyPI automatically.
 
 ---
 

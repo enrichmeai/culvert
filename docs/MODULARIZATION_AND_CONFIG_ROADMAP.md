@@ -1,6 +1,6 @@
-# 🗺️ Modularization & Configuration Roadmap: The "Generic Engine" Model
+# Modularisation & Configuration Roadmap: The "Generic Engine" Model
 
-This roadmap defines how to transition the framework from systgeneric-specific code to a **Configuration-First Deployment Model**. By assuming the libraries are separated, we can treat Ingestion and Transformation as "Generic Engines" that are controlled by external manifests.
+This roadmap defines how to transition the framework from system-specific code to a **Configuration-First Deployment Model**. By assuming the libraries are separated, we can treat Ingestion and Transformation as "Generic Engines" that are controlled by external manifests.
 
 ---
 
@@ -20,13 +20,13 @@ graph LR
 
 ## 2. Configurable Ingestion (The "Universal Loader")
 
-Instead of `generic-ingestion` and `generic-ingestion`, we deploy a single **Universal Ingestion Unit**.
+Instead of separate ingestion deployments per system, we deploy a single **Universal Ingestion Unit**.
 
 ### How it works:
 1.  **Generic Flex Template**: We build one Dataflow Flex Template that contains the entire ingestion logic (HDR/TRL validation, PII masking, etc.).
 2.  **Runtime Parameters**: When Airflow triggers the job, it passes:
     *   `--schema_config_path`: Path to a GCS JSON file defining the table structure and PII rules.
-    *   `--systgeneric_id`: Used for logging and metadata.
+    *   `--system_id`: Used for logging and metadata.
 3.  **Dynamic Schema Loading**: The Beam pipeline loads the schema at runtime using the `gcp-pipeline-core` library.
 
 **Benefit**: Zero new code for 90% of new ingestion streams.
@@ -41,7 +41,7 @@ Instead of separate dbt projects, we use a single **Enterprise Transformation Pr
 1.  **Generic Models**: We build dbt models that use `{{ var('...') }}` for everything (source table, target table, transformations).
 2.  **Dynamic Selectors**: Airflow triggers dbt using specific selectors:
     ```bash
-    dbt run --select tag:systgeneric_{{ systgeneric_id }} --vars '{...}'
+    dbt run --select tag:{{ system_id }} --vars '{...}'
     ```
 3.  **Shared Macro Library**: All complex logic (Masking, Audit) is moved to the `gcp-pipeline-transform` library, so the dbt models are just thin shells over the configuration.
 
@@ -55,7 +55,7 @@ Airflow becomes a "No-Code" environment for data engineers.
 1.  **Single DAG File**: A single Python file in Airflow iterates over a folder of **YAML System Definitions**.
 2.  **YAML Definition Example**:
     ```yaml
-    systgeneric_id: "generic"
+    system_id: "generic"
     entities:
       - name: "customers"
         type: "MAP"

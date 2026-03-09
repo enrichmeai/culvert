@@ -290,7 +290,7 @@ wait_for_trigger = GenericPubSubPullSensor(
     "gcs_path": "gs://bucket/incoming/data.ok",
     "bucket": "bucket",
     "object_id": "incoming/data.ok",
-    "systgeneric_id": "SYS001",
+    "system_id": "SYS001",
     "entity_type": "transactions",
     "event_type": "OBJECT_FINALIZE",
     "publish_time": "2026-01-01T10:00:00Z",
