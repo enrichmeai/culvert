@@ -1,21 +1,28 @@
 name: Deploy Generic
 
 # =============================================================================
-# Deployment Workflow - Triggered after PyPI publish or manually
+# Deployment Workflow
 #
-# This workflow:
-#   1. Fetches the released library version from PyPI
-#   2. Deploys infrastructure using Terraform
-#   3. Builds Docker images with released library versions
-#   4. Deploys Dataflow templates, dbt models, and Airflow DAGs
-#   5. Validates and runs E2E tests
+# Deploys 3 pipelines using gcp-pipeline-framework from PyPI:
+#   1. original-data-to-bigqueryload  → Dataflow Flex Template (ingestion)
+#   2. bigquery-to-mapped-product     → dbt models (transformation)
+#   3. data-pipeline-orchestrator     → Airflow DAGs (orchestration)
 #
 # Trigger modes:
+#   - Automatic: Push to main branch (commit-triggered deploy)
 #   - Automatic: After "Publish Libraries to PyPI" workflow completes
-#   - Manual: workflow_dispatch with environment selection
+#   - Manual:    workflow_dispatch with environment selection
 # =============================================================================
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployments/original-data-to-bigqueryload/**'
+      - 'deployments/bigquery-to-mapped-product/**'
+      - 'deployments/data-pipeline-orchestrator/**'
+      - 'infrastructure/**'
+      - '.github/workflows/deploy-generic.yml'
   workflow_run:
     workflows: ["Publish Libraries to PyPI"]
     branches: [main]
@@ -33,7 +40,7 @@ on:
           - staging
           - prod
       library_version:
-        description: 'Library version to deploy (leave empty for latest)'
+        description: 'Library version to deploy (leave empty to use published 1.0.6)'
         required: false
         default: ''
         type: string
@@ -47,6 +54,7 @@ env:
   PYTHON_VERSION: '3.11'
   GCP_REGION: 'europe-west2'
   ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
+  FRAMEWORK_VERSION: '1.0.6'
 
 permissions:
   contents: read
@@ -54,42 +62,42 @@ permissions:
 
 jobs:
   # ==========================================================================
-  # Fetch Released Library Version from PyPI
+  # Resolve Library Version from PyPI
   # ==========================================================================
   fetch-version:
-    name: Fetch Released Version
+    name: Resolve Framework Version
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
     outputs:
       version: ${{ steps.get-version.outputs.version }}
-      core_version: ${{ steps.get-version.outputs.core_version }}
-      beam_version: ${{ steps.get-version.outputs.beam_version }}
 
     steps:
-      - name: Get library versions from PyPI
+      - name: Resolve gcp-pipeline-framework version
         id: get-version
         run: |
-          # Use specified version or fetch latest from PyPI
+          # Use explicitly specified version, or fetch latest from PyPI
           if [ -n "${{ github.event.inputs.library_version }}" ]; then
             VERSION="${{ github.event.inputs.library_version }}"
             echo "Using specified version: $VERSION"
           else
-            # Fetch latest version from PyPI
-            VERSION=$(pip index versions gcp-pipeline-core 2>/dev/null | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "0.1.0")
-            echo "Fetched latest version from PyPI: $VERSION"
+            # Fetch the latest published version of gcp-pipeline-framework
+            FETCHED=$(pip index versions gcp-pipeline-framework 2>/dev/null \
+              | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "")
+            VERSION="${FETCHED:-${{ env.FRAMEWORK_VERSION }}}"
+            echo "Resolved version from PyPI: $VERSION"
           fi
-          
+
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "core_version=$VERSION" >> $GITHUB_OUTPUT
-          echo "beam_version=$VERSION" >> $GITHUB_OUTPUT
-          
-          echo "📦 Deploying with library version: $VERSION"
+          echo "Framework version to deploy: $VERSION"
 
   # ==========================================================================
-  # Test with Released Libraries
+  # Test deployments with the published framework version
   # ==========================================================================
   test:
-    name: Test with Released Libraries
+    name: Test Deployments
     runs-on: ubuntu-latest
     needs: fetch-version
     timeout-minutes: 20
@@ -103,33 +111,26 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
 
-    - name: Install released libraries from PyPI
+    - name: Install gcp-pipeline-framework from PyPI
       run: |
         python -m pip install --upgrade pip
         VERSION="${{ needs.fetch-version.outputs.version }}"
-        
-        echo "📦 Installing released libraries v$VERSION from PyPI..."
-        pip install \
-          "gcp-pipeline-core==$VERSION" \
-          "gcp-pipeline-beam==$VERSION" \
-          "gcp-pipeline-orchestration==$VERSION" \
-          "gcp-pipeline-tester==$VERSION" \
-          || pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-tester
-        
-        # Verify installed versions
+        echo "Installing gcp-pipeline-framework==$VERSION from PyPI..."
+        pip install "gcp-pipeline-framework==$VERSION"
         echo ""
-        echo "📋 Installed versions:"
+        echo "Installed versions:"
+        pip show gcp-pipeline-framework | grep Version
         pip show gcp-pipeline-core | grep Version
         pip show gcp-pipeline-beam | grep Version
 
-    - name: Run deployment tests
+    - name: Test original-data-to-bigqueryload
       run: |
         cd deployments/original-data-to-bigqueryload
         pip install -e ".[dev]" || pip install -e .
-        PYTHONPATH=src pytest tests/unit -v --tb=short || echo "⚠️ Some tests failed"
+        PYTHONPATH=src pytest tests/unit -v --tb=short || echo "Some tests failed"
 
   # ==========================================================================
-  # Deploy Infrastructure using GCP Scripts
+  # Deploy Infrastructure
   # ==========================================================================
   deploy-infrastructure:
     name: Deploy Infrastructure
@@ -137,7 +138,6 @@ jobs:
     needs: [fetch-version, test]
     timeout-minutes: 30
     environment: ${{ github.event.inputs.environment || 'dev' }}
-    continue-on-error: true  # Don't fail the whole workflow if infra fails
 
     steps:
     - uses: actions/checkout@v4
@@ -151,46 +151,44 @@ jobs:
       uses: google-github-actions/setup-gcloud@v2
 
     - name: Set GCP Project
-      run: |
-        gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
+      run: gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
 
-    - name: Step 1 - Enable GCP Services
+    - name: Enable GCP Services
       run: |
-        echo "📦 Enabling required GCP services..."
         chmod +x scripts/gcp/01_enable_services.sh
-        ./scripts/gcp/01_enable_services.sh || echo "⚠️ Some services may already be enabled"
+        ./scripts/gcp/01_enable_services.sh || echo "Some services may already be enabled"
 
-    - name: Step 2 - Create Terraform State Bucket
+    - name: Create Terraform State Bucket
       run: |
-        echo "📦 Creating Terraform state bucket..."
         chmod +x scripts/gcp/02_create_state_bucket.sh
-        ./scripts/gcp/02_create_state_bucket.sh || echo "⚠️ State bucket may already exist"
+        ./scripts/gcp/02_create_state_bucket.sh || echo "State bucket may already exist"
 
-    - name: Step 3 - Create Infrastructure
+    - name: Create Infrastructure
+      env:
+        ENVIRONMENT: ${{ github.event.inputs.environment || 'dev' }}
       run: |
-        echo "📦 Creating GCS buckets, BigQuery datasets, and Pub/Sub topics..."
         chmod +x scripts/gcp/03_create_infrastructure.sh
-        ./scripts/gcp/03_create_infrastructure.sh generic || echo "⚠️ Some infrastructure may already exist"
+        ./scripts/gcp/03_create_infrastructure.sh generic || echo "Some infrastructure may already exist"
 
     - name: Verify Infrastructure
       run: |
-        echo "📋 Verifying infrastructure..."
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-        
-        echo ""
-        echo "GCS Buckets:"
-        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic" || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "BigQuery Datasets:"
-        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control" || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "Pub/Sub Topics:"
-        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  ⚠️ Not found"
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
 
+        echo "GCS Buckets (generic-$ENV):"
+        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic-${ENV}" || echo "  Not found"
+
+        echo "BigQuery Datasets:"
+        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control" || echo "  Not found"
+
+        echo "Pub/Sub Topics:"
+        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  Not found"
+
+  # ==========================================================================
+  # Deploy Dataflow Flex Template (original-data-to-bigqueryload)
+  # ==========================================================================
   deploy-dataflow:
-    name: Deploy Dataflow Template
+    name: Deploy Dataflow Template (ingestion)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
     timeout-minutes: 30
@@ -212,14 +210,8 @@ jobs:
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
-        VERSION="${LIBRARY_VERSION:-latest}"
-        echo "📦 Building Ingestion Docker image with library version: $VERSION"
-        
-        # Create build args file for library version
-        cat > /tmp/build-args.txt << EOF
-        LIBRARY_VERSION=$VERSION
-        EOF
-        
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building Ingestion image with gcp-pipeline-framework==$VERSION"
         gcloud builds submit \
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-ingestion:$VERSION \
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-ingestion:latest \
@@ -227,29 +219,32 @@ jobs:
           --substitutions _LIBRARY_VERSION=$VERSION \
           . -f deployments/original-data-to-bigqueryload/Dockerfile
 
-    - name: Create Flex Template
+    - name: Create Dataflow Flex Template
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
-        VERSION="${LIBRARY_VERSION:-latest}"
-        echo "📦 Creating Flex Template with version: $VERSION"
-        
+        VERSION="${LIBRARY_VERSION}"
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+
         gcloud dataflow flex-template build \
-          gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-temp/templates/generic_pipeline_v${VERSION}.json \
-          --image-gcr-path gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-ingestion:$VERSION \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
+          --image-gcr-path gcr.io/${PROJECT_ID}/generic-ingestion:$VERSION \
           --sdk-language PYTHON \
           --flex-template-base-image PYTHON3 \
           --metadata-file deployments/original-data-to-bigqueryload/metadata.json \
-          --project ${{ secrets.GCP_PROJECT_ID }} || echo "⚠️ Flex template creation failed"
-        
-        # Also create a 'latest' symlink
+          --project ${PROJECT_ID} || echo "Flex template creation failed"
+
         gsutil cp \
-          gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-temp/templates/generic_pipeline_v${VERSION}.json \
-          gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-temp/templates/generic_pipeline_latest.json \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_latest.json \
           || true
 
+  # ==========================================================================
+  # Deploy dbt Models (bigquery-to-mapped-product)
+  # ==========================================================================
   deploy-dbt:
-    name: Deploy dbt Models
+    name: Deploy dbt Models (transformation)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
     timeout-minutes: 20
@@ -258,11 +253,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Authenticate to GCP
       uses: google-github-actions/auth@v2
@@ -276,9 +266,8 @@ jobs:
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
-        VERSION="${LIBRARY_VERSION:-latest}"
-        echo "📦 Building dbt Docker image with library version: $VERSION"
-        
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building dbt image with gcp-pipeline-framework==$VERSION"
         gcloud builds submit \
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-transformation:$VERSION \
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-transformation:latest \
@@ -286,18 +275,19 @@ jobs:
           --substitutions _LIBRARY_VERSION=$VERSION \
           . -f deployments/bigquery-to-mapped-product/Dockerfile
 
-    - name: Run dbt from Docker
+    - name: Run dbt via Cloud Build
       run: |
-        # Use gcloud builds to run dbt if local docker is not available, or run it via GCR
-        # For simplicity, we just trigger it via Cloud Build as a deployment step
         gcloud builds submit \
           --config deployments/bigquery-to-mapped-product/dbt/cloudbuild.yaml \
           --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
           --project ${{ secrets.GCP_PROJECT_ID }} \
-          deployments/bigquery-to-mapped-product/dbt || echo "⚠️ dbt deployment via Cloud Build failed"
+          deployments/bigquery-to-mapped-product/dbt || echo "dbt deployment via Cloud Build failed"
 
+  # ==========================================================================
+  # Deploy Airflow DAGs (data-pipeline-orchestrator)
+  # ==========================================================================
   deploy-airflow:
-    name: Deploy Airflow DAGs
+    name: Deploy Airflow DAGs (orchestration)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
     timeout-minutes: 20
@@ -315,16 +305,14 @@ jobs:
     - name: Setup Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Build and Push Orchestrator Docker Image
+    - name: Build and Push DAG Validator Image
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
-        VERSION="${LIBRARY_VERSION:-latest}"
-        echo "📦 Building Orchestrator Docker image with library version: $VERSION"
-        
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building DAG validator image with gcp-pipeline-framework==$VERSION"
         gcloud builds submit \
-          --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-orchestrator:$VERSION \
-          --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-orchestrator:latest \
+          --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-dag-validator:$VERSION \
           --project ${{ secrets.GCP_PROJECT_ID }} \
           --substitutions _LIBRARY_VERSION=$VERSION \
           . -f deployments/data-pipeline-orchestrator/Dockerfile
@@ -333,35 +321,34 @@ jobs:
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
-        VERSION="${LIBRARY_VERSION:-latest}"
+        VERSION="${LIBRARY_VERSION}"
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-        REGION="${{ env.GCP_REGION }}"
-        COMPOSER_ENV="generic-${{ env.ENVIRONMENT }}-composer"
-        
-        echo "📦 Deploying DAGs with library version: $VERSION"
-        
-        # Get the DAGs bucket from Cloud Composer
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+        COMPOSER_ENV="generic-${ENV}-composer"
+
+        echo "Deploying DAGs (framework v$VERSION) to Composer: $COMPOSER_ENV"
+
         DAGS_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
-            --location=$REGION \
+            --location=${{ env.GCP_REGION }} \
             --project=$PROJECT_ID \
             --format='value(config.dagGcsPrefix)' 2>/dev/null) || true
-            
+
         if [ -n "$DAGS_BUCKET" ]; then
-          echo "📁 Uploading DAGs to: $DAGS_BUCKET/generic/"
           gsutil -m cp -r deployments/data-pipeline-orchestrator/dags/* ${DAGS_BUCKET}/generic/
-          
-          # Create version marker file
           echo "version=$VERSION" | gsutil cp - ${DAGS_BUCKET}/generic/.version
-          echo "✅ DAGs deployed successfully"
+          echo "DAGs deployed to $DAGS_BUCKET/generic/"
         else
-          echo "⚠️ Could not find Composer environment: $COMPOSER_ENV"
+          echo "Composer environment '$COMPOSER_ENV' not found - skipping DAG upload"
         fi
 
+  # ==========================================================================
+  # Validate Deployment
+  # ==========================================================================
   validate:
     name: Validate Deployment
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure]
-    if: always() && needs.deploy-infrastructure.result == 'success'
+    needs: [fetch-version, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-airflow]
+    if: always() && needs.deploy-infrastructure.result != 'skipped'
     timeout-minutes: 10
     environment: ${{ github.event.inputs.environment || 'dev' }}
 
@@ -376,55 +363,64 @@ jobs:
     - name: Setup Cloud SDK
       uses: google-github-actions/setup-gcloud@v2
 
-    - name: Validate Resources
+    - name: Validate All Resources
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
-        REGION="${{ env.GCP_REGION }}"
-        ENV="${{ env.ENVIRONMENT }}"
-        VERSION="${LIBRARY_VERSION:-unknown}"
-        
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+        VERSION="${LIBRARY_VERSION}"
+
         echo "=============================================="
-        echo "  Validating Generic Deployment"
-        echo "  Environment: $ENV"
-        echo "  Library Version: $VERSION"
-        echo "=============================================="
-        
-        echo ""
-        echo "📊 BigQuery Datasets:"
-        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control" || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "🪣 GCS Buckets:"
-        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic-$ENV" || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "📨 Pub/Sub Topics:"
-        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "🎵 Composer Environment:"
-        gcloud composer environments describe generic-$ENV-composer \
-          --location=$REGION \
-          --project=$PROJECT_ID \
-          --format='value(state)' 2>/dev/null || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "🐳 Docker Images:"
-        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-ingestion \
-          --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "  ⚠️ Not found"
-        
-        echo ""
-        echo "=============================================="
-        echo "✅ Generic Validation Complete (v$VERSION)"
+        echo "  Deployment Validation"
+        echo "  Environment:      $ENV"
+        echo "  Framework:        gcp-pipeline-framework==$VERSION"
         echo "=============================================="
 
+        echo ""
+        echo "GCS Buckets (generic-$ENV):"
+        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic-${ENV}" || echo "  Not found"
+
+        echo ""
+        echo "BigQuery Datasets:"
+        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control" || echo "  Not found"
+
+        echo ""
+        echo "Pub/Sub Topics:"
+        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  Not found"
+
+        echo ""
+        echo "Docker Images:"
+        echo "  Ingestion:"
+        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-ingestion \
+          --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "    Not found"
+        echo "  Transformation:"
+        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-transformation \
+          --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "    Not found"
+
+        echo ""
+        echo "Dataflow Templates:"
+        gsutil ls gs://${PROJECT_ID}-generic-${ENV}-temp/templates/ 2>/dev/null || echo "  Not found"
+
+        echo ""
+        echo "Composer Environment:"
+        gcloud composer environments describe generic-${ENV}-composer \
+          --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
+          --format='value(state)' 2>/dev/null || echo "  Not found"
+
+        echo ""
+        echo "=============================================="
+        echo "  Validation Complete (framework v$VERSION)"
+        echo "=============================================="
+
+  # ==========================================================================
+  # E2E Tests
+  # ==========================================================================
   e2e-test:
-    name: End-to-End Testing
+    name: End-to-End Tests
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-dataflow, deploy-dbt, deploy-airflow]
-    if: always()
+    if: always() && needs.deploy-dataflow.result != 'skipped'
     timeout-minutes: 30
     environment: ${{ github.event.inputs.environment || 'dev' }}
 
@@ -441,41 +437,28 @@ jobs:
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install released libraries from PyPI
+    - name: Install gcp-pipeline-framework for E2E tests
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         python -m pip install --upgrade pip
         VERSION="${LIBRARY_VERSION}"
-        
-        echo "📦 Installing released libraries v$VERSION for E2E testing..."
-        pip install \
-          "gcp-pipeline-core==$VERSION" \
-          "gcp-pipeline-beam==$VERSION" \
-          "gcp-pipeline-orchestration==$VERSION" \
-          "gcp-pipeline-tester==$VERSION" \
-          pytest pytest-mock \
-          || pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-tester pytest
-        
-        echo ""
-        echo "📋 Installed versions:"
-        pip show gcp-pipeline-core | grep Version
-        pip show gcp-pipeline-tester | grep Version
+        echo "Installing gcp-pipeline-framework==$VERSION for E2E testing..."
+        pip install "gcp-pipeline-framework==$VERSION" pytest pytest-mock
+        pip show gcp-pipeline-framework | grep Version
 
     - name: Run E2E Tests
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "🧪 Running E2E tests with library version: $VERSION"
-        
-        # Run tester library tests
-        python -m pytest --pyargs gcp_pipeline_tester.tests -v --tb=short || echo "⚠️ Some E2E tests failed"
-        
-        # Run deployment-specific E2E tests if they exist
+        echo "Running E2E tests (framework v$VERSION)"
+
+        python -m pytest --pyargs gcp_pipeline_tester.tests -v --tb=short || echo "Some E2E tests failed"
+
         if [ -d "deployments/original-data-to-bigqueryload/tests/e2e" ]; then
           PYTHONPATH=deployments/original-data-to-bigqueryload/src \
-            pytest deployments/original-data-to-bigqueryload/tests/e2e -v --tb=short || echo "⚠️ Deployment E2E tests failed"
+            pytest deployments/original-data-to-bigqueryload/tests/e2e -v --tb=short || echo "Deployment E2E tests failed"
         fi
 
   # ==========================================================================
@@ -490,30 +473,40 @@ jobs:
     steps:
     - name: Generate Summary
       run: |
-        echo "# 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        VERSION="${{ needs.fetch-version.outputs.version }}"
+        ENV="${{ github.event.inputs.environment || 'dev' }}"
+
+        echo "# Deployment Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Environment:** ${{ env.ENVIRONMENT }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Library Version:** ${{ needs.fetch-version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Environment:** $ENV" >> $GITHUB_STEP_SUMMARY
+        echo "**Framework:** \`gcp-pipeline-framework==$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "## Job Results" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Deployments" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment | Job | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|------------|-----|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| original-data-to-bigqueryload | Dataflow Template | ${{ needs.deploy-dataflow.result == 'success' && '✅' || needs.deploy-dataflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| bigquery-to-mapped-product | dbt Models | ${{ needs.deploy-dbt.result == 'success' && '✅' || needs.deploy-dbt.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-orchestrator | Airflow DAGs | ${{ needs.deploy-airflow.result == 'success' && '✅' || needs.deploy-airflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+
+        echo "## Pipeline" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
         echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
-        echo "| Fetch Version | ${{ needs.fetch-version.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Test | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Resolve Version | ${{ needs.fetch-version.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Tests | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Infrastructure | ${{ needs.deploy-infrastructure.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Dataflow | ${{ needs.deploy-dataflow.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| dbt | ${{ needs.deploy-dbt.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| Airflow | ${{ needs.deploy-airflow.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Validate | ${{ needs.validate.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| E2E Tests | ${{ needs.e2e-test.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        
-        echo "## Deployed Artifacts" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- Docker Images: \`gcr.io/*/generic-*:${{ needs.fetch-version.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- Flex Template: \`gs://*/templates/generic_pipeline_v${{ needs.fetch-version.outputs.version }}.json\`" >> $GITHUB_STEP_SUMMARY
-        echo "- DAGs: Cloud Composer \`generic-${{ env.ENVIRONMENT }}-composer\`" >> $GITHUB_STEP_SUMMARY
 
+        echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- Ingestion image: \`gcr.io/*/generic-ingestion:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Transformation image: \`gcr.io/*/generic-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Flex Template: \`gs://*/templates/generic_ingestion_v$VERSION.json\`" >> $GITHUB_STEP_SUMMARY
+        echo "- DAGs: Cloud Composer \`generic-${ENV}-composer\`" >> $GITHUB_STEP_SUMMARY

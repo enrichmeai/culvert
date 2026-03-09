@@ -16,6 +16,7 @@ NC='\033[0m'
 PROJECT_ID=$(gcloud config get-value project 2>/dev/null)
 REGION="europe-west2"
 DEPLOYMENT="${1:-all}"
+ENVIRONMENT="${ENVIRONMENT:-dev}"
 
 if [ -z "$PROJECT_ID" ]; then
     echo -e "${RED}ERROR: No GCP project set${NC}"
@@ -28,6 +29,7 @@ echo "=============================================="
 echo "Project: $PROJECT_ID"
 echo "Region: $REGION"
 echo "Deployment: $DEPLOYMENT"
+echo "Environment: $ENVIRONMENT"
 echo "=============================================="
 echo ""
 
@@ -79,10 +81,10 @@ setup_generic() {
     echo -e "${BLUE}=== Generic Infrastructure ===${NC}"
     echo ""
     echo "GCS Buckets:"
-    create_bucket "generic-landing"
-    create_bucket "generic-archive"
-    create_bucket "generic-error"
-    create_bucket "generic-temp"
+    create_bucket "generic-${ENVIRONMENT}-landing"
+    create_bucket "generic-${ENVIRONMENT}-archive"
+    create_bucket "generic-${ENVIRONMENT}-error"
+    create_bucket "generic-${ENVIRONMENT}-temp"
 
     echo ""
     echo "BigQuery Datasets:"

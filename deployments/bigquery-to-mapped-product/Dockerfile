@@ -17,17 +17,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install dbt-bigquery
 
-# Install shared libraries from PyPI with version pinning
+# Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-core gcp-pipeline-transform; \
+        pip install --no-cache-dir gcp-pipeline-framework; \
     else \
-        pip install --no-cache-dir \
-            "gcp-pipeline-core==${LIBRARY_VERSION}" \
-            "gcp-pipeline-transform==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
+    pip show gcp-pipeline-framework | grep Version && \
     pip show gcp-pipeline-core | grep Version
 
 # Copy deployment code
