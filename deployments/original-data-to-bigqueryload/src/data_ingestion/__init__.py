@@ -11,9 +11,15 @@ Pipeline Flow:
     4. Write to odp_em.customers, odp_em.accounts, odp_em.decision
     5. Archive source files
     6. Wait for all 3 entities before triggering FDP transformation
+
+Installation:
+    pip install gcp-pipeline-ref-ingestion
+
+Extract reference code:
+    gcp-ref-ingestion extract ./my-project
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.6"
 
 from .config import SYSTEM_ID
 
