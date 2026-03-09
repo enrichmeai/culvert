@@ -29,17 +29,16 @@ RUN pip install --no-cache-dir \
     apache-airflow==2.8.1 \
     apache-airflow-providers-google>=10.0.0
 
-# Install shared libraries from PyPI with version pinning
+# Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-core gcp-pipeline-orchestration; \
+        pip install --no-cache-dir gcp-pipeline-framework; \
     else \
-        pip install --no-cache-dir \
-            "gcp-pipeline-core==${LIBRARY_VERSION}" \
-            "gcp-pipeline-orchestration==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
+    pip show gcp-pipeline-framework | grep Version && \
     pip show gcp-pipeline-core | grep Version && \
     pip show gcp-pipeline-orchestration | grep Version
 

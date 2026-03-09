@@ -31,17 +31,16 @@ RUN pip install --no-cache-dir \
     cryptography \
     pandas
 
-# Install shared libraries from PyPI with version pinning
+# Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-core gcp-pipeline-beam; \
+        pip install --no-cache-dir gcp-pipeline-framework; \
     else \
-        pip install --no-cache-dir \
-            "gcp-pipeline-core==${LIBRARY_VERSION}" \
-            "gcp-pipeline-beam==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
+    pip show gcp-pipeline-framework | grep Version && \
     pip show gcp-pipeline-core | grep Version && \
     pip show gcp-pipeline-beam | grep Version
 
