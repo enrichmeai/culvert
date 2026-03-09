@@ -1,12 +1,16 @@
-# GKE Deployment Guide
+# GKE Deployment Guide — Alternative Orchestration Pattern
 
-This guide covers deploying the **Airflow orchestrator on GKE** while using native Google services for processing:
+> **Pattern:** Alternative | **Primary pattern:** [Cloud Composer (deploy-generic.yml)](../. github/workflows/deploy-generic.yml)
 
-| Component | Runs On | Description |
-|-----------|---------|-------------|
-| **Orchestration (Airflow)** | GKE | DAGs, scheduling, monitoring |
-| **Ingestion (Beam)** | Dataflow | Google-managed Beam runner |
-| **Transformation (dbt)** | BigQuery | Native SQL execution |
+This guide demonstrates deploying the **same three-unit Generic pipeline** using **GKE-hosted Airflow** as the orchestration runtime instead of Cloud Composer. The Dataflow ingestion and dbt transformation units are identical between both patterns — only the orchestration runtime differs.
+
+| Component | This Pattern (GKE) | Primary Pattern (Cloud Composer) |
+|-----------|-------------------|----------------------------------|
+| **Orchestration (Airflow)** | GKE — self-managed Helm | Cloud Composer — fully managed |
+| **Ingestion (Beam)** | Dataflow (Google-managed) | Dataflow (Google-managed) |
+| **Transformation (dbt)** | BigQuery (Google-managed) | BigQuery (Google-managed) |
+| **Library** | `gcp-pipeline-framework==1.0.6` | `gcp-pipeline-framework==1.0.6` |
+| **CI/CD Workflow** | `deploy-gke.yml` | `deploy-generic.yml` |
 
 ## Architecture Overview
 
@@ -45,19 +49,21 @@ This guide covers deploying the **Airflow orchestrator on GKE** while using nati
 └───────────────────────────────┘  └───────────────────────────────┘
 ```
 
-## Why GKE for Orchestration?
+## When to Use Each Pattern
 
-| Aspect | Cloud Composer | Airflow on GKE |
-|--------|----------------|----------------|
-| **Cost** | ~$300-500/month minimum | ~$50-100/month |
-| **Control** | Limited customization | Full control |
-| **Scaling** | Managed auto-scaling | Custom HPA/VPA |
-| **Multi-tenant** | One env per project | Multiple namespaces |
+| Aspect | Cloud Composer (Primary) | Airflow on GKE (Alternative) |
+|--------|--------------------------|------------------------------|
+| **Cost** | ~£300-500/month minimum | ~£50-100/month |
+| **Operational overhead** | Minimal — Google-managed | Higher — team manages Helm, upgrades |
+| **Customisation** | Limited plugin/package control | Full control over Airflow config |
+| **Multi-tenancy** | One Composer env per project | Multiple namespaces on one cluster |
+| **Scaling** | Managed auto-scaling | Custom HPA/VPA configuration |
+| **Recommended for** | Most enterprise teams | Cost-sensitive or highly customised setups |
 
-**Why NOT run ingestion/transform on GKE?**
-- Dataflow auto-scales workers, handles retries, and is fully managed
-- BigQuery executes dbt SQL natively with no compute to manage
-- Running Beam/dbt in containers adds operational overhead
+**Why Dataflow and BigQuery remain the same in both patterns:**
+- Dataflow auto-scales workers, handles retries natively, and is fully managed
+- BigQuery executes dbt SQL directly — no compute to manage
+- Running Beam/dbt in containers adds operational overhead with no benefit
 
 ---
 
@@ -287,11 +293,11 @@ kubectl logs -f deployment/airflow-scheduler -n airflow
 ### 3. Test End-to-End
 
 ```bash
-# Upload test file to trigger pipeline
-gsutil cp test_customers_20260101.csv gs://${PROJECT_ID}-generic-landing/
-gsutil cp test_customers_20260101.ok gs://${PROJECT_ID}-generic-landing/
+# Upload test files to trigger pipeline (note: env suffix on bucket name)
+gsutil cp test_customers_20260101.csv gs://${PROJECT_ID}-generic-dev-landing/generic/customers/
+gsutil cp customers.csv.ok gs://${PROJECT_ID}-generic-dev-landing/generic/customers/
 
-# Monitor in Airflow UI
+# Monitor in Airflow UI at http://localhost:8080
 ```
 
 ---
@@ -340,7 +346,11 @@ bq ls -j -a --max_results=10
 
 ## Related Documentation
 
-- [GCP_DEPLOYMENT_GUIDE.md](./GCP_DEPLOYMENT_GUIDE.md) - General GCP setup
-- [templates/dags/README.md](../templates/dags/README.md) - DAG architecture
-- [TECHNICAL_ARCHITECTURE.md](./TECHNICAL_ARCHITECTURE.md) - Overall architecture
+| Guide | Description |
+|-------|-------------|
+| [GCP Deployment Guide](./GCP_DEPLOYMENT_GUIDE.md) | Infrastructure setup — shared between both orchestration patterns |
+| [Technical Architecture](./TECHNICAL_ARCHITECTURE.md) | Overall architecture and design decisions |
+| [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md) | End-to-end pipeline flow (same for both patterns) |
+| [`deploy-generic.yml`](../.github/workflows/deploy-generic.yml) | Primary pattern — Cloud Composer CI/CD |
+| [`deploy-gke.yml`](../.github/workflows/deploy-gke.yml) | This pattern — GKE CI/CD |
 
