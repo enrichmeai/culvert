@@ -191,7 +191,7 @@ jobs:
     name: Deploy Dataflow Template (ingestion)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
-    timeout-minutes: 30
+    timeout-minutes: 60
     environment: ${{ github.event.inputs.environment || 'dev' }}
     continue-on-error: true
 
@@ -215,7 +215,8 @@ jobs:
         gcloud builds submit . \
           --config deployments/original-data-to-bigqueryload/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          --project ${{ secrets.GCP_PROJECT_ID }}
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=3300s
 
     - name: Create Dataflow Flex Template
       env:
@@ -245,7 +246,7 @@ jobs:
     name: Deploy dbt Models (transformation)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'dev' }}
     continue-on-error: true
 
@@ -269,7 +270,8 @@ jobs:
         gcloud builds submit . \
           --config deployments/bigquery-to-mapped-product/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          --project ${{ secrets.GCP_PROJECT_ID }}
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=2400s
 
     - name: Run dbt via Cloud Build
       run: |
@@ -286,7 +288,7 @@ jobs:
     name: Deploy Airflow DAGs (orchestration)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure]
-    timeout-minutes: 20
+    timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'dev' }}
     continue-on-error: true
 
@@ -310,7 +312,8 @@ jobs:
         gcloud builds submit . \
           --config deployments/data-pipeline-orchestrator/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          --project ${{ secrets.GCP_PROJECT_ID }}
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=2400s
 
     - name: Upload DAGs to Cloud Composer
       env:
