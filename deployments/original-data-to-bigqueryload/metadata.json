@@ -1,0 +1,38 @@
+{
+  "name": "Generic Ingestion Pipeline",
+  "description": "Reads CSV files from GCS landing bucket and loads to BigQuery ODP tables (customers, accounts, decision).",
+  "parameters": [
+    {
+      "name": "entity",
+      "label": "Entity type",
+      "helpText": "Generic entity to process: customers, accounts, or decision.",
+      "regexes": ["^(customers|accounts|decision)$"]
+    },
+    {
+      "name": "input_file",
+      "label": "Input file GCS path",
+      "helpText": "GCS path to the input CSV file (e.g. gs://project-generic-int-landing/generic/customers/file.csv)."
+    },
+    {
+      "name": "output_table",
+      "label": "BigQuery output table",
+      "helpText": "BigQuery output table in project:dataset.table format."
+    },
+    {
+      "name": "error_table",
+      "label": "BigQuery error table",
+      "helpText": "BigQuery error table in project:dataset.table format."
+    },
+    {
+      "name": "run_id",
+      "label": "Pipeline run ID",
+      "helpText": "Unique identifier for this pipeline run."
+    },
+    {
+      "name": "extract_date",
+      "label": "Extract date",
+      "helpText": "Extract date in YYYYMMDD format.",
+      "regexes": ["^[0-9]{8}$"]
+    }
+  ]
+}
