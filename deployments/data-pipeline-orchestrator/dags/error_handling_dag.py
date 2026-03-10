@@ -83,7 +83,7 @@ CRITICAL_CATEGORIES = [ErrorSeverity.CRITICAL.value]
 
 # Initialize DAG
 dag = DAG(
-    'error_handling_dag',
+    dag_id='error_handling_dag',
     default_args=default_args,
     schedule_interval='*/30 * * * *',  # Run every 30 minutes
     catchup=False,
