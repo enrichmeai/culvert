@@ -22,14 +22,19 @@ name: Deploy to GKE (Alternative Orchestration)
 #   3. data-pipeline-orchestrator     → Airflow DAGs on GKE
 #
 # Trigger modes:
-#   - Automatic: Push to main (DAG or infra changes)
-#   - Manual:    workflow_dispatch with environment and options
+#   - Keyword: Commit message containing [deploy:gke] on main branch
+#   - Manual:  workflow_dispatch with environment and options
+#
+# Prerequisites: GKE cluster must be provisioned first via:
+#   ./scripts/gcp/setup_gke_infrastructure.sh
 # =============================================================================
 
 on:
-  # Manual trigger only — GKE cluster must be provisioned first via:
-  #   ./scripts/gcp/setup_gke_infrastructure.sh
-  # Then run this workflow manually to deploy to GKE.
+  push:
+    branches: [main]
+    # Only trigger when commit message contains [deploy:gke]
+    # Requires: github.event.head_commit.message to contain [deploy:gke]
+
   workflow_dispatch:
     inputs:
       environment:
@@ -70,11 +75,36 @@ permissions:
 
 jobs:
   # ==========================================================================
+  # ==========================================================================
+  # Check Keyword — skip push triggers without [deploy:gke]
+  # ==========================================================================
+  check-keyword:
+    name: Check Deploy Keyword
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+    steps:
+      - name: Check commit message for [deploy:gke]
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+          elif echo "${{ github.event.head_commit.message }}" | grep -q "\[deploy:gke\]"; then
+            echo "should-deploy=true" >> $GITHUB_OUTPUT
+            echo "GKE deploy triggered by commit keyword"
+          else
+            echo "should-deploy=false" >> $GITHUB_OUTPUT
+            echo "No [deploy:gke] keyword in commit — skipping GKE deploy"
+          fi
+
+  # ==========================================================================
   # Resolve Framework Version
   # ==========================================================================
   fetch-version:
     name: Resolve Framework Version
     runs-on: ubuntu-latest
+    needs: check-keyword
+    if: needs.check-keyword.outputs.should-deploy == 'true'
     outputs:
       version: ${{ steps.get-version.outputs.version }}
 
