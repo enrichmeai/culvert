@@ -27,15 +27,9 @@ name: Deploy to GKE (Alternative Orchestration)
 # =============================================================================
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'deployments/data-pipeline-orchestrator/dags/**'
-      - 'deployments/original-data-to-bigqueryload/**'
-      - 'deployments/bigquery-to-mapped-product/**'
-      - 'infrastructure/k8s/**'
-
+  # Manual trigger only — GKE cluster must be provisioned first via:
+  #   ./scripts/gcp/setup_gke_infrastructure.sh
+  # Then run this workflow manually to deploy to GKE.
   workflow_dispatch:
     inputs:
       environment:
@@ -137,9 +131,7 @@ jobs:
     name: Deploy Dataflow Template (ingestion)
     runs-on: ubuntu-latest
     needs: [fetch-version, test]
-    if: |
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_dataflow_templates && !inputs.dags_only) ||
-      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'deployments/original-data-to-bigqueryload'))
+    if: inputs.deploy_dataflow_templates && !inputs.dags_only
     environment: ${{ inputs.environment || 'dev' }}
     continue-on-error: true
 
@@ -238,9 +230,7 @@ jobs:
     name: Deploy Kubernetes Resources
     runs-on: ubuntu-latest
     needs: [fetch-version, test]
-    if: |
-      (github.event_name == 'push' && contains(github.event.head_commit.modified, 'infrastructure/k8s')) ||
-      (github.event_name == 'workflow_dispatch' && !inputs.dags_only)
+    if: "!inputs.dags_only"
     environment: ${{ inputs.environment || 'dev' }}
 
     steps:
