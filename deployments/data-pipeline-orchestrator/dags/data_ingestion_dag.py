@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ============================================================================
 
-SYSTEM_ID = "Merged-Pipeline"
+SYSTEM_ID = "GENERIC"
 REQUIRED_ENTITIES = ["customers", "accounts", "decision", "applications"]
 
 PROJECT_ID = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
