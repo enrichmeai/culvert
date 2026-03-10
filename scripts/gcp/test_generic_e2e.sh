@@ -5,7 +5,7 @@
 set -e
 
 PROJECT_ID="joseph-antony-aruja"
-LANDING_BUCKET="gs://${PROJECT_ID}-generic-dev-landing"
+LANDING_BUCKET="gs://${PROJECT_ID}-generic-int-landing"
 EXTRACT_DATE=$(date +%Y%m%d)
 TEST_DATA_DIR="deployments/original-data-to-bigqueryload/tests/data"
 

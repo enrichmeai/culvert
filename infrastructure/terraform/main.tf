@@ -1,11 +1,15 @@
-# Application2 Blueprint - Terraform Main Configuration
+# GCP Pipeline Reference - Terraform Main Configuration
 #
-# Provisions complete GCP infrastructure for Application2 pipeline:
-# - GCS buckets (input, archive, error, quarantine)
-# - BigQuery datasets (raw, staging, marts)
-# - Service accounts and IAM roles
-# - Network configuration
-# - Resource dependencies
+# This is the root Terraform configuration for the GCP Pipeline reference.
+# It delegates to the system-specific modules under systems/generic/.
+#
+# For the full Generic system infrastructure, use:
+#   infrastructure/terraform/systems/generic/ingestion/
+#
+# Usage:
+#   cd infrastructure/terraform/systems/generic/ingestion
+#   terraform init
+#   terraform apply -var="gcp_project_id=<your-project>"
 
 terraform {
   required_version = ">= 1.0"
@@ -22,19 +26,19 @@ terraform {
   }
 
   backend "gcs" {
-    bucket = "application2-terraform-state"
-    prefix = "staging"
+    bucket = "gcp-pipeline-terraform-state"
+    prefix = "generic/int"
   }
 }
 
 provider "google" {
   project = var.gcp_project_id
-  region  = "europe-west2" # London, UK
+  region  = "europe-west2"
 }
 
 provider "google-beta" {
   project = var.gcp_project_id
-  region  = "europe-west2" # London, UK
+  region  = "europe-west2"
 }
 
 # ============================================================================
@@ -42,18 +46,17 @@ provider "google-beta" {
 # ============================================================================
 
 locals {
-  environment = var.environment
+  environment = "int"
   project_id  = var.gcp_project_id
-  region      = var.gcp_region
-
-  # Resource naming convention
-  prefix = "application2-${local.environment}"
+  region      = "europe-west2"
+  system_id   = "generic"
+  prefix      = "generic-int"
 
   common_labels = {
-    project     = "application2-blueprint"
+    project     = "gcp-pipeline-reference"
+    system      = "generic"
     environment = local.environment
     managed_by  = "terraform"
-    created_at  = timestamp()
   }
 }
 
@@ -61,22 +64,19 @@ locals {
 # GCS BUCKETS
 # ============================================================================
 
-# Input bucket for incoming files
-resource "google_storage_bucket" "input" {
-  name          = "${local.prefix}-input"
-  location      = var.gcp_region
+resource "google_storage_bucket" "landing" {
+  name          = "${local.project_id}-${local.prefix}-landing"
+  location      = local.region
   force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
 
   versioning {
-    enabled = var.enable_versioning
+    enabled = true
   }
 
   lifecycle_rule {
-    condition {
-      age = 90
-    }
+    condition { age = 90 }
     action {
       type          = "SetStorageClass"
       storage_class = "COLDLINE"
@@ -86,22 +86,19 @@ resource "google_storage_bucket" "input" {
   labels = local.common_labels
 }
 
-# Archive bucket for processed files
 resource "google_storage_bucket" "archive" {
-  name          = "${local.prefix}-archive"
-  location      = var.gcp_region
+  name          = "${local.project_id}-${local.prefix}-archive"
+  location      = local.region
   force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
 
   versioning {
-    enabled = true # Always version archives
+    enabled = true
   }
 
   lifecycle_rule {
-    condition {
-      age = 365
-    }
+    condition { age = 365 }
     action {
       type          = "SetStorageClass"
       storage_class = "COLDLINE"
@@ -109,9 +106,7 @@ resource "google_storage_bucket" "archive" {
   }
 
   lifecycle_rule {
-    condition {
-      age = 1825 # 5 years
-    }
+    condition { age = 1825 }
     action {
       type          = "SetStorageClass"
       storage_class = "ARCHIVE"
@@ -121,171 +116,144 @@ resource "google_storage_bucket" "archive" {
   labels = local.common_labels
 }
 
-# Error bucket for failed files
 resource "google_storage_bucket" "error" {
-  name          = "${local.prefix}-error"
-  location      = var.gcp_region
+  name          = "${local.project_id}-${local.prefix}-error"
+  location      = local.region
   force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
 
   lifecycle_rule {
-    condition {
-      age = 90
-    }
-    action {
-      type = "Delete"
-    }
+    condition { age = 90 }
+    action { type = "Delete" }
   }
 
   labels = local.common_labels
 }
 
-# Quarantine bucket for malformed files
-resource "google_storage_bucket" "quarantine" {
-  name          = "${local.prefix}-quarantine"
-  location      = var.gcp_region
+resource "google_storage_bucket" "temp" {
+  name          = "${local.project_id}-${local.prefix}-temp"
+  location      = local.region
   force_destroy = var.force_destroy
 
   uniform_bucket_level_access = true
 
   lifecycle_rule {
-    condition {
-      age = 365
-    }
-    action {
-      type = "Delete"
-    }
+    condition { age = 7 }
+    action { type = "Delete" }
   }
 
   labels = local.common_labels
 }
 
 # ============================================================================
-# BIGQUERY DATASETS
+# PUB/SUB - FILE NOTIFICATIONS
 # ============================================================================
 
-# Raw data dataset
-resource "google_bigquery_dataset" "raw" {
-  dataset_id    = "raw"
-  friendly_name = "Raw Data - Ingested Files"
-  description   = "Raw data loaded directly from source files"
-  location      = var.bq_location
+resource "google_pubsub_topic" "file_notifications" {
+  name   = "generic-file-notifications"
+  labels = local.common_labels
+}
 
-  access {
-    role          = "OWNER"
-    user_by_email = var.dataflow_service_account
+resource "google_pubsub_topic" "dead_letter" {
+  name   = "generic-file-notifications-dead-letter"
+  labels = local.common_labels
+}
+
+resource "google_pubsub_subscription" "file_notifications_sub" {
+  name  = "generic-file-notifications-sub"
+  topic = google_pubsub_topic.file_notifications.name
+
+  ack_deadline_seconds = 60
+
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
   }
 
-  access {
-    role          = "READER"
-    user_by_email = var.analytics_service_account
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.dead_letter.id
+    max_delivery_attempts = 5
   }
 
   labels = local.common_labels
 }
 
-# Staging dataset
-resource "google_bigquery_dataset" "staging" {
-  dataset_id    = "staging"
-  friendly_name = "Staging Data - dbt Transformations"
-  description   = "Intermediate transformations from raw data"
-  location      = var.bq_location
-
-  access {
-    role          = "OWNER"
-    user_by_email = var.dbt_service_account
-  }
-
-  labels = local.common_labels
+resource "google_pubsub_topic_iam_member" "gcs_publisher" {
+  topic  = google_pubsub_topic.file_notifications.name
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
 }
 
-# Marts dataset (analytics)
-resource "google_bigquery_dataset" "marts" {
-  dataset_id    = "marts"
-  friendly_name = "Analytics Mart - Final Models"
-  description   = "Analytics-ready models for reporting"
-  location      = var.bq_location
+data "google_storage_project_service_account" "gcs_account" {
+  project = var.gcp_project_id
+}
 
-  access {
-    role          = "READER"
-    user_by_email = var.analytics_service_account
-  }
-
-  labels = local.common_labels
+resource "google_storage_notification" "file_notification" {
+  bucket         = google_storage_bucket.landing.name
+  payload_format = "JSON_API_V1"
+  topic          = google_pubsub_topic.file_notifications.id
+  event_types    = ["OBJECT_FINALIZE"]
+  object_name_prefix = "generic/"
+  depends_on     = [google_pubsub_topic_iam_member.gcs_publisher]
 }
 
 # ============================================================================
-# ARTIFACT REGISTRY
+# BIGQUERY DATASETS (ODP / FDP / JOB CONTROL)
 # ============================================================================
 
-# Repository for pipeline container images
-resource "google_artifact_registry_repository" "pipeline_repo" {
-  location      = var.gcp_region
-  repository_id = "pipeline-images"
-  description   = "Docker repository for migration pipeline images"
-  format        = "DOCKER"
+resource "google_bigquery_dataset" "odp_generic" {
+  dataset_id    = "odp_generic"
+  friendly_name = "ODP Generic - Original Data Product"
+  description   = "Raw 1:1 mapping from Generic mainframe extracts (customers, accounts, decision)"
+  location      = "EU"
+  labels        = local.common_labels
+}
 
-  docker_config {
-    immutable_tags = false
-  }
+resource "google_bigquery_dataset" "fdp_generic" {
+  dataset_id    = "fdp_generic"
+  friendly_name = "FDP Generic - Foundation Data Product"
+  description   = "Transformed Generic data (event_transaction_excess, portfolio_account_excess)"
+  location      = "EU"
+  labels        = local.common_labels
+}
 
-  labels = local.common_labels
+resource "google_bigquery_dataset" "job_control" {
+  dataset_id    = "job_control"
+  friendly_name = "Pipeline Job Control"
+  description   = "Job tracking and status for all pipelines"
+  location      = "EU"
+  labels        = local.common_labels
 }
 
 # ============================================================================
 # SERVICE ACCOUNTS
 # ============================================================================
 
-# Dataflow service account
 resource "google_service_account" "dataflow" {
-  account_id   = "${local.prefix}-dataflow"
-  display_name = "Application2 Dataflow Service Account"
-  description  = "Service account for Dataflow pipeline execution"
+  account_id   = "generic-int-dataflow"
+  display_name = "Generic Dataflow Service Account (int)"
+  description  = "Service account for Generic Dataflow pipeline execution"
 }
 
-# dbt service account
 resource "google_service_account" "dbt" {
-  account_id   = "${local.prefix}-dbt"
-  display_name = "Application2 dbt Service Account"
-  description  = "Service account for dbt transformations"
-}
-
-# Cloud Run service account
-resource "google_service_account" "cloud_run" {
-  account_id   = "${local.prefix}-cloud-run"
-  display_name = "Application2 Cloud Run Service Account"
-  description  = "Service account for Cloud Run services"
-}
-
-# Analytics service account
-resource "google_service_account" "analytics" {
-  account_id   = "${local.prefix}-analytics"
-  display_name = "Application2 Analytics Service Account"
-  description  = "Service account for analytics/reporting access"
+  account_id   = "generic-int-dbt"
+  display_name = "Generic dbt Service Account (int)"
+  description  = "Service account for Generic dbt transformations"
 }
 
 # ============================================================================
-# IAM ROLES & PERMISSIONS
+# IAM ROLES
 # ============================================================================
 
-# Dataflow permissions
 resource "google_project_iam_member" "dataflow_worker" {
   project = var.gcp_project_id
   role    = "roles/dataflow.worker"
   member  = "serviceAccount:${google_service_account.dataflow.email}"
 }
 
-# Allow Dataflow to pull images from Artifact Registry
-resource "google_artifact_registry_repository_iam_member" "dataflow_puller" {
-  location   = google_artifact_registry_repository.pipeline_repo.location
-  repository = google_artifact_registry_repository.pipeline_repo.name
-  role       = "roles/artifactregistry.reader"
-  member     = "serviceAccount:${google_service_account.dataflow.email}"
-}
-
-resource "google_storage_bucket_iam_member" "dataflow_input" {
-  bucket = google_storage_bucket.input.name
+resource "google_storage_bucket_iam_member" "dataflow_landing" {
+  bucket = google_storage_bucket.landing.name
   role   = "roles/storage.objectAdmin"
   member = "serviceAccount:${google_service_account.dataflow.email}"
 }
@@ -302,97 +270,32 @@ resource "google_storage_bucket_iam_member" "dataflow_error" {
   member = "serviceAccount:${google_service_account.dataflow.email}"
 }
 
-# BigQuery permissions for Dataflow
-resource "google_bigquery_dataset_iam_member" "dataflow_raw_editor" {
-  dataset_id = google_bigquery_dataset.raw.dataset_id
+resource "google_storage_bucket_iam_member" "dataflow_temp" {
+  bucket = google_storage_bucket.temp.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${google_service_account.dataflow.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "dataflow_odp_editor" {
+  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.dataflow.email}"
 }
 
-# dbt permissions
-resource "google_bigquery_dataset_iam_member" "dbt_staging_editor" {
-  dataset_id = google_bigquery_dataset.staging.dataset_id
+resource "google_bigquery_dataset_iam_member" "dataflow_job_control_editor" {
+  dataset_id = google_bigquery_dataset.job_control.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.dataflow.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "dbt_odp_reader" {
+  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "serviceAccount:${google_service_account.dbt.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "dbt_fdp_editor" {
+  dataset_id = google_bigquery_dataset.fdp_generic.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.dbt.email}"
 }
-
-resource "google_bigquery_dataset_iam_member" "dbt_marts_editor" {
-  dataset_id = google_bigquery_dataset.marts.dataset_id
-  role       = "roles/bigquery.dataEditor"
-  member     = "serviceAccount:${google_service_account.dbt.email}"
-}
-
-resource "google_bigquery_dataset_iam_member" "dbt_raw_reader" {
-  dataset_id = google_bigquery_dataset.raw.dataset_id
-  role       = "roles/bigquery.dataViewer"
-  member     = "serviceAccount:${google_service_account.dbt.email}"
-}
-
-# Cloud Run permissions
-resource "google_project_iam_member" "cloud_run_sa_user" {
-  project = var.gcp_project_id
-  role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:${google_service_account.cloud_run.email}"
-}
-
-# Analytics read-only access
-resource "google_bigquery_dataset_iam_member" "analytics_raw_reader" {
-  dataset_id = google_bigquery_dataset.raw.dataset_id
-  role       = "roles/bigquery.dataViewer"
-  member     = "serviceAccount:${google_service_account.analytics.email}"
-}
-
-resource "google_bigquery_dataset_iam_member" "analytics_marts_reader" {
-  dataset_id = google_bigquery_dataset.marts.dataset_id
-  role       = "roles/bigquery.dataViewer"
-  member     = "serviceAccount:${google_service_account.analytics.email}"
-}
-
-# ============================================================================
-# NETWORKING
-# ============================================================================
-
-# VPC Network
-resource "google_compute_network" "main" {
-  name                    = "${local.prefix}-network"
-  auto_create_subnetworks = false
-}
-
-# Subnet
-resource "google_compute_subnetwork" "main" {
-  name          = "${local.prefix}-subnet"
-  ip_cidr_range = var.subnet_cidr
-  region        = var.gcp_region
-  network       = google_compute_network.main.id
-
-  private_ip_google_access = true
-}
-
-# Cloud NAT for outbound traffic
-resource "google_compute_router" "main" {
-  name    = "${local.prefix}-router"
-  region  = var.gcp_region
-  network = google_compute_network.main.id
-}
-
-resource "google_compute_router_nat" "main" {
-  name                               = "${local.prefix}-nat"
-  router                             = google_compute_router.main.name
-  region                             = var.gcp_region
-  nat_ip_allocate_option             = "AUTO_ONLY"
-  source_subnetwork_ip_ranges_to_nat = "ALL_SUBNETWORKS_ALL_IP_RANGES"
-}
-
-# ============================================================================
-# MONITORING
-# ============================================================================
-
-# Log bucket for Application2 pipeline logs
-resource "google_logging_project_bucket_config" "application2_logs" {
-  project          = var.gcp_project_id
-  location         = var.gcp_region
-  bucket_id        = "application2-pipeline-logs"
-  retention_days   = var.log_retention_days
-  enable_analytics = true
-}
-

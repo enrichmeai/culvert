@@ -26,14 +26,9 @@ terraform {
     }
   }
 
-  # NOTE: Terraform backend blocks do not support variable interpolation.
-  # Override the prefix per environment at init time:
-  #   terraform init -backend-config="prefix=generic/dev"
-  #   terraform init -backend-config="prefix=generic/staging"
-  #   terraform init -backend-config="prefix=generic/prod"
   backend "gcs" {
     bucket = "gcp-pipeline-terraform-state"
-    prefix = "generic/dev"
+    prefix = "generic/int"
   }
 }
 

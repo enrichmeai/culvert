@@ -30,12 +30,12 @@ variable "bq_location" {
 # ============================================================================
 
 variable "environment" {
-  description = "Environment (dev, staging, prod)"
+  description = "Deployment environment (integration only)"
   type        = string
-  default     = "dev"
+  default     = "int"
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod"
+    condition     = var.environment == "int"
+    error_message = "Environment must be int (integration)"
   }
 }
 
