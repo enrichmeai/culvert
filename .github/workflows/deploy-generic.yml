@@ -217,7 +217,8 @@ jobs:
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-ingestion:latest \
           --project ${{ secrets.GCP_PROJECT_ID }} \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          . -f deployments/original-data-to-bigqueryload/Dockerfile
+          --dockerfile deployments/original-data-to-bigqueryload/Dockerfile \
+          .
 
     - name: Create Dataflow Flex Template
       env:
@@ -273,7 +274,8 @@ jobs:
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-transformation:latest \
           --project ${{ secrets.GCP_PROJECT_ID }} \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          . -f deployments/bigquery-to-mapped-product/Dockerfile
+          --dockerfile deployments/bigquery-to-mapped-product/Dockerfile \
+          .
 
     - name: Run dbt via Cloud Build
       run: |
@@ -315,7 +317,8 @@ jobs:
           --tag gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-dag-validator:$VERSION \
           --project ${{ secrets.GCP_PROJECT_ID }} \
           --substitutions _LIBRARY_VERSION=$VERSION \
-          . -f deployments/data-pipeline-orchestrator/Dockerfile
+          --dockerfile deployments/data-pipeline-orchestrator/Dockerfile \
+          .
 
     - name: Upload DAGs to Cloud Composer
       env:
