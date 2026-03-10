@@ -24,10 +24,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Airflow (for DAG parsing) and our libraries with version pinning
-RUN pip install --no-cache-dir \
-    apache-airflow==2.8.1 \
-    apache-airflow-providers-google>=10.0.0
+# Upgrade pip to avoid dependency resolution issues
+RUN pip install --upgrade pip
+
+# Install Airflow then providers separately to avoid resolver loops
+RUN pip install --no-cache-dir "apache-airflow==2.8.1"
+RUN pip install --no-cache-dir "apache-airflow-providers-google>=10.0.0"
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \

@@ -16,19 +16,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Beam SDK and common dependencies (Optimized for Python 3.11)
+# Upgrade pip to avoid dependency resolution issues (ResolutionTooDeep)
+RUN pip install --upgrade pip
+
+# Install Apache Beam with GCP extras first (pulls in most GCP client libs)
+RUN pip install --no-cache-dir "apache-beam[gcp]==2.56.0"
+
+# Install remaining dependencies not already pulled in by Beam
 RUN pip install --no-cache-dir \
-    apache-beam[gcp]==2.56.0 \
-    google-cloud-storage \
-    google-cloud-bigquery \
-    google-cloud-pubsub \
-    google-cloud-logging \
-    google-cloud-monitoring \
-    google-cloud-error-reporting \
     opentelemetry-api \
     opentelemetry-sdk \
     opentelemetry-exporter-otlp \
-    cryptography \
     pandas
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)

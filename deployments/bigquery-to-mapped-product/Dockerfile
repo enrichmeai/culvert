@@ -15,7 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install dbt-bigquery
+# Upgrade pip to avoid dependency resolution issues
+RUN pip install --upgrade pip
+
+RUN pip install --no-cache-dir dbt-bigquery
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
