@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # CONFIGURATION
 # ============================================================================
 
-SYSTEM_ID = "Merged-Pipeline"
+SYSTEM_ID = "GENERIC"
 ENTITIES = ["customers", "accounts", "decision", "applications"]
 
 # GCP Configuration - use Airflow Variables with environment fallbacks
