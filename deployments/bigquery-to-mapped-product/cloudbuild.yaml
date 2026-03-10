@@ -1,0 +1,23 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - build
+  - --build-arg
+  - LIBRARY_VERSION=$_LIBRARY_VERSION
+  - --tag
+  - gcr.io/$PROJECT_ID/generic-transformation:$_LIBRARY_VERSION
+  - --tag
+  - gcr.io/$PROJECT_ID/generic-transformation:latest
+  - -f
+  - deployments/bigquery-to-mapped-product/Dockerfile
+  - .
+
+images:
+- gcr.io/$PROJECT_ID/generic-transformation:$_LIBRARY_VERSION
+- gcr.io/$PROJECT_ID/generic-transformation:latest
+
+substitutions:
+  _LIBRARY_VERSION: latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
