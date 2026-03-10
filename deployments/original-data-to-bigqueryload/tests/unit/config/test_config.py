@@ -38,12 +38,12 @@ class TestSettings:
         assert len(REQUIRED_ENTITIES) == 3
 
     def test_odp_dataset(self):
-        """ODP dataset should be odp_em."""
-        assert ODP_DATASET == "odp_em"
+        """ODP dataset should be odp_generic."""
+        assert ODP_DATASET == "odp_generic"
 
     def test_fdp_dataset(self):
-        """FDP dataset should be fdp_em."""
-        assert FDP_DATASET == "fdp_em"
+        """FDP dataset should be fdp_generic."""
+        assert FDP_DATASET == "fdp_generic"
 
     def test_bucket_templates(self):
         """Bucket templates should contain placeholders."""

@@ -42,7 +42,7 @@ class TestEMEntityConfig:
         for entity, config in EM_ENTITY_CONFIG.items():
             assert 'output_table' in config
             assert 'error_table' in config
-            assert config['output_table'].startswith('odp_em.')
+            assert config['output_table'].startswith('odp_generic.')
 
 
 class TestSchemaValidation:
