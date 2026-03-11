@@ -416,6 +416,10 @@ jobs:
             name: gcp-pipeline-ref-transform
           - dir: data-pipeline-orchestrator
             name: gcp-pipeline-ref-orchestration
+          - dir: fdp-to-consumable-product
+            name: gcp-pipeline-ref-cdp
+          - dir: mainframe-segment-transform
+            name: gcp-pipeline-ref-segment-transform
 
     steps:
     - uses: actions/checkout@v4
@@ -597,8 +601,10 @@ jobs:
         echo "| gcp-pipeline-ref-ingestion | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-ingestion\` |" >> $GITHUB_STEP_SUMMARY
         echo "| gcp-pipeline-ref-transform | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-transform\` |" >> $GITHUB_STEP_SUMMARY
         echo "| gcp-pipeline-ref-orchestration | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-orchestration\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-cdp | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-cdp\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-segment-transform | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-segment-transform\` |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Usage:** \`pip install gcp-pipeline-ref-ingestion gcp-pipeline-ref-transform gcp-pipeline-ref-orchestration\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Usage:** \`pip install gcp-pipeline-ref-ingestion gcp-pipeline-ref-transform gcp-pipeline-ref-orchestration gcp-pipeline-ref-cdp gcp-pipeline-ref-segment-transform\`" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         if [ "${{ needs.check-conditions.outputs.should_deploy }}" == "true" ]; then
