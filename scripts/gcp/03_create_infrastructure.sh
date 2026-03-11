@@ -138,9 +138,43 @@ setup_generic() {
 
     echo ""
     echo "BigQuery Tables (job_control):"
-    create_bq_table "job_control.pipeline_jobs" \
-        "job_id:STRING,system_id:STRING,entity_name:STRING,run_id:STRING,status:STRING,extract_date:DATE,source_file:STRING,record_count:INTEGER,error_count:INTEGER,started_at:TIMESTAMP,completed_at:TIMESTAMP,error_message:STRING" \
-        "--clustering_fields system_id,status"
+    # pipeline_jobs uses source_files ARRAY — requires JSON schema
+    JOBS_SCHEMA_FILE="$(mktemp /tmp/pipeline_jobs_schema_XXXXXX.json)"
+    cat > "$JOBS_SCHEMA_FILE" <<'SCHEMA'
+[
+  {"name": "run_id",           "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "system_id",        "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "entity_type",      "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "extract_date",     "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "status",           "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "source_files",     "type": "STRING",    "mode": "REPEATED"},
+  {"name": "total_records",    "type": "INT64",     "mode": "NULLABLE"},
+  {"name": "started_at",       "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "completed_at",     "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "failed_at",        "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "error_code",       "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "error_message",    "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "failure_stage",    "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "error_file_path",  "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "created_at",       "type": "TIMESTAMP", "mode": "NULLABLE"},
+  {"name": "updated_at",       "type": "TIMESTAMP", "mode": "NULLABLE"}
+]
+SCHEMA
+    if bq show --project_id="$PROJECT_ID" "job_control.pipeline_jobs" &>/dev/null; then
+        echo -e "  ${YELLOW}Exists:${NC} job_control.pipeline_jobs"
+    else
+        echo -n "  Creating: job_control.pipeline_jobs... "
+        bq mk --project_id="$PROJECT_ID" \
+            --clustering_fields system_id,status \
+            --table "job_control.pipeline_jobs" "$JOBS_SCHEMA_FILE" \
+            && echo -e "${GREEN}✅${NC}" || echo -e "${YELLOW}⚠️ (check permissions)${NC}"
+    fi
+    rm -f "$JOBS_SCHEMA_FILE"
+
+    # audit_trail: matches AuditRecord from gcp_pipeline_core.audit.records
+    create_bq_table "job_control.audit_trail" \
+        "run_id:STRING,pipeline_name:STRING,entity_type:STRING,source_file:STRING,record_count:INTEGER,processed_timestamp:TIMESTAMP,processing_duration_seconds:FLOAT,success:BOOLEAN,error_count:INTEGER,audit_hash:STRING" \
+        "--time_partitioning_field processed_timestamp --clustering_fields pipeline_name,entity_type"
 
     echo ""
     echo "Pub/Sub:"
