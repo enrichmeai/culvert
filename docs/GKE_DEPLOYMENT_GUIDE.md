@@ -9,7 +9,7 @@ This guide demonstrates deploying the **same three-unit Generic pipeline** using
 | **Orchestration (Airflow)** | GKE — self-managed Helm | Cloud Composer — fully managed |
 | **Ingestion (Beam)** | Dataflow (Google-managed) | Dataflow (Google-managed) |
 | **Transformation (dbt)** | BigQuery (Google-managed) | BigQuery (Google-managed) |
-| **Library** | `gcp-pipeline-framework==1.0.6` | `gcp-pipeline-framework==1.0.6` |
+| **Library** | `gcp-pipeline-framework==1.0.7` | `gcp-pipeline-framework==1.0.7` |
 | **CI/CD Workflow** | `deploy-gke.yml` | `deploy-generic.yml` |
 
 ## Architecture Overview

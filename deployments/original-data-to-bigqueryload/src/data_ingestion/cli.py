@@ -119,14 +119,14 @@ dependencies = [
     "google-cloud-bigquery>=3.0.0",
     "google-cloud-storage>=2.0.0",
     "pydantic>=2.0.0",
-    "gcp-pipeline-framework[core,beam]>=1.0.6",
+    "gcp-pipeline-framework[core,beam]>=1.0.7",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
-    "gcp-pipeline-tester>=1.0.6",
+    "gcp-pipeline-tester>=1.0.7",
 ]
 
 [tool.setuptools.packages.find]

@@ -19,7 +19,7 @@ Extract reference code:
     gcp-ref-ingestion extract ./my-project
 """
 
-__version__ = "1.0.6"
+__version__ = "1.0.7"
 
 from .config import SYSTEM_ID
 

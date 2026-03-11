@@ -154,7 +154,7 @@ The pipeline uses a **3-unit deployment model** (Ingestion, Transformation, Orch
 
 The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, `gcp-pipeline-orchestration`, `gcp-pipeline-transform`, `gcp-pipeline-tester`) are published as Python packages to **PyPI** under the umbrella package `gcp-pipeline-framework`.
 
-- Current version: `1.0.6`
+- Current version: `1.0.7`
 - PyPI: https://pypi.org/project/gcp-pipeline-framework/
 - Libraries must be published to PyPI before deploying application units that depend on them.
 - Use the `[publish:pypi]` or `[publish:deploy]` commit keyword to trigger publishing workflows.
@@ -182,7 +182,7 @@ The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, `gcp-pipeline-or
 ### Step 2.3: Deploy Orchestration Unit
 
 1. Upload Airflow DAGs to the Cloud Composer DAGs bucket (`gs://<composer-bucket>/dags/`).
-2. Update Cloud Composer environment PyPI dependencies to include `gcp-pipeline-framework==1.0.6`.
+2. Update Cloud Composer environment PyPI dependencies to include `gcp-pipeline-framework==1.0.7`.
 3. Cloud Composer environment: `generic-{ENV}-composer`.
 
 ### Automatic Deployment

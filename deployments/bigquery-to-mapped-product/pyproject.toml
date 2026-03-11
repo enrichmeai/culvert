@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-transform"
-version = "1.0.6"
+version = "1.0.7"
 description = "GCP Pipeline Reference: Generic FDP Transformation — dbt models for ODP to FDP (JOIN + MAP patterns)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "dbt-bigquery>=1.5.0",
-    "gcp-pipeline-framework>=1.0.6",
+    "gcp-pipeline-framework>=1.0.7",
 ]
 
 [project.urls]

@@ -128,7 +128,7 @@ output "next_steps" {
        terraform apply -var="gcp_project_id=${var.gcp_project_id}"
 
     2. Or trigger via GitHub Actions:
-       gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.6
+       gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.7
   EOT
 }
 
