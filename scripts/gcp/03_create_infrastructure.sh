@@ -99,11 +99,13 @@ setup_generic() {
     create_bucket "generic-${ENVIRONMENT}-archive"
     create_bucket "generic-${ENVIRONMENT}-error"
     create_bucket "generic-${ENVIRONMENT}-temp"
+    create_bucket "generic-${ENVIRONMENT}-segments"
 
     echo ""
     echo "BigQuery Datasets:"
     create_dataset "odp_generic"
     create_dataset "fdp_generic"
+    create_dataset "cdp_generic"
     create_dataset "job_control"
 
     echo ""
@@ -175,6 +177,55 @@ SCHEMA
     create_bq_table "job_control.audit_trail" \
         "run_id:STRING,pipeline_name:STRING,entity_type:STRING,source_file:STRING,record_count:INTEGER,processed_timestamp:TIMESTAMP,processing_duration_seconds:FLOAT,success:BOOLEAN,error_count:INTEGER,audit_hash:STRING" \
         "--time_partitioning_field processed_timestamp --clustering_fields pipeline_name,entity_type"
+
+    echo ""
+    echo "BigQuery Tables (cdp_generic):"
+    # customer_risk_profile: 3-FDP JOIN — consumed by mainframe-segment-transform
+    CDP_SCHEMA_FILE="$(mktemp /tmp/cdp_customer_risk_profile_XXXXXX.json)"
+    cat > "$CDP_SCHEMA_FILE" <<'SCHEMA'
+[
+  {"name": "risk_profile_key",    "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "customer_id",         "type": "STRING",    "mode": "REQUIRED"},
+  {"name": "first_name",          "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "last_name",           "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "date_of_birth",       "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "ssn_masked",          "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "customer_status",     "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "account_id",          "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "account_type_desc",   "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "current_balance",     "type": "NUMERIC",   "mode": "NULLABLE"},
+  {"name": "account_open_date",   "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "decision_id",         "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "decision_code",       "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "decision_outcome",    "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "decision_date",       "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "risk_score",          "type": "INTEGER",   "mode": "NULLABLE"},
+  {"name": "decision_reason",     "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "application_id",      "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "loan_amount",         "type": "NUMERIC",   "mode": "NULLABLE"},
+  {"name": "interest_rate",       "type": "NUMERIC",   "mode": "NULLABLE"},
+  {"name": "term_months",         "type": "INTEGER",   "mode": "NULLABLE"},
+  {"name": "application_date",    "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "facility_status",     "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "event_type",          "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "account_type",        "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "cdp_segment",         "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "_run_id",             "type": "STRING",    "mode": "NULLABLE"},
+  {"name": "_extract_date",       "type": "DATE",      "mode": "NULLABLE"},
+  {"name": "_cdp_transformed_ts", "type": "TIMESTAMP", "mode": "NULLABLE"}
+]
+SCHEMA
+    if bq show --project_id="$PROJECT_ID" "cdp_generic.customer_risk_profile" &>/dev/null; then
+        echo -e "  ${YELLOW}Exists:${NC} cdp_generic.customer_risk_profile"
+    else
+        echo -n "  Creating: cdp_generic.customer_risk_profile... "
+        bq mk --project_id="$PROJECT_ID" \
+            --time_partitioning_field _extract_date \
+            --clustering_fields customer_id \
+            --table "cdp_generic.customer_risk_profile" "$CDP_SCHEMA_FILE" \
+            && echo -e "${GREEN}✅${NC}" || echo -e "${YELLOW}⚠️ (check permissions)${NC}"
+    fi
+    rm -f "$CDP_SCHEMA_FILE"
 
     echo ""
     echo "Pub/Sub:"

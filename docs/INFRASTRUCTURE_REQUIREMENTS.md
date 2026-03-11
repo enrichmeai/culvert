@@ -53,12 +53,18 @@ This document provides a complete reference for all GCP infrastructure required 
 | **bigquery-to-mapped-product** | dbt transformations — ODP → FDP | BigQuery (native SQL) | `generic-transformation` |
 | **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) | `generic-dag-validator` |
 
+### Extended paved path (full mainframe round-trip)
+
+| Deployment | Purpose | Runtime | Docker Image |
+|------------|---------|---------|--------------|
+| **fdp-to-consumable-product** | dbt JOIN — 3 FDPs → `cdp_generic.customer_risk_profile` | BigQuery (native SQL) | `generic-cdp-transformation` |
+| **mainframe-segment-transform** | Beam export — CDP → 200-char fixed-width GCS segment files | Cloud Dataflow | *(Python script)* |
+
 ### Specialist Deployments (not in active CI/CD)
 
 | Deployment | Purpose | Runtime | Notes |
 |------------|---------|---------|-------|
 | **spanner-to-bigquery-load** | Spanner → BigQuery via dbt `EXTERNAL_QUERY` | BigQuery | Stub — demonstrates FEDERATED pattern |
-| **mainframe-segment-transform** | CDP → GCS segment files | Cloud Dataflow | Stub — demonstrates CDP layer |
 
 ### Alternative Orchestration (manual trigger only)
 
@@ -181,8 +187,10 @@ This document provides a complete reference for all GCP infrastructure required 
 | GCS Bucket | `${PROJECT_ID}-generic-{ENV}-archive` | Processed files |
 | GCS Bucket | `${PROJECT_ID}-generic-{ENV}-error` | Failed files |
 | GCS Bucket | `${PROJECT_ID}-generic-{ENV}-temp` | Dataflow temp + Flex templates |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-segments` | Outbound mainframe segment files (CDP export) |
 | BigQuery Dataset | `odp_generic` | ODP: customers, accounts, decision, applications |
 | BigQuery Dataset | `fdp_generic` | FDP: event_transaction_excess, portfolio_account_excess, portfolio_account_facility |
+| BigQuery Dataset | `cdp_generic` | CDP: customer_risk_profile |
 | BigQuery Dataset | `job_control` | pipeline_jobs, audit_trail |
 | Pub/Sub Topic | `generic-file-notifications` | GCS OBJECT_FINALIZE → Airflow sensor |
 | Pub/Sub Topic | `generic-pipeline-events` | Audit record streaming |
@@ -224,7 +232,79 @@ This document provides a complete reference for all GCP infrastructure required 
 
 ---
 
-### 4. Job Control (State Management)
+### 4. CDP Transformation (dbt + BigQuery)
+
+**Deployment:** `fdp-to-consumable-product`
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       BigQuery                                   │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  dbt CDP Models                                            │  │
+│  │  ├── staging/fdp/   - Thin wrappers over fdp_generic       │  │
+│  │  └── cdp/           - customer_risk_profile (JOIN all 3)   │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│         │                                                        │
+│         ▼                                                        │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  fdp_generic.* (3 tables) → cdp_generic.customer_risk_profile │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Required Resources:**
+
+| Resource | Name | Specification |
+|----------|------|---------------|
+| BigQuery Dataset | `fdp_generic` | Source (from Unit 2 transformation) |
+| BigQuery Dataset | `cdp_generic` | Target CDP dataset |
+| BigQuery Table | `cdp_generic.customer_risk_profile` | Partitioned by `_extract_date`, clustered by `customer_id` |
+| Service Account | `dbt-sa` | BigQuery permissions (shared with FDP dbt) |
+
+---
+
+### 5. Mainframe Segment Export (Dataflow)
+
+**Deployment:** `mainframe-segment-transform`
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       Dataflow Job                               │
+│  ┌────────────────────────────────────────────────────────────┐  │
+│  │  Apache Beam Pipeline                                       │  │
+│  │  ├── ReadFromBigQuery   - Read cdp_generic.customer_risk_  │  │
+│  │  │                        profile                          │  │
+│  │  ├── SegmentByCategory  - Format 200-char fixed-width line │  │
+│  │  └── WriteToText        - Write per-segment GCS files      │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+              │
+              ▼
+   ┌────────────────────┐
+   │  GCS Segments      │
+   │  ACTIVE_APPROVED/  │
+   │  DECLINED/         │
+   │  REFERRED/         │
+   │  PENDING/          │
+   └────────────────────┘
+```
+
+**Required Resources:**
+
+| Resource | Name | Specification |
+|----------|------|---------------|
+| BigQuery Dataset | `cdp_generic` | Source CDP table |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-segments` | Output segment files |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-temp` | Dataflow temp (shared) |
+
+**Segment file format:** Fixed-width, 200 chars/line, per CDP segment category (`ACTIVE_APPROVED`, `DECLINED`, `REFERRED`, `PENDING`). Path pattern:
+```
+gs://{PROJECT_ID}-generic-{ENV}-segments/segments/{run_id}/{SEGMENT_CATEGORY}/segment-*.txt
+```
+
+---
+
+### 6. Job Control (State Management)
 
 **Required for all deployments.** Schema owned by `JobControlRepository` in `gcp-pipeline-core`.
 

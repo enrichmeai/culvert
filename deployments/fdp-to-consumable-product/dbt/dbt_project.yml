@@ -1,0 +1,42 @@
+name: 'fdp_consumable_product'
+version: '1.0.0'
+config-version: 2
+
+profile: 'cdp_profile'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+target-path: "target"
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+docs-paths: ["docs"]
+
+models:
+  fdp_consumable_product:
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging"]
+    cdp:
+      +materialized: incremental
+      +schema: cdp
+      +tags: ["cdp"]
+
+vars:
+  # GCP project
+  gcp_project_id: "{{ env_var('GCP_PROJECT_ID') }}"
+
+  # Datasets
+  fdp_dataset: "fdp_generic"
+  cdp_dataset: "cdp_generic"
+
+  # Date parameters
+  extract_date: null
+  current_date: "CURRENT_DATE()"

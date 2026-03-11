@@ -1,57 +1,106 @@
-# CDP Segmentation Reference Implementation
+# mainframe-segment-transform
 
-This deployment demonstrates a **Consumable Data Product (CDP)** pipeline using Apache Beam on Google Cloud Dataflow.
+**Deployment type:** Cloud Dataflow (Apache Beam)
+**Layer:** CDP → GCS outbound
+**Pattern:** Read `cdp_generic.customer_risk_profile` → write fixed-width segment files to GCS
 
 ## Overview
 
-The CDP pipeline performs the following steps:
-1.  **Read from Multiple Sources**: Reads multiple Foundation Data Product (FDP) tables from BigQuery in parallel.
-2.  **Segmentation & Processing**: Applies custom logic to segment the data (e.g., by region) and normalize fields for downstream consumption.
-3.  **Segmented GCS Export**: Writes the results to Google Cloud Storage as segmented JSONL files, ensuring scalability for large datasets.
+This pipeline is the **final stage** of the data platform. It reads the fully-enriched
+`customer_risk_profile` CDP table and produces fixed-width, 200-char segment files
+in GCS that can be consumed by downstream mainframe systems.
 
-## Structure
+```
+cdp_generic.customer_risk_profile
+              │
+    (Dataflow / Apache Beam)
+              │
+gs://{bucket}/segments/{run_id}/ACTIVE_APPROVED/segment-*.txt
+gs://{bucket}/segments/{run_id}/DECLINED/segment-*.txt
+gs://{bucket}/segments/{run_id}/REFERRED/segment-*.txt
+gs://{bucket}/segments/{run_id}/PENDING/segment-*.txt
+```
 
-- `src/cdp_example/main.py`: The main pipeline code using the `gcp-pipeline-beam` library's fluent API.
-- `requirements.txt`: Python dependencies for the pipeline.
+## Segment File Format
 
-## Usage
+Each output file contains one record per line, exactly **200 characters** wide:
 
-### Local Execution (for testing)
+| Field | Width | Format |
+|-------|-------|--------|
+| `segment_type` | 4 | ACTI / DECL / REFR / PEND |
+| `customer_id` | 20 | left-justified |
+| `account_id` | 20 | left-justified |
+| `current_balance` | 15 | right-justified, 2 d.p. |
+| `risk_score` | 6 | right-justified integer |
+| `decision_outcome` | 10 | APPROVED / DECLINED / REFERRED |
+| `facility_status` | 12 | left-justified |
+| `loan_amount` | 15 | right-justified, 2 d.p. |
+| `interest_rate` | 8 | right-justified, 4 d.p. |
+| `term_months` | 4 | right-justified |
+| `cdp_segment` | 20 | left-justified |
+| `extract_date` | 8 | YYYYMMDD |
+| `filler` | 58 | space-padded reserved |
 
-Ensure you have your GCP credentials configured.
+## Full Pipeline Position
+
+```
+Mainframe files (GCS landing)
+        │
+  [data-pipeline-orchestrator]   ← Airflow DAG triggered by .ok file via Pub/Sub
+        │
+  [original-data-to-bigqueryload]  ← Dataflow: CSV → odp_generic.*
+        │
+  [bigquery-to-mapped-product]   ← dbt: ODP → fdp_generic.*
+        │
+  [fdp-to-consumable-product]    ← dbt: FDP JOIN → cdp_generic.customer_risk_profile
+        │
+  [mainframe-segment-transform]  ← Dataflow: CDP → GCS fixed-width segment files
+        │
+  GCS segments bucket (for mainframe)
+```
+
+## Running Locally
 
 ```bash
 # Setup venv
 ./scripts/setup_deployment_venv.sh mainframe-segment-transform
 source deployments/mainframe-segment-transform/venv/bin/activate
 
-python3 src/cdp_example/main.py \
-    --project your-project-id \
-    --dataset your_fdp_dataset \
-    --tables table1,table2 \
-    --bucket your-output-bucket \
-    --prefix cdp_exports \
-    --segment_size 1000 \
+python deployments/mainframe-segment-transform/src/cdp_example/main.py \
+    --project joseph-antony-aruja \
+    --cdp_dataset cdp_generic \
+    --cdp_table customer_risk_profile \
+    --output_bucket joseph-antony-aruja-generic-dev-segments \
+    --run_id test_$(date +%Y%m%d_%H%M%S) \
     --runner DirectRunner
 ```
 
-### Dataflow Execution
+## Dataflow Execution
 
 ```bash
-python3 src/cdp_example/main.py \
-    --project your-project-id \
-    --dataset your_fdp_dataset \
-    --tables table1,table2 \
-    --bucket your-output-bucket \
-    --prefix cdp_exports \
-    --segment_size 10000 \
+python deployments/mainframe-segment-transform/src/cdp_example/main.py \
+    --project joseph-antony-aruja \
+    --cdp_dataset cdp_generic \
+    --cdp_table customer_risk_profile \
+    --output_bucket joseph-antony-aruja-generic-dev-segments \
+    --run_id prod_$(date +%Y%m%d_%H%M%S) \
     --runner DataflowRunner \
-    --region us-central1 \
-    --temp_location gs://your-temp-bucket/temp
+    --region europe-west2 \
+    --temp_location gs://joseph-antony-aruja-generic-dev-temp/dataflow-temp
 ```
 
-## Key Features
+## GCS Output
 
-- **Parallel Reads**: Uses the enhanced `ReadFromBigQueryDoFn` to read from multiple BigQuery tables simultaneously.
-- **Scalable Writing**: Uses `WriteSegmentedToGCSDoFn` to avoid memory issues when exporting large amounts of data.
-- **Fluent API**: Leverages `BeamPipelineBuilder` for clean and readable pipeline definitions.
+```
+gs://{PROJECT_ID}-generic-{ENV}-segments/
+  segments/
+    {run_id}/
+      ACTIVE_APPROVED/
+        segment-00-of-01.txt
+      DECLINED/
+        segment-00-of-01.txt
+      REFERRED/
+        segment-00-of-01.txt
+      PENDING/
+        segment-00-of-01.txt
+```
