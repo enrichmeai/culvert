@@ -213,8 +213,8 @@ jobs:
   deploy-dags-to-gke:
     name: Sync DAGs to GCS (GKE Airflow)
     runs-on: ubuntu-latest
-    needs: [fetch-version, test]
-    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    needs: [check-keyword, fetch-version, test]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && (needs.test.result == 'success' || needs.test.result == 'skipped')
     environment: ${{ inputs.environment || 'dev' }}
 
     steps:
@@ -259,8 +259,8 @@ jobs:
   deploy-k8s-resources:
     name: Deploy Kubernetes Resources
     runs-on: ubuntu-latest
-    needs: [fetch-version, test]
-    if: "!inputs.dags_only"
+    needs: [check-keyword, fetch-version, test]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && !inputs.dags_only
     environment: ${{ inputs.environment || 'dev' }}
 
     steps:
@@ -308,8 +308,8 @@ jobs:
   validate:
     name: Validate GKE Deployment
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-dags-to-gke, deploy-k8s-resources]
-    if: always()
+    needs: [check-keyword, fetch-version, deploy-dags-to-gke, deploy-k8s-resources]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && always()
     environment: ${{ inputs.environment || 'dev' }}
 
     steps:
