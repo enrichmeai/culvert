@@ -128,8 +128,8 @@ jobs:
   test:
     name: Test with Released Framework
     runs-on: ubuntu-latest
-    needs: fetch-version
-    if: ${{ github.event_name == 'push' || !inputs.dags_only }}
+    needs: [check-keyword, fetch-version]
+    if: needs.check-keyword.outputs.should-deploy == 'true'
 
     steps:
     - uses: actions/checkout@v4
