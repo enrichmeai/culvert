@@ -45,21 +45,43 @@ The `run_id` is the primary correlation key for pipeline coordination. It is gen
 
 ### 4.2 Job Control Schema (`job_control.pipeline_jobs`)
 
-This table manages the state machine for every pipeline run.
+This table manages the state machine for every pipeline run. Schema is owned by `JobControlRepository` in `gcp-pipeline-core`.
+
+| Column | Type | Mode | Description |
+|--------|------|------|-------------|
+| `run_id` | STRING | REQUIRED | Unique correlation ID |
+| `system_id` | STRING | REQUIRED | Source system identifier (e.g., `generic`) |
+| `entity_type` | STRING | REQUIRED | Entity being processed (e.g., `customers`, `accounts`) |
+| `extract_date` | DATE | NULLABLE | Source file extract date from HDR record |
+| `status` | STRING | REQUIRED | `PENDING`, `RUNNING`, `SUCCESS`, `FAILED`, `QUARANTINED` |
+| `source_files` | ARRAY\<STRING\> | REPEATED | GCS file paths processed in this run |
+| `total_records` | INT64 | NULLABLE | Total records written to ODP |
+| `started_at` | TIMESTAMP | NULLABLE | Pipeline start time |
+| `completed_at` | TIMESTAMP | NULLABLE | Successful completion time |
+| `failed_at` | TIMESTAMP | NULLABLE | Failure timestamp |
+| `error_code` | STRING | NULLABLE | Standardised failure code |
+| `error_message` | STRING | NULLABLE | Human-readable failure description |
+| `failure_stage` | STRING | NULLABLE | Stage where failure occurred (e.g., `VALIDATION`, `LOAD`) |
+| `error_file_path` | STRING | NULLABLE | GCS path to the quarantined/error file |
+| `created_at` | TIMESTAMP | NULLABLE | Record creation time |
+| `updated_at` | TIMESTAMP | NULLABLE | Last status update time |
+
+### 4.3 Audit Trail Schema (`job_control.audit_trail`)
+
+Stores `AuditRecord` events published by `gcp-pipeline-core.audit.AuditPublisher`. Records are also streamed to Pub/Sub (`generic-pipeline-events`) for real-time observability.
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `run_id` | STRING | Unique correlation ID |
-| `system_id` | STRING | Source system identifier (e.g., `generic`) |
-| `entity_type` | STRING | Entity being processed (e.g., `customers`, `accounts`) |
-| `extract_date` | DATE | Source file extract date from HDR record |
-| `status` | STRING | `PENDING`, `RUNNING`, `SUCCESS`, `FAILED`, `QUARANTINED` |
-| `started_at` | TIMESTAMP | Pipeline start time |
-| `completed_at` | TIMESTAMP | Completion time |
-| `source_files` | ARRAY\<STRING\> | List of GCS files processed |
-| `total_records` | INT64 | Record count from BigQuery |
-| `error_code` | STRING | Standardised failure code |
-| `error_message` | STRING | Human-readable failure description |
+| `run_id` | STRING | Correlation ID |
+| `pipeline_name` | STRING | Pipeline name |
+| `entity_type` | STRING | Entity type (e.g., `customers`) |
+| `source_file` | STRING | GCS path of source file |
+| `record_count` | INTEGER | Total records processed |
+| `processed_timestamp` | TIMESTAMP | When processing completed (partition column) |
+| `processing_duration_seconds` | FLOAT | End-to-end duration |
+| `success` | BOOLEAN | Whether processing succeeded |
+| `error_count` | INTEGER | Records routed to DLQ |
+| `audit_hash` | STRING | SHA-256 hash for tamper detection |
 
 ### 4.3 Data Layers
 
