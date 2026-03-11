@@ -1,0 +1,58 @@
+version: 2
+
+models:
+  - name: customer_risk_profile
+    description: >
+      Consumable Data Product (CDP): Customer Risk Profile.
+
+      Joins all three FDP tables into a single denormalised row per customer,
+      combining transaction exposure (event_transaction_excess), risk decision
+      (portfolio_account_excess), and facility details (portfolio_account_facility).
+
+      This table is the primary source for the mainframe-segment-transform pipeline,
+      which reads each row and writes an outbound fixed-width segment file to GCS.
+
+    columns:
+      - name: risk_profile_key
+        description: "Surrogate key — customer_id + extract_date"
+        tests: [not_null, unique]
+
+      - name: customer_id
+        description: "Customer identifier (from ODP via FDP)"
+        tests: [not_null]
+
+      - name: first_name
+      - name: last_name
+      - name: date_of_birth
+      - name: ssn_masked
+        description: "PII-masked SSN from FDP"
+      - name: customer_status
+
+      - name: account_id
+      - name: account_type_desc
+      - name: current_balance
+      - name: account_open_date
+
+      - name: decision_id
+      - name: decision_code
+      - name: decision_outcome
+        description: "APPROVED | DECLINED | REFERRED"
+      - name: decision_date
+      - name: risk_score
+      - name: decision_reason
+
+      - name: application_id
+      - name: loan_amount
+      - name: interest_rate
+      - name: term_months
+      - name: application_date
+      - name: facility_status
+      - name: event_type
+      - name: account_type
+
+      - name: cdp_segment
+        description: "Derived segment: ACTIVE_APPROVED | DECLINED | REFERRED | PENDING"
+
+      - name: _run_id
+      - name: _extract_date
+      - name: _cdp_transformed_ts

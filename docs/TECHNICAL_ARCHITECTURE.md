@@ -14,13 +14,19 @@ This document defines the production-grade architecture for the GCP Pipeline Ref
 
 ## 3. System Architecture
 
-### 3.1 The 3-Unit Deployment Model
+### 3.1 The Full Pipeline — 5 Deployment Units
 
-To reduce GCP costs and management complexity, the framework consolidates what were previously separate applications (Application A and Application B) into **three functional deployment units**:
+The framework implements a complete mainframe-to-GCS round trip across **five deployment units** that form the paved path:
 
-1. **Unit 1 — Unified Ingestion (`original-data-to-bigqueryload`)**: A single Dataflow Flex Template that handles HDR/TRL validation and raw loading for all entities (Customers, Accounts, Decision, Applications).
-2. **Unit 2 — Unified Transformation (`bigquery-to-mapped-product`)**: A consolidated dbt project containing models for all systems, triggered via Pub/Sub after successful ODP load.
-3. **Unit 3 — Unified Orchestration (`data-pipeline-orchestrator`)**: A single set of Airflow DAGs deployed to Cloud Composer that coordinate the entire flow — Pub/Sub sensing, file validation, Dataflow triggering, dependency checking, and dbt triggering.
+| # | Unit | Technology | Layer | Description |
+|---|------|-----------|-------|-------------|
+| 1 | **`original-data-to-bigqueryload`** | Dataflow (Beam Flex Template) | Ingest → ODP | HDR/TRL validation + raw CSV load for all entities |
+| 2 | **`bigquery-to-mapped-product`** | dbt on BigQuery | ODP → FDP | JOIN + MAP transformations to Foundation Data Products |
+| 3 | **`data-pipeline-orchestrator`** | Cloud Composer (Airflow) | Orchestration | Pub/Sub sensing, dependency checking, trigger coordination |
+| 4 | **`fdp-to-consumable-product`** | dbt on BigQuery | FDP → CDP | Three-FDP JOIN into `cdp_generic.customer_risk_profile` |
+| 5 | **`mainframe-segment-transform`** | Dataflow (Beam) | CDP → GCS | Fixed-width segment file export for mainframe consumption |
+
+Units 1–3 form the active CI/CD deployment (deployed by `deploy-generic.yml`). Units 4 and 5 complete the full round-trip back to mainframe segment files.
 
 ### 3.2 Component Interaction Map
 
@@ -29,10 +35,46 @@ graph TD
     A[Mainframe Upload] -->|GCS OBJECT_FINALIZE| B(Landing Bucket)
     B -->|Pub/Sub notification| C[Cloud Composer — Orchestration]
     C -->|Trigger| D[Dataflow — Ingestion]
-    D -->|Write| E[(ODP BigQuery)]
-    E -->|Trigger| F[dbt — Transformation]
-    F -->|Write| G[(FDP BigQuery)]
+    D -->|Write| E[(ODP BigQuery\nodp_generic.*)]
+    E -->|Trigger| F[dbt — FDP Transformation]
+    F -->|Write| G[(FDP BigQuery\nfdp_generic.*)]
+    G -->|Trigger| I[dbt — CDP Transformation]
+    I -->|Write| J[(CDP BigQuery\ncdp_generic.customer_risk_profile)]
+    J -->|Trigger| K[Dataflow — Segment Export]
+    K -->|Write| L[GCS Segments Bucket\nfixed-width .txt files]
     C -.->|State reads/writes| H[(job_control BigQuery)]
+```
+
+**Full end-to-end flow:**
+
+```
+Mainframe CSV files
+       │  GCS landing bucket + .ok trigger file
+       ▼
+[data-pipeline-orchestrator]  ← Unit 3: Airflow on Cloud Composer
+  PubSubPullSensor → validates .ok file → triggers Dataflow
+       │
+       ▼
+[original-data-to-bigqueryload]  ← Unit 1: Dataflow Flex Template
+  HDR/TRL validation → schema check → odp_generic.{customers,accounts,decision,applications}
+       │
+       ▼
+[bigquery-to-mapped-product]  ← Unit 2: dbt
+  JOIN: customers + accounts + decision → fdp_generic.event_transaction_excess
+  MAP:  decision                        → fdp_generic.portfolio_account_excess
+  MAP:  applications                    → fdp_generic.portfolio_account_facility
+       │
+       ▼
+[fdp-to-consumable-product]  ← Unit 4: dbt
+  3-FDP JOIN → cdp_generic.customer_risk_profile  (segment classification)
+       │
+       ▼
+[mainframe-segment-transform]  ← Unit 5: Dataflow Beam
+  Read CDP → format 200-char fixed-width lines → GCS segments bucket
+       │
+       ▼
+gs://{PROJECT_ID}-generic-{ENV}-segments/
+  ACTIVE_APPROVED / DECLINED / REFERRED / PENDING segment files
 ```
 
 ---
@@ -83,11 +125,28 @@ Stores `AuditRecord` events published by `gcp-pipeline-core.audit.AuditPublisher
 | `error_count` | INTEGER | Records routed to DLQ |
 | `audit_hash` | STRING | SHA-256 hash for tamper detection |
 
-### 4.3 Data Layers
+### 4.4 Data Layers
 
-- **ODP (Original Data Product)**: 1:1 raw copy of mainframe data. Includes audit columns (`_run_id`, `_source_file`, `_processed_at`, `_extract_date`). Append-only, partitioned by `_extract_date`.
-- **FDP (Foundation Data Product)**: Business-ready, joined, and cleaned data models. Produced by dbt; includes `_run_id` and `_transformed_at` audit columns for full lineage.
-- **CDP (Consumable Data Product)**: Segmented, optimised data sets for downstream consumption. An optional fourth layer, not part of the active Generic deployment.
+| Layer | Dataset | Description | Deployed by |
+|-------|---------|-------------|-------------|
+| **ODP** (Original Data Product) | `odp_generic` | 1:1 raw copy of mainframe data. Audit columns `_run_id`, `_source_file`, `_processed_at`, `_extract_date`. Append-only, partitioned by `_extract_date`. | Unit 1 — `original-data-to-bigqueryload` |
+| **FDP** (Foundation Data Product) | `fdp_generic` | Business-ready, joined/mapped models. Includes `_run_id` and `_transformed_ts` for full lineage. Three tables: `event_transaction_excess`, `portfolio_account_excess`, `portfolio_account_facility`. | Unit 2 — `bigquery-to-mapped-product` |
+| **CDP** (Consumable Data Product) | `cdp_generic` | Denormalised view per customer joining all three FDP tables. One row per `customer_id + extract_date`. Drives the outbound segment export. | Unit 4 — `fdp-to-consumable-product` |
+| **Segments** (GCS export) | GCS bucket `*-segments` | Fixed-width 200-char mainframe segment files, one file set per CDP segment category (`ACTIVE_APPROVED`, `DECLINED`, `REFERRED`, `PENDING`). | Unit 5 — `mainframe-segment-transform` |
+
+#### CDP table: `cdp_generic.customer_risk_profile`
+
+| Source FDP | Key Fields Brought In |
+|-----------|----------------------|
+| `event_transaction_excess` | `customer_id`, `account_id`, `current_balance`, `customer_status`, `ssn_masked` |
+| `portfolio_account_excess` | `decision_id`, `decision_outcome`, `decision_code`, `risk_score`, `decision_reason` |
+| `portfolio_account_facility` | `application_id`, `loan_amount`, `interest_rate`, `term_months`, `facility_status` |
+
+Derived field `cdp_segment`:
+- `ACTIVE_APPROVED` — decision approved and positive balance
+- `DECLINED` — decision declined
+- `REFERRED` — decision referred for manual review
+- `PENDING` — no decision recorded yet
 
 ---
 
@@ -102,7 +161,7 @@ Instead of a single monolithic DAG, each system's scheduling is split into small
 1. **Trigger DAG**: Listens for `.ok` file notifications via `PubSubPullSensor`. Validates the file envelope (HDR/TRL), runs data quality checks, then starts the Load stage.
 2. **Load DAG**: Manages data ingestion. Updates job status (`PENDING → RUNNING → SUCCESS`) and ensures data is loaded to the ODP layer via a Dataflow Flex Template.
 3. **Transform DAG**: Runs dbt transformations to create the FDP layer. Only starts after the Load DAG completes successfully and — for the JOIN pattern — after all required entities are loaded.
-4. **Consumable DAG (optional)**: Reads from FDP tables, performs segmentation, and exports to GCS for the CDP layer. Not part of the active Generic deployment.
+4. **Consumable DAG**: Triggers `fdp-to-consumable-product` (dbt) to build `cdp_generic.customer_risk_profile` from all three FDP tables, then triggers `mainframe-segment-transform` (Dataflow) to write fixed-width segment files to GCS.
 
 #### 5.1.2 Why Separate DAGs?
 

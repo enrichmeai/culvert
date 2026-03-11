@@ -3,13 +3,13 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gcp-pipeline-ref-segment-transform"
+name = "gcp-pipeline-ref-cdp"
 version = "1.0.7"
-description = "GCP Pipeline Reference: Mainframe Segment Transform — CDP → fixed-width GCS segment files"
+description = "GCP Pipeline Reference: Generic CDP Transformation — dbt models for FDP to CDP (JOIN pattern across all 3 FDP tables)"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
-keywords = ["gcp", "dataflow", "beam", "cdp", "mainframe", "segment", "reference", "example"]
+keywords = ["gcp", "bigquery", "dbt", "cdp", "transformation", "reference", "example"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,13 +20,13 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "apache-beam[gcp]==2.56.0",
+    "dbt-bigquery>=1.5.0",
     "gcp-pipeline-framework>=1.0.6",
 ]
 
 [project.urls]
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/mainframe-segment-transform"
+Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/fdp-to-consumable-product"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
 
 [project.optional-dependencies]
@@ -35,7 +35,11 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["."]
+include = ["dbt*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.sql", "*.yml", "*.yaml", "*.csv", "*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
