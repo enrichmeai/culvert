@@ -22,19 +22,14 @@ name: Deploy to GKE (Alternative Orchestration)
 #   3. data-pipeline-orchestrator     → Airflow DAGs on GKE
 #
 # Trigger modes:
-#   - Keyword: Commit message containing [deploy:gke] on main branch
-#   - Manual:  workflow_dispatch with environment and options
+#   - Manual only: workflow_dispatch with environment and options
+#   (Push trigger removed — GKE cluster must be provisioned before enabling)
 #
 # Prerequisites: GKE cluster must be provisioned first via:
 #   ./scripts/gcp/setup_gke_infrastructure.sh
 # =============================================================================
 
 on:
-  push:
-    branches: [main]
-    # Only trigger when commit message contains [deploy:gke]
-    # Requires: github.event.head_commit.message to contain [deploy:gke]
-
   workflow_dispatch:
     inputs:
       environment:
@@ -84,18 +79,9 @@ jobs:
     outputs:
       should-deploy: ${{ steps.check.outputs.should-deploy }}
     steps:
-      - name: Check commit message for [deploy:gke]
+      - name: Set should-deploy
         id: check
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-          elif echo "${{ github.event.head_commit.message }}" | grep -q "\[deploy:gke\]"; then
-            echo "should-deploy=true" >> $GITHUB_OUTPUT
-            echo "GKE deploy triggered by commit keyword"
-          else
-            echo "should-deploy=false" >> $GITHUB_OUTPUT
-            echo "No [deploy:gke] keyword in commit — skipping GKE deploy"
-          fi
+        run: echo "should-deploy=true" >> $GITHUB_OUTPUT
 
   # ==========================================================================
   # Resolve Framework Version
