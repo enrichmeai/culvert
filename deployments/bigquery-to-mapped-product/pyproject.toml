@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "dbt-bigquery>=1.5.0",
-    "gcp-pipeline-framework>=1.0.7",
+    "gcp-pipeline-framework>=1.0.6",
 ]
 
 [project.urls]
