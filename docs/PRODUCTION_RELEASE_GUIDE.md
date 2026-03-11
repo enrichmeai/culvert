@@ -20,12 +20,12 @@ The framework uses a **5-library model**. Libraries must be released and version
 
 The umbrella package `gcp-pipeline-framework` installs all five libraries in the correct dependency order.
 
-- **Current version:** `1.0.6`
+- **Current version:** `1.0.7`
 - **PyPI:** https://pypi.org/project/gcp-pipeline-framework/
 
 ### 1.2 Release Process
 
-1. **Versioning**: Update `version` in `pyproject.toml` for each affected library (e.g., `1.0.6` → `1.1.0`). Sync the umbrella package version to match.
+1. **Versioning**: Update `version` in `pyproject.toml` for each affected library (e.g., `1.0.7` → `1.1.0`). Sync the umbrella package version to match.
 2. **Validation**: Ensure all library tests pass.
    ```bash
    ./scripts/run_library_tests.sh

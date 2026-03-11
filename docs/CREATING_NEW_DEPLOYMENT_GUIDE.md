@@ -6,12 +6,12 @@ This guide provides step-by-step instructions for creating a new pipeline deploy
 
 The framework follows a **library-first** approach. To create a new deployment for a system (e.g., `myapp`), you create three independent deployment units that consume versioned libraries from PyPI.
 
-### 5 Specialised Libraries (`gcp-pipeline-framework==1.0.6`)
+### 5 Specialised Libraries (`gcp-pipeline-framework==1.0.7`)
 
 All five libraries are distributed as a single PyPI umbrella package:
 
 ```
-pip install gcp-pipeline-framework==1.0.6
+pip install gcp-pipeline-framework==1.0.7
 ```
 
 | Library | Purpose | Depends On |

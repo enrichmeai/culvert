@@ -109,6 +109,6 @@ echo "   terraform init"
 echo "   terraform apply -var=\"gcp_project_id=$PROJECT_ID\""
 echo ""
 echo "2. Or trigger via GitHub Actions:"
-echo "   gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.6"
+echo "   gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.7"
 echo ""
 

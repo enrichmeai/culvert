@@ -1,8 +1,8 @@
 #!/bin/bash
-# Trigger deploy workflow with version 1.0.6
+# Trigger deploy workflow with version 1.0.7
 
 echo "Triggering Deploy Generic workflow..."
-gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.6
+gh workflow run deploy-generic.yml -f environment=dev -f library_version=1.0.7
 
 echo ""
 echo "Waiting 5 seconds for workflow to start..."
