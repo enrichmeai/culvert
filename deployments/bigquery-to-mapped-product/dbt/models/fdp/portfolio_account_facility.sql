@@ -2,7 +2,6 @@
   config(
     materialized='incremental',
     unique_key='facility_key',
-    schema='fdp_loa',
     partition_by={"field": "_extract_date", "data_type": "date"},
     cluster_by=['application_id', 'customer_id'],
     incremental_strategy='merge',
@@ -12,13 +11,12 @@
 
 /*
     Generic FDP: Portfolio Account Facility
-    ===================================
 
-    Transformation: MAP from odp_loa.applications
+    Transformation: MAP from odp_generic.applications
 
     Purpose:
     - Facility-focused view of loan applications
-    - Maps one dataset to one ODP and one FDP
+    - Maps one ODP source to one FDP target
 */
 
 WITH applications AS (
@@ -38,8 +36,8 @@ SELECT
     term_months,
     application_date,
     application_status,
-    branch_code,
-    product_type,
+    event_type,
+    account_type,
 
     -- Audit columns
     _run_id,
@@ -49,6 +47,5 @@ SELECT
 FROM applications
 
 {% if is_incremental() %}
--- Only process new or updated records
 WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
 {% endif %}
