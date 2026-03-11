@@ -1,0 +1,93 @@
+version: 2
+
+models:
+  - name: event_transaction_excess
+    description: |
+      Generic FDP: Event Transaction Excess
+
+      JOIN of 2 ODP sources (customers, accounts) into a single
+      table for transaction-level analysis.
+
+    config:
+      tags: ["fdp", "generic", "join"]
+      materialized: table
+      partition_by:
+        field: _extract_date
+        data_type: date
+      cluster_by: [customer_id, account_id]
+
+    columns:
+      - name: event_key
+        tests: [not_null, unique]
+      - name: customer_id
+        tests: [not_null]
+      - name: account_id
+        tests: [not_null]
+      - name: ssn_masked
+      - name: first_name
+      - name: last_name
+      - name: current_balance
+      - name: account_type_desc
+      - name: _run_id
+        tests: [not_null]
+      - name: _extract_date
+        tests: [not_null]
+      - name: _transformed_ts
+
+  - name: portfolio_account_excess
+    description: |
+      Generic FDP: Portfolio Account Excess
+
+      MAP of 1 ODP source (decision) into FDP target for portfolio analysis.
+
+    config:
+      tags: ["fdp", "generic", "map"]
+      materialized: table
+      partition_by:
+        field: _extract_date
+        data_type: date
+      cluster_by: [customer_id, _run_id]
+
+    columns:
+      - name: portfolio_key
+        tests: [not_null, unique]
+      - name: decision_id
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: decision_outcome
+      - name: score
+      - name: _run_id
+        tests: [not_null]
+      - name: _extract_date
+        tests: [not_null]
+      - name: _transformed_ts
+
+  - name: portfolio_account_facility
+    description: |
+      Generic FDP: Portfolio Account Facility
+
+      MAP of 1 ODP source (applications) into FDP target for facility analysis.
+
+    config:
+      tags: ["fdp", "generic", "map"]
+      materialized: table
+      partition_by:
+        field: _extract_date
+        data_type: date
+      cluster_by: [application_id, customer_id]
+
+    columns:
+      - name: facility_key
+        tests: [not_null, unique]
+      - name: application_id
+        tests: [not_null]
+      - name: customer_id
+      - name: loan_amount
+      - name: application_date
+      - name: application_status
+      - name: _run_id
+        tests: [not_null]
+      - name: _extract_date
+        tests: [not_null]
+      - name: _transformed_at

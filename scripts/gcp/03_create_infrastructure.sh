@@ -76,6 +76,20 @@ create_subscription() {
     fi
 }
 
+create_bq_table() {
+    local table="$1"
+    local schema="$2"
+    local extra_flags="${3:-}"
+    if bq show --project_id="$PROJECT_ID" "$table" &>/dev/null; then
+        echo -e "  ${YELLOW}Exists:${NC} $table"
+    else
+        echo -n "  Creating: $table... "
+        # shellcheck disable=SC2086
+        bq mk --project_id="$PROJECT_ID" $extra_flags --table "$table" "$schema" \
+            && echo -e "${GREEN}✅${NC}" || echo -e "${YELLOW}⚠️ (check permissions)${NC}"
+    fi
+}
+
 # Generic Infrastructure
 setup_generic() {
     echo -e "${BLUE}=== Generic Infrastructure ===${NC}"
@@ -91,6 +105,42 @@ setup_generic() {
     create_dataset "odp_generic"
     create_dataset "fdp_generic"
     create_dataset "job_control"
+
+    echo ""
+    echo "BigQuery Tables (odp_generic):"
+    # Audit columns appended to every ODP table: _run_id, _source_file, _processed_at, _extract_date
+    AUDIT="_run_id:STRING,_source_file:STRING,_processed_at:TIMESTAMP,_extract_date:DATE"
+
+    create_bq_table "odp_generic.customers" \
+        "customer_id:STRING,first_name:STRING,last_name:STRING,ssn:STRING,dob:DATE,status:STRING,created_date:DATE,${AUDIT}" \
+        "--time_partitioning_field created_date --clustering_fields _run_id,status"
+
+    create_bq_table "odp_generic.accounts" \
+        "account_id:STRING,customer_id:STRING,account_type:STRING,balance:NUMERIC,status:STRING,open_date:DATE,${AUDIT}" \
+        "--time_partitioning_field open_date --clustering_fields _run_id,account_type"
+
+    create_bq_table "odp_generic.decision" \
+        "decision_id:STRING,customer_id:STRING,application_id:STRING,decision_code:STRING,decision_date:TIMESTAMP,score:INTEGER,reason_codes:STRING,${AUDIT}" \
+        "--clustering_fields _run_id,decision_code"
+
+    create_bq_table "odp_generic.applications" \
+        "application_id:STRING,customer_id:STRING,loan_amount:NUMERIC,interest_rate:NUMERIC,term_months:INTEGER,application_date:DATE,status:STRING,event_type:STRING,account_type:STRING,${AUDIT}" \
+        "--time_partitioning_field application_date"
+
+    create_bq_table "odp_generic.customers_errors" \
+        "customer_id:STRING,raw_record:STRING,error_type:STRING,error_message:STRING,${AUDIT}"
+
+    create_bq_table "odp_generic.accounts_errors" \
+        "account_id:STRING,raw_record:STRING,error_type:STRING,error_message:STRING,${AUDIT}"
+
+    create_bq_table "odp_generic.decision_errors" \
+        "decision_id:STRING,raw_record:STRING,error_type:STRING,error_message:STRING,${AUDIT}"
+
+    echo ""
+    echo "BigQuery Tables (job_control):"
+    create_bq_table "job_control.pipeline_jobs" \
+        "job_id:STRING,system_id:STRING,entity_name:STRING,run_id:STRING,status:STRING,extract_date:DATE,source_file:STRING,record_count:INTEGER,error_count:INTEGER,started_at:TIMESTAMP,completed_at:TIMESTAMP,error_message:STRING" \
+        "--clustering_fields system_id,status"
 
     echo ""
     echo "Pub/Sub:"

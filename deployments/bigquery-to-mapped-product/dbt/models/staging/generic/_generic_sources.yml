@@ -1,0 +1,75 @@
+version: 2
+
+sources:
+  - name: odp_generic
+    description: "Generic Original Data Product tables (raw 1:1 copy from source)"
+    database: "{{ var('gcp_project_id') }}"
+    schema: odp_generic
+    tables:
+      - name: customers
+        description: "Generic Customer records"
+        columns:
+          - name: customer_id
+            tests: [not_null, unique]
+          - name: first_name
+          - name: last_name
+          - name: ssn
+          - name: dob
+          - name: status
+          - name: created_date
+          - name: _run_id
+          - name: _source_file
+          - name: _processed_at
+          - name: _extract_date
+
+      - name: accounts
+        description: "Generic Account records"
+        columns:
+          - name: account_id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: account_type
+          - name: balance
+          - name: status
+          - name: open_date
+          - name: _run_id
+          - name: _source_file
+          - name: _processed_at
+          - name: _extract_date
+
+      - name: decision
+        description: "Generic Decision records"
+        columns:
+          - name: decision_id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: application_id
+          - name: decision_code
+          - name: decision_date
+          - name: score
+          - name: reason_codes
+          - name: _run_id
+          - name: _source_file
+          - name: _processed_at
+          - name: _extract_date
+
+      - name: applications
+        description: "Generic Application records"
+        columns:
+          - name: application_id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: loan_amount
+          - name: interest_rate
+          - name: term_months
+          - name: application_date
+          - name: status
+          - name: event_type
+          - name: account_type
+          - name: _run_id
+          - name: _source_file
+          - name: _processed_at
+          - name: _extract_date
