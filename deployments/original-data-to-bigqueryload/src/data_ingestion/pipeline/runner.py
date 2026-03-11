@@ -9,8 +9,10 @@ import logging
 from datetime import datetime, timezone
 
 import apache_beam as beam
+import apache_beam.io.fileio  # noqa: F401 — ensures beam.io.fileio is accessible
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
+from gcp_pipeline_beam.pipelines.base.options import GDWPipelineOptions
 
 from gcp_pipeline_core.job_control import (
     JobControlRepository,
@@ -48,12 +50,13 @@ def run_pipeline(argv=None):
 
     pipeline_options = PipelineOptions(pipeline_args)
     generic_options = pipeline_options.view_as(EMPipelineOptions)
+    gdw_options = pipeline_options.view_as(GDWPipelineOptions)
 
     entity = generic_options.entity
-    input_file = generic_options.input_file
-    output_table = generic_options.output_table
-    error_table = generic_options.error_table
-    run_id = generic_options.run_id
+    input_file = generic_options.source_file
+    output_table = gdw_options.output_table
+    error_table = gdw_options.error_table
+    run_id = gdw_options.run_id
     extract_date = generic_options.extract_date
 
     headers = ENTITY_HEADERS.get(entity)
@@ -107,7 +110,7 @@ def run_pipeline(argv=None):
             parsed_records.valid
             | 'WriteValid' >> WriteToBigQuery(
                 output_table,
-                schema=schema.to_bq_schema(),
+                schema={'fields': schema.to_bq_schema()},
                 write_disposition=BigQueryDisposition.WRITE_APPEND,
                 create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
             )

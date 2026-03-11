@@ -70,10 +70,12 @@ class EMFileValidator:
             return ValidationResult(is_valid=False, errors=errors, warnings=warnings)
 
         # Step 3: Validate header content (Generic-specific)
-        if metadata.header.system_id != SYSTEM_ID:
+        # Library stores system id as em_id (case-insensitive match)
+        header_system_id = metadata.header.em_id
+        if header_system_id.upper() != SYSTEM_ID.upper():
             errors.append(
                 f"System ID mismatch: expected {SYSTEM_ID}, "
-                f"got {metadata.header.system_id}"
+                f"got {header_system_id}"
             )
 
         if metadata.header.entity_type.lower() != entity_name.lower():

@@ -203,16 +203,6 @@ def initialize_otel(run_id: str, entity_type: str, environment: str = "dev") -> 
     return configure_otel(config)
 
 
-class EMPipelineOptions(PipelineOptions):
-    """Generic Pipeline command-line options."""
-
-    @classmethod
-    def _add_argparse_args(cls, parser):
-        parser.add_argument('--entity', type=str, required=True,
-                          choices=['customers', 'accounts', 'decision'],
-                          help='Entity to process')
-
-
 class AddAuditColumnsDoFn(beam.DoFn):
     """Add audit columns (_run_id, _source_file, _processed_at, _extract_date)."""
 
@@ -235,11 +225,16 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     Run the Generic ODP load pipeline.
     Updated to use EMPipeline class which inherits from BasePipeline.
     """
+    # Parse entity before Beam options to avoid PipelineOptions subclass conflicts
+    import argparse as _ap
+    _pre = _ap.ArgumentParser(add_help=False)
+    _pre.add_argument('--entity', choices=['customers', 'accounts', 'decision'])
+    _pre_args, _ = _pre.parse_known_args(argv)
+
     options = GDWPipelineOptions(argv)
-    generic_opts = options.view_as(EMPipelineOptions)
     gdw_opts = options.view_as(GDWPipelineOptions)
 
-    entity = generic_opts.entity
+    entity = _pre_args.entity
     config_entry = EM_ENTITY_CONFIG[entity]
     schema = config_entry["schema"]
     run_id = gdw_opts.run_id or generate_run_id(f"generic_{entity}")

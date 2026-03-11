@@ -246,9 +246,8 @@ jobs:
 
         gcloud dataflow flex-template build \
           gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
-          --image-gcr-path gcr.io/${PROJECT_ID}/generic-ingestion:$VERSION \
+          --image gcr.io/${PROJECT_ID}/generic-ingestion:$VERSION \
           --sdk-language PYTHON \
-          --flex-template-base-image PYTHON3 \
           --metadata-file deployments/original-data-to-bigqueryload/metadata.json \
           --project ${PROJECT_ID} || echo "Flex template creation failed"
 
