@@ -1,5 +1,5 @@
 """
-GDW Data Core Orchestration Operators.
+GCP Pipeline Framework Orchestration Operators.
 
 Provides reusable Airflow operators for data pipelines.
 """

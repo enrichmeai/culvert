@@ -1,5 +1,5 @@
 """
-GDW Data Core - Audit Framework
+GCP Pipeline Framework - Audit Framework
 
 Centralized audit trail, reconciliation, and data lineage tracking.
 Provides data lineage, duplicate detection, and reconciliation capabilities.

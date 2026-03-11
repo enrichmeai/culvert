@@ -1,5 +1,5 @@
 """
-GDW Data Core - Audit Trail Module
+GCP Pipeline Framework - Audit Trail Module
 
 Provides audit trail management for data migration pipelines.
 Tracks pipeline executions and enables data lineage tracking.

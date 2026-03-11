@@ -6,7 +6,7 @@ def test_finops_labels_to_dict():
     
     assert d["system"] == "mysystem"
     assert d["environment"] == "prod"
-    assert d["project"] == "gdw-data-core"
+    assert d["project"] == "gcp-pipeline-framework"
     assert d["managed_by"] == "terraform-and-library"
 
 def test_get_standard_labels():

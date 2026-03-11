@@ -1,7 +1,7 @@
 """
 Pipeline Options Module
 
-Defines GDWPipelineOptions for Beam pipeline command-line argument handling.
+Defines GCPPipelineOptions for Beam pipeline command-line argument handling.
 """
 
 from typing import Optional
@@ -11,12 +11,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class GDWPipelineOptions(PipelineOptions):
+class GCPPipelineOptions(PipelineOptions):
     """
-    GDW-specific Pipeline Options.
+    GCP-specific Pipeline Options.
 
     Extends Apache Beam's PipelineOptions with additional options specific
-    to GDW migration pipelines, including input/output paths, credentials,
+    to GCP data pipelines, including input/output paths, credentials,
     and autoscaling settings.
 
     These options are passed as command-line arguments to the pipeline:
@@ -30,7 +30,7 @@ class GDWPipelineOptions(PipelineOptions):
             --autoscaling_algorithm='THROUGHPUT_BASED'
 
     Example:
-        >>> options = GDWPipelineOptions([
+        >>> options = GCPPipelineOptions([
         ...     '--input_pattern=gs://bucket/input/*.csv',
         ...     '--output_table=project.dataset.output',
         ...     '--run_id=run_20231225_001',
@@ -43,7 +43,7 @@ class GDWPipelineOptions(PipelineOptions):
     @classmethod
     def _add_argparse_args(cls, parser):
         """
-        Add GDW-specific command-line arguments to parser.
+        Add GCP-specific command-line arguments to parser.
 
         Args:
             parser: ArgumentParser instance from PipelineOptions
@@ -126,4 +126,5 @@ class GDWPipelineOptions(PipelineOptions):
             default=1000,
             help='Batch size for I/O operations'
         )
+
 

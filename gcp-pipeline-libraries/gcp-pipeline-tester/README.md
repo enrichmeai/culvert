@@ -2,7 +2,7 @@
 
 A comprehensive testing framework for GCP data pipelines, providing mocks, fixtures, builders, and assertions for testing BigQuery, GCS, Pub/Sub, and Dataflow pipelines.
 
-> **📖 Part of the Legacy Mainframe to GCP Migration Framework**  
+> **📖 Part of the GCP Pipeline Framework**
 > This library provides testing utilities for pipelines built with `gcp-pipeline-core and gcp-pipeline-beam`.
 
 ---
@@ -32,7 +32,7 @@ A comprehensive testing framework for GCP data pipelines, providing mocks, fixtu
 
 ## Features
 
-- **Base Test Classes**: `BaseGDWTest`, `BaseBeamTest`, `BaseValidationTest` - foundational test classes with common assertions
+- **Base Test Classes**: `BasePipelineTest`, `BaseBeamTest`, `BaseValidationTest` - foundational test classes with common assertions
 - **Mocks**: Mock implementations for GCS, BigQuery, Pub/Sub - test without real GCP connectivity
 - **Fixtures**: Ready-to-use pytest fixtures for sample data and GCP services
 - **Builders**: Fluent builders for constructing test records and configurations
@@ -60,9 +60,9 @@ pip install -e ".[dev]"
 ### Basic Test with Base Class
 
 ```python
-from gcp_pipeline_tester import BaseGDWTest
+from gcp_pipeline_tester import BasePipelineTest
 
-class TestMyPipeline(BaseGDWTest):
+class TestMyPipeline(BasePipelineTest):
     def test_record_has_required_fields(self):
         record = {"id": "1", "name": "John", "email": "john@example.com"}
         
@@ -92,7 +92,7 @@ class TestMyValidator(BaseValidationTest):
 ```python
 from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
 
-class TestWithMocks(BaseGDWTest):
+class TestWithMocks(BasePipelineTest):
     def test_gcs_operations(self):
         gcs_mock = GCSClientMock()
         gcs_mock.write_file("gs://bucket/input.csv", "id,name\n1,John")
@@ -116,14 +116,14 @@ class TestWithMocks(BaseGDWTest):
 
 ## Base Test Classes
 
-### BaseGDWTest
+### BasePipelineTest
 
 Root test class with record assertions.
 
 ```python
-from gcp_pipeline_tester import BaseGDWTest
+from gcp_pipeline_tester import BasePipelineTest
 
-class TestMyModule(BaseGDWTest):
+class TestMyModule(BasePipelineTest):
     def test_field_exists(self):
         record = {'id': '123', 'name': 'John'}
         self.assertFieldExists(record, 'id')
@@ -473,10 +473,10 @@ Feature: SSN Validation
 ### Implementing Steps
 
 ```python
-from gcp_pipeline_tester.bdd import GDWScenarioTest
+from gcp_pipeline_tester.bdd import PipelineScenarioTest
 from pytest_bdd import given, when, then, scenario
 
-class TestSSNValidation(GDWScenarioTest):
+class TestSSNValidation(PipelineScenarioTest):
     
     @scenario('features/validation.feature', 'Valid SSN passes validation')
     def test_valid_ssn(self):
@@ -519,7 +519,7 @@ PYTHONPATH=src pytest tests/unit -v --cov=src/gcp_pipeline_tester --cov-report=h
 - **Stateless Testing**: Ensures that unit tests across the entire monorepo can run in isolated CI environments without requiring live GCP credentials or connectivity.
 
 ### 2. Standardized Base Classes
-- **Foundational Support**: Includes `BaseGDWTest`, `BaseBeamTest`, and `BaseValidationTest` to enforce consistent testing patterns and provide common assertions.
+- **Foundational Support**: Includes `BasePipelineTest`, `BaseBeamTest`, and `BaseValidationTest` to enforce consistent testing patterns and provide common assertions.
 
 ### 3. BDD-Style Integration Testing
 - **Complex Scenarios**: Supports Behavior-Driven Development (BDD) using Gherkin-style steps.
@@ -550,7 +550,7 @@ gcp-pipeline-tester/
 │   └── gcp_pipeline_tester/
 │       ├── __init__.py          # Main exports
 │       ├── base/                # Base test classes
-│       │   ├── gdw_test.py      # BaseGDWTest
+│       │   ├── pipeline_test.py # BasePipelineTest
 │       │   ├── beam_test.py     # BaseBeamTest
 │       │   ├── validation_test.py
 │       │   └── result.py        # TestResult dataclass
@@ -583,7 +583,7 @@ gcp-pipeline-tester/
 
 | Class | Description |
 |-------|-------------|
-| `BaseGDWTest` | Root test class with record assertions |
+| `BasePipelineTest` | Root test class with record assertions |
 | `BaseValidationTest` | Test class for validation logic |
 | `BaseBeamTest` | Test class for Apache Beam pipelines |
 | `TestResult` | Standardized test result dataclass |

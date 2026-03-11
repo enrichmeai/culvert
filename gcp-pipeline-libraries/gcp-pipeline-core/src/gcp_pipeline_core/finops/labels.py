@@ -6,14 +6,14 @@ from typing import Dict, Optional
 class FinOpsLabels:
     """Standardized labels for FinOps cost allocation."""
 
-    def __init__(self, system_id: str, environment: str, project: str = "gdw-data-core"):
+    def __init__(self, system_id: str, environment: str, project: str = "gcp-pipeline-framework"):
         """
         Initialize FinOps labels.
 
         Args:
             system_id: System identifier (e.g., Application1, Application2).
             environment: Environment (e.g., DEV, PROD).
-            project: Project name (defaults to "gdw-data-core").
+            project: Project name (defaults to "gcp-pipeline-framework").
         """
         self.system_id = system_id
         self.environment = environment

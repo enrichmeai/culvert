@@ -4,7 +4,7 @@ Generic Pipeline Options.
 Apache Beam pipeline options for Generic entity processing.
 
 NOTE: output_table, error_table, and run_id are inherited from
-gcp_pipeline_beam.GDWPipelineOptions and must not be redefined here.
+gcp_pipeline_beam.GCPPipelineOptions and must not be redefined here.
 """
 
 from apache_beam.options.pipeline_options import PipelineOptions

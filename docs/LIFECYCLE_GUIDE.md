@@ -1,6 +1,6 @@
 # 🚀 Full Lifecycle: Testing, Publishing & Deployment
 
-This guide describes the unified lifecycle of the GDW Framework: from code changes to library publication and final deployment on GCP.
+This guide describes the unified lifecycle of the GCP Pipeline Framework: from code changes to library publication and final deployment on GCP.
 
 ## 📋 Lifecycle Overview
 

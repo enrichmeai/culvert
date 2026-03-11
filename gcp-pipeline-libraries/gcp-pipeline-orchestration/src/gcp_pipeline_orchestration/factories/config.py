@@ -54,7 +54,7 @@ class ScheduleConfig:
 class DefaultArgs:
     """Default arguments for DAG tasks."""
 
-    owner: str = "gdw"
+    owner: str = "gcp-pipeline"
     depends_on_past: bool = False
     email_on_failure: bool = True
     email_on_retry: bool = False
@@ -105,7 +105,7 @@ class DAGConfig:
     description: Optional[str] = None
     default_args: DefaultArgs = field(default_factory=DefaultArgs)
     schedule_config: ScheduleConfig = field(default_factory=ScheduleConfig)
-    tags: List[str] = field(default_factory=lambda: ['gdw', 'migration'])
+    tags: List[str] = field(default_factory=lambda: ['gcp-pipeline', 'migration'])
     timeout_config: TimeoutConfig = field(default_factory=TimeoutConfig)
     doc_md: Optional[str] = None
     is_paused_upon_creation: bool = False

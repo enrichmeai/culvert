@@ -1,13 +1,13 @@
 """
-Base BDD classes for GDW.
+Base BDD classes for GCP pipelines.
 """
 
 import pytest
 from pytest_bdd import scenario, given, when, then, parsers
 
-class GDWScenarioTest:
+class PipelineScenarioTest:
     """
-    Base class for GDW BDD scenarios.
+    Base class for pipeline BDD scenarios.
     Provides common fixtures and utility methods.
     """
 
@@ -26,13 +26,13 @@ class GDWScenarioTest:
         """
         import inspect
         import os
-        
+
         # Get the caller's file path
         caller_frame = inspect.stack()[1]
         caller_filename = caller_frame.filename
         caller_dir = os.path.dirname(os.path.abspath(caller_filename))
-        
+
         # Resolve the feature file path relative to the caller
         abs_feature_path = os.path.normpath(os.path.join(caller_dir, feature_file))
-        
+
         return scenario(abs_feature_path, scenario_name)

@@ -12,7 +12,7 @@ import apache_beam as beam
 import apache_beam.io.fileio  # noqa: F401 — ensures beam.io.fileio is accessible
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
-from gcp_pipeline_beam.pipelines.base.options import GDWPipelineOptions
+from gcp_pipeline_beam.pipelines.base.options import GCPPipelineOptions
 
 from gcp_pipeline_core.job_control import (
     JobControlRepository,
@@ -50,13 +50,13 @@ def run_pipeline(argv=None):
 
     pipeline_options = PipelineOptions(pipeline_args)
     generic_options = pipeline_options.view_as(EMPipelineOptions)
-    gdw_options = pipeline_options.view_as(GDWPipelineOptions)
+    gcp_options = pipeline_options.view_as(GCPPipelineOptions)
 
     entity = generic_options.entity
     input_file = generic_options.source_file
-    output_table = gdw_options.output_table
-    error_table = gdw_options.error_table
-    run_id = gdw_options.run_id
+    output_table = gcp_options.output_table
+    error_table = gcp_options.error_table
+    run_id = gcp_options.run_id
     extract_date = generic_options.extract_date
 
     headers = ENTITY_HEADERS.get(entity)

@@ -1,7 +1,7 @@
 """
 Base Pipeline Module
 
-Abstract base class for GDW migration pipelines with integrated audit,
+Abstract base class for GCP data pipelines with integrated audit,
 error handling, and monitoring capabilities.
 """
 
@@ -17,7 +17,7 @@ from gcp_pipeline_core.monitoring import MetricsCollector
 from gcp_pipeline_core.utilities import generate_run_id
 
 from .config import PipelineConfig
-from .options import GDWPipelineOptions
+from .options import GCPPipelineOptions
 from . import lifecycle
 
 logger = logging.getLogger(__name__)
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # Standard base class without metaclass to avoid conflicts in Apache Beam
 class BasePipeline:
     """
-    Abstract Base Pipeline class for GDW migration jobs.
+    Abstract Base Pipeline class for GCP data pipeline jobs.
 
     Provides a framework for building robust migration pipelines.
     """
@@ -41,7 +41,7 @@ class BasePipeline:
 
         Args:
             options: Apache Beam PipelineOptions instance.
-                    If not provided, defaults to GDWPipelineOptions()
+                    If not provided, defaults to GCPPipelineOptions()
             config: Configuration dictionary or PipelineConfig instance with keys:
                 - run_id: Unique run identifier (required)
                 - pipeline_name: Name of pipeline (required)
@@ -58,10 +58,10 @@ class BasePipeline:
             ...     run_id='run_20231225_001',
             ...     pipeline_name='application2_applications_migration'
             ... )
-            >>> options = GDWPipelineOptions(['--num_workers=2'])
+            >>> options = GCPPipelineOptions(['--num_workers=2'])
             >>> pipeline = BasePipeline(options, config)
         """
-        self.options = options or GDWPipelineOptions()
+        self.options = options or GCPPipelineOptions()
         self._config_dict = {}
 
         # Handle both dict and PipelineConfig inputs

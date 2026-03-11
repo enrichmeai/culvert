@@ -7,9 +7,9 @@ This class integrates with pytest-bdd to provide scenario-based testing
 with proper setup, teardown, and common utilities.
 
 Example:
-    >>> from gcp_pipeline_tester.base import GDWScenarioTest
+    >>> from gcp_pipeline_tester.base import PipelineScenarioTest
     >>>
-    >>> class TestDataQuality(GDWScenarioTest):
+    >>> class TestDataQuality(PipelineScenarioTest):
     ...     @scenario('features/data_quality.feature', 'Valid SSN passes')
     ...     def test_valid_ssn(self):
     ...         pass
@@ -19,7 +19,7 @@ import unittest
 from typing import Any, Dict, Optional
 
 
-class GDWScenarioTest(unittest.TestCase):
+class PipelineScenarioTest(unittest.TestCase):
     """
     Base class for BDD/Gherkin scenario tests.
 

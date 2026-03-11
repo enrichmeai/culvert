@@ -64,7 +64,7 @@ from gcp_pipeline_core.monitoring.otel import (
 from gcp_pipeline_core.audit import ReconciliationEngine, ReconciliationStatus
 
 # Library imports - base pipeline and components
-from gcp_pipeline_beam.pipelines.base import BasePipeline, GDWPipelineOptions
+from gcp_pipeline_beam.pipelines.base import BasePipeline, GCPPipelineOptions
 from gcp_pipeline_beam.file_management import HDRTRLParser
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
 from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine, SchemaValidateRecordDoFn
@@ -106,10 +106,10 @@ class EMPipeline(BasePipeline):
 
     def build(self, pipeline: beam.Pipeline):
         """Build the Generic pipeline logic."""
-        gdw_opts = self.options.view_as(GDWPipelineOptions)
+        gcp_opts = self.options.view_as(GCPPipelineOptions)
 
         # Read files
-        lines = pipeline | 'ReadFiles' >> beam.io.ReadFromText(gdw_opts.input_pattern)
+        lines = pipeline | 'ReadFiles' >> beam.io.ReadFromText(gcp_opts.input_pattern)
 
         # Parse CSV - headers from schema, uses library ParseCsvLine
         records = lines | 'ParseCSV' >> beam.ParDo(
@@ -130,7 +130,7 @@ class EMPipeline(BasePipeline):
         audited = validated.valid | 'AddAudit' >> beam.ParDo(
             AddAuditColumnsDoFn(
                 self.run_id,
-                gdw_opts.input_pattern,
+                gcp_opts.input_pattern,
                 datetime.now(tz=timezone.utc).strftime('%Y-%m-%d')
             )
         )
@@ -139,7 +139,7 @@ class EMPipeline(BasePipeline):
         # Valid records
         self.write_to_bigquery(
             audited,
-            gdw_opts.output_table,
+            gcp_opts.output_table,
             schema={'fields': self.entity_schema.to_bq_schema()},
             dlq_path=f"gs://{self.config.get('gcp_project_id')}-dlq/generic/{self.run_id}/valid_failures"
         )
@@ -147,7 +147,7 @@ class EMPipeline(BasePipeline):
         # Invalid records (Validation errors)
         self.write_to_bigquery(
             validated.invalid,
-            gdw_opts.error_table,
+            gcp_opts.error_table,
             schema=None, # Use auto-detection for error table or specific schema
             write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
@@ -231,13 +231,13 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     _pre.add_argument('--entity', choices=['customers', 'accounts', 'decision'])
     _pre_args, _ = _pre.parse_known_args(argv)
 
-    options = GDWPipelineOptions(argv)
-    gdw_opts = options.view_as(GDWPipelineOptions)
+    options = GCPPipelineOptions(argv)
+    gcp_opts = options.view_as(GCPPipelineOptions)
 
     entity = _pre_args.entity
     config_entry = EM_ENTITY_CONFIG[entity]
     schema = config_entry["schema"]
-    run_id = gdw_opts.run_id or generate_run_id(f"generic_{entity}")
+    run_id = gcp_opts.run_id or generate_run_id(f"generic_{entity}")
     environment = os.getenv("ENVIRONMENT", "dev")
 
     # Configure structured JSON logging
@@ -250,11 +250,11 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
 
     # Prepare configuration for BasePipeline
     pipeline_config = {
-        'run_id': gdw_opts.run_id,
+        'run_id': gcp_opts.run_id,
         'pipeline_name': f"generic_{entity}_load",
         'entity_type': entity,
-        'gcp_project_id': gdw_opts.gcp_project,
-        'source_file': gdw_opts.input_pattern
+        'gcp_project_id': gcp_opts.gcp_project,
+        'source_file': gcp_opts.input_pattern
     }
 
     # Initialize OTEL for distributed tracing (if configured)
@@ -275,18 +275,18 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     reconciler = ReconciliationEngine(
         entity_type=entity,
         run_id=run_id,
-        project_id=gdw_opts.gcp_project,
+        project_id=gcp_opts.gcp_project,
         logger=logger
     )
 
     logger.info("Pipeline starting",
-                input_pattern=gdw_opts.input_pattern,
-                output_table=gdw_opts.output_table)
+                input_pattern=gcp_opts.input_pattern,
+                output_table=gcp_opts.output_table)
 
     try:
         # Wrap pipeline execution in OTEL context for distributed tracing
         with OTELContext(run_id=run_id, system_id=SYSTEM_ID, entity_type=entity) as otel_ctx:
-            with otel_ctx.span("pipeline_execution", attributes={"input_pattern": gdw_opts.input_pattern}) as span:
+            with otel_ctx.span("pipeline_execution", attributes={"input_pattern": gcp_opts.input_pattern}) as span:
                 # Instantiate and run the library-based pipeline
                 pipeline = EMPipeline(options, pipeline_config, schema)
                 pipeline.run()
@@ -302,7 +302,7 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
                         rates=summary['rates'])
 
             # Perform reconciliation if expected_count provided
-            if expected_count is not None and not gdw_opts.skip_reconciliation:
+            if expected_count is not None and not gcp_opts.skip_reconciliation:
                 with otel_ctx.span("reconciliation") as recon_span:
                     logger.info("Starting reconciliation", expected_count=expected_count)
 

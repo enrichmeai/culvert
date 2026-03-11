@@ -1,5 +1,5 @@
 """
-GDW Data Core - Data Deletion Framework
+GCP Pipeline Framework - Data Deletion Framework
 Safe detection and cleanup of malformed data with full audit trail.
 """
 

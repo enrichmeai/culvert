@@ -123,6 +123,6 @@ class BeamOptionsBuilder:
         Returns:
             PipelineOptions instance
         """
-        from gcp_pipeline_tester.pipelines.base import GDWPipelineOptions
-        return GDWPipelineOptions(self.options_list)
+        from gcp_pipeline_tester.pipelines.base import GCPPipelineOptions
+        return GCPPipelineOptions(self.options_list)
 

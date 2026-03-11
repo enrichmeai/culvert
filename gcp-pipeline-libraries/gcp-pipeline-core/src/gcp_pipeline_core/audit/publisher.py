@@ -1,5 +1,5 @@
 """
-GDW Data Core - Audit Publisher Module
+GCP Pipeline Framework - Audit Publisher Module
 
 Handles publishing of audit records to external systems (Pub/Sub).
 """

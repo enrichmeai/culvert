@@ -1,5 +1,5 @@
 """
-Tests for BasePipeline and GDWPipelineOptions.
+Tests for BasePipeline and GCPPipelineOptions.
 
 Tests the enhanced pipeline base class with:
 - Configuration injection
@@ -11,7 +11,7 @@ Tests the enhanced pipeline base class with:
 
 import pytest
 from unittest.mock import patch, MagicMock, Mock
-from gcp_pipeline_beam.pipelines.base import BasePipeline, GDWPipelineOptions, PipelineConfig, lifecycle
+from gcp_pipeline_beam.pipelines.base import BasePipeline, GCPPipelineOptions, PipelineConfig, lifecycle
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 
 
@@ -320,24 +320,24 @@ class TestBasePipeline:
         pipeline.build(mock_pipeline)
 
 
-class TestGDWPipelineOptions:
-    """Test suite for GDWPipelineOptions class."""
+class TestGCPPipelineOptions:
+    """Test suite for GCPPipelineOptions class."""
 
-    def test_gdw_pipeline_options_creation(self):
-        """Test GDWPipelineOptions can be created."""
-        options = GDWPipelineOptions()
+    def test_gcp_pipeline_options_creation(self):
+        """Test GCPPipelineOptions can be created."""
+        options = GCPPipelineOptions()
         # Verify options object is of correct type
-        assert isinstance(options, GDWPipelineOptions)
+        assert isinstance(options, GCPPipelineOptions)
 
-    def test_gdw_pipeline_options_inherits_from_pipeline_options(self):
-        """Test GDWPipelineOptions inherits from PipelineOptions."""
-        options = GDWPipelineOptions()
+    def test_gcp_pipeline_options_inherits_from_pipeline_options(self):
+        """Test GCPPipelineOptions inherits from PipelineOptions."""
+        options = GCPPipelineOptions()
         assert isinstance(options, PipelineOptions)
 
     def test_pipeline_options_with_arguments(self):
         """Test pipeline options support standard Beam arguments."""
         # This tests that the options class structure is correct
-        options = GDWPipelineOptions()
+        options = GCPPipelineOptions()
         assert hasattr(options, '_add_argparse_args')
 
 

@@ -10,10 +10,10 @@ import apache_beam as beam
 from apache_beam.testing.test_pipeline import TestPipeline
 from apache_beam.testing.util import assert_that, equal_to
 
-from .gdw_test import BaseGDWTest
+from .pipeline_test import BasePipelineTest
 
 
-class BaseBeamTest(BaseGDWTest):
+class BaseBeamTest(BasePipelineTest):
     """
     Base class for Apache Beam pipeline tests.
 

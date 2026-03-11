@@ -119,18 +119,18 @@ class TestBaseValidationTest(BaseValidationTest):
 class TestBaseValidationTestInheritance(unittest.TestCase):
     """Test inheritance from BaseValidationTest."""
 
-    def test_inherits_from_base_gdw_test(self):
-        """Test that BaseValidationTest inherits BaseGDWTest methods."""
-        from gcp_pipeline_tester.base import BaseGDWTest
+    def test_inherits_from_base_pipeline_test(self):
+        """Test that BaseValidationTest inherits BasePipelineTest methods."""
+        from gcp_pipeline_tester.base import BasePipelineTest
 
         class MyValidationTest(BaseValidationTest):
             pass
 
         test = MyValidationTest()
         self.assertIsInstance(test, BaseValidationTest)
-        self.assertIsInstance(test, BaseGDWTest)
+        self.assertIsInstance(test, BasePipelineTest)
 
-        # Should have BaseGDWTest methods
+        # Should have BasePipelineTest methods
         self.assertTrue(hasattr(test, "assertFieldExists"))
         self.assertTrue(hasattr(test, "assertFieldValue"))
 

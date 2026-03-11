@@ -1,7 +1,7 @@
 """
 Utilities Package
 
-Collection of utility functions for common operations across GDW Data Core.
+Collection of utility functions for common operations across GCP Pipeline Framework.
 
 This package provides reusable utilities for:
 - Run ID generation and validation

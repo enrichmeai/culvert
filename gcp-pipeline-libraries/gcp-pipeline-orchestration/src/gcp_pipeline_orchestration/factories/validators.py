@@ -167,7 +167,7 @@ class DAGValidator:
         # Build default args
         default_args_config = config_dict.get('default_args', {})
         default_args = DefaultArgs(
-            owner=default_args_config.get('owner', 'gdw'),
+            owner=default_args_config.get('owner', 'gcp-pipeline'),
             depends_on_past=default_args_config.get('depends_on_past', False),
             email_on_failure=default_args_config.get('email_on_failure', True),
             email_on_retry=default_args_config.get('email_on_retry', False),
@@ -198,7 +198,7 @@ class DAGValidator:
             description=config_dict.get('description'),
             default_args=default_args,
             schedule_config=schedule_config,
-            tags=config_dict.get('tags', ['gdw', 'migration']),
+            tags=config_dict.get('tags', ['gcp-pipeline', 'migration']),
             timeout_config=timeout_config,
             doc_md=config_dict.get('doc_md'),
             is_paused_upon_creation=config_dict.get('is_paused_upon_creation', False),

@@ -94,9 +94,9 @@ class DAGFactory:
             logger.error(f"DAG creation failed: {e}")
             raise
 
-        # Build default args with GDW defaults
+        # Build default args with GCP pipeline defaults
         base_default_args = {
-            'owner': 'gdw',
+            'owner': 'gcp-pipeline',
             'depends_on_past': False,
             'email_on_failure': True,
             'retries': 3,
@@ -113,7 +113,7 @@ class DAGFactory:
             schedule=schedule_interval,  # Use 'schedule' for Airflow 2.5+
             start_date=start_date,
             catchup=catchup,
-            tags=tags or ['gdw', 'migration'],
+            tags=tags or ['gcp-pipeline', 'migration'],
             **kwargs
         )
 
