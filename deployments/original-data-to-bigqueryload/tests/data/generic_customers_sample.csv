@@ -1,5 +1,5 @@
-HDR|GENERIC|CUSTOMERS|20260101
-customer_id,ssn,customer_name,date_of_birth,email,phone,address,city,state,zip_code
-1001,123-45-6789,John Doe,1980-01-01,john.doe@example.com,555-0101,123 Main St,London,Greater London,EC1A 1BB
-1002,987-65-4321,Jane Smith,1985-05-15,jane.smith@example.com,555-0102,456 High St,Manchester,Greater Manchester,M1 1AA
-TRL|RecordCount=2|Checksum=dummy_checksum_customers
+HDR|GENERIC|CUSTOMERS|20260310
+customer_id,first_name,last_name,ssn,dob,status,created_date
+CUST001,John,Doe,123-45-6789,1980-01-15,A,2020-03-01
+CUST002,Jane,Smith,987-65-4321,1985-05-20,A,2021-06-15
+TRL|RecordCount=2|Checksum=0a884d6658b60eaad5e69bf1bbcbb891

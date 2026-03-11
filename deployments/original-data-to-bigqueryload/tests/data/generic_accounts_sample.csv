@@ -1,5 +1,5 @@
-HDR|GENERIC|ACCOUNTS|20260101
-account_id,customer_id,account_type,account_status,balance,open_date,branch_code
-ACC001,1001,CHECKING,ACTIVE,1000.00,2020-01-01,BR001
-ACC002,1002,SAVINGS,ACTIVE,5000.00,2021-02-01,BR002
-TRL|RecordCount=2|Checksum=dummy_checksum_accounts
+HDR|GENERIC|ACCOUNTS|20260310
+account_id,customer_id,account_type,balance,status,open_date
+ACC001,CUST001,CHECKING,1000.00,A,2020-01-01
+ACC002,CUST002,SAVINGS,5000.00,A,2021-02-01
+TRL|RecordCount=2|Checksum=6dffa9dfa435b47ceeb2b6cac459156a

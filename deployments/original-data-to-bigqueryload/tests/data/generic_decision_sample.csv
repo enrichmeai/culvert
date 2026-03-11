@@ -1,5 +1,5 @@
-HDR|GENERIC|DECISION|20260101
-decision_id,customer_id,account_id,decision_type,decision_date,decision_score,decision_outcome
-DEC001,1001,ACC001,CREDIT,2026-01-01,750,APPROVED
-DEC002,1002,ACC002,RISK,2026-01-01,800,APPROVED
-TRL|RecordCount=2|Checksum=dummy_checksum_decision
+HDR|GENERIC|DECISION|20260310
+decision_id,customer_id,application_id,decision_code,decision_date,score,reason_codes
+DEC001,CUST001,APP001,APPROVE,2026-01-15T10:00:00,750,R001
+DEC002,CUST002,APP002,APPROVE,2026-01-20T11:00:00,800,R002
+TRL|RecordCount=2|Checksum=5ba9be86dfd174954fcb5da9c1b7b1e6

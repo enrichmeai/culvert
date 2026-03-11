@@ -2,13 +2,16 @@
 Generic Pipeline Options.
 
 Apache Beam pipeline options for Generic entity processing.
+
+NOTE: output_table, error_table, and run_id are inherited from
+gcp_pipeline_beam.GDWPipelineOptions and must not be redefined here.
 """
 
 from apache_beam.options.pipeline_options import PipelineOptions
 
 
 class EMPipelineOptions(PipelineOptions):
-    """Generic-specific pipeline options."""
+    """Generic-specific pipeline options (entity, source file, extract date)."""
 
     @classmethod
     def _add_argparse_args(cls, parser):
@@ -20,28 +23,10 @@ class EMPipelineOptions(PipelineOptions):
             help='Generic entity to process'
         )
         parser.add_argument(
-            '--input_file',
+            '--source_file',
             type=str,
             required=True,
-            help='GCS path to input file'
-        )
-        parser.add_argument(
-            '--output_table',
-            type=str,
-            required=True,
-            help='BigQuery output table (project:dataset.table)'
-        )
-        parser.add_argument(
-            '--error_table',
-            type=str,
-            required=True,
-            help='BigQuery error table (project:dataset.table)'
-        )
-        parser.add_argument(
-            '--run_id',
-            type=str,
-            required=True,
-            help='Pipeline run ID'
+            help='GCS path to input CSV file'
         )
         parser.add_argument(
             '--extract_date',
@@ -52,6 +37,6 @@ class EMPipelineOptions(PipelineOptions):
         parser.add_argument(
             '--job_control_project',
             type=str,
-            help='Project for job control table'
+            default='',
+            help='Project for job control table (defaults to --project)'
         )
-
