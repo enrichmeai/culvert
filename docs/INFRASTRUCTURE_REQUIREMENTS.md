@@ -22,16 +22,22 @@ This document provides a complete reference for all GCP infrastructure required 
 ## Quick Start
 
 ```bash
-# 1. Set up all GCP infrastructure (GKE-based)
-./scripts/gcp/setup_gke_infrastructure.sh
+# 1. Enable GCP APIs
+./scripts/gcp/01_enable_services.sh
 
-# 2. Verify all services are enabled
-./scripts/gcp/verify_infrastructure.sh
+# 2. Create Terraform state bucket
+./scripts/gcp/02_create_state_bucket.sh
 
-# 3. Run end-to-end automation test
-./scripts/gcp/e2e_automation_test.sh
+# 3. Create all GCP resources (buckets, BQ datasets+tables, Pub/Sub)
+./scripts/gcp/03_create_infrastructure.sh generic
 
-# 4. Clean up everything (avoid charges)
+# 4. Verify all services and resources
+./scripts/gcp/05_verify_setup.sh
+
+# 5. Run end-to-end pipeline test
+./scripts/gcp/06_test_pipeline.sh generic
+
+# 6. Clean up everything (avoid charges)
 ./scripts/gcp/00_full_reset.sh --force
 ```
 
@@ -39,13 +45,26 @@ This document provides a complete reference for all GCP infrastructure required 
 
 ## Deployment Types Overview
 
+### Active Deployments (deployed by `deploy-generic.yml`)
+
 | Deployment | Purpose | Runtime | Docker Image |
 |------------|---------|---------|--------------|
-| **data-pipeline-orchestrator** | Airflow DAGs for orchestration | GKE (Kubernetes) | `airflow-custom` |
-| **original-data-to-bigqueryload** | Beam ingestion pipeline | Dataflow (Google-managed) | `ingestion-pipeline` |
-| **bigquery-to-mapped-product** | dbt transformations | BigQuery (native SQL) | `transform-pipeline` |
-| **mainframe-segment-transform** | Segment-specific Beam pipeline | Dataflow (Google-managed) | `segment-transform` |
-| **spanner-to-bigquery-load** | Spanner to BQ sync | Dataflow (Google-managed) | N/A (dbt only) |
+| **original-data-to-bigqueryload** | Beam ingestion — GCS → ODP | Cloud Dataflow (Flex Template) | `generic-ingestion` |
+| **bigquery-to-mapped-product** | dbt transformations — ODP → FDP | BigQuery (native SQL) | `generic-transformation` |
+| **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) | `generic-dag-validator` |
+
+### Specialist Deployments (not in active CI/CD)
+
+| Deployment | Purpose | Runtime | Notes |
+|------------|---------|---------|-------|
+| **spanner-to-bigquery-load** | Spanner → BigQuery via dbt `EXTERNAL_QUERY` | BigQuery | Stub — demonstrates FEDERATED pattern |
+| **mainframe-segment-transform** | CDP → GCS segment files | Cloud Dataflow | Stub — demonstrates CDP layer |
+
+### Alternative Orchestration (manual trigger only)
+
+| Deployment | Purpose | Runtime | Trigger |
+|------------|---------|---------|---------|
+| **data-pipeline-orchestrator** | Same DAGs on self-hosted Airflow | GKE (Kubernetes) | `deploy-gke.yml` — manual only; requires `pipeline-cluster` to be provisioned first |
 
 ---
 
@@ -158,14 +177,15 @@ This document provides a complete reference for all GCP infrastructure required 
 
 | Resource | Name | Specification |
 |----------|------|---------------|
-| GCS Bucket | `${PROJECT_ID}-landing` | Incoming files |
-| GCS Bucket | `${PROJECT_ID}-archive` | Processed files |
-| GCS Bucket | `${PROJECT_ID}-error` | Failed files |
-| GCS Bucket | `${PROJECT_ID}-temp` | Dataflow temp files |
-| GCS Bucket | `${PROJECT_ID}-dataflow-templates` | Flex templates |
-| BigQuery Dataset | `odp_generic` | Operational Data Product |
-| BigQuery Dataset | `error_tracking` | Error records |
-| Pub/Sub Notification | GCS → Pub/Sub | File arrival trigger |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-landing` | Incoming files |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-archive` | Processed files |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-error` | Failed files |
+| GCS Bucket | `${PROJECT_ID}-generic-{ENV}-temp` | Dataflow temp + Flex templates |
+| BigQuery Dataset | `odp_generic` | ODP: customers, accounts, decision, applications |
+| BigQuery Dataset | `fdp_generic` | FDP: event_transaction_excess, portfolio_account_excess, portfolio_account_facility |
+| BigQuery Dataset | `job_control` | pipeline_jobs, audit_trail |
+| Pub/Sub Topic | `generic-file-notifications` | GCS OBJECT_FINALIZE → Airflow sensor |
+| Pub/Sub Topic | `generic-pipeline-events` | Audit record streaming |
 
 ---
 
@@ -206,27 +226,51 @@ This document provides a complete reference for all GCP infrastructure required 
 
 ### 4. Job Control (State Management)
 
-**Required for all deployments:**
+**Required for all deployments.** Schema owned by `JobControlRepository` in `gcp-pipeline-core`.
 
-```sql
--- BigQuery Table: job_control.pipeline_jobs
-CREATE TABLE job_control.pipeline_jobs (
-  run_id STRING NOT NULL,
-  system_id STRING NOT NULL,
-  entity_name STRING NOT NULL,
-  extract_date DATE NOT NULL,
-  status STRING NOT NULL,  -- PENDING, RUNNING, COMPLETED, FAILED
-  file_path STRING,
-  record_count INT64,
-  error_count INT64,
-  started_at TIMESTAMP,
-  completed_at TIMESTAMP,
-  error_message STRING,
-  metadata JSON,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP()
-);
+Created automatically by `./scripts/gcp/03_create_infrastructure.sh`.
+
+#### `job_control.pipeline_jobs`
+
 ```
+run_id           STRING  REQUIRED  -- Unique correlation ID
+system_id        STRING  REQUIRED  -- Source system (e.g. "generic")
+entity_type      STRING  REQUIRED  -- Entity (e.g. "customers", "accounts")
+extract_date     DATE    NULLABLE  -- From HDR record
+status           STRING  REQUIRED  -- PENDING | RUNNING | SUCCESS | FAILED
+source_files     ARRAY<STRING>     -- GCS paths processed
+total_records    INT64   NULLABLE  -- Records written to ODP
+started_at       TIMESTAMP
+completed_at     TIMESTAMP
+failed_at        TIMESTAMP
+error_code       STRING  NULLABLE
+error_message    STRING  NULLABLE
+failure_stage    STRING  NULLABLE  -- VALIDATION | LOAD | TRANSFORM
+error_file_path  STRING  NULLABLE  -- GCS path to quarantined file
+created_at       TIMESTAMP
+updated_at       TIMESTAMP
+```
+
+Clustered by `system_id, status`.
+
+#### `job_control.audit_trail`
+
+```
+run_id                        STRING
+pipeline_name                 STRING
+entity_type                   STRING
+source_file                   STRING
+record_count                  INTEGER
+processed_timestamp           TIMESTAMP  -- partition column
+processing_duration_seconds   FLOAT
+success                       BOOLEAN
+error_count                   INTEGER
+audit_hash                    STRING     -- SHA-256 tamper detection
+```
+
+Partitioned by `processed_timestamp`, clustered by `pipeline_name, entity_type`.
+
+> **Note:** Audit events are also published to `generic-pipeline-events` Pub/Sub topic in real time.
 
 ---
 
