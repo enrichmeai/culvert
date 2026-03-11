@@ -6,10 +6,10 @@ Base test class for validation-specific tests.
 
 from typing import List, Any, Optional
 
-from .gdw_test import BaseGDWTest
+from .pipeline_test import BasePipelineTest
 
 
-class BaseValidationTest(BaseGDWTest):
+class BaseValidationTest(BasePipelineTest):
     """
     Base class for validation tests.
 

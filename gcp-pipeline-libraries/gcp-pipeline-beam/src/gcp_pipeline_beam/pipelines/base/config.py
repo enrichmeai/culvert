@@ -1,7 +1,7 @@
 """
 Pipeline Configuration Module
 
-Defines configuration dataclass and validation for GDW migration pipelines.
+Defines configuration dataclass and validation for GCP data pipelines.
 """
 
 from dataclasses import dataclass, field

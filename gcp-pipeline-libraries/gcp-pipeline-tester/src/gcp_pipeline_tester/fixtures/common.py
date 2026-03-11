@@ -1,7 +1,7 @@
 """
 Common Fixtures Module
 
-Common test fixtures and sample data for GDW tests.
+Common test fixtures and sample data for pipeline tests.
 """
 
 import pytest

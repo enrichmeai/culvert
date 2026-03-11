@@ -202,7 +202,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         max_workers: int = 10,
         machine_type: str = "n1-standard-4",
         routing_metadata_key: str = "routing_metadata",
-        job_name_prefix: str = "gdw",
+        job_name_prefix: str = "gcp-pipeline",
         service_account: Optional[str] = None,
         network: Optional[str] = None,
         subnetwork: Optional[str] = None,

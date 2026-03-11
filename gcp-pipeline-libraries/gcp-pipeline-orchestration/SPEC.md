@@ -48,7 +48,7 @@ Reusable Airflow components for orchestrating data migration pipelines:
 
 | Arg | Default |
 |-----|---------|
-| `owner` | `'gdw'` |
+| `owner` | `'gcp-pipeline'` |
 | `depends_on_past` | `False` |
 | `email_on_failure` | `True` |
 | `retries` | `3` |

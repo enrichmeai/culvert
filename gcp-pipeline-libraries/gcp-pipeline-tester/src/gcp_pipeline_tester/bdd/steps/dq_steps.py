@@ -1,5 +1,5 @@
 """
-Data quality BDD steps for GDW.
+Data quality BDD steps for GCP pipelines.
 """
 
 from pytest_bdd import given, when, then, parsers

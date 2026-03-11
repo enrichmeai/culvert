@@ -1,5 +1,5 @@
 """
-GDW Data Core - Monitoring & Observability Framework
+GCP Pipeline Framework - Monitoring & Observability Framework
 
 Production-grade monitoring, metrics collection, and alerting.
 Integrates with Google Cloud Monitoring, Datadog, Dynatrace, and custom backends.

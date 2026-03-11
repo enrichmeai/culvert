@@ -1,5 +1,5 @@
 """
-GDW Data Core - Reconciliation Module
+GCP Pipeline Framework - Reconciliation Module
 
 Provides reconciliation engine for comparing source and destination data,
 ensuring data consistency and completeness after migration.

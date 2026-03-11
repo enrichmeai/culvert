@@ -1,13 +1,13 @@
 """
-Base BDD classes for GDW.
+Base BDD classes for GCP pipelines.
 """
 
 import pytest
 from pytest_bdd import scenario, given, when, then, parsers
 
-class GDWScenarioTest:
+class PipelineScenarioTest:
     """
-    Base class for GDW BDD scenarios.
+    Base class for pipeline BDD scenarios.
     Provides common fixtures and utility methods.
     """
 

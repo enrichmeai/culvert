@@ -1,5 +1,5 @@
 """
-GDW Data Core - File Management
+GCP Pipeline Framework - File Management
 Handles file lifecycle, validation, archiving, and integrity checking.
 
 Components:

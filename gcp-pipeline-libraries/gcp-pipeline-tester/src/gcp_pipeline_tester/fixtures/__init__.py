@@ -1,7 +1,7 @@
 """
 Fixtures Package
 
-Collection of pytest fixtures for GDW testing.
+Collection of pytest fixtures for GCP pipeline testing.
 
 This package provides reusable test fixtures for common testing scenarios
 including sample data, mock objects, and test configurations.

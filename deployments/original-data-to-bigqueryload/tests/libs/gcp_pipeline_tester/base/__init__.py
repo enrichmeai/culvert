@@ -1,20 +1,20 @@
 """
 Base Test Classes Package
 
-Foundational test classes and utilities for GDW data core testing.
+Foundational test classes and utilities for GCP pipeline testing.
 
-This package provides the base classes that all GDW tests inherit from,
+This package provides the base classes that all pipeline tests inherit from,
 with common assertions and utilities for testing data processing pipelines.
 
 Exports:
     TestResult: Standardized test result dataclass
-    BaseGDWTest: Root test class with common utilities
+    BasePipelineTest: Root test class with common utilities
     BaseValidationTest: Test class for validation-specific tests
     BaseBeamTest: Test class for Apache Beam pipeline tests
-    GDWScenarioTest: Base class for BDD/Gherkin scenario tests
+    PipelineScenarioTest: Base class for BDD/Gherkin scenario tests
 
 Example:
-    >>> from gcp_pipeline_tester.base import BaseGDWTest, BaseValidationTest
+    >>> from gcp_pipeline_tester.base import BasePipelineTest, BaseValidationTest
     >>>
     >>> class TestMyValidator(BaseValidationTest):
     ...     def test_valid_record(self):
@@ -23,16 +23,15 @@ Example:
 """
 
 from .result import TestResult
-from .gdw_test import BaseGDWTest
+from .pipeline_test import BasePipelineTest
 from .validation_test import BaseValidationTest
 from .beam_test import BaseBeamTest
-from .scenario_test import GDWScenarioTest
+from .scenario_test import PipelineScenarioTest
 
 __all__ = [
     'TestResult',
-    'BaseGDWTest',
+    'BasePipelineTest',
     'BaseValidationTest',
     'BaseBeamTest',
-    'GDWScenarioTest',
+    'PipelineScenarioTest',
 ]
-

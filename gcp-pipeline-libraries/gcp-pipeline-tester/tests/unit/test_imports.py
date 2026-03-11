@@ -19,12 +19,12 @@ class TestImports:
     def test_import_base_classes(self):
         """Test importing base test classes."""
         from gcp_pipeline_tester.base import (
-            BaseGDWTest,
+            BasePipelineTest,
             BaseBeamTest,
             BaseValidationTest,
             TestResult,
         )
-        assert BaseGDWTest is not None
+        assert BasePipelineTest is not None
         assert BaseBeamTest is not None
         assert BaseValidationTest is not None
         assert TestResult is not None

@@ -1,7 +1,6 @@
 """
-BDD Testing Utilities for GDW.
+BDD Testing Utilities for GCP pipelines.
 """
 
-from .base import GDWScenarioTest
-
-__all__ = ["GDWScenarioTest"]
+from .base import PipelineScenarioTest
+__all__ = ["PipelineScenarioTest"]

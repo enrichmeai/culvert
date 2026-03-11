@@ -1,5 +1,5 @@
 """
-GDW Data Core - Client Classes
+GCP Pipeline Framework - Client Classes
 GCS, Pub/Sub, and BigQuery clients for cloud operations.
 """
 

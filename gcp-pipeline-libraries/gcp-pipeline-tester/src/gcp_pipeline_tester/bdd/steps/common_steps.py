@@ -1,5 +1,5 @@
 """
-Common BDD steps for GDW.
+Common BDD steps for GCP pipelines.
 """
 
 from pytest_bdd import given, when, then, parsers

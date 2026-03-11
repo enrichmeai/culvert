@@ -1,5 +1,5 @@
 """
-GDW Data Core - Data Quality Framework
+GCP Pipeline Framework - Data Quality Framework
 Comprehensive data quality checking, scoring, and reporting.
 """
 

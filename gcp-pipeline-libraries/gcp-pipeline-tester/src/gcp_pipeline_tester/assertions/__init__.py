@@ -1,7 +1,7 @@
 """
 Assertions Package
 
-Custom assertion functions for testing GDW components.
+Custom assertion functions for testing GCP pipeline components.
 
 This package provides domain-specific assertion functions that improve
 test readability and provide clear failure messages.

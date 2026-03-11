@@ -2,7 +2,7 @@
 Pipelines Module - Apache Beam Pipeline Framework
 
 Complete pipeline framework with base classes, configuration, and reusable
-transforms and I/O operations for GDW migration jobs.
+transforms and I/O operations for GCP data pipeline jobs.
 
 This module provides everything needed to build, configure, and execute
 robust Apache Beam migration pipelines with integrated audit trail,
@@ -11,7 +11,7 @@ error handling, and metrics collection.
 Core Components:
     BasePipeline: Abstract base class for all pipelines
     PipelineConfig: Configuration dataclass
-    GDWPipelineOptions: Command-line options
+    GCPPipelineOptions: Command-line options
 
 Transforms:
     ParseCsvLine: Parse CSV lines
@@ -56,7 +56,7 @@ Example:
 from .base import (
     BasePipeline,
     PipelineConfig,
-    GDWPipelineOptions,
+    GCPPipelineOptions,
 )
 
 from .beam import (
@@ -84,7 +84,7 @@ __all__ = [
     # Base Pipeline Framework
     'BasePipeline',
     'PipelineConfig',
-    'GDWPipelineOptions',
+    'GCPPipelineOptions',
     # Transforms
     'ParseCsvLine',
     'ValidateRecordDoFn',

@@ -31,25 +31,25 @@ Before writing new Python code, check if the steps are already available in `gcp
 - `dq_steps`: Data quality business rules
 
 ### 3. Create the Step Definition File
-Create a `.py` file in `deployments/src/tests/bdd/step_definitions/`. Use the `GDWScenarioTest` helper.
+Create a `.py` file in `deployments/src/tests/bdd/step_definitions/`. Use the `PipelineScenarioTest` helper.
 
 Example `test_my_feature.py`:
 
 ```python
-from gcp_pipeline_core.testing import GDWScenarioTest
+from gcp_pipeline_core.testing import PipelineScenarioTest
 from gcp_pipeline_core.testing import *
 
 
 # Import other step modules as needed
 
-@GDWScenarioTest.run_scenario('../features/my_feature.feature', 'Do something important')
+@PipelineScenarioTest.run_scenario('../features/my_feature.feature', 'Do something important')
 def test_my_feature():
     pass
 ```
 
 ## 🛠️ Reusable Library Components
 
-### GDWScenarioTest
+### PipelineScenarioTest
 The base class for BDD tests. It provides:
 - `run_scenario(feature_path, scenario_name)`: A static method that handles relative path resolution for feature files.
 

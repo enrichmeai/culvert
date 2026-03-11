@@ -1,19 +1,19 @@
 """
-GDW Data Core - Error Handling Framework
+GCP Pipeline Framework - Error Handling Framework
 
 Production-grade error handling, classification, routing, and retry logic.
-Provides centralized error management for data migration pipelines.
+Provides centralized error management for data pipelines.
 
 Used by: ALL pipelines, Beam transforms, Airflow DAGs
 """
 
 from .types import ErrorSeverity, ErrorCategory, RetryStrategy
 from .errors import (
-    GDWError,
-    GDWValidationError,
-    GDWTransformError,
-    GDWIntegrationError,
-    GDWResourceError,
+    PipelineError,
+    PipelineValidationError,
+    PipelineTransformError,
+    PipelineIntegrationError,
+    PipelineResourceError,
     # CSV Errors
     CSVParseError,
     CSVFieldCountError,
@@ -28,7 +28,7 @@ from .errors import (
     BigQueryTimeoutError,
     BigQuerySchemaError,
 )
-from .models import PipelineError, ErrorConfig
+from .models import PipelineError as PipelineErrorModel, ErrorConfig
 from .handler import ErrorHandler, ErrorClassifier, RetryPolicy
 from .storage import ErrorStorageBackend, InMemoryErrorStorage, GCSErrorStorage
 from .context import ErrorContext, with_error_handling
@@ -39,11 +39,11 @@ __all__ = [
     'ErrorCategory',
     'RetryStrategy',
     # Base Exceptions
-    'GDWError',
-    'GDWValidationError',
-    'GDWTransformError',
-    'GDWIntegrationError',
-    'GDWResourceError',
+    'PipelineError',
+    'PipelineValidationError',
+    'PipelineTransformError',
+    'PipelineIntegrationError',
+    'PipelineResourceError',
     # CSV Parsing Exceptions
     'CSVParseError',
     'CSVFieldCountError',
@@ -58,7 +58,7 @@ __all__ = [
     'BigQueryTimeoutError',
     'BigQuerySchemaError',
     # Models
-    'PipelineError',
+    'PipelineErrorModel',
     'ErrorConfig',
     # Handler
     'ErrorHandler',
@@ -72,4 +72,3 @@ __all__ = [
     'ErrorContext',
     'with_error_handling',
 ]
-

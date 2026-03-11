@@ -2,12 +2,12 @@
 
 **Version:** 1.0  
 **Status:** Implementation Reference  
-**Scope:** GDW Data Core Platform (GCP)
+**Scope:** GCP Pipeline Framework
 
 ---
 
 ## 🎯 Executive Summary
-The GDW Data Core platform follows a "FinOps-by-Design" philosophy. We balance high-performance data migration with strict cost governance by leveraging native GCP features (Labeling, Partitioning, Lifecycles) and a decoupled architectural pattern.
+The GCP Pipeline Framework follows a "FinOps-by-Design" philosophy. We balance high-performance data migration with strict cost governance by leveraging native GCP features (Labeling, Partitioning, Lifecycles) and a decoupled architectural pattern.
 
 This strategy focuses on three pillars:
 1. **Inform**: Visibility through granular cost allocation.

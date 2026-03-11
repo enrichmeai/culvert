@@ -8,9 +8,9 @@ Apache Beam migration pipelines with integrated audit trail, error handling,
 and metrics collection.
 
 Exports:
-    BasePipeline: Abstract base class for all GDW migration pipelines
+    BasePipeline: Abstract base class for all GCP data pipelines
     PipelineConfig: Configuration dataclass for pipelines
-    GDWPipelineOptions: Command-line options for pipelines
+    GCPPipelineOptions: Command-line options for pipelines
 
 Example:
     >>> from gcp_pipeline_beam.pipelines.base import BasePipeline, PipelineConfig
@@ -29,14 +29,14 @@ Example:
 """
 
 from .config import PipelineConfig
-from .options import GDWPipelineOptions
+from .options import GCPPipelineOptions
 from .pipeline import BasePipeline
 from . import lifecycle
 
 __all__ = [
     'BasePipeline',
     'PipelineConfig',
-    'GDWPipelineOptions',
+    'GCPPipelineOptions',
     'lifecycle',
 ]
 

@@ -1,35 +1,35 @@
 """
-Custom exception classes for GDW Data Core.
+Custom exception classes for GCP Pipeline Framework.
 """
 
 
-class GDWError(Exception):
-    """Base exception for all GDW errors"""
+class PipelineError(Exception):
+    """Base exception for all pipeline errors"""
     pass
 
 
-class GDWValidationError(GDWError):
+class PipelineValidationError(PipelineError):
     """Raised when data validation fails"""
     pass
 
 
-class GDWTransformError(GDWError):
+class PipelineTransformError(PipelineError):
     """Raised when data transformation fails"""
     pass
 
 
-class GDWIntegrationError(GDWError):
+class PipelineIntegrationError(PipelineError):
     """Raised when integration with external services fails"""
     pass
 
 
-class GDWResourceError(GDWError):
+class PipelineResourceError(PipelineError):
     """Raised when resource exhaustion occurs"""
     pass
 
 
 # CSV Parsing Errors
-class CSVParseError(GDWValidationError):
+class CSVParseError(PipelineValidationError):
     """Base class for CSV parsing errors"""
     pass
 
@@ -60,7 +60,7 @@ class CSVCorruptionError(CSVParseError):
 
 
 # BigQuery Errors
-class BigQueryError(GDWIntegrationError):
+class BigQueryError(PipelineIntegrationError):
     """Base class for BigQuery-specific errors"""
     pass
 
@@ -97,6 +97,3 @@ class BigQueryTimeoutError(BigQueryError):
 class BigQuerySchemaError(BigQueryError):
     """Raised when data doesn't match BigQuery schema"""
     pass
-
-
-

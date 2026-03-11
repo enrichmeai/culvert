@@ -1,5 +1,5 @@
 """
-GDW Data Core - Data Lineage Module
+GCP Pipeline Framework - Data Lineage Module
 
 Provides data lineage tracking for complete traceability from source
 to cloud destination, supporting full audit and compliance requirements.

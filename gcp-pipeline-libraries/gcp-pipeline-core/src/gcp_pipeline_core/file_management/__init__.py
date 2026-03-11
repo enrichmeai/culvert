@@ -1,5 +1,5 @@
 """
-GDW Data Core - File Management
+GCP Pipeline Framework - File Management
 """
 
 from .hdr_trl import (

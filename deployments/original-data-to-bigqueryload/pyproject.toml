@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-ingestion"
-version = "1.0.7"
+version = "1.0.8"
 description = "Reference Implementation: GCS-to-BigQuery Ingestion Pipeline using gcp-pipeline-framework"
 readme = "README.md"
 license = {text = "MIT"}

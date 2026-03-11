@@ -1,5 +1,5 @@
 """
-GDW Data Core - Audit Records Module
+GCP Pipeline Framework - Audit Records Module
 
 Provides standard audit record and entry data structures for tracking
 data migration operations and pipeline executions.

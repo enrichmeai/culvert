@@ -1,6 +1,6 @@
 # 📖 Complete Testing & Deployment Guide
 
-Unified guide for the GDW Data Core Library and Deployments (Generic & Generic).
+Unified guide for the GCP Pipeline Framework Library and Deployments (Generic & Generic).
 
 **Last Updated:** January 2, 2026  
 **Reference:** [E2E Functional Flow](../E2E_FUNCTIONAL_FLOW.md)

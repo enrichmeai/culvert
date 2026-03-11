@@ -1,5 +1,5 @@
 """
-GDW Data Core - Validators
+GCP Pipeline Framework - Validators
 Core validators with PII masking and structured error reporting.
 """
 

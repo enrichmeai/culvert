@@ -1,5 +1,5 @@
 """
-GDW Data Core - HDR/TRL Parser Module
+GCP Pipeline Framework - HDR/TRL Parser Module
 
 Configurable parser for Header/Trailer records in extract files.
 Library provides the mechanism. Pipelines can configure patterns or use defaults.

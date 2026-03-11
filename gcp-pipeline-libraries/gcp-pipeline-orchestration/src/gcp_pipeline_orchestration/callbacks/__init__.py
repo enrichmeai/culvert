@@ -1,5 +1,5 @@
 """
-GDW Data Core Orchestration Callbacks.
+GCP Pipeline Framework Orchestration Callbacks.
 
 Provides reusable error handlers and callbacks for Airflow DAGs.
 """

@@ -3,7 +3,7 @@ Comprehensive GCP Deployment Testing Guide
 ===========================================
 
 This guide provides comprehensive testing strategies for deploying
-the Generic Blueprint and GDW Data Core library to GCP.
+the Generic Blueprint and GCP Pipeline Framework library to GCP.
 
 Table of Contents:
   1. Local Testing (Unit + Integration with Mocks)
@@ -485,7 +485,7 @@ def run_complete_test_suite():
     """
     print("""
     ╔════════════════════════════════════════════════════════════════════╗
-    ║     Generic Blueprint & GDW Core - Complete GCP Deployment Testing     ║
+    ║     Generic Blueprint & GCP Pipeline Framework - Complete GCP Deployment Testing     ║
     ╚════════════════════════════════════════════════════════════════════╝
     """)
 
