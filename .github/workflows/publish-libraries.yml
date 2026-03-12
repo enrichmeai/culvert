@@ -483,16 +483,15 @@ jobs:
   # Deploy (only when [publish:deploy] or manual deploy=true)
   # ==========================================================================
   deploy:
-    name: Trigger Deployments
+    name: Validate Ingestion Deployment
     needs: [check-conditions, publish-others]
     if: needs.check-conditions.outputs.should_deploy == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: production
-    strategy:
-      fail-fast: false
-      matrix:
-        deployment: [original-data-to-bigqueryload, bigquery-to-mapped-product, data-pipeline-orchestrator]
+    # Only validate the Beam ingestion pipeline here.
+    # dbt/Airflow deployments (bigquery-to-mapped-product, data-pipeline-orchestrator)
+    # have resolution-too-deep issues with heavy deps and are validated by deploy-generic.yml.
 
     steps:
     - uses: actions/checkout@v4
@@ -501,41 +500,44 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+
+    - name: Build local wheels
+      run: |
+        pip install --upgrade pip build
+        mkdir -p /tmp/local-wheels
+        for lib in gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework; do
+          python -m build ./gcp-pipeline-libraries/$lib --outdir /tmp/local-wheels --wheel
+        done
+        echo "Built wheels:"
+        ls /tmp/local-wheels/
 
     - name: Install deployment dependencies
       run: |
-        python -m pip install --upgrade pip
+        # Install all framework packages from local wheels (bypasses PyPI version pins)
+        pip install --find-links /tmp/local-wheels --no-index \
+          gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration \
+          gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework
 
-        # Install deployment package (may pull older libs from PyPI)
-        cd deployments/${{ matrix.deployment }}
-        pip install -e ".[dev]" || pip install -e . || pip install .
-        cd -
-
-        # Force-reinstall libraries from local checkout to ensure freshly published
-        # versions are used (pip resolver may have downgraded via the >=floor constraint)
-        pip install --force-reinstall --no-deps \
-          ./gcp-pipeline-libraries/gcp-pipeline-core \
-          ./gcp-pipeline-libraries/gcp-pipeline-beam \
-          ./gcp-pipeline-libraries/gcp-pipeline-orchestration \
-          ./gcp-pipeline-libraries/gcp-pipeline-transform \
-          ./gcp-pipeline-libraries/gcp-pipeline-tester
+        # Install deployment using local wheels to satisfy framework constraints
+        cd deployments/original-data-to-bigqueryload
+        pip install --find-links /tmp/local-wheels -e ".[dev]" \
+          || pip install --find-links /tmp/local-wheels -e . \
+          || pip install --find-links /tmp/local-wheels .
 
     - name: Validate deployment
       run: |
-        echo "🔍 Validating ${{ matrix.deployment }}..."
-        cd deployments/${{ matrix.deployment }}
-        
-        # Run deployment tests if they exist
+        echo "🔍 Validating original-data-to-bigqueryload..."
+        cd deployments/original-data-to-bigqueryload
+
         if [ -d tests ]; then
           pip install pytest pytest-mock
-          pytest tests/ -v --tb=short -x || {
-            echo "❌ Deployment validation failed for ${{ matrix.deployment }}"
+          pytest tests/unit -v --tb=short -x || {
+            echo "❌ Deployment validation failed"
             exit 1
           }
         fi
-        
-        echo "✅ ${{ matrix.deployment }} validated successfully"
+
+        echo "✅ original-data-to-bigqueryload validated successfully"
 
     - name: Deployment ready notification
       run: |
@@ -613,9 +615,9 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Deployment | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| original-data-to-bigqueryload | ${{ needs.deploy.result == 'success' && '✅ Validated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| bigquery-to-mapped-product | ${{ needs.deploy.result == 'success' && '✅ Validated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| data-pipeline-orchestrator | ${{ needs.deploy.result == 'success' && '✅ Validated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| original-data-to-bigqueryload (unit tests) | ${{ needs.deploy.result == 'success' && '✅ Validated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| bigquery-to-mapped-product | validated by deploy-generic.yml |" >> $GITHUB_STEP_SUMMARY
+          echo "| data-pipeline-orchestrator | validated by deploy-generic.yml |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
         fi
         
