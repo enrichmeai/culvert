@@ -513,8 +513,9 @@ jobs:
 
     - name: Install deployment dependencies
       run: |
-        # Install all framework packages from local wheels (bypasses PyPI version pins)
-        pip install --find-links /tmp/local-wheels --no-index \
+        # Install framework from local wheels (1.0.8 > PyPI 1.0.7, so pip picks local)
+        # --find-links without --no-index: local wheels win on version, PyPI used for transitive deps
+        pip install --find-links /tmp/local-wheels \
           gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration \
           gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework
 
