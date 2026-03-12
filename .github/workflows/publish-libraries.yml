@@ -513,17 +513,12 @@ jobs:
 
     - name: Install deployment dependencies
       run: |
-        # Install framework from local wheels (1.0.8 > PyPI 1.0.7, so pip picks local)
-        # --find-links without --no-index: local wheels win on version, PyPI used for transitive deps
-        pip install --find-links /tmp/local-wheels \
-          gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration \
-          gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework
+        # Step 1: Install local wheels directly by file path (guarantees local code, not PyPI)
+        pip install /tmp/local-wheels/*.whl
 
-        # Install deployment using local wheels to satisfy framework constraints
+        # Step 2: Install deployment with --no-deps (all framework deps already installed above)
         cd deployments/original-data-to-bigqueryload
-        pip install --find-links /tmp/local-wheels -e ".[dev]" \
-          || pip install --find-links /tmp/local-wheels -e . \
-          || pip install --find-links /tmp/local-wheels .
+        pip install --no-deps -e . || pip install --no-deps .
 
     - name: Validate deployment
       run: |
