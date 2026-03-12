@@ -10,6 +10,27 @@ This is the umbrella package for the GCP Data Migration Pipeline Libraries. Inst
 - **[gcp-pipeline-transform](https://pypi.org/project/gcp-pipeline-transform/)**: dbt macros and transformation utilities.
 - **[gcp-pipeline-tester](https://pypi.org/project/gcp-pipeline-tester/)**: Testing framework with mocks and fixtures for GCP pipelines.
 
+## Reference Implementations
+
+Production-ready deployments built on this framework, demonstrating the full mainframe-to-GCP data pipeline:
+
+- **[gcp-pipeline-ref-ingestion](https://pypi.org/project/gcp-pipeline-ref-ingestion/)**: GCS-to-BigQuery ingestion via Apache Beam / Dataflow Flex Template (CSV → ODP tables).
+- **[gcp-pipeline-ref-transform](https://pypi.org/project/gcp-pipeline-ref-transform/)**: dbt models transforming ODP → FDP using JOIN and MAP patterns.
+- **[gcp-pipeline-ref-orchestration](https://pypi.org/project/gcp-pipeline-ref-orchestration/)**: Airflow DAGs for Cloud Composer — listens for `.ok` trigger files, orchestrates Dataflow jobs.
+- **[gcp-pipeline-ref-cdp](https://pypi.org/project/gcp-pipeline-ref-cdp/)**: dbt models transforming FDP → CDP (Consumable Data Products) using JOIN across all 3 FDP tables.
+- **[gcp-pipeline-ref-segment-transform](https://pypi.org/project/gcp-pipeline-ref-segment-transform/)**: CDP → fixed-width mainframe segment files written to GCS.
+
+### Data Flow
+```
+Mainframe → GCS → [ref-ingestion] → BigQuery ODP
+                                          ↓
+                                   [ref-transform] → BigQuery FDP
+                                                          ↓
+                                                    [ref-cdp] → BigQuery CDP
+                                                                     ↓
+                                                          [ref-segment-transform] → GCS segment files
+```
+
 ## Installation
 
 ### Full Installation (Recommended)
