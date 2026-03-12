@@ -507,16 +507,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
 
-        # Install libraries from local checkout (avoids PyPI indexing delay after publish)
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-core
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-orchestration
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-transform
-        pip install ./gcp-pipeline-libraries/gcp-pipeline-tester
-
-        # Install deployment package
+        # Install deployment package (may pull older libs from PyPI)
         cd deployments/${{ matrix.deployment }}
         pip install -e ".[dev]" || pip install -e . || pip install .
+        cd -
+
+        # Force-reinstall libraries from local checkout to ensure freshly published
+        # versions are used (pip resolver may have downgraded via the >=floor constraint)
+        pip install --force-reinstall --no-deps \
+          ./gcp-pipeline-libraries/gcp-pipeline-core \
+          ./gcp-pipeline-libraries/gcp-pipeline-beam \
+          ./gcp-pipeline-libraries/gcp-pipeline-orchestration \
+          ./gcp-pipeline-libraries/gcp-pipeline-transform \
+          ./gcp-pipeline-libraries/gcp-pipeline-tester
 
     - name: Validate deployment
       run: |
