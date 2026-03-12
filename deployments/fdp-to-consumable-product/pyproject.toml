@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-cdp"
-version = "1.0.9"
+version = "1.0.10"
 description = "GCP Pipeline Reference: Generic CDP Transformation — dbt models for FDP to CDP (JOIN pattern across all 3 FDP tables)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -28,6 +28,7 @@ dependencies = [
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
 Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/fdp-to-consumable-product"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Framework = "https://pypi.org/project/gcp-pipeline-framework/"
 
 [project.optional-dependencies]
 dev = [
