@@ -11,8 +11,15 @@ Each output segment file contains one record per line in the format:
 Output path pattern:
   gs://{bucket}/segments/{run_id}/{cdp_segment}/segment_{shard}.txt
 
+Uses gcp-pipeline-framework libraries:
+  - BasePipeline: Lifecycle management (on_start/on_success/on_failure)
+  - GCPPipelineOptions: Standardised CLI options (--run_id, --gcp_project)
+  - JobControlRepository: Track job in job_control.pipeline_jobs
+  - AuditTrail / AuditPublisher: Publish audit events to Pub/Sub
+  - ErrorHandler: Classify and track errors with retry strategies
+
 Usage:
-    python main.py \\
+    python -m cdp_example.main \\
         --project joseph-antony-aruja \\
         --cdp_dataset cdp_generic \\
         --cdp_table customer_risk_profile \\
@@ -23,11 +30,26 @@ Usage:
 
 import logging
 import argparse
-from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from datetime import date, datetime, timezone
+from typing import Dict, Any, Optional, List
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions
+
+from gcp_pipeline_beam.pipelines.base.options import GCPPipelineOptions
+from gcp_pipeline_beam.pipelines.base.pipeline import BasePipeline
+from gcp_pipeline_beam.pipelines.base.config import PipelineConfig
+from gcp_pipeline_core.job_control import (
+    JobControlRepository,
+    JobStatus,
+    FailureStage,
+    PipelineJob,
+)
+from gcp_pipeline_core.audit.trail import AuditTrail
+from gcp_pipeline_core.audit.publisher import AuditPublisher
+from gcp_pipeline_core.error_handling.handler import ErrorHandler
+from gcp_pipeline_core.error_handling.types import ErrorSeverity, ErrorCategory
+from gcp_pipeline_core.monitoring.metrics import MetricsCollector
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -120,39 +142,50 @@ def format_segment_record(row: Dict[str, Any]) -> str:
 
 
 class SegmentByCategory(beam.DoFn):
-    """Emit (cdp_segment, formatted_line) tuples for downstream routing."""
+    """Emit (cdp_segment, formatted_line) tuples for downstream routing.
+
+    Uses Beam metrics counters for observability, consistent with
+    gcp-pipeline-beam transform patterns.
+    """
+
+    def __init__(self):
+        self._records_formatted = beam.metrics.Metrics.counter(
+            'segment_transform', 'records_formatted')
+        self._format_errors = beam.metrics.Metrics.counter(
+            'segment_transform', 'format_errors')
 
     def process(self, row: Dict[str, Any]):
-        segment = str(row.get('cdp_segment') or 'PENDING')
-        line = format_segment_record(row)
-        yield segment, line
+        try:
+            segment = str(row.get('cdp_segment') or 'PENDING')
+            line = format_segment_record(row)
+            self._records_formatted.inc()
+            yield segment, line
+        except Exception as e:
+            self._format_errors.inc()
+            logger.warning("Failed to format row customer_id=%s: %s",
+                           row.get('customer_id'), e)
 
 
-def run_segment_pipeline(
-    project_id: str,
-    cdp_dataset: str,
-    cdp_table: str,
-    output_bucket: str,
-    run_id: str,
-    pipeline_args: Optional[list] = None,
-):
+class MainframeSegmentPipeline(BasePipeline):
     """
-    Build and run the mainframe segment export pipeline.
+    Mainframe segment export pipeline built on gcp-pipeline-framework BasePipeline.
 
-    Reads cdp_generic.customer_risk_profile and writes per-segment text files
-    to GCS under gs://{output_bucket}/segments/{run_id}/{segment_category}/
+    Inherits lifecycle management (on_start, on_success, on_failure),
+    automatic audit trail, error handling, and metrics collection.
     """
-    logger.info("Starting mainframe segment export — run_id=%s", run_id)
 
-    bq_table = f"{project_id}:{cdp_dataset}.{cdp_table}"
+    def __init__(self, options, config, output_bucket: str,
+                 cdp_dataset: str, cdp_table: str):
+        super().__init__(options, config)
+        self.output_bucket = output_bucket
+        self.cdp_dataset = cdp_dataset
+        self.cdp_table = cdp_table
 
-    options = PipelineOptions(
-        pipeline_args or [],
-        project=project_id,
-        job_name=f"mainframe-segment-export-{run_id.lower().replace('_', '-')}",
-    )
-
-    with beam.Pipeline(options=options) as pipeline:
+    def build(self, pipeline: beam.Pipeline):
+        """Define the segment export pipeline DAG."""
+        project = self.config.gcp_project_id
+        bq_table = f"{project}:{self.cdp_dataset}.{self.cdp_table}"
+        run_id = self.config.run_id
 
         rows = (
             pipeline
@@ -162,13 +195,11 @@ def run_segment_pipeline(
             )
         )
 
-        # Route each row into (segment_category, formatted_line)
         segment_lines = rows | 'FormatSegments' >> beam.ParDo(SegmentByCategory())
 
-        # Write one file set per CDP segment category
         for segment_category in ['ACTIVE_APPROVED', 'DECLINED', 'REFERRED', 'PENDING']:
             output_prefix = (
-                f"gs://{output_bucket}/segments/{run_id}/{segment_category}/segment"
+                f"gs://{self.output_bucket}/segments/{run_id}/{segment_category}/segment"
             )
             (
                 segment_lines
@@ -183,7 +214,117 @@ def run_segment_pipeline(
                 )
             )
 
-    logger.info("Mainframe segment export complete — run_id=%s", run_id)
+
+def run_segment_pipeline(
+    project_id: str,
+    cdp_dataset: str,
+    cdp_table: str,
+    output_bucket: str,
+    run_id: str,
+    pipeline_args: Optional[list] = None,
+):
+    """
+    Build and run the mainframe segment export pipeline using the framework.
+
+    Handles:
+    - Job control: creates/updates pipeline_jobs record
+    - Audit trail: publishes audit events to Pub/Sub
+    - Error handling: classifies errors, tracks failure stage
+    - Metrics: records processing counts
+    """
+    logger.info("Starting mainframe segment export — run_id=%s", run_id)
+
+    # --- Job Control: register the job ---
+    job_repo = JobControlRepository(project_id=project_id)
+    job = PipelineJob(
+        run_id=run_id,
+        system_id='generic',
+        entity_type='segment_transform',
+        extract_date=date.today(),
+        source_files=[f"{project_id}:{cdp_dataset}.{cdp_table}"],
+    )
+    job_repo.create_job(job)
+    job_repo.update_status(run_id, JobStatus.RUNNING)
+
+    # --- Error Handler ---
+    error_handler = ErrorHandler(
+        pipeline_name='mainframe-segment-transform',
+        run_id=run_id,
+    )
+
+    # --- Metrics ---
+    metrics = MetricsCollector(
+        pipeline_name='mainframe-segment-transform',
+        run_id=run_id,
+    )
+
+    # --- Build pipeline config ---
+    config = PipelineConfig(
+        run_id=run_id,
+        pipeline_name='mainframe-segment-transform',
+        entity_type='segment_transform',
+        source_file=f"{project_id}:{cdp_dataset}.{cdp_table}",
+        gcp_project_id=project_id,
+        bigquery_dataset=cdp_dataset,
+    )
+
+    options = PipelineOptions(
+        pipeline_args or [],
+        project=project_id,
+        job_name=f"mainframe-segment-export-{run_id.lower().replace('_', '-')}",
+    )
+
+    try:
+        pipeline = MainframeSegmentPipeline(
+            options=options,
+            config=config,
+            output_bucket=output_bucket,
+            cdp_dataset=cdp_dataset,
+            cdp_table=cdp_table,
+        )
+        pipeline.run()
+
+        # --- Success: update job control ---
+        job_repo.update_status(run_id, JobStatus.SUCCESS)
+        metrics.increment('pipeline_runs_success')
+
+        # --- Audit: publish completion event ---
+        try:
+            audit_publisher = AuditPublisher(
+                project_id=project_id,
+                topic_name='generic-pipeline-events',
+            )
+            audit_trail = AuditTrail(
+                run_id=run_id,
+                pipeline_name='mainframe-segment-transform',
+                entity_type='segment_transform',
+                publisher=audit_publisher,
+            )
+            audit_trail.record_processing_start(
+                source_file=f"{project_id}:{cdp_dataset}.{cdp_table}")
+            audit_trail.record_processing_end(success=True)
+        except Exception as audit_err:
+            logger.warning("Audit publish failed (non-fatal): %s", audit_err)
+
+        logger.info("Mainframe segment export complete — run_id=%s", run_id)
+
+    except Exception as exc:
+        # --- Failure: classify error and update job control ---
+        error = error_handler.handle_exception(
+            exc,
+            severity=ErrorSeverity.HIGH,
+            category=ErrorCategory.TRANSFORMATION,
+            source_file=f"{project_id}:{cdp_dataset}.{cdp_table}",
+        )
+        job_repo.mark_failed(
+            run_id=run_id,
+            error_code=error.error_type,
+            error_message=str(exc)[:500],
+            failure_stage=FailureStage.TRANSFORMATION,
+        )
+        metrics.increment('pipeline_runs_failed')
+        logger.error("Mainframe segment export failed — run_id=%s: %s", run_id, exc)
+        raise
 
 
 if __name__ == '__main__':
@@ -196,7 +337,6 @@ if __name__ == '__main__':
                         default=f"run_{datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')}",
                         help='Unique run identifier')
 
-    # Remaining args passed through to Beam PipelineOptions (runner, region, temp, etc.)
     known_args, pipeline_args = parser.parse_known_args()
 
     run_segment_pipeline(

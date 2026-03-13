@@ -8,7 +8,7 @@ model-paths: ["models"]
 analysis-paths: ["analyses"]
 test-paths: ["tests"]
 seed-paths: ["seeds"]
-macro-paths: ["macros"]
+macro-paths: ["macros", "../libs/gcp_pipeline_transform/dbt_shared/macros"]
 snapshot-paths: ["snapshots"]
 
 target-path: "target"
@@ -36,6 +36,10 @@ vars:
   # Datasets
   fdp_dataset: "fdp_generic"
   cdp_dataset: "cdp_generic"
+
+  # Pipeline audit context (passed via --vars at runtime)
+  run_id: "{{ env_var('RUN_ID', 'manual') }}"
+  source_file: "fdp_generic"
 
   # Date parameters
   extract_date: null

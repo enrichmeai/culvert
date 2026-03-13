@@ -38,6 +38,12 @@ RUN pip install /app/deployments/bigquery-to-mapped-product
 
 WORKDIR /app/deployments/bigquery-to-mapped-product/dbt
 
+# Symlink framework shared macros so dbt_project.yml macro-paths resolves
+# "../libs/gcp_pipeline_transform/dbt_shared/macros" → installed package data
+RUN TRANSFORM_PKG=$(python -c "import gcp_pipeline_transform; import os; print(os.path.dirname(gcp_pipeline_transform.__file__))") && \
+    mkdir -p /app/deployments/bigquery-to-mapped-product/libs/gcp_pipeline_transform && \
+    ln -s "$TRANSFORM_PKG/dbt_shared" /app/deployments/bigquery-to-mapped-product/libs/gcp_pipeline_transform/dbt_shared
+
 # Set dbt profiles dir (if needed, otherwise uses default)
 ENV DBT_PROFILES_DIR=/app/deployments/bigquery-to-mapped-product/dbt
 
