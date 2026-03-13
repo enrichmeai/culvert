@@ -22,6 +22,11 @@
   their transaction exposure, risk decision outcome, and facility details.
   This is the CDP table consumed by the mainframe-segment-transform pipeline
   to produce outbound segment files.
+
+  Framework integration (gcp-pipeline-transform shared macros):
+  - PII masking: ssn_masked arrives pre-masked from FDP layer via mask_pii()
+  - Audit columns: _run_id lineage from ingestion, _cdp_transformed_ts
+  - Data quality: validated via cdp_quality_checks macros (segment, completeness, PII)
 */
 
 with events as (
