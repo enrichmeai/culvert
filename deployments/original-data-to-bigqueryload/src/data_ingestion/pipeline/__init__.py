@@ -5,7 +5,7 @@ Apache Beam pipelines for Generic entity processing.
 Uses gcp_pipeline_core library components with schema-driven validation.
 """
 
-from .options import EMPipelineOptions
+from .options import GenericPipelineOptions
 from .transforms import (
     ValidateFileDoFn,
     ParseAndValidateRecordDoFn,
@@ -13,8 +13,8 @@ from .transforms import (
 )
 from .runner import run_pipeline
 from .ingestion_pipeline import (
-    AddAuditColumnsDoFn as EMAddAuditColumnsDoFn,
-    EM_ENTITY_CONFIG,
+    AddAuditColumnsDoFn as IngestionAddAuditColumnsDoFn,
+    ENTITY_CONFIG,
     run_ingestion_pipeline,
 )
 
@@ -23,14 +23,14 @@ from gcp_pipeline_beam.pipelines.beam.transforms import SchemaValidateRecordDoFn
 
 __all__ = [
     # Legacy/shared
-    'EMPipelineOptions',
+    'GenericPipelineOptions',
     'ValidateFileDoFn',
     'ParseAndValidateRecordDoFn',
     'AddAuditColumnsDoFn',
     'run_pipeline',
     # Generic-specific
-    'EMAddAuditColumnsDoFn',
-    'EM_ENTITY_CONFIG',
+    'IngestionAddAuditColumnsDoFn',
+    'ENTITY_CONFIG',
     'run_ingestion_pipeline',
     # Schema-driven validation (from library)
     'SchemaValidateRecordDoFn',

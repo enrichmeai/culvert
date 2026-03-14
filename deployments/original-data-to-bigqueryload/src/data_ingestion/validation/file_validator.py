@@ -22,7 +22,7 @@ from .types import ValidationResult
 logger = logging.getLogger(__name__)
 
 
-class EMFileValidator:
+class GenericFileValidator:
     """
     Validates Generic file structure.
 

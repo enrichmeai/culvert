@@ -21,7 +21,7 @@ from gcp_pipeline_core.job_control import (
     PipelineJob,
 )
 
-from .options import EMPipelineOptions
+from .options import GenericPipelineOptions
 from .transforms import ValidateFileDoFn, ParseAndValidateRecordDoFn
 from ..config import (
     SYSTEM_ID,
@@ -49,15 +49,22 @@ def run_pipeline(argv=None):
     known_args, pipeline_args = parser.parse_known_args(argv)
 
     pipeline_options = PipelineOptions(pipeline_args)
-    generic_options = pipeline_options.view_as(EMPipelineOptions)
+    generic_options = pipeline_options.view_as(GenericPipelineOptions)
     gcp_options = pipeline_options.view_as(GCPPipelineOptions)
 
     entity = generic_options.entity
     input_file = generic_options.source_file
-    output_table = gcp_options.output_table
-    error_table = gcp_options.error_table
-    run_id = gcp_options.run_id
     extract_date = generic_options.extract_date
+
+    # Resolve ValueProviders to plain strings (GCPPipelineOptions uses
+    # add_value_provider_argument which returns StaticValueProvider objects;
+    # these must be resolved before embedding in row data for BQ inserts)
+    def _resolve(val):
+        return val.get() if hasattr(val, 'get') else str(val)
+
+    output_table = _resolve(gcp_options.output_table)
+    error_table = _resolve(gcp_options.error_table)
+    run_id = _resolve(gcp_options.run_id)
 
     headers = ENTITY_HEADERS.get(entity)
     schema = ENTITY_SCHEMAS.get(entity)

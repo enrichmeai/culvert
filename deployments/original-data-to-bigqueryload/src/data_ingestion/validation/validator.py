@@ -9,23 +9,23 @@ from typing import Dict, List, Any, Tuple, Optional
 from datetime import date
 
 from .types import ValidationResult
-from .file_validator import EMFileValidator
-from .record_validator import EMRecordValidator
+from .file_validator import GenericFileValidator
+from .record_validator import GenericRecordValidator
 from ..config import SYSTEM_ID, REQUIRED_ENTITIES
 
 logger = logging.getLogger(__name__)
 
 
-class EMValidator:
+class GenericValidator:
     """
     Unified validator for Generic entities.
 
     Combines:
-    - EMFileValidator: HDR/TRL, record count, checksum
-    - EMRecordValidator: Required fields, data types, allowed values
+    - GenericFileValidator: HDR/TRL, record count, checksum
+    - GenericRecordValidator: Required fields, data types, allowed values
 
     Example:
-        >>> validator = EMValidator()
+        >>> validator = GenericValidator()
         >>> result = validator.validate_file(file_lines, "customers")
         >>> if result.is_valid:
         ...     valid, errors = validator.validate_records(records, "customers")
@@ -35,8 +35,8 @@ class EMValidator:
     REQUIRED_ENTITIES = REQUIRED_ENTITIES
 
     def __init__(self):
-        self.file_validator = EMFileValidator()
-        self.record_validator = EMRecordValidator()
+        self.file_validator = GenericFileValidator()
+        self.record_validator = GenericRecordValidator()
 
     def validate_file(
         self,

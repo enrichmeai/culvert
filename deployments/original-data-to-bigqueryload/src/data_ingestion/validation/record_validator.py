@@ -16,7 +16,7 @@ from ..schema import ENTITY_SCHEMAS, get_schema
 logger = logging.getLogger(__name__)
 
 
-class EMRecordValidator:
+class GenericRecordValidator:
     """
     Validates Generic records using schema-driven validation.
 

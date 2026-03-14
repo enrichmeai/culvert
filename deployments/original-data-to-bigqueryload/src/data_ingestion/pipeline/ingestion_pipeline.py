@@ -71,30 +71,30 @@ from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine, SchemaVali
 
 # Generic-specific imports - ONLY configuration and schemas
 from data_ingestion.config import SYSTEM_ID
-from data_ingestion.schema import EMCustomerSchema, EMAccountSchema, EMDecisionSchema, EM_SCHEMAS
+from data_ingestion.schema import CustomerSchema, AccountSchema, DecisionSchema, ENTITY_SCHEMAS
 
 
 # Entity configuration - maps entity name to schema
-EM_ENTITY_CONFIG = {
+ENTITY_CONFIG = {
     "customers": {
-        "schema": EMCustomerSchema,
+        "schema": CustomerSchema,
         "output_table": "odp_generic.customers",
         "error_table": "odp_generic.customers_errors",
     },
     "accounts": {
-        "schema": EMAccountSchema,
+        "schema": AccountSchema,
         "output_table": "odp_generic.accounts",
         "error_table": "odp_generic.accounts_errors",
     },
     "decision": {
-        "schema": EMDecisionSchema,
+        "schema": DecisionSchema,
         "output_table": "odp_generic.decision",
         "error_table": "odp_generic.decision_errors",
     },
 }
 
 
-class EMPipeline(BasePipeline):
+class GenericPipeline(BasePipeline):
     """
     Generic (Application A) ODP Load Pipeline.
     Refactored to use library BasePipeline for enhanced maturity features.
@@ -223,7 +223,7 @@ class AddAuditColumnsDoFn(beam.DoFn):
 def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     """
     Run the Generic ODP load pipeline.
-    Updated to use EMPipeline class which inherits from BasePipeline.
+    Updated to use GenericPipeline class which inherits from BasePipeline.
     """
     # Parse entity before Beam options to avoid PipelineOptions subclass conflicts
     import argparse as _ap
@@ -235,7 +235,7 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     gcp_opts = options.view_as(GCPPipelineOptions)
 
     entity = _pre_args.entity
-    config_entry = EM_ENTITY_CONFIG[entity]
+    config_entry = ENTITY_CONFIG[entity]
     schema = config_entry["schema"]
     run_id = gcp_opts.run_id or generate_run_id(f"generic_{entity}")
     environment = os.getenv("ENVIRONMENT", "dev")
@@ -288,7 +288,7 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
         with OTELContext(run_id=run_id, system_id=SYSTEM_ID, entity_type=entity) as otel_ctx:
             with otel_ctx.span("pipeline_execution", attributes={"input_pattern": gcp_opts.input_pattern}) as span:
                 # Instantiate and run the library-based pipeline
-                pipeline = EMPipeline(options, pipeline_config, schema)
+                pipeline = GenericPipeline(options, pipeline_config, schema)
                 pipeline.run()
 
                 # Mark pipeline execution complete

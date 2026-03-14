@@ -9,20 +9,20 @@ from typing import Dict, List, Optional
 from gcp_pipeline_core.schema import EntitySchema
 
 # Generic Schemas
-from .customers import EMCustomerSchema
-from .accounts import EMAccountSchema
-from .decision import EMDecisionSchema
+from .customers import CustomerSchema
+from .accounts import AccountSchema
+from .decision import DecisionSchema
 
 # LOA Schemas
 from .applications import LOAApplicationsSchema
 
 
 ENTITY_SCHEMAS: Dict[str, EntitySchema] = {
-    # Generic entities (EM)
-    "customers": EMCustomerSchema,
-    "accounts": EMAccountSchema,
-    "decision": EMDecisionSchema,
-    
+    # Generic entities
+    "customers": CustomerSchema,
+    "accounts": AccountSchema,
+    "decision": DecisionSchema,
+
     # LOA entities
     "applications": LOAApplicationsSchema,
 }
@@ -65,4 +65,3 @@ def get_primary_key(entity_name: str) -> List[str]:
     if schema:
         return schema.primary_key
     return []
-

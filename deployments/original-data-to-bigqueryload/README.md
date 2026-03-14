@@ -104,7 +104,7 @@ This deployment requires the following GCP infrastructure, provisioned via Terra
 
 For detailed infrastructure definitions, see [infrastructure/terraform/systems/generic/ingestion/](../../infrastructure/terraform/systems/generic/ingestion/).
 
-### Pipeline Configuration (EMPipelineOptions)
+### Pipeline Configuration (GenericPipelineOptions)
 The ingestion pipeline accepts several command-line arguments to control its behavior:
 
 | Argument | Description | Required |

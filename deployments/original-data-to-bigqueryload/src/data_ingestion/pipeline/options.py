@@ -10,7 +10,7 @@ gcp_pipeline_beam.GCPPipelineOptions and must not be redefined here.
 from apache_beam.options.pipeline_options import PipelineOptions
 
 
-class EMPipelineOptions(PipelineOptions):
+class GenericPipelineOptions(PipelineOptions):
     """Generic-specific pipeline options (entity, source file, extract date)."""
 
     @classmethod
