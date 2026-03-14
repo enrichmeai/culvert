@@ -113,7 +113,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
         record = dict(zip(self.headers, values))
 
         # Validate record
-        errors = self.validator.record_validator.validate_record(record, self.schema)
+        errors = self.validator.record_validator.validate_record(record, self.entity)
 
         if errors:
             self.error_count.inc()
