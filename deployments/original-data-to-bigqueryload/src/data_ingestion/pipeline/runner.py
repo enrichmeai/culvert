@@ -5,6 +5,7 @@ Main entry point for Generic Dataflow pipeline.
 """
 
 import argparse
+import json
 import logging
 from datetime import datetime, timezone
 
@@ -65,6 +66,9 @@ def run_pipeline(argv=None):
     if not headers or not schema:
         raise ValueError(f"Unknown entity: {entity}")
 
+    # Convert schema to JSON string to avoid StaticValueProvider serialization issues
+    bq_schema = json.dumps({'fields': schema.to_bq_schema()})
+
     logger.info(f"Starting Generic pipeline for {entity}")
     logger.info(f"Input: {input_file}")
     logger.info(f"Output: {output_table}")
@@ -110,9 +114,10 @@ def run_pipeline(argv=None):
             parsed_records.valid
             | 'WriteValid' >> WriteToBigQuery(
                 output_table,
-                schema={'fields': schema.to_bq_schema()},
+                schema=bq_schema,
                 write_disposition=BigQueryDisposition.WRITE_APPEND,
                 create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                method='STREAMING_INSERTS',
             )
         )
 
@@ -123,6 +128,7 @@ def run_pipeline(argv=None):
                 error_table,
                 write_disposition=BigQueryDisposition.WRITE_APPEND,
                 create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                method='STREAMING_INSERTS',
             )
         )
 
