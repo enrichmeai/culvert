@@ -19,7 +19,7 @@ class GenericPipelineOptions(PipelineOptions):
             '--entity',
             type=str,
             required=True,
-            choices=['customers', 'accounts', 'decision'],
+            choices=['customers', 'accounts', 'decision', 'applications'],
             help='Generic entity to process'
         )
         parser.add_argument(
