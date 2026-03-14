@@ -5,7 +5,7 @@ unit_tests:
     given:
       - input: ref('stg_generic_applications')
         rows:
-          - {application_id: 'APP1', customer_id: 'C1', loan_amount: 1000, interest_rate: 5.5, term_months: 12, application_date: '2023-01-01', application_status: 'APPROVED', branch_code: 'B1', product_type: 'PERSONAL', _run_id: 'R1', _extract_date: '2023-01-01'}
+          - {application_id: 'APP1', customer_id: 'C1', loan_amount: 1000, interest_rate: 5.5, term_months: 12, application_date: '2023-01-01', application_status: 'APPROVED', event_type: 'NEW', account_type: 'PERSONAL', _run_id: 'R1', _extract_date: '2023-01-01'}
     expect:
       rows:
         - {facility_key: 'APP1', application_id: 'APP1', customer_id: 'C1'}

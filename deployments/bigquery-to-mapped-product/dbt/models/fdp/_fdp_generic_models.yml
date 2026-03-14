@@ -26,8 +26,11 @@ models:
       - name: ssn_masked
       - name: first_name
       - name: last_name
-      - name: current_balance
+      - name: date_of_birth
+      - name: customer_status
       - name: account_type_desc
+      - name: current_balance
+      - name: account_open_date
       - name: _run_id
         tests: [not_null]
       - name: _extract_date
@@ -55,8 +58,11 @@ models:
         tests: [not_null]
       - name: customer_id
         tests: [not_null]
+      - name: decision_code
       - name: decision_outcome
+      - name: decision_date
       - name: score
+      - name: decision_reason
       - name: _run_id
         tests: [not_null]
       - name: _extract_date
@@ -84,8 +90,12 @@ models:
         tests: [not_null]
       - name: customer_id
       - name: loan_amount
+      - name: interest_rate
+      - name: term_months
       - name: application_date
       - name: application_status
+      - name: event_type
+      - name: account_type
       - name: _run_id
         tests: [not_null]
       - name: _extract_date

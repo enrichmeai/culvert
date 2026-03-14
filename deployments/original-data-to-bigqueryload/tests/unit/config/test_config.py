@@ -31,11 +31,12 @@ class TestSettings:
         assert SYSTEM_ID == "Generic"
 
     def test_required_entities(self):
-        """Required entities should include all 3 Generic entities."""
+        """Required entities should include all 4 Generic entities."""
         assert "customers" in REQUIRED_ENTITIES
         assert "accounts" in REQUIRED_ENTITIES
         assert "decision" in REQUIRED_ENTITIES
-        assert len(REQUIRED_ENTITIES) == 3
+        assert "applications" in REQUIRED_ENTITIES
+        assert len(REQUIRED_ENTITIES) == 4
 
     def test_odp_dataset(self):
         """ODP dataset should be odp_generic."""

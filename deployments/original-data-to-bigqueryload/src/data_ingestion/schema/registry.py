@@ -13,18 +13,14 @@ from .customers import CustomerSchema
 from .accounts import AccountSchema
 from .decision import DecisionSchema
 
-# LOA Schemas
-from .applications import LOAApplicationsSchema
+from .applications import ApplicationsSchema
 
 
 ENTITY_SCHEMAS: Dict[str, EntitySchema] = {
-    # Generic entities
     "customers": CustomerSchema,
     "accounts": AccountSchema,
     "decision": DecisionSchema,
-
-    # LOA entities
-    "applications": LOAApplicationsSchema,
+    "applications": ApplicationsSchema,
 }
 
 

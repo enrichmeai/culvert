@@ -6,7 +6,7 @@ Main entry point for Generic Dataflow pipeline.
 
 import argparse
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import apache_beam as beam
 import apache_beam.io.fileio  # noqa: F401 — ensures beam.io.fileio is accessible
@@ -29,6 +29,7 @@ from ..config import (
     CUSTOMERS_HEADERS,
     ACCOUNTS_HEADERS,
     DECISION_HEADERS,
+    APPLICATIONS_HEADERS,
 )
 from ..schema import ENTITY_SCHEMAS, get_schema
 
@@ -39,6 +40,7 @@ ENTITY_HEADERS = {
     'customers': CUSTOMERS_HEADERS,
     'accounts': ACCOUNTS_HEADERS,
     'decision': DECISION_HEADERS,
+    'applications': APPLICATIONS_HEADERS,
 }
 
 
@@ -74,70 +76,127 @@ def run_pipeline(argv=None):
 
     bq_schema = {'fields': schema.to_bq_schema()}
 
+    # Resolve GCP project for job control
+    gcp_project = _resolve(gcp_options.gcp_project) if hasattr(gcp_options, 'gcp_project') else None
+
     logger.info(f"Starting Generic pipeline for {entity}")
     logger.info(f"Input: {input_file}")
     logger.info(f"Output: {output_table}")
     logger.info(f"Run ID: {run_id}")
 
-    with beam.Pipeline(options=pipeline_options) as p:
-        # Read file content
-        file_content = (
-            p
-            | 'MatchFiles' >> beam.io.fileio.MatchFiles(input_file)
-            | 'ReadMatches' >> beam.io.fileio.ReadMatches()
-            | 'ReadContent' >> beam.Map(lambda f: f.read_utf8())
-        )
+    # Parse extract_date to a date object for job control
+    extract_date_obj = None
+    if extract_date:
+        try:
+            extract_date_obj = datetime.strptime(str(extract_date), '%Y%m%d').date()
+        except (ValueError, TypeError):
+            extract_date_obj = date.today()
+    else:
+        extract_date_obj = date.today()
 
-        # Validate file structure
-        validation_result = (
-            file_content
-            | 'ValidateFile' >> beam.ParDo(
-                ValidateFileDoFn(entity)
-            ).with_outputs('valid', 'invalid')
-        )
+    # Create job control record
+    job_repo = None
+    if gcp_project:
+        try:
+            job_repo = JobControlRepository(project_id=gcp_project)
+            job = PipelineJob(
+                run_id=run_id,
+                system_id=SYSTEM_ID,
+                entity_type=entity,
+                extract_date=extract_date_obj,
+                source_files=[input_file],
+                started_at=datetime.now(tz=timezone.utc),
+            )
+            job_repo.create_job(job)
+            job_repo.update_status(run_id, JobStatus.RUNNING)
+            logger.info(f"Job control record created: {run_id}")
+        except Exception as e:
+            logger.warning(f"Failed to create job control record: {e}")
+            job_repo = None
 
-        # Parse and validate records from valid files
-        lines = (
-            validation_result.valid
-            | 'ExtractLines' >> beam.FlatMap(lambda x: x['lines'])
-        )
+    try:
+        with beam.Pipeline(options=pipeline_options) as p:
+            # Read file content
+            file_content = (
+                p
+                | 'MatchFiles' >> beam.io.fileio.MatchFiles(input_file)
+                | 'ReadMatches' >> beam.io.fileio.ReadMatches()
+                | 'ReadContent' >> beam.Map(lambda f: f.read_utf8())
+            )
 
-        parsed_records = (
-            lines
-            | 'ParseAndValidate' >> beam.ParDo(
-                ParseAndValidateRecordDoFn(
-                    entity=entity,
-                    headers=headers,
-                    run_id=run_id,
-                    source_file=input_file
+            # Validate file structure
+            validation_result = (
+                file_content
+                | 'ValidateFile' >> beam.ParDo(
+                    ValidateFileDoFn(entity)
+                ).with_outputs('valid', 'invalid')
+            )
+
+            # Parse and validate records from valid files
+            lines = (
+                validation_result.valid
+                | 'ExtractLines' >> beam.FlatMap(lambda x: x['lines'])
+            )
+
+            parsed_records = (
+                lines
+                | 'ParseAndValidate' >> beam.ParDo(
+                    ParseAndValidateRecordDoFn(
+                        entity=entity,
+                        headers=headers,
+                        run_id=run_id,
+                        source_file=input_file
+                    )
+                ).with_outputs('valid', 'errors')
+            )
+
+            # Write valid records to BigQuery
+            _ = (
+                parsed_records.valid
+                | 'WriteValid' >> WriteToBigQuery(
+                    output_table,
+                    schema=bq_schema,
+                    write_disposition=BigQueryDisposition.WRITE_APPEND,
+                    create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                    method='STREAMING_INSERTS',
                 )
-            ).with_outputs('valid', 'errors')
-        )
-
-        # Write valid records to BigQuery
-        _ = (
-            parsed_records.valid
-            | 'WriteValid' >> WriteToBigQuery(
-                output_table,
-                schema=bq_schema,
-                write_disposition=BigQueryDisposition.WRITE_APPEND,
-                create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
-                method='STREAMING_INSERTS',
             )
-        )
 
-        # Write error records to error table
-        _ = (
-            parsed_records.errors
-            | 'WriteErrors' >> WriteToBigQuery(
-                error_table,
-                write_disposition=BigQueryDisposition.WRITE_APPEND,
-                create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
-                method='STREAMING_INSERTS',
+            # Write error records to error table
+            _ = (
+                parsed_records.errors
+                | 'WriteErrors' >> WriteToBigQuery(
+                    error_table,
+                    write_disposition=BigQueryDisposition.WRITE_APPEND,
+                    create_disposition=BigQueryDisposition.CREATE_IF_NEEDED,
+                    method='STREAMING_INSERTS',
+                )
             )
-        )
 
-    logger.info(f"Generic pipeline completed for {entity}")
+        # Update job control to SUCCESS
+        if job_repo:
+            try:
+                job_repo.update_status(run_id, JobStatus.SUCCESS)
+                logger.info(f"Job control updated to SUCCESS: {run_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update job control to SUCCESS: {e}")
+
+        logger.info(f"Generic pipeline completed for {entity}")
+
+    except Exception as exc:
+        # Update job control to FAILED
+        if job_repo:
+            try:
+                job_repo.mark_failed(
+                    run_id=run_id,
+                    error_code="PIPELINE_FAILED",
+                    error_message=str(exc)[:500],
+                    failure_stage=FailureStage.ODP_LOAD,
+                )
+                logger.info(f"Job control updated to FAILED: {run_id}")
+            except Exception as e:
+                logger.warning(f"Failed to update job control to FAILED: {e}")
+        raise
 
 
 if __name__ == '__main__':

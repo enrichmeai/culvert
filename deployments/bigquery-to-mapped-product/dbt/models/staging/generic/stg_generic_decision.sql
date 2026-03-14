@@ -8,7 +8,7 @@
 /*
   Staging model for Generic Decision
 
-  Source: odp_em.decision
+  Source: odp_generic.decision
   Transformations:
   - Clean and standardize fields
   - Map decision codes to descriptions

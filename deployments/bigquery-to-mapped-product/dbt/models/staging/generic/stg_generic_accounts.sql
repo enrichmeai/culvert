@@ -8,7 +8,7 @@
 /*
   Staging model for Generic Accounts
 
-  Source: odp_em.accounts
+  Source: odp_generic.accounts
   Transformations:
   - Clean and standardize fields
   - Map account type codes to descriptions
