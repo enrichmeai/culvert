@@ -2,7 +2,7 @@
 
 > **Last Updated:** March 2026
 
-This directory contains **5 deployment units** that demonstrate different data pipeline patterns for mainframe-to-GCP migration using the shared library architecture.
+This directory contains **5 deployment units (3 active, 2 reference)** that demonstrate different data pipeline patterns for mainframe-to-GCP migration using the shared library architecture.
 
 ---
 
@@ -51,7 +51,7 @@ This directory contains **5 deployment units** that demonstrate different data p
 
 | # | Deployment | Purpose | Runtime | Pattern Demonstrated |
 |---|------------|---------|---------|---------------------|
-| 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | GKE (Kubernetes) | Event-driven orchestration, entity dependencies |
+| 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | Cloud Composer (Google-managed) | Event-driven orchestration, entity dependencies |
 | 2 | **original-data-to-bigqueryload** | Beam pipeline for CSV → BigQuery ingestion | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
 | 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN patterns, PII masking, audit columns |
 | 4 | **mainframe-segment-transform** | Beam pipeline for FDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
@@ -74,7 +74,7 @@ This directory contains **5 deployment units** that demonstrate different data p
 
 **What it demonstrates:**
 - **Event-driven architecture:** DAGs triggered by Pub/Sub messages when `.ok` files arrive
-- **Entity dependency management:** Waits for all 3 entities (customers, accounts, decision) before transformation
+- **Entity dependency management:** Waits for all 3 JOIN entities (customers, accounts, decision) + handles applications MAP trigger
 - **Decoupled orchestration:** DAGs don't contain business logic—they only coordinate
 
 **Key files:**
@@ -121,7 +121,8 @@ src/data_ingestion/
 ├── schema/
 │   ├── customers.py        # Customer entity schema
 │   ├── accounts.py         # Account entity schema
-│   └── decision.py         # Decision entity schema
+│   ├── decision.py         # Decision entity schema
+│   └── applications.py     # Applications entity schema
 └── validation/
     └── file_validator.py   # HDR/TRL validation logic
 ```
@@ -166,10 +167,12 @@ dbt/
 │   ├── staging/
 │   │   ├── stg_customers.sql     # Clean customer data
 │   │   ├── stg_accounts.sql      # Clean account data
-│   │   └── stg_decision.sql      # Clean decision data
+│   │   ├── stg_decision.sql      # Clean decision data
+│   │   └── stg_applications.sql  # Clean applications data
 │   └── fdp/
 │       ├── event_transaction_excess.sql    # JOIN: customers + accounts
-│       └── portfolio_account_excess.sql    # MAP: decision only
+│       ├── portfolio_account_excess.sql    # MAP: decision only
+│       └── portfolio_account_facility.sql  # MAP: applications only
 └── macros/
     ├── add_audit_columns.sql     # Inject run_id, source_file
     └── mask_pii.sql              # Environment-aware masking
@@ -396,7 +399,7 @@ dbt test
 
 | Unit | Tests |
 |------|-------|
-| original-data-to-bigqueryload | 20 |
+| original-data-to-bigqueryload | 26 |
 | bigquery-to-mapped-product | 26 |
-| **Total** | **46** |
+| **Total** | **52** |
 

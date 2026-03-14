@@ -57,8 +57,8 @@ MISSING=0
 
 # Check buckets
 echo "Checking GCS buckets..."
-check_resource "Bucket" "${PROJECT_ID}-generic-landing" "gsutil ls gs://${PROJECT_ID}-generic-landing" || MISSING=1
-check_resource "Bucket" "${PROJECT_ID}-generic-landing" "gsutil ls gs://${PROJECT_ID}-generic-landing" || MISSING=1
+check_resource "Bucket" "${PROJECT_ID}-generic-int-landing" "gsutil ls gs://${PROJECT_ID}-generic-int-landing" || MISSING=1
+check_resource "Bucket" "${PROJECT_ID}-generic-int-landing" "gsutil ls gs://${PROJECT_ID}-generic-int-landing" || MISSING=1
 
 # Check BigQuery datasets
 echo "Checking BigQuery datasets..."
@@ -97,30 +97,30 @@ if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
     # Generic Customers file
     cat > "$TEST_DIR/generic_customers.csv" << 'EOF'
 HDR|Generic|CUSTOMERS|20260106
-customer_id,first_name,last_name,ssn,status,created_date
-C001,John,Doe,123-45-6789,ACTIVE,2025-01-15
-C002,Jane,Smith,987-65-4321,ACTIVE,2025-02-20
-C003,Bob,Johnson,555-55-5555,INACTIVE,2025-03-10
+customer_id,first_name,last_name,ssn,dob,status,created_date
+C001,John,Doe,123-45-6789,1985-06-15,A,2025-01-15
+C002,Jane,Smith,987-65-4321,1990-03-22,A,2025-02-20
+C003,Bob,Johnson,555-55-5555,1978-11-08,I,2025-03-10
 TRL|RecordCount=3|Checksum=abc123
 EOF
 
     # Generic Accounts file
     cat > "$TEST_DIR/generic_accounts.csv" << 'EOF'
 HDR|Generic|ACCOUNTS|20260106
-account_id,customer_id,account_type,balance,open_date
-A001,C001,CHECKING,1500.00,2025-01-20
-A002,C001,SAVINGS,5000.00,2025-01-21
-A003,C002,CHECKING,2500.00,2025-02-25
+account_id,customer_id,account_type,balance,status,open_date
+A001,C001,CHECKING,1500.00,A,2025-01-20
+A002,C001,SAVINGS,5000.00,A,2025-01-21
+A003,C002,CHECKING,2500.00,A,2025-02-25
 TRL|RecordCount=3|Checksum=def456
 EOF
 
     # Generic Decision file
     cat > "$TEST_DIR/generic_decision.csv" << 'EOF'
 HDR|Generic|DECISION|20260106
-decision_id,customer_id,outcome,decision_date,score
-D001,C001,APPROVED,2025-01-25,750
-D002,C002,APPROVED,2025-02-28,680
-D003,C003,DENIED,2025-03-15,520
+decision_id,customer_id,decision_code,decision_date,score,reason_codes
+D001,C001,APPROVE,2025-01-25,750,GOOD_HISTORY
+D002,C002,APPROVE,2025-02-28,680,STABLE_INCOME
+D003,C003,DECLINE,2025-03-15,520,LOW_SCORE
 TRL|RecordCount=3|Checksum=ghi789
 EOF
 
@@ -152,18 +152,18 @@ if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
     echo "Uploading Generic files..."
 
     # Upload data files first
-    gsutil cp "$TEST_DIR/generic_customers.csv" "gs://${PROJECT_ID}-generic-landing/generic/customers/"
-    gsutil cp "$TEST_DIR/generic_accounts.csv" "gs://${PROJECT_ID}-generic-landing/generic/accounts/"
-    gsutil cp "$TEST_DIR/generic_decision.csv" "gs://${PROJECT_ID}-generic-landing/generic/decision/"
+    gsutil cp "$TEST_DIR/generic_customers.csv" "gs://${PROJECT_ID}-generic-int-landing/generic/customers/"
+    gsutil cp "$TEST_DIR/generic_accounts.csv" "gs://${PROJECT_ID}-generic-int-landing/generic/accounts/"
+    gsutil cp "$TEST_DIR/generic_decision.csv" "gs://${PROJECT_ID}-generic-int-landing/generic/decision/"
 
     # Create .ok trigger files (this triggers Pub/Sub notification)
     touch "$TEST_DIR/customers.csv.ok"
     touch "$TEST_DIR/accounts.csv.ok"
     touch "$TEST_DIR/decision.csv.ok"
 
-    gsutil cp "$TEST_DIR/customers.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/customers/"
-    gsutil cp "$TEST_DIR/accounts.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/accounts/"
-    gsutil cp "$TEST_DIR/decision.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/decision/"
+    gsutil cp "$TEST_DIR/customers.csv.ok" "gs://${PROJECT_ID}-generic-int-landing/generic/customers/"
+    gsutil cp "$TEST_DIR/accounts.csv.ok" "gs://${PROJECT_ID}-generic-int-landing/generic/accounts/"
+    gsutil cp "$TEST_DIR/decision.csv.ok" "gs://${PROJECT_ID}-generic-int-landing/generic/decision/"
 
     echo "  ✅ Generic files uploaded"
 fi
@@ -171,10 +171,10 @@ fi
 if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
     echo "Uploading Generic files..."
 
-    gsutil cp "$TEST_DIR/generic_applications.csv" "gs://${PROJECT_ID}-generic-landing/generic/applications/"
+    gsutil cp "$TEST_DIR/generic_applications.csv" "gs://${PROJECT_ID}-generic-int-landing/generic/applications/"
 
     touch "$TEST_DIR/applications.csv.ok"
-    gsutil cp "$TEST_DIR/applications.csv.ok" "gs://${PROJECT_ID}-generic-landing/generic/applications/"
+    gsutil cp "$TEST_DIR/applications.csv.ok" "gs://${PROJECT_ID}-generic-int-landing/generic/applications/"
 
     echo "  ✅ Generic files uploaded"
 fi
@@ -213,20 +213,21 @@ echo "==============================================${NC}"
 echo ""
 echo "Test files uploaded to:"
 if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
-    echo "  - gs://${PROJECT_ID}-generic-landing/generic/customers/"
-    echo "  - gs://${PROJECT_ID}-generic-landing/generic/accounts/"
-    echo "  - gs://${PROJECT_ID}-generic-landing/generic/decision/"
+    echo "  - gs://${PROJECT_ID}-generic-int-landing/generic/customers/"
+    echo "  - gs://${PROJECT_ID}-generic-int-landing/generic/accounts/"
+    echo "  - gs://${PROJECT_ID}-generic-int-landing/generic/decision/"
 fi
 if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
-    echo "  - gs://${PROJECT_ID}-generic-landing/generic/applications/"
+    echo "  - gs://${PROJECT_ID}-generic-int-landing/generic/applications/"
 fi
 echo ""
 echo "Next steps:"
 echo "  1. If Airflow is running: DAGs will pick up .ok files automatically"
 echo "  2. For manual Dataflow test, run:"
-echo "     python deployments/generic-ingestion/src/generic_ingestion/pipeline/generic_pipeline.py \\"
-echo "       --input_path=gs://${PROJECT_ID}-generic-landing/generic/customers/*.csv \\"
-echo "       --output_table=${PROJECT_ID}:odp_generic.customers"
+echo "     python -m data_ingestion.pipeline.runner \\"
+echo "       --source_file=gs://${PROJECT_ID}-generic-int-landing/generic/customers/generic_customers_20260106.csv \\"
+echo "       --output_table=${PROJECT_ID}:odp_generic.customers \\"
+echo "       --entity=customers --extract_date=20260106 --run_id=test-run-1"
 echo ""
 echo "  3. Check BigQuery for loaded data:"
 echo "     bq query 'SELECT COUNT(*) FROM \`${PROJECT_ID}.odp_generic.customers\`'"
