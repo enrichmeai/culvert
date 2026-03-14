@@ -14,7 +14,7 @@
   Generic Portfolio Account Excess - Foundation Data Product
 
   MAP: 1 ODP source → 1 FDP target
-  - odp_em.decision
+  - odp_generic.decision
 
   This model maps decision data to portfolio account excess.
 */

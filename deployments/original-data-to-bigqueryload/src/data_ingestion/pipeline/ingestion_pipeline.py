@@ -4,7 +4,7 @@ Generic (Application A) - Apache Beam/Dataflow Pipeline
 
 Purpose:
   Pipeline for loading Generic mainframe extracts to BigQuery ODP tables.
-  Handles 3 entities: Customers, Accounts, Decision.
+  Handles 4 entities: Customers, Accounts, Decision, Applications.
 
 Flow:
   1. Read CSV files from GCS (handles split files)
@@ -29,6 +29,7 @@ Entities:
   - customers → odp_generic.customers
   - accounts → odp_generic.accounts
   - decision → odp_generic.decision
+  - applications → odp_generic.applications
 
 OTEL Configuration:
   Set environment variables for Dynatrace integration:
@@ -71,7 +72,7 @@ from gcp_pipeline_beam.pipelines.beam.transforms import ParseCsvLine, SchemaVali
 
 # Generic-specific imports - ONLY configuration and schemas
 from data_ingestion.config import SYSTEM_ID
-from data_ingestion.schema import CustomerSchema, AccountSchema, DecisionSchema, ENTITY_SCHEMAS
+from data_ingestion.schema import CustomerSchema, AccountSchema, DecisionSchema, ApplicationsSchema, ENTITY_SCHEMAS
 
 
 # Entity configuration - maps entity name to schema
@@ -90,6 +91,11 @@ ENTITY_CONFIG = {
         "schema": DecisionSchema,
         "output_table": "odp_generic.decision",
         "error_table": "odp_generic.decision_errors",
+    },
+    "applications": {
+        "schema": ApplicationsSchema,
+        "output_table": "odp_generic.applications",
+        "error_table": "odp_generic.applications_errors",
     },
 }
 
@@ -228,7 +234,7 @@ def run_ingestion_pipeline(argv=None, expected_count: Optional[int] = None):
     # Parse entity before Beam options to avoid PipelineOptions subclass conflicts
     import argparse as _ap
     _pre = _ap.ArgumentParser(add_help=False)
-    _pre.add_argument('--entity', choices=['customers', 'accounts', 'decision'])
+    _pre.add_argument('--entity', choices=['customers', 'accounts', 'decision', 'applications'])
     _pre_args, _ = _pre.parse_known_args(argv)
 
     options = GCPPipelineOptions(argv)

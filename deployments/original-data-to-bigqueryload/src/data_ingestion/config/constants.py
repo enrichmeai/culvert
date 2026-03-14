@@ -37,10 +37,13 @@ DECISION_HEADERS = [
 APPLICATIONS_HEADERS = [
     "application_id",
     "customer_id",
-    "application_type",
+    "loan_amount",
+    "interest_rate",
+    "term_months",
+    "application_date",
     "status",
-    "submission_date",
-    "amount_requested",
+    "event_type",
+    "account_type",
 ]
 
 # Allowed values

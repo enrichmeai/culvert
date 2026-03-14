@@ -14,8 +14,8 @@
   Generic Event Transaction Excess - Foundation Data Product
 
   JOIN: 2 ODP sources → 1 FDP target
-  - odp_em.customers
-  - odp_em.accounts
+  - odp_generic.customers
+  - odp_generic.accounts
 
   This model joins customer and account data to provide a view of transactions and excesses.
 */

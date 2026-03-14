@@ -138,6 +138,9 @@ setup_generic() {
     create_bq_table "odp_generic.decision_errors" \
         "decision_id:STRING,raw_record:STRING,error_type:STRING,error_message:STRING,${AUDIT}"
 
+    create_bq_table "odp_generic.applications_errors" \
+        "application_id:STRING,raw_record:STRING,error_type:STRING,error_message:STRING,${AUDIT}"
+
     echo ""
     echo "BigQuery Tables (job_control):"
     # pipeline_jobs uses source_files ARRAY — requires JSON schema

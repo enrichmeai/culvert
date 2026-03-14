@@ -8,7 +8,7 @@
 /*
   Staging model for Generic Customers
 
-  Source: odp_em.customers
+  Source: odp_generic.customers
   Transformations:
   - Clean and standardize fields
   - Add derived columns
