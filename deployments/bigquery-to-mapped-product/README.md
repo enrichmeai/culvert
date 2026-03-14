@@ -22,6 +22,8 @@ FDP Transformation - dbt models for ODP → FDP transformation.
                         │
   odp_generic.decision  ─────┼───────────────────────────────► fdp_generic.portfolio_account_excess
                         │
+  odp_generic.applications ──┼───────────────────────────────► fdp_generic.portfolio_account_facility
+                        │
                         └───────────────────────
 ```
 
@@ -32,6 +34,7 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 **MULTI-TARGET**:
 1. **JOIN**: 2 ODP sources (customers, accounts) → 1 FDP target (`event_transaction_excess`)
 2. **MAP**: 1 ODP source (decision) → 1 FDP target (`portfolio_account_excess`)
+3. **MAP**: 1 ODP source (applications) → 1 FDP target (`portfolio_account_facility`)
 
 | Step | Description |
 |------|-------------|
@@ -50,11 +53,13 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 | `odp_generic.customers` | customer_id, ssn, first_name, last_name, dob, status |
 | `odp_generic.accounts` | account_id, customer_id, account_type, balance, open_date |
 | `odp_generic.decision` | decision_id, customer_id, application_id, decision_code, score, decision_date |
+| `odp_generic.applications` | application_id, customer_id, loan_amount, interest_rate, term_months, application_date, status, event_type, account_type |
 
 | Target Table | Description |
 |--------------|-------------|
 | `fdp_generic.event_transaction_excess` | Joined customer-account view |
 | `fdp_generic.portfolio_account_excess` | Decision-based portfolio view |
+| `fdp_generic.portfolio_account_facility` | Applications-based facility view |
 
 ---
 
@@ -64,6 +69,18 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 |-----------|---------|
 | `dbt/models/staging/generic/` | Staging models (clean raw data) |
 | `dbt/models/fdp/` | FDP models (JOIN and MAP logic) |
+
+### Key files
+
+| Layer | File |
+|-------|------|
+| Staging | `stg_customers.sql` |
+| Staging | `stg_accounts.sql` |
+| Staging | `stg_decision.sql` |
+| Staging | `stg_applications.sql` |
+| FDP | `event_transaction_excess.sql` |
+| FDP | `portfolio_account_excess.sql` |
+| FDP | `portfolio_account_facility.sql` |
 
 ---
 
@@ -110,7 +127,7 @@ The transformation behavior is controlled by variables and configurations in `db
 | `marts_dataset` | Marts dataset | `marts_generic` |
 | `analytics_dataset` | Analytics dataset | `analytics_generic` |
 | `extract_date` | Date of data extract | `null` (optional filter) |
-| `generic_entities` | List of entities to process | `['customers', 'accounts', 'decision']` |
+| `generic_entities` | List of entities to process | `['customers', 'accounts', 'decision', 'applications']` |
 | `masking_level` | PII masking strategy (`FULL`, `PARTIAL`, `NONE`) | `AUTO` |
 
 ### Technology Stack & Documentation

@@ -32,7 +32,7 @@ Airflow DAGs for pipeline coordination and scheduling.
                │  │                                                     │
                │  ▼                                                     │
                │  ┌──────────────┐                                      │
-               │  │ Entity       │  Waits for ALL 3 entities:           │
+               │  │ Entity       │  Waits for ALL 3 JOIN entities:      │
                │  │ Dependency   │  - customers ✓                       │
                │  │ Checker      │  - accounts  ✓                       │
                │  └──────┬───────┘  - decision  ✓                       │
@@ -50,14 +50,14 @@ Airflow DAGs for pipeline coordination and scheduling.
 
 ## Pattern
 
-**MULTI-TARGET**: Orchestrates ingestion of 3 entities → waits for all → triggers transformation to 2 FDP targets
+**MULTI-TARGET**: Orchestrates ingestion of 4 entities (3 JOIN + 1 MAP) → waits for JOIN entities → triggers transformation to 3 FDP targets
 
 | Step | Description |
 |------|-------------|
 | 1 | Pub/Sub sensor detects `.ok` file |
 | 2 | Triggers Dataflow ingestion job |
-| 3 | EntityDependencyChecker waits for all 3 entities |
-| 4 | When all ready, triggers dbt transformation to `event_transaction_excess` and `portfolio_account_excess` |
+| 3 | EntityDependencyChecker waits for all 3 JOIN entities |
+| 4 | When all ready, triggers dbt transformation to `event_transaction_excess`, `portfolio_account_excess`, and `portfolio_account_facility` |
 
 ---
 
@@ -66,7 +66,7 @@ Airflow DAGs for pipeline coordination and scheduling.
 The Generic orchestration unit leverages the `gcp-pipeline-orchestration` library to coordinate a complex multi-entity arrival pattern:
 
 1.  **Event-Driven Triggering**: Uses `BasePubSubPullSensor` with built-in `.ok` file filtering and metadata extraction to XCom.
-2.  **Cross-Entity Coordination**: Uses `EntityDependencyChecker` to verify that all 3 entities (Customers, Accounts, Decision) are loaded before triggering the FDP transformation.
+2.  **Cross-Entity Coordination**: Uses `EntityDependencyChecker` to verify that all 3 JOIN entities (Customers, Accounts, Decision) plus handling the Applications MAP entity independently are loaded before triggering the FDP transformation.
 3.  **Local Development**: All DAGs can be parsed and validated without a live Airflow environment thanks to the library's `AIRFLOW_AVAILABLE` stubbing mechanism.
 
 ---

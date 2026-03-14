@@ -11,7 +11,7 @@ Framework for migrating mainframe data to GCP using a metadata-driven, decoupled
 5.  **tester**: Mocks/helpers for Airflow-free/Beam-free local testing.
 
 ## Deployment Units (`deployments/`)
--   **Generic (Application A)**: 3 sources → 1 FDP (JOIN pattern).
+-   **Generic (Application A)**: 3 sources → 2 FDP (JOIN pattern).
 -   **Generic (Application B)**: 1 source → 1 FDP (MAP pattern).
 -   **CDP (Consumable Data Product)**: FDP → Segmented GCS exports.
 -   **Structure**: Each has `-ingestion` (Python/Beam), `-transformation` (dbt), and `-orchestration` (Airflow).

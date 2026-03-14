@@ -16,12 +16,13 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
   ───────────                  ─────────────                    ────────────
 
   1. .csv splits ──┐
-  2. .ok file    ──┼──► Pub/Sub ──► Orchestration ──► 1. Read CSV      ┌──────────────┐
+  2. .ok file    ──┼──► Pub/Sub ──► Orchestration ──► 1. Read CSV      ┌──────────────────┐
                    │      Event      (Unit 3)         2. Parse HDR/TRL │ odp_generic.      │
-                   │                                  3. Validate      │ - customers  │
-                   │                                  4. Add Audit     │ - accounts   │
-                   │                                  5. Write to BQ ─►│ - decision   │
-                   └──────────────────────────────────┘                └──────────────┘
+                   │                                  3. Validate      │ - customers       │
+                   │                                  4. Add Audit     │ - accounts        │
+                   │                                  5. Write to BQ ─►│ - decision        │
+                   │                                                   │ - applications    │
+                   └──────────────────────────────────┘                └──────────────────┘
                                │
                                ▼
                         ┌─────────────┐
@@ -34,13 +35,14 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 
 ## Pattern
 
-**JOIN**: 3 entities (Customers, Accounts, Decision) → 3 ODP tables
+**JOIN + MAP**: 4 entities → 4 ODP tables
 
 | Entity | ODP Table | Key Fields |
 |--------|-----------|------------|
 | Customers | `odp_generic.customers` | customer_id, ssn, status, created_date |
 | Accounts | `odp_generic.accounts` | account_id, customer_id, account_type, balance, open_date |
 | Decision | `odp_generic.decision` | decision_id, customer_id, decision_code, score, decision_date |
+| Applications | `odp_generic.applications` | application_id, customer_id, loan_amount, interest_rate, term_months, application_date, status, event_type, account_type |
 
 ---
 
@@ -109,8 +111,8 @@ The ingestion pipeline accepts several command-line arguments to control its beh
 
 | Argument | Description | Required |
 |----------|-------------|----------|
-| `--entity` | Generic entity to process (`customers`, `accounts`, `decision`) | Yes |
-| `--input_file` | GCS path to input file | Yes |
+| `--entity` | Generic entity to process (`customers`, `accounts`, `decision`, `applications`) | Yes |
+| `--source_file` | GCS path to input CSV file | Yes |
 | `--output_table` | Target BigQuery table (`project:dataset.table`) | Yes |
 | `--error_table` | BQ table for failed records | Yes |
 | `--run_id` | Unique identifier for tracking/auditing | Yes |
