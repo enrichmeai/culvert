@@ -1610,7 +1610,7 @@ pipeline_config = {
     "staging_location": "gs://{bucket}/staging/",
     
     # Input
-    "input_files": ["gs://landing-bucket/generic/customers/*.csv"],
+    "source_file": ["gs://landing-bucket/generic/customers/*.csv"],
     "skip_header_lines": 1,  # Skip HDR record
     
     # Output
