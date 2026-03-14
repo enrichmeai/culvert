@@ -5,7 +5,6 @@ Main entry point for Generic Dataflow pipeline.
 """
 
 import argparse
-import json
 import logging
 from datetime import datetime, timezone
 
@@ -66,8 +65,7 @@ def run_pipeline(argv=None):
     if not headers or not schema:
         raise ValueError(f"Unknown entity: {entity}")
 
-    # Convert schema to JSON string to avoid StaticValueProvider serialization issues
-    bq_schema = json.dumps({'fields': schema.to_bq_schema()})
+    bq_schema = {'fields': schema.to_bq_schema()}
 
     logger.info(f"Starting Generic pipeline for {entity}")
     logger.info(f"Input: {input_file}")
