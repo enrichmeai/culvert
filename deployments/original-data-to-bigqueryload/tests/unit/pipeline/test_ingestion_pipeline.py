@@ -7,39 +7,39 @@ from typing import Dict, Any, List
 # Import the pipeline components to test
 from data_ingestion.pipeline.ingestion_pipeline import (
     AddAuditColumnsDoFn,
-    EM_ENTITY_CONFIG,
+    ENTITY_CONFIG,
 )
-from data_ingestion.schema import EMCustomerSchema, EMAccountSchema, EMDecisionSchema
+from data_ingestion.schema import CustomerSchema, AccountSchema, DecisionSchema
 
 # Import schema-driven validator from library
 from gcp_pipeline_beam.validators import SchemaValidator
 from gcp_pipeline_beam.pipelines.beam.transforms import SchemaValidateRecordDoFn
 
 
-class TestEMEntityConfig:
+class TestEntityConfig:
     """Tests for Generic entity configuration."""
 
     def test_all_entities_configured(self):
         """All 3 entities should be configured."""
-        assert 'customers' in EM_ENTITY_CONFIG
-        assert 'accounts' in EM_ENTITY_CONFIG
-        assert 'decision' in EM_ENTITY_CONFIG
+        assert 'customers' in ENTITY_CONFIG
+        assert 'accounts' in ENTITY_CONFIG
+        assert 'decision' in ENTITY_CONFIG
 
     def test_schema_defined(self):
         """Each entity should have a schema."""
-        for entity, config in EM_ENTITY_CONFIG.items():
+        for entity, config in ENTITY_CONFIG.items():
             assert 'schema' in config, f"Entity {entity} has no schema"
             assert config['schema'] is not None
 
     def test_schemas_have_fields(self):
         """Each schema should have fields defined."""
-        assert len(EMCustomerSchema.fields) > 0
-        assert len(EMAccountSchema.fields) > 0
-        assert len(EMDecisionSchema.fields) > 0
+        assert len(CustomerSchema.fields) > 0
+        assert len(AccountSchema.fields) > 0
+        assert len(DecisionSchema.fields) > 0
 
     def test_output_tables_defined(self):
         """Output tables should be defined."""
-        for entity, config in EM_ENTITY_CONFIG.items():
+        for entity, config in ENTITY_CONFIG.items():
             assert 'output_table' in config
             assert 'error_table' in config
             assert config['output_table'].startswith('odp_generic.')
@@ -50,14 +50,14 @@ class TestSchemaValidation:
 
     def test_valid_customer_passes(self, generic_customer_record):
         """Valid customer record should pass validation."""
-        validator = SchemaValidator(EMCustomerSchema)
+        validator = SchemaValidator(CustomerSchema)
         errors = validator.validate(generic_customer_record)
         assert len(errors) == 0
 
     def test_missing_customer_id_fails(self, generic_customer_record):
         """Missing customer_id should fail validation."""
         generic_customer_record['customer_id'] = ''
-        validator = SchemaValidator(EMCustomerSchema)
+        validator = SchemaValidator(CustomerSchema)
         errors = validator.validate(generic_customer_record)
         assert len(errors) > 0
         assert any('customer_id' in str(e) for e in errors)
@@ -65,20 +65,20 @@ class TestSchemaValidation:
     def test_invalid_status_fails(self, generic_customer_record):
         """Invalid status should fail validation."""
         generic_customer_record['status'] = 'X'
-        validator = SchemaValidator(EMCustomerSchema)
+        validator = SchemaValidator(CustomerSchema)
         errors = validator.validate(generic_customer_record)
         assert len(errors) > 0
         assert any('status' in str(e) for e in errors)
 
     def test_valid_account_passes(self, generic_account_record):
         """Valid account record should pass validation."""
-        validator = SchemaValidator(EMAccountSchema)
+        validator = SchemaValidator(AccountSchema)
         errors = validator.validate(generic_account_record)
         assert len(errors) == 0
 
     def test_valid_decision_passes(self, generic_decision_record):
         """Valid decision record should pass validation."""
-        validator = SchemaValidator(EMDecisionSchema)
+        validator = SchemaValidator(DecisionSchema)
         errors = validator.validate(generic_decision_record)
         assert len(errors) == 0
 
@@ -88,9 +88,9 @@ class TestSchemaValidateRecordDoFn:
 
     def test_dofn_can_be_created(self):
         """SchemaValidateRecordDoFn can be instantiated."""
-        dofn = SchemaValidateRecordDoFn(schema=EMCustomerSchema)
+        dofn = SchemaValidateRecordDoFn(schema=CustomerSchema)
         assert dofn is not None
-        assert dofn.schema == EMCustomerSchema
+        assert dofn.schema == CustomerSchema
 
 
 class TestAddAuditColumnsDoFn:

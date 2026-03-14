@@ -13,7 +13,7 @@ import apache_beam as beam
 
 from gcp_pipeline_beam.file_management import HDRTRLParser
 
-from ..validation import EMValidator
+from ..validation import GenericValidator
 from ..schema import ENTITY_SCHEMAS
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class ValidateFileDoFn(beam.DoFn):
         self.validator = None
 
     def setup(self):
-        self.validator = EMValidator()
+        self.validator = GenericValidator()
 
     def process(self, file_content: str):
         lines = file_content.split('\n')
@@ -83,7 +83,7 @@ class ParseAndValidateRecordDoFn(beam.DoFn):
         self.error_count = beam.metrics.Metrics.counter("generic", "error_records")
 
     def setup(self):
-        self.validator = EMValidator()
+        self.validator = GenericValidator()
         self.schema = ENTITY_SCHEMAS.get(self.entity)
 
     def process(self, line: str) -> Iterator[Dict[str, Any]]:

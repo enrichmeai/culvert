@@ -7,7 +7,7 @@ from gcp_pipeline_core.schema import SchemaField, EntitySchema
 from ..config import ALLOWED_STATUSES, ALLOWED_ACCOUNT_TYPES
 
 
-EM_ACCOUNT_FIELDS = [
+ACCOUNT_FIELDS = [
     SchemaField(
         name="account_id",
         field_type="STRING",
@@ -51,10 +51,10 @@ EM_ACCOUNT_FIELDS = [
     ),
 ]
 
-EMAccountSchema = EntitySchema(
+AccountSchema = EntitySchema(
     entity_name="accounts",
     system_id="Generic",
-    fields=EM_ACCOUNT_FIELDS,
+    fields=ACCOUNT_FIELDS,
     primary_key=["account_id"],
     description="Generic Account records",
     partition_field="open_date",

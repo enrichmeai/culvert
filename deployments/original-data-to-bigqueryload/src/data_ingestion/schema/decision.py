@@ -7,7 +7,7 @@ from gcp_pipeline_core.schema import SchemaField, EntitySchema
 from ..config import ALLOWED_DECISION_CODES
 
 
-EM_DECISION_FIELDS = [
+DECISION_FIELDS = [
     SchemaField(
         name="decision_id",
         field_type="STRING",
@@ -56,10 +56,10 @@ EM_DECISION_FIELDS = [
     ),
 ]
 
-EMDecisionSchema = EntitySchema(
+DecisionSchema = EntitySchema(
     entity_name="decision",
     system_id="Generic",
-    fields=EM_DECISION_FIELDS,
+    fields=DECISION_FIELDS,
     primary_key=["decision_id"],
     description="Generic Decision records",
     partition_field="decision_date",

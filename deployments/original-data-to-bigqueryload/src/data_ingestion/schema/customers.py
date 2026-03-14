@@ -7,7 +7,7 @@ from gcp_pipeline_core.schema import SchemaField, EntitySchema
 from ..config import ALLOWED_STATUSES
 
 
-EM_CUSTOMER_FIELDS = [
+CUSTOMER_FIELDS = [
     SchemaField(
         name="customer_id",
         field_type="STRING",
@@ -60,10 +60,10 @@ EM_CUSTOMER_FIELDS = [
     ),
 ]
 
-EMCustomerSchema = EntitySchema(
+CustomerSchema = EntitySchema(
     entity_name="customers",
     system_id="Generic",
-    fields=EM_CUSTOMER_FIELDS,
+    fields=CUSTOMER_FIELDS,
     primary_key=["customer_id"],
     description="Generic Customer records",
     partition_field="created_date",
