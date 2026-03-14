@@ -26,7 +26,7 @@ The framework implements a complete mainframe-to-GCS round trip across **five de
 | 4 | **`fdp-to-consumable-product`** | dbt on BigQuery | FDP → CDP | Three-FDP JOIN into `cdp_generic.customer_risk_profile` |
 | 5 | **`mainframe-segment-transform`** | Dataflow (Beam) | CDP → GCS | Fixed-width segment file export for mainframe consumption |
 
-Units 1–3 form the active CI/CD deployment (deployed by `deploy-generic.yml`). Units 4 and 5 complete the full round-trip back to mainframe segment files.
+Units 1–3 are the only actively deployed units (automatically built, tested, and released by `deploy-generic.yml` on every push to `main`). Units 4 and 5 are reference/specialist deployments that complete the full round-trip back to mainframe segment files; they are included as architectural examples but are not part of the standard CI/CD pipeline.
 
 ### 3.2 Component Interaction Map
 
@@ -129,7 +129,7 @@ Stores `AuditRecord` events published by `gcp-pipeline-core.audit.AuditPublisher
 
 | Layer | Dataset | Description | Deployed by |
 |-------|---------|-------------|-------------|
-| **ODP** (Original Data Product) | `odp_generic` | 1:1 raw copy of mainframe data. Audit columns `_run_id`, `_source_file`, `_processed_at`, `_extract_date`. Append-only, partitioned by `_extract_date`. | Unit 1 — `original-data-to-bigqueryload` |
+| **ODP** (Original Data Product) | `odp_generic` | 1:1 raw copy of mainframe data. Audit columns `_run_id`, `_source_file`, `_processed_ts`, `_extract_date`. Append-only, partitioned by `_extract_date`. | Unit 1 — `original-data-to-bigqueryload` |
 | **FDP** (Foundation Data Product) | `fdp_generic` | Business-ready, joined/mapped models. Includes `_run_id` and `_transformed_ts` for full lineage. Three tables: `event_transaction_excess`, `portfolio_account_excess`, `portfolio_account_facility`. | Unit 2 — `bigquery-to-mapped-product` |
 | **CDP** (Consumable Data Product) | `cdp_generic` | Denormalised view per customer joining all three FDP tables. One row per `customer_id + extract_date`. Drives the outbound segment export. | Unit 4 — `fdp-to-consumable-product` |
 | **Segments** (GCS export) | GCS bucket `*-segments` | Fixed-width 200-char mainframe segment files, one file set per CDP segment category (`ACTIVE_APPROVED`, `DECLINED`, `REFERRED`, `PENDING`). | Unit 5 — `mainframe-segment-transform` |
@@ -337,7 +337,7 @@ Any tool that respects the Metadata Contract (accepts `run_id`, updates `job_con
 To replace the Beam ingestion with an in-house tool:
 
 1. **Accept `run_id`**: The tool must accept a `run_id` as a parameter.
-2. **Audit Columns**: Populate `_run_id` and `_processed_at` in the target ODP table.
+2. **Audit Columns**: Populate `_run_id` and `_processed_ts` in the target ODP table.
 3. **State Management**: Update `job_control` status using `JobControlRepository`.
 
 ```python
@@ -403,7 +403,7 @@ A custom pattern can be promoted if it:
 
 1. **Mandatory Core Integration**: Every paved path MUST use `gcp-pipeline-core`. It is the only source of truth for `PipelineJob` models and `AuditTrail` logic.
 2. **Metadata Contract Compliance**: Every unit must accept a `run_id` as its primary correlation key and must update `job_control` state (`PENDING → RUNNING → SUCCESS/FAILED`) using `JobControlRepository`.
-3. **Strict Audit Lineage**: All data written to BigQuery (ODP or FDP) MUST include `_run_id` and a processing timestamp (`_processed_at` or `_transformed_at`).
+3. **Strict Audit Lineage**: All data written to BigQuery (ODP or FDP) MUST include `_run_id` and a processing timestamp (`_processed_ts` or `_transformed_at`).
 4. **Functional Decoupling**: Ingestion logic must not be embedded in Transformation scripts; Orchestration must remain engine-agnostic.
 5. **Standardised Observability**: All components must implement Structured JSON Logging and export standardised metrics as defined in `gcp-pipeline-core`.
 6. **Security Isolation**: Each functional unit must run under a dedicated Service Account with PoLP permissions.

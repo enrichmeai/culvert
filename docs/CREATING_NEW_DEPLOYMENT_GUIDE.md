@@ -128,7 +128,7 @@ cp templates/dags/template_fdp_transform_dag.py \
 |-------------|-------------|---------|
 | `<SYSTEM_ID>` | Uppercase system constant | `MYAPP` |
 | `<system_id>` | Lowercase path/ID | `myapp` |
-| `REQUIRED_ENTITIES` | List of entities for this system | `['customers', 'accounts']` |
+| `REQUIRED_ENTITIES` | List of entities for this system | `['customers', 'accounts', 'decision', 'applications']` |
 
 **Customise for your pattern:**
 
@@ -193,8 +193,8 @@ The `templates/` directory provides ready-to-use starting points:
 
 The Generic system demonstrates both orchestration patterns:
 
-- [Generic Ingestion (JOIN pattern)](../deployments/original-data-to-bigqueryload/README.md) — 3 entities (Customers, Accounts, Decision) → ODP → FDP
-- [Generic Transformation (MAP + JOIN)](../deployments/bigquery-to-mapped-product/README.md) — ODP tables → FDP via dbt
+- [Generic Ingestion (JOIN pattern)](../deployments/original-data-to-bigqueryload/README.md) — 4 entities (Customers, Accounts, Decision, Applications) → ODP → FDP
+- [Generic Transformation (MAP + JOIN)](../deployments/bigquery-to-mapped-product/README.md) — ODP tables → FDP via dbt (`event_transaction_excess`, `portfolio_account_excess`, `portfolio_account_facility`)
 - [Generic Orchestration](../deployments/data-pipeline-orchestrator/README.md) — Cloud Composer DAGs coordinating ingestion and transformation
 
 > **See also:** [Technical Architecture](./TECHNICAL_ARCHITECTURE.md) for the JOIN vs MAP pattern decision guide.
