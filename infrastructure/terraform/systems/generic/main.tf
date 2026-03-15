@@ -317,6 +317,8 @@ resource "google_bigquery_table" "odp_customers" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Customers errors table
@@ -341,6 +343,8 @@ resource "google_bigquery_table" "odp_customers_errors" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Accounts table
@@ -371,6 +375,8 @@ resource "google_bigquery_table" "odp_accounts" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Accounts errors table
@@ -395,6 +401,8 @@ resource "google_bigquery_table" "odp_accounts_errors" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Decision table
@@ -426,6 +434,8 @@ resource "google_bigquery_table" "odp_decision" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Decision errors table
@@ -450,6 +460,8 @@ resource "google_bigquery_table" "odp_decision_errors" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Applications table
@@ -484,6 +496,8 @@ resource "google_bigquery_table" "odp_applications" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ODP: Applications errors table
@@ -508,6 +522,8 @@ resource "google_bigquery_table" "odp_applications_errors" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================
@@ -545,6 +561,8 @@ resource "google_bigquery_table" "fdp_event_transaction_excess" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # FDP: Portfolio Account Excess (JOIN: customers + decision)
@@ -575,6 +593,8 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # FDP: Portfolio Account Facility (MAP: applications)
@@ -607,6 +627,8 @@ resource "google_bigquery_table" "fdp_portfolio_account_facility" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================
@@ -645,6 +667,8 @@ resource "google_bigquery_table" "pipeline_jobs" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "audit_trail" {
@@ -668,6 +692,8 @@ resource "google_bigquery_table" "audit_trail" {
   ])
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================
