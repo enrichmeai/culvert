@@ -166,58 +166,78 @@ jobs:
       with:
         terraform_version: 1.7.0
 
-    - name: Terraform Apply (Ingestion — GCS, Pub/Sub, BQ ODP)
+    - name: Terraform Init
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
       run: |
-        cd infrastructure/terraform/systems/generic/ingestion
+        cd infrastructure/terraform/systems/generic
         terraform init \
           -backend-config="bucket=gcp-pipeline-terraform-state" \
-          -backend-config="prefix=generic/ingestion"
-        terraform apply -auto-approve
+          -backend-config="prefix=generic/${{ github.event.inputs.environment || 'int' }}"
 
-    - name: Terraform Apply (Transformation — BQ FDP)
+    - name: Terraform Import Existing Resources
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
       run: |
-        cd infrastructure/terraform/systems/generic/transformation
-        terraform init \
-          -backend-config="bucket=gcp-pipeline-terraform-state" \
-          -backend-config="prefix=generic/transformation"
-        terraform apply -auto-approve
-
-    - name: Terraform Apply (Orchestration — Composer, IAM, Job Control)
-      env:
-        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
-        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
-      run: |
-        cd infrastructure/terraform/systems/generic/orchestration
-        terraform init \
-          -backend-config="bucket=gcp-pipeline-terraform-state" \
-          -backend-config="prefix=generic/orchestration"
-        terraform apply -auto-approve
-
-    - name: Setup GCS Notifications
-      run: |
+        cd infrastructure/terraform/systems/generic
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         ENV="${{ github.event.inputs.environment || 'int' }}"
-        BUCKET="${PROJECT_ID}-generic-${ENV}-landing"
 
-        # Create GCS → Pub/Sub notification if it doesn't exist
-        EXISTING=$(gsutil notification list gs://${BUCKET} 2>/dev/null | grep "generic-file-notifications" || true)
-        if [ -z "$EXISTING" ]; then
-          gsutil notification create \
-            -t generic-file-notifications \
-            -f json \
-            -e OBJECT_FINALIZE \
-            -p generic/ \
-            gs://${BUCKET}
-          echo "GCS notification created for ${BUCKET}"
-        else
-          echo "GCS notification already exists for ${BUCKET}"
-        fi
+        # Import existing resources into state (idempotent — skips if already in state)
+        import_resource() {
+          local addr=$1
+          local id=$2
+          if terraform state show "$addr" &>/dev/null; then
+            echo "  Already in state: $addr"
+          else
+            echo "  Importing: $addr"
+            terraform import "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
+          fi
+        }
+
+        echo "=== Importing existing GCS buckets ==="
+        import_resource "google_storage_bucket.landing" "${PROJECT_ID}-generic-${ENV}-landing"
+        import_resource "google_storage_bucket.archive" "${PROJECT_ID}-generic-${ENV}-archive"
+        import_resource "google_storage_bucket.error" "${PROJECT_ID}-generic-${ENV}-error"
+        import_resource "google_storage_bucket.temp" "${PROJECT_ID}-generic-${ENV}-temp"
+
+        echo "=== Importing existing Pub/Sub ==="
+        import_resource "google_pubsub_topic.generic_file_notifications" "projects/${PROJECT_ID}/topics/generic-file-notifications"
+        import_resource "google_pubsub_topic.generic_dead_letter" "projects/${PROJECT_ID}/topics/generic-file-notifications-dead-letter"
+        import_resource "google_pubsub_subscription.generic_file_notifications_sub" "projects/${PROJECT_ID}/subscriptions/generic-file-notifications-sub"
+
+        echo "=== Importing existing BigQuery datasets ==="
+        import_resource "google_bigquery_dataset.odp_generic" "projects/${PROJECT_ID}/datasets/odp_generic"
+        import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
+        import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
+
+        echo "=== Importing existing BigQuery tables ==="
+        for entity in customers accounts decision applications; do
+          import_resource "google_bigquery_table.odp_${entity}" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}"
+          import_resource "google_bigquery_table.odp_${entity}_errors" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}_errors"
+        done
+        import_resource "google_bigquery_table.fdp_event_transaction_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/event_transaction_excess"
+        import_resource "google_bigquery_table.fdp_portfolio_account_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_excess"
+        import_resource "google_bigquery_table.fdp_portfolio_account_facility" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_facility"
+        import_resource "google_bigquery_table.pipeline_jobs" "projects/${PROJECT_ID}/datasets/job_control/tables/pipeline_jobs"
+        import_resource "google_bigquery_table.audit_trail" "projects/${PROJECT_ID}/datasets/job_control/tables/audit_trail"
+
+        echo "=== Importing existing service accounts ==="
+        import_resource "google_service_account.generic_dataflow" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
+        import_resource "google_service_account.generic_dbt" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dbt@${PROJECT_ID}.iam.gserviceaccount.com"
+        import_resource "google_service_account.generic_composer" "projects/${PROJECT_ID}/serviceAccounts/generic-composer-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+
+        echo "=== Import complete ==="
+
+    - name: Terraform Apply
+      env:
+        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+      run: |
+        cd infrastructure/terraform/systems/generic
+        terraform apply -auto-approve
 
     - name: Validate Infrastructure (scripts)
       env:
