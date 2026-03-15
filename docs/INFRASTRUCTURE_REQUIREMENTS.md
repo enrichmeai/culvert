@@ -3,7 +3,7 @@
 > **Last Updated:** March 2026  
 > **Version:** 2.0
 
-This document provides a complete reference for all GCP infrastructure required for each deployment type in the legacy-migration-reference framework.
+This document provides a complete reference for all GCP infrastructure required for each deployment type in the gcp-pipeline-reference framework.
 
 ---
 

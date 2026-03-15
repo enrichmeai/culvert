@@ -1,6 +1,6 @@
 # GCP Deployment & Configuration Guide
 
-This document provides complete instructions for deploying the legacy-migration-reference framework to Google Cloud Platform.
+This document provides complete instructions for deploying the gcp-pipeline-reference framework to Google Cloud Platform.
 
 ## Table of Contents
 
@@ -206,8 +206,8 @@ Each deployment creates dedicated service accounts. For example:
 
 | Service Account | Purpose | Key Roles |
 |-----------------|---------|-----------|
-| `generic-dev-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
-| `generic-dev-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
+| `generic-int-dataflow` | Dataflow pipeline execution | `dataflow.worker`, `storage.objectAdmin`, `bigquery.dataEditor` |
+| `generic-int-dbt` | dbt transformations | `bigquery.dataViewer`, `bigquery.dataEditor` |
 | `generic-composer-sa` | Airflow orchestration | `composer.worker`, `dataflow.admin`, `bigquery.admin`, `storage.admin` |
 
 #### Generic Deployment
@@ -265,7 +265,7 @@ Each deployment provisions:
 Use the provided scripts for end-to-end deployment:
 
 ```bash
-cd legacy-migration-reference
+cd gcp-pipeline-reference
 
 # Full deployment (Generic + Generic)
 ./scripts/gcp/deploy_all.sh all
@@ -352,12 +352,12 @@ gsutil ls -p $PROJECT_ID | grep -E "(generic|generic)"
 
 Expected output:
 ```
-gs://{project}-generic-dev-landing/
-gs://{project}-generic-dev-archive/
-gs://{project}-generic-dev-error/
-gs://{project}-generic-dev-landing/
-gs://{project}-generic-dev-archive/
-gs://{project}-generic-dev-error/
+gs://{project}-generic-int-landing/
+gs://{project}-generic-int-archive/
+gs://{project}-generic-int-error/
+gs://{project}-generic-int-landing/
+gs://{project}-generic-int-archive/
+gs://{project}-generic-int-error/
 ```
 
 ### Verify BigQuery Datasets
@@ -414,11 +414,11 @@ TRL|RecordCount=2|Checksum=abc123
 EOF
 
 # Upload to landing bucket
-gsutil cp /tmp/generic_customers_20260104.csv gs://${PROJECT_ID}-generic-dev-landing/generic/
+gsutil cp /tmp/generic_customers_20260104.csv gs://${PROJECT_ID}-generic-int-landing/generic/
 
 # Create trigger file
 touch /tmp/generic_customers_20260104.ok
-gsutil cp /tmp/generic_customers_20260104.ok gs://${PROJECT_ID}-generic-dev-landing/generic/
+gsutil cp /tmp/generic_customers_20260104.ok gs://${PROJECT_ID}-generic-int-landing/generic/
 ```
 
 ### 2. Verify Pub/Sub Message
@@ -435,7 +435,7 @@ gcloud pubsub subscriptions pull generic-file-notifications-sub \
 
 ```bash
 # Get Composer environment details
-gcloud composer environments describe generic-dev-composer \
+gcloud composer environments describe generic-int-composer \
     --location=$REGION \
     --project=$PROJECT_ID
 ```
