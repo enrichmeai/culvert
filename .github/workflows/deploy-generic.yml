@@ -208,19 +208,23 @@ jobs:
         import_resource "google_pubsub_topic.generic_dead_letter" "projects/${PROJECT_ID}/topics/generic-file-notifications-dead-letter"
         import_resource "google_pubsub_subscription.generic_file_notifications_sub" "projects/${PROJECT_ID}/subscriptions/generic-file-notifications-sub"
 
-        echo "=== Importing existing BigQuery datasets ==="
-        import_resource "google_bigquery_dataset.odp_generic" "projects/${PROJECT_ID}/datasets/odp_generic"
-        import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
-        import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
-
-        echo "=== Removing any previously imported BQ tables from state ==="
-        echo "  (Tables are managed by shell scripts and pipeline code, not Terraform)"
+        echo "=== Cleaning stale BQ state (tables + datasets) ==="
+        echo "  Removing previously imported BQ tables (managed by scripts, not Terraform)"
         for tbl in odp_customers odp_customers_errors odp_accounts odp_accounts_errors \
                     odp_decision odp_decision_errors odp_applications odp_applications_errors \
                     fdp_event_transaction_excess fdp_portfolio_account_excess fdp_portfolio_account_facility \
                     pipeline_jobs audit_trail; do
           terraform state rm "google_bigquery_table.${tbl}" 2>/dev/null || true
         done
+        echo "  Removing stale dataset imports (will re-import with correct location)"
+        for ds in odp_generic fdp_generic job_control; do
+          terraform state rm "google_bigquery_dataset.${ds}" 2>/dev/null || true
+        done
+
+        echo "=== Importing existing BigQuery datasets (fresh) ==="
+        import_resource "google_bigquery_dataset.odp_generic" "projects/${PROJECT_ID}/datasets/odp_generic"
+        import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
+        import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
 
         echo "=== Importing existing service accounts ==="
         import_resource "google_service_account.generic_dataflow" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
