@@ -290,8 +290,9 @@ resource "google_bigquery_dataset" "job_control" {
 
 # ODP: Customers table
 resource "google_bigquery_table" "odp_customers" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "customers"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "customers"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -320,8 +321,9 @@ resource "google_bigquery_table" "odp_customers" {
 
 # ODP: Customers errors table
 resource "google_bigquery_table" "odp_customers_errors" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "customers_errors"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "customers_errors"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -343,8 +345,9 @@ resource "google_bigquery_table" "odp_customers_errors" {
 
 # ODP: Accounts table
 resource "google_bigquery_table" "odp_accounts" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "accounts"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "accounts"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -372,8 +375,9 @@ resource "google_bigquery_table" "odp_accounts" {
 
 # ODP: Accounts errors table
 resource "google_bigquery_table" "odp_accounts_errors" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "accounts_errors"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "accounts_errors"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -395,8 +399,9 @@ resource "google_bigquery_table" "odp_accounts_errors" {
 
 # ODP: Decision table
 resource "google_bigquery_table" "odp_decision" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "decision"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "decision"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -425,8 +430,9 @@ resource "google_bigquery_table" "odp_decision" {
 
 # ODP: Decision errors table
 resource "google_bigquery_table" "odp_decision_errors" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "decision_errors"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "decision_errors"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -448,8 +454,9 @@ resource "google_bigquery_table" "odp_decision_errors" {
 
 # ODP: Applications table
 resource "google_bigquery_table" "odp_applications" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "applications"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "applications"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -481,8 +488,9 @@ resource "google_bigquery_table" "odp_applications" {
 
 # ODP: Applications errors table
 resource "google_bigquery_table" "odp_applications_errors" {
-  dataset_id = google_bigquery_dataset.odp_generic.dataset_id
-  table_id   = "applications_errors"
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "applications_errors"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -606,8 +614,9 @@ resource "google_bigquery_table" "fdp_portfolio_account_facility" {
 # ============================================================================
 
 resource "google_bigquery_table" "pipeline_jobs" {
-  dataset_id = google_bigquery_dataset.job_control.dataset_id
-  table_id   = "pipeline_jobs"
+  dataset_id          = google_bigquery_dataset.job_control.dataset_id
+  table_id            = "pipeline_jobs"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
@@ -639,8 +648,9 @@ resource "google_bigquery_table" "pipeline_jobs" {
 }
 
 resource "google_bigquery_table" "audit_trail" {
-  dataset_id = google_bigquery_dataset.job_control.dataset_id
-  table_id   = "audit_trail"
+  dataset_id          = google_bigquery_dataset.job_control.dataset_id
+  table_id            = "audit_trail"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
