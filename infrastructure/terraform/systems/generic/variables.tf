@@ -22,7 +22,7 @@ variable "gcp_region" {
 variable "bq_location" {
   description = "BigQuery dataset location"
   type        = string
-  default     = "europe-west2" # Must match existing datasets
+  default     = "EU" # Must match existing datasets (created by shell script as EU multi-region)
 }
 
 # ============================================================================
