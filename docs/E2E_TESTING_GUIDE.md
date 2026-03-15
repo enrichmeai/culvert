@@ -27,7 +27,7 @@ gh run list --limit 4
 # Check Composer environment
 gcloud composer environments list --locations=europe-west2
 
-# Expected: generic-dev-composer with state RUNNING
+# Expected: generic-int-composer with state RUNNING
 ```
 
 ```bash
@@ -42,9 +42,9 @@ bq ls
 gsutil ls | grep generic
 
 # Expected:
-# gs://{project}-generic-dev-archive/
-# gs://{project}-generic-dev-error/
-# gs://{project}-generic-dev-landing/
+# gs://{project}-generic-int-archive/
+# gs://{project}-generic-int-error/
+# gs://{project}-generic-int-landing/
 ```
 
 ```bash
@@ -61,15 +61,15 @@ PROJECT_ID=$(gcloud config get-value project)
 
 # Upload the test data file (uses existing sample data)
 gsutil cp deployments/generic/tests/data/generic_customers_sample.csv \
-  gs://${PROJECT_ID}-generic-dev-landing/generic/
+  gs://${PROJECT_ID}-generic-int-landing/generic/
 
 # Upload the trigger file (.ok) - this triggers the pipeline
 touch /tmp/generic_customers_sample.ok
 gsutil cp /tmp/generic_customers_sample.ok \
-  gs://${PROJECT_ID}-generic-dev-landing/generic/
+  gs://${PROJECT_ID}-generic-int-landing/generic/
 
 # Verify files uploaded
-gsutil ls gs://${PROJECT_ID}-generic-dev-landing/generic/
+gsutil ls gs://${PROJECT_ID}-generic-int-landing/generic/
 ```
 
 ### Step 4: Verify Pub/Sub Notification
@@ -91,7 +91,7 @@ PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
 # Get the Composer DAGs bucket
-DAGS_BUCKET=$(gcloud composer environments describe generic-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe generic-int-composer \
   --location=$REGION \
   --format='value(config.dagGcsPrefix)')
 
@@ -109,7 +109,7 @@ gsutil ls ${DAGS_BUCKET}/generic/
 
 ```bash
 # Get Composer environment URL
-gcloud composer environments describe generic-dev-composer \
+gcloud composer environments describe generic-int-composer \
   --location=europe-west2 \
   --format='value(config.airflowUri)'
 
@@ -156,7 +156,7 @@ gh run list --limit 4
 # Check Composer environment
 gcloud composer environments list --locations=europe-west2
 
-# Expected: generic-dev-composer with state RUNNING
+# Expected: generic-int-composer with state RUNNING
 ```
 
 ```bash
@@ -171,9 +171,9 @@ bq ls | grep generic
 gsutil ls | grep generic
 
 # Expected:
-# gs://{project}-generic-dev-archive/
-# gs://{project}-generic-dev-error/
-# gs://{project}-generic-dev-landing/
+# gs://{project}-generic-int-archive/
+# gs://{project}-generic-int-error/
+# gs://{project}-generic-int-landing/
 ```
 
 ### Step 3: Upload Test Data
@@ -183,12 +183,12 @@ PROJECT_ID=$(gcloud config get-value project)
 
 # Upload the test data file
 gsutil cp deployments/generic/tests/data/generic_applications_sample.csv \
-  gs://${PROJECT_ID}-generic-dev-landing/generic/
+  gs://${PROJECT_ID}-generic-int-landing/generic/
 
 # Upload the trigger file (.ok)
 touch /tmp/generic_applications_sample.ok
 gsutil cp /tmp/generic_applications_sample.ok \
-  gs://${PROJECT_ID}-generic-dev-landing/generic/
+  gs://${PROJECT_ID}-generic-int-landing/generic/
 ```
 
 ### Step 4: Verify Pub/Sub Notification
@@ -205,7 +205,7 @@ PROJECT_ID=$(gcloud config get-value project)
 REGION="europe-west2"
 
 # Get the Composer DAGs bucket
-DAGS_BUCKET=$(gcloud composer environments describe generic-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe generic-int-composer \
   --location=$REGION \
   --format='value(config.dagGcsPrefix)')
 
@@ -222,10 +222,10 @@ gsutil -m cp -r deployments/generic/src/generic/orchestration/airflow/dags/* \
 PROJECT_ID=$(gcloud config get-value project)
 
 # Remove Generic test files
-gsutil rm gs://${PROJECT_ID}-generic-dev-landing/generic/generic_customers_sample.*
+gsutil rm gs://${PROJECT_ID}-generic-int-landing/generic/generic_customers_sample.*
 
 # Remove Generic test files
-gsutil rm gs://${PROJECT_ID}-generic-dev-landing/generic/generic_applications_sample.*
+gsutil rm gs://${PROJECT_ID}-generic-int-landing/generic/generic_applications_sample.*
 ```
 
 ---
@@ -246,7 +246,7 @@ To completely remove all resources:
 
 ```bash
 # Check GCS notification configuration
-gsutil notification list gs://${PROJECT_ID}-generic-dev-landing
+gsutil notification list gs://${PROJECT_ID}-generic-int-landing
 
 # Verify topic exists
 gcloud pubsub topics describe generic-file-notifications
@@ -256,7 +256,7 @@ gcloud pubsub topics describe generic-file-notifications
 
 ```bash
 # Check environment status
-gcloud composer environments describe generic-dev-composer \
+gcloud composer environments describe generic-int-composer \
   --location=europe-west2
 
 # Check environment logs
@@ -274,7 +274,7 @@ bq show --format=prettyjson odp_generic
 
 ```bash
 # Check if DAGs were uploaded
-DAGS_BUCKET=$(gcloud composer environments describe generic-dev-composer \
+DAGS_BUCKET=$(gcloud composer environments describe generic-int-composer \
   --location=europe-west2 \
   --format='value(config.dagGcsPrefix)')
 gsutil ls ${DAGS_BUCKET}/

@@ -46,7 +46,7 @@ TRL|RecordCount={n}|Checksum={hash}   ← Trailer record
 ```bash
 # Clone repository
 git clone <repo-url>
-cd legacy-migration-reference
+cd gcp-pipeline-reference
 
 # Create virtual environment
 python3 -m venv .venv
@@ -111,7 +111,7 @@ To avoid Python module caching conflicts, run tests for each component **separat
 ### Running Tests Manually
 
 ```bash
-cd /path/to/legacy-migration-reference
+cd /path/to/gcp-pipeline-reference
 
 # Core library tests (208 tests)
 cd gcp-pipeline-libraries/gcp-pipeline-core
