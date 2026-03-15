@@ -4,24 +4,24 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-framework"
-version = "1.0.10"
+version = "1.0.11"
 description = "Umbrella package for GCP Data Migration Pipeline Libraries"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "gcp-pipeline-core==1.0.10",
-    "gcp-pipeline-beam==1.0.10",
-    "gcp-pipeline-orchestration==1.0.10",
-    "gcp-pipeline-transform==1.0.10",
-    "gcp-pipeline-tester==1.0.10",
+    "gcp-pipeline-core==1.0.11",
+    "gcp-pipeline-beam==1.0.11",
+    "gcp-pipeline-orchestration==1.0.11",
+    "gcp-pipeline-transform==1.0.11",
+    "gcp-pipeline-tester==1.0.11",
 ]
 
 [project.optional-dependencies]
-core = ["gcp-pipeline-core==1.0.10"]
-beam = ["gcp-pipeline-beam==1.0.10"]
-orchestration = ["gcp-pipeline-orchestration==1.0.10"]
-transform = ["gcp-pipeline-transform==1.0.10"]
-tester = ["gcp-pipeline-tester==1.0.10"]
+core = ["gcp-pipeline-core==1.0.11"]
+beam = ["gcp-pipeline-beam==1.0.11"]
+orchestration = ["gcp-pipeline-orchestration==1.0.11"]
+transform = ["gcp-pipeline-transform==1.0.11"]
+tester = ["gcp-pipeline-tester==1.0.11"]
 
 [project.urls]
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
