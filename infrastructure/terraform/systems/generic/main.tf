@@ -262,6 +262,8 @@ resource "google_bigquery_dataset" "odp_generic" {
   location      = var.bq_location
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [location] }
 }
 
 # FDP dataset - Foundation Data Product (transformed)
@@ -272,6 +274,8 @@ resource "google_bigquery_dataset" "fdp_generic" {
   location      = var.bq_location
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [location] }
 }
 
 # Job control dataset (shared across systems)
@@ -282,6 +286,8 @@ resource "google_bigquery_dataset" "job_control" {
   location      = var.bq_location
 
   labels = local.common_labels
+
+  lifecycle { ignore_changes = [location] }
 }
 
 # ============================================================================
