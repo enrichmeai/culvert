@@ -333,7 +333,7 @@ def get_pipeline_options(file_size_mb: int) -> PipelineOptions:
     "description": "Ingests mainframe files to BigQuery ODP layer",
     "parameters": [
       {
-        "name": "input_file",
+        "name": "source_file",
         "label": "Input file pattern",
         "helpText": "GCS path pattern for input files",
         "isOptional": false
@@ -661,7 +661,7 @@ fi
 gcloud dataflow flex-template run "ingestion-$(date +%Y%m%d-%H%M%S)" \
     --template-file-gcs-location="gs://${PROJECT_ID}-dataflow-templates/ingestion-template.json" \
     --region="europe-west2" \
-    --parameters="input_file=${INPUT_FILE}" \
+    --parameters="source_file=${INPUT_FILE}" \
     --parameters="worker_machine_type=${MACHINE_TYPE}" \
     --parameters="max_num_workers=${MAX_WORKERS}" \
     --service-account-email="${SERVICE_ACCOUNT}"
