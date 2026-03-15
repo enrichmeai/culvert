@@ -63,7 +63,7 @@ locals {
   }
 
   # Generic entity configuration
-  generic_entities = ["customers", "accounts", "decision"]
+  generic_entities = ["customers", "accounts", "decision", "applications"]
 }
 
 # ============================================================================

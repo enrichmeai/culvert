@@ -193,7 +193,7 @@ run_dataflow = DataflowStartFlexTemplateOperator(
             'jobName': f'{SYSTEM_ID_LOWER}-ingestion-{{{{ ds_nodash }}}}',
             'containerSpecGcsPath': f'gs://{PROJECT_ID}-dataflow-templates/templates/ingestion-pipeline.json',
             'parameters': {
-                'input_file': '{{ dag_run.conf.file_metadata.data_file }}',
+                'source_file': '{{ dag_run.conf.file_metadata.data_file }}',
                 'output_table': f'{PROJECT_ID}:odp_{SYSTEM_ID_LOWER}.{{{{ dag_run.conf.file_metadata.entity }}}}',
                 'run_id': '{{ ti.xcom_pull(key="run_id") }}',
             },

@@ -58,7 +58,7 @@ variable "enable_versioning" {
 variable "generic_entities" {
   description = "List of Generic entities"
   type        = list(string)
-  default     = ["customers", "accounts", "decision"]
+  default     = ["customers", "accounts", "decision", "applications"]
 }
 
 variable "log_retention_days" {

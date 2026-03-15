@@ -134,7 +134,7 @@ jobs:
     name: Deploy Infrastructure
     runs-on: ubuntu-latest
     needs: [fetch-version, test]
-    timeout-minutes: 30
+    timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
 
     steps:
@@ -161,12 +161,43 @@ jobs:
         chmod +x scripts/gcp/02_create_state_bucket.sh
         ./scripts/gcp/02_create_state_bucket.sh || echo "State bucket may already exist"
 
-    - name: Create Infrastructure
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.7.0
+
+    - name: Terraform Apply (Ingestion — GCS, Pub/Sub, BQ ODP)
       env:
-        ENVIRONMENT: ${{ github.event.inputs.environment || 'int' }}
+        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
       run: |
-        chmod +x scripts/gcp/03_create_infrastructure.sh
-        ./scripts/gcp/03_create_infrastructure.sh generic || echo "Some infrastructure may already exist"
+        cd infrastructure/terraform/systems/generic/ingestion
+        terraform init \
+          -backend-config="bucket=gcp-pipeline-terraform-state" \
+          -backend-config="prefix=generic/ingestion"
+        terraform apply -auto-approve
+
+    - name: Terraform Apply (Transformation — BQ FDP)
+      env:
+        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+      run: |
+        cd infrastructure/terraform/systems/generic/transformation
+        terraform init \
+          -backend-config="bucket=gcp-pipeline-terraform-state" \
+          -backend-config="prefix=generic/transformation"
+        terraform apply -auto-approve
+
+    - name: Terraform Apply (Orchestration — Composer, IAM, Job Control)
+      env:
+        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+      run: |
+        cd infrastructure/terraform/systems/generic/orchestration
+        terraform init \
+          -backend-config="bucket=gcp-pipeline-terraform-state" \
+          -backend-config="prefix=generic/orchestration"
+        terraform apply -auto-approve
 
     - name: Setup GCS Notifications
       run: |
@@ -188,19 +219,30 @@ jobs:
           echo "GCS notification already exists for ${BUCKET}"
         fi
 
-    - name: Verify Infrastructure
+    - name: Validate Infrastructure (scripts)
+      env:
+        ENVIRONMENT: ${{ github.event.inputs.environment || 'int' }}
       run: |
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         ENV="${{ github.event.inputs.environment || 'int' }}"
 
+        echo "=== Validating Terraform-provisioned infrastructure ==="
+
         echo "GCS Buckets (generic-$ENV):"
-        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic-${ENV}" || echo "  Not found"
+        gsutil ls -p $PROJECT_ID 2>/dev/null | grep "generic-${ENV}" || echo "  MISSING"
 
         echo "BigQuery Datasets:"
-        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control" || echo "  Not found"
+        bq ls --project_id=$PROJECT_ID 2>/dev/null | grep -E "odp_generic|fdp_generic|job_control|cdp_generic" || echo "  MISSING"
 
         echo "Pub/Sub Topics:"
-        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  Not found"
+        gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  MISSING"
+
+        echo "Cloud Composer:"
+        gcloud composer environments describe "generic-${ENV}-composer" \
+          --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
+          --format='value(state)' 2>/dev/null || echo "  NOT PROVISIONED"
+
+        echo "=== Validation complete ==="
 
   # ==========================================================================
   # Deploy Dataflow Flex Template (original-data-to-bigqueryload)

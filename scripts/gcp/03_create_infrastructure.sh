@@ -236,6 +236,43 @@ SCHEMA
     create_topic "generic-pipeline-events"
     create_subscription "generic-file-notifications-sub" "generic-file-notifications"
     create_subscription "generic-pipeline-events-sub" "generic-pipeline-events"
+
+    echo ""
+    echo "Cloud Composer (Orchestration):"
+    COMPOSER_ENV="generic-${ENVIRONMENT}-composer"
+    if gcloud composer environments describe "$COMPOSER_ENV" \
+        --location="$REGION" --project="$PROJECT_ID" &>/dev/null; then
+        echo -e "  ${YELLOW}Exists:${NC} $COMPOSER_ENV"
+    else
+        echo -e "  Creating: $COMPOSER_ENV (this takes 15-25 minutes)..."
+        gcloud composer environments create "$COMPOSER_ENV" \
+            --project="$PROJECT_ID" \
+            --location="$REGION" \
+            --image-version=composer-2.9.7-airflow-2.9.3 \
+            --environment-size=small \
+            --service-account="github-actions-deploy@${PROJECT_ID}.iam.gserviceaccount.com" \
+            && echo -e "  ${GREEN}✅ Composer created${NC}" \
+            || echo -e "  ${YELLOW}⚠️ Composer creation failed (check permissions/quotas)${NC}"
+    fi
+
+    # Set up GCS notification → Pub/Sub for the landing bucket
+    echo ""
+    echo "GCS Notifications:"
+    LANDING_BUCKET="gs://${PROJECT_ID}-generic-${ENVIRONMENT}-landing"
+    EXISTING_NOTIFICATIONS=$(gsutil notification list "$LANDING_BUCKET" 2>/dev/null | grep "generic-file-notifications" || true)
+    if [ -n "$EXISTING_NOTIFICATIONS" ]; then
+        echo -e "  ${YELLOW}Exists:${NC} GCS notification on $LANDING_BUCKET"
+    else
+        echo -n "  Creating GCS notification → generic-file-notifications... "
+        gsutil notification create \
+            -t "generic-file-notifications" \
+            -f json \
+            -e OBJECT_FINALIZE \
+            -p "generic/" \
+            "$LANDING_BUCKET" \
+            && echo -e "${GREEN}✅${NC}" \
+            || echo -e "${YELLOW}⚠️ (check permissions)${NC}"
+    fi
     echo ""
 }
 
