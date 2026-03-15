@@ -213,16 +213,14 @@ jobs:
         import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
         import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
 
-        echo "=== Importing existing BigQuery tables ==="
-        for entity in customers accounts decision applications; do
-          import_resource "google_bigquery_table.odp_${entity}" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}"
-          import_resource "google_bigquery_table.odp_${entity}_errors" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}_errors"
+        echo "=== Removing any previously imported BQ tables from state ==="
+        echo "  (Tables are managed by shell scripts and pipeline code, not Terraform)"
+        for tbl in odp_customers odp_customers_errors odp_accounts odp_accounts_errors \
+                    odp_decision odp_decision_errors odp_applications odp_applications_errors \
+                    fdp_event_transaction_excess fdp_portfolio_account_excess fdp_portfolio_account_facility \
+                    pipeline_jobs audit_trail; do
+          terraform state rm "google_bigquery_table.${tbl}" 2>/dev/null || true
         done
-        import_resource "google_bigquery_table.fdp_event_transaction_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/event_transaction_excess"
-        import_resource "google_bigquery_table.fdp_portfolio_account_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_excess"
-        import_resource "google_bigquery_table.fdp_portfolio_account_facility" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_facility"
-        import_resource "google_bigquery_table.pipeline_jobs" "projects/${PROJECT_ID}/datasets/job_control/tables/pipeline_jobs"
-        import_resource "google_bigquery_table.audit_trail" "projects/${PROJECT_ID}/datasets/job_control/tables/audit_trail"
 
         echo "=== Importing existing service accounts ==="
         import_resource "google_service_account.generic_dataflow" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
