@@ -32,9 +32,8 @@ from airflow.models import Variable
 from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor, PubSubCompletionSensor
 from gcp_pipeline_orchestration import EntityDependencyChecker, BaseDataflowOperator
 from gcp_pipeline_core.file_management import HDRTRLParser
-from gcp_pipeline_core.audit import AuditTrail
+from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
-from gcp_pipeline_core.audit import ReconciliationEngine
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
 
 logger = logging.getLogger(__name__)
