@@ -313,7 +313,7 @@ else:
 | # | Gap | Impact | Severity | Status |
 |---|-----|--------|----------|--------|
 | G6 | **RETRYING status never used** | Cannot distinguish "failed permanently" from "being retried" | MEDIUM | RESOLVED — `mark_retrying()` method added, called during ODP cleanup-before-retry |
-| G7 | **RecoveryManager is in-memory** | Checkpoints lost on worker restart. Useless for long-running Dataflow | MEDIUM | PLANNED |
+| G7 | **RecoveryManager is in-memory** | Checkpoints lost on worker restart. Useless for long-running Dataflow | MEDIUM | RESOLVED — `GCSRecoveryManager` persists checkpoints to GCS as JSON, restores on restart |
 | G8 | **Audit trail incomplete** | Only `record_processing_start()` called, never `_end()`. No FDP audit entries | MEDIUM | PLANNED |
 | G9 | **Error handler not integrated** | Classification, storage, alerting all available but not called from DAGs | MEDIUM | PLANNED |
 | G10 | **No FDP reconciliation** | ODP has record counts from HDR/TRL. FDP has no expected vs. actual comparison | MEDIUM | PLANNED |
