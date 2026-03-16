@@ -16,11 +16,11 @@
 4. [FDP Layer — Failure Scenarios & Recovery](#4-fdp-layer--failure-scenarios--recovery)
 5. [Current Guardrails Inventory](#5-current-guardrails-inventory)
 6. [Gap Analysis](#6-gap-analysis)
-7. [Required Changes — Library](#7-required-changes--library)
-8. [Required Changes — Infrastructure (Terraform)](#8-required-changes--infrastructure-terraform)
-9. [Required Changes — Orchestration (DAGs)](#9-required-changes--orchestration-dags)
-10. [Required Changes — dbt Models](#10-required-changes--dbt-models)
-11. [Required Changes — system.yaml Config](#11-required-changes--systemyaml-config)
+7. [Implemented Changes — Library](#7-implemented-changes--library)
+8. [Implemented Changes — Infrastructure (Terraform)](#8-implemented-changes--infrastructure-terraform)
+9. [Implemented Changes — Orchestration (DAGs)](#9-implemented-changes--orchestration-dags)
+10. [Implemented Changes — dbt Models](#10-implemented-changes--dbt-models)
+11. [Implemented Changes — system.yaml Config](#11-implemented-changes--systemyaml-config)
 12. [Test Scenarios for Testers](#12-test-scenarios-for-testers)
 
 ---
@@ -45,9 +45,9 @@ Mainframe CSV files → GCS landing bucket
 
 | DAG | Purpose | Job Control? |
 |-----|---------|-------------|
-| `{system}_pubsub_trigger_dag` | Listens for `.ok` files, validates, triggers ingestion | No record |
-| `{system}_ingestion_dag` | Creates job record, runs Dataflow, checks FDP deps | Yes — full lifecycle |
-| `{system}_transformation_dag` | Verifies deps, runs dbt staging → FDP → tests | Partial — calls `update_status` but **no create_job** |
+| `{system}_pubsub_trigger_dag` | Listens for `.ok` files, validates, triggers ingestion | No record (trigger only) |
+| `{system}_ingestion_dag` | Creates ODP_INGESTION job, runs Dataflow, reconciles, checks FDP deps | Yes — full lifecycle with reconciliation |
+| `{system}_transformation_dag` | Creates FDP_TRANSFORMATION job, runs dbt staging → FDP → tests → reconcile | Yes — full lifecycle with parent lineage |
 
 ---
 
@@ -57,28 +57,33 @@ Mainframe CSV files → GCS landing bucket
 
 Defined in `gcp-pipeline-core/job_control/types.py`:
 
-| Status | Meaning | Used Today? |
-|--------|---------|------------|
-| `PENDING` | Job record created, not yet started | Yes — ODP only |
-| `RUNNING` | Processing in progress | Yes — ODP only |
-| `SUCCESS` | Completed successfully | Yes — ODP + FDP (partial) |
-| `FAILED` | Processing failed | Yes — ODP only (via `on_failure_callback`) |
-| `RETRYING` | Automatic retry in progress | **No — defined but never set** |
-| `QUARANTINED` | Moved to quarantine for review | **No — defined but never set** |
+| Status | Meaning | Used? |
+|--------|---------|-------|
+| `PENDING` | Job record created, not yet started | Yes — ODP + FDP |
+| `RUNNING` | Processing in progress | Yes — ODP + FDP |
+| `SUCCESS` | Completed successfully | Yes — ODP + FDP |
+| `FAILED` | Processing failed | Yes — ODP + FDP (with error details, failure_stage) |
+| `RETRYING` | Previous failed job being retried | Yes — set by `mark_retrying()` during ODP cleanup-before-retry |
+| `QUARANTINED` | Moved to quarantine for review | Reserved — not yet used |
 
 ### 2.2 Failure Stages
 
 Defined in `gcp-pipeline-core/job_control/types.py`:
 
-| Stage | Meaning | Used Today? |
-|-------|---------|------------|
-| `FILE_DISCOVERY` | Could not find source files | Available but not set by DAGs |
-| `FILE_VALIDATION` | HDR/TRL parsing failed | Available but not set by DAGs |
-| `DATA_QUALITY` | Schema/field validation failed | Available but not set by DAGs |
-| `ODP_LOAD` | BigQuery write failed | Available but not set by DAGs |
-| `TRANSFORMATION` | dbt model failed | Available but not set by DAGs |
+| Stage | Meaning | Used? |
+|-------|---------|-------|
+| `FILE_DISCOVERY` | Could not find source files | Yes — ODP `create_job_record` task failures |
+| `FILE_VALIDATION` | HDR/TRL parsing failed | Available — set by trigger DAG validation |
+| `DATA_QUALITY` | Schema/field validation failed | Available — set by Beam pipeline |
+| `ODP_LOAD` | BigQuery write failed | Yes — Dataflow task failures |
+| `RECONCILIATION` | Source/dest count mismatch | Yes — ODP and FDP reconciliation task failures |
+| `FDP_DEPENDENCY` | Upstream ODP entities not loaded | Yes — transformation DAG dependency check failures |
+| `FDP_STAGING` | dbt staging view creation failed | Yes — `run_dbt_staging` task failures |
+| `FDP_MODEL` | dbt FDP model MERGE failed | Yes — `run_dbt_fdp` task failures |
+| `FDP_TEST` | dbt test assertion failed | Yes — `run_dbt_tests` task failures |
+| `TRANSFORMATION` | Generic transformation failure | Fallback — used when task_id doesn't match a specific stage |
 
-**Key finding**: The `mark_failed()` method in `JobControlRepository` accepts a `failure_stage` parameter, but the DAG's `on_failure_callback` calls `update_status(run_id, JobStatus.FAILED)` instead — meaning **failure_stage is never recorded**.
+All failure stages are now set by the DAG `on_failure_callback` functions using task-to-stage mapping.
 
 ### 2.3 Pipeline Jobs Table Schema
 
@@ -102,6 +107,11 @@ Table: `job_control.pipeline_jobs` (managed by Terraform)
 | `error_file_path` | STRING | GCS path to error log |
 | `created_at` | TIMESTAMP | Record creation time |
 | `updated_at` | TIMESTAMP | Last modification time |
+| `job_type` | STRING | `ODP_INGESTION`, `FDP_TRANSFORMATION`, or `CDP_TRANSFORMATION` |
+| `retry_count` | INT64 | Number of retry attempts |
+| `max_retries` | INT64 | Configured maximum retries |
+| `parent_run_ids` | ARRAY<STRING> | Source ODP job run_ids (FDP lineage) |
+| `dbt_model_name` | STRING | dbt model name (FDP/CDP jobs only) |
 
 ### 2.4 Audit Trail Table
 
@@ -140,16 +150,17 @@ Source: `gcp-pipeline-core/job_control/repository.py`
 ### 3.1 How ODP Ingestion Works (DAG 2: ingestion_dag)
 
 ```
-create_job_record → run_dataflow_pipeline → update_job_success → check_ready_fdp_models → trigger_ready_transforms
+create_job_record → run_dataflow_pipeline → update_job_success → reconcile_odp_load → check_ready_fdp_models → trigger_ready_transforms
 ```
 
-1. **create_job_record**: Creates `pipeline_jobs` record → PENDING → RUNNING
+1. **create_job_record**: Creates `ODP_INGESTION` pipeline_jobs record → PENDING → RUNNING. Cleans up partial data from prior FAILED runs.
 2. **run_dataflow_pipeline**: Launches Dataflow Flex Template (Apache Beam)
-3. **update_job_success**: Marks job SUCCESS with record count
-4. **check_ready_fdp_models**: Queries which FDP models have all ODP dependencies loaded
-5. **trigger_ready_transforms**: Triggers `transformation_dag` for each ready FDP model
+3. **update_job_success**: Marks job SUCCESS, records audit trail
+4. **reconcile_odp_load**: Compares HDR/TRL expected count vs BigQuery actual count. Raises exception on mismatch.
+5. **check_ready_fdp_models**: Queries which FDP models have all ODP dependencies loaded
+6. **trigger_ready_transforms**: Triggers `transformation_dag` for each ready FDP model
 
-**On failure**: `on_failure_callback` → `mark_job_failed()` → sets status to FAILED
+**On failure**: `on_failure_callback` → `mark_failed()` with `failure_stage`, `error_code`, `error_message` → `ErrorHandler` classifies and stores to GCS → `AuditTrail` records failure
 
 ### 3.2 Failure at Each Stage
 
@@ -186,15 +197,19 @@ create_job_record → run_dataflow_pipeline → update_job_success → check_rea
 ### 4.1 How FDP Transformation Works (DAG 3: transformation_dag)
 
 ```
-verify_model_dependencies ──┬──→ run_dbt_staging → run_dbt_fdp → run_dbt_tests → mark_success → end
-                            └──→ skip_transformation → end
+verify_model_dependencies ──┬──→ create_fdp_job_record → run_dbt_staging → run_dbt_fdp → run_dbt_tests → reconcile_fdp_model → mark_fdp_success → end
+                            └──→ handle_dependency_failure → end
 ```
 
-1. **verify_model_dependencies**: Queries `pipeline_jobs` for loaded entities. If all deps met → proceed. If not → skip.
-2. **run_dbt_staging**: `dbt run --select staging` (creates/refreshes staging views)
-3. **run_dbt_fdp**: `dbt run --select {fdp_model}` (incremental MERGE into FDP table)
-4. **run_dbt_tests**: `dbt test --select {fdp_model}` (data quality assertions)
-5. **mark_success**: Updates job control to SUCCESS
+1. **verify_model_dependencies**: Queries `pipeline_jobs` for loaded entities. If all deps met → proceed. If not → records FAILED job with `FDP_DEPENDENCY` stage.
+2. **create_fdp_job_record**: Creates `FDP_TRANSFORMATION` pipeline_jobs record with `parent_run_ids` linking to source ODP jobs → PENDING → RUNNING.
+3. **run_dbt_staging**: `dbt run --select staging` (creates/refreshes staging views)
+4. **run_dbt_fdp**: `dbt run --select {fdp_model}` (incremental MERGE into FDP table)
+5. **run_dbt_tests**: `dbt test --select {fdp_model}` (data quality assertions)
+6. **reconcile_fdp_model**: Verifies FDP table has rows (JOIN models: non-empty check; MAP models: 1:1 count against source)
+7. **mark_fdp_success**: Updates job control to SUCCESS, records audit trail
+
+**On failure**: `on_failure_callback` → `mark_failed()` with stage-specific `FDP_STAGING`/`FDP_MODEL`/`FDP_TEST`/`RECONCILIATION` → `ErrorHandler` classifies and stores to GCS → `AuditTrail` records failure
 
 ### 4.2 dbt Materialization Strategy
 
@@ -244,19 +259,24 @@ The dbt `incremental_strategy='merge'` with `unique_key='event_key'` means:
 
 3. **No FDP job control record**: Even if retry succeeds, there's no job history showing it was retried.
 
-### 4.5 Dependency Check — Silent Skip Problem
+### 4.5 Dependency Check — No Longer Silent
 
-Current behavior in `transformation_dag`:
+The transformation DAG now records dependency failures explicitly:
 ```python
 if checker.all_entities_loaded(date_obj):
-    return "run_dbt_staging"
+    return "create_fdp_job_record"   # → proceed with dbt
 else:
     missing = checker.get_missing_entities(date_obj)
-    logger.warning(f"Cannot run {fdp_model}. Missing entities: {missing}")
-    return "skip_transformation"  # ← DAG ends with SUCCESS
+    return "handle_dependency_failure"  # → creates FAILED job record
 ```
 
-**Problem**: If an upstream ODP load fails, the transformation DAG is triggered, checks dependencies, finds them missing, and **silently skips**. The DAG run shows as SUCCESS in Airflow (because `skip_transformation` is a DummyOperator). No alert, no retry, no record.
+`handle_dependency_failure` creates a `pipeline_jobs` record with:
+- `status = FAILED`
+- `failure_stage = FDP_DEPENDENCY`
+- `error_code = DEPENDENCY_NOT_MET`
+- `error_message = "Missing ODP entities: [accounts]. DAG triggered prematurely."`
+
+This makes dependency failures **visible** in job control queries and Airflow email alerts.
 
 ---
 
@@ -281,18 +301,20 @@ else:
 | Duplicate detection | Library | `DuplicateDetector` (in-memory set) |
 | Pub/Sub dead letter queue | Infra | Terraform: `dead_letter_policy` with max 5 attempts |
 
-### 5.2 What Exists but Is NOT Connected
+### 5.2 Previously Disconnected — Now Connected
 
-| Guardrail | Where It Lives | Why It's Disconnected |
-|-----------|---------------|----------------------|
-| `RETRYING` status | `JobStatus` enum | No code transitions to this state |
-| `QUARANTINED` status | `JobStatus` enum | No code transitions to this state |
-| `FailureStage` enum | `job_control/types.py` | DAG uses `update_status(FAILED)` not `mark_failed()` |
-| `RecoveryManager` | `data_deletion/recovery.py` | In-memory only, not integrated into any DAG |
-| `ErrorHandler` + `ErrorClassifier` | `error_handling/handler.py` | Not called from DAGs — only available as library utility |
-| `ReconciliationEngine` | `audit/reconciliation.py` | Not called after ODP load or FDP transform in DAGs |
-| `AuditTrail.record_processing_end()` | `audit/trail.py` | Trigger DAG calls `record_processing_start()` but never `_end()` |
-| GCS error storage | `error_handling/storage.py` | `GCSErrorStorage` exists but no DAG configures it |
+All previously disconnected guardrails have been wired into the pipeline:
+
+| Guardrail | Status | How It's Connected |
+|-----------|--------|-------------------|
+| `RETRYING` status | Connected | `mark_retrying()` called during ODP cleanup-before-retry |
+| `QUARANTINED` status | Reserved | Not yet needed — available for future manual quarantine workflows |
+| `FailureStage` enum | Connected | Both DAG `on_failure_callback`s use task-to-stage mapping with `mark_failed()` |
+| `RecoveryManager` | Connected | `GCSRecoveryManager` persists checkpoints to GCS (available for Dataflow/DAG use) |
+| `ErrorHandler` + `ErrorClassifier` | Connected | Called in both ODP and FDP `on_failure_callback`s — classifies severity/category |
+| `ReconciliationEngine` | Connected | `reconcile_odp_load` (ODP) and `reconcile_fdp_model` (FDP) tasks in DAGs |
+| `AuditTrail` | Connected | `record_processing_start()` + `record_processing_end()` called in success and failure paths |
+| `GCSErrorStorage` | Connected | Configured in both failure callbacks — errors stored at `gs://{error_bucket}/error_logs/{run_id}/` |
 
 ---
 
@@ -320,7 +342,7 @@ else:
 
 ---
 
-## 7. Required Changes — Library
+## 7. Implemented Changes — Library
 
 ### 7.1 `gcp-pipeline-core/job_control/types.py`
 
@@ -460,7 +482,7 @@ class GCSRecoveryManager(RecoveryManager):
 
 ---
 
-## 8. Required Changes — Infrastructure (Terraform)
+## 8. Implemented Changes — Infrastructure (Terraform)
 
 ### 8.1 Update `pipeline_jobs` Table Schema
 
@@ -504,7 +526,7 @@ resource "google_bigquery_dataset_iam_member" "dbt_job_control_editor" {
 
 ---
 
-## 9. Required Changes — Orchestration (DAGs)
+## 9. Implemented Changes — Orchestration (DAGs)
 
 ### 9.1 Ingestion DAG — Use `mark_failed()` Instead of `update_status()`
 
@@ -684,7 +706,7 @@ def verify_model_dependencies(**context) -> str:
 
 ---
 
-## 10. Required Changes — dbt Models
+## 10. Implemented Changes — dbt Models
 
 ### 10.1 No Code Changes Needed for Idempotency
 
@@ -707,7 +729,7 @@ This enables post-mortem analysis of failed runs.
 
 ---
 
-## 11. Required Changes — system.yaml Config
+## 11. Implemented Changes — system.yaml Config
 
 Add retry and error handling configuration:
 
@@ -810,17 +832,17 @@ WHERE extract_date = '2026-03-16' AND job_type = 'ODP_INGESTION'
 
 ---
 
-## Summary of All Changes
+## Summary of All Implemented Changes
 
 | Area | File/Resource | Change | Fixes Gap |
 |------|-------------|--------|-----------|
-| **Library** | `job_control/types.py` | Add `FDP_*` failure stages, `JobType` enum | G1, G4 |
-| **Library** | `job_control/models.py` | Add `job_type`, `parent_run_ids`, `retry_count`, `dbt_model_name` | G1, G6 |
-| **Library** | `job_control/repository.py` | Add `create_fdp_job()`, `cleanup_partial_load()`, `mark_retrying()`, `get_failed_jobs()` | G1, G3, G6 |
-| **Library** | `audit/reconciliation.py` | Add `reconcile_fdp_model()` | G5, G10 |
-| **Library** | `data_deletion/recovery.py` | Add `GCSRecoveryManager` | G7 |
-| **Terraform** | `main.tf` | Add columns to `pipeline_jobs` table, add dbt→job_control IAM | G1 |
-| **DAG** | `dag_factory.py` ingestion | Use `mark_failed()` with error details, add reconciliation task, add cleanup-before-retry | G3, G4, G5 |
-| **DAG** | `dag_factory.py` transformation | Add `create_fdp_job_record`, `on_failure_callback`, fix silent skip | G1, G2, G4 |
-| **Config** | `system.yaml` | Add `retry_config`, `reconciliation`, `error_handling` sections | G3, G5, G6 |
-| **dbt** | No model changes | Optional: store dbt artifacts to GCS after each run | G8 |
+| **Library** | `job_control/types.py` | Added `JobType` enum, `FDP_DEPENDENCY`/`FDP_STAGING`/`FDP_MODEL`/`FDP_TEST`/`RECONCILIATION` failure stages | G1, G4 |
+| **Library** | `job_control/models.py` | Added `job_type`, `retry_count`, `max_retries`, `parent_run_ids`, `dbt_model_name` to `PipelineJob` | G1, G6 |
+| **Library** | `job_control/repository.py` | Added `mark_retrying()`, `cleanup_partial_load()`, `get_failed_jobs()`, `get_fdp_job_status()`; updated `create_job` with all new fields | G1, G3, G6 |
+| **Library** | `audit/reconciliation.py` | Added `reconcile_fdp_model()` — MAP (1:1 count check) and JOIN (non-empty verification) | G5, G10 |
+| **Library** | `data_deletion/recovery.py` | Added `GCSRecoveryManager` — persists checkpoints to GCS as JSON, restores on restart | G7 |
+| **Terraform** | `orchestration/main.tf` | Added `job_type`, `retry_count`, `max_retries`, `parent_run_ids`, `dbt_model_name` columns; upgraded dbt IAM to `dataEditor` on `job_control` | G1 |
+| **DAG** | `dag_factory.py` ingestion | Rewrote `on_failure_callback` with `mark_failed()` + error details + `ErrorHandler` + `AuditTrail`; added cleanup-before-retry; added `reconcile_odp_load` task; passes `hdr_metadata` from trigger DAG | G3, G4, G5, G8, G9 |
+| **DAG** | `dag_factory.py` transformation | Added `create_fdp_job_record` (with parent lineage), `handle_dependency_failure` (no silent skip), `reconcile_fdp_model` task, `on_failure_callback` with stage-specific error details + `ErrorHandler` + `AuditTrail` | G1, G2, G4, G8, G9, G10 |
+| **Config** | `system.yaml` | Added `retry_config` (ODP + FDP) and `reconciliation` sections | G3, G5 |
+| **dbt** | No model changes needed | dbt `incremental_strategy='merge'` with `unique_key` already provides idempotency | N/A |
