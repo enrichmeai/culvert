@@ -147,6 +147,42 @@ class TestPipelineJob(unittest.TestCase):
         self.assertEqual(job.retry_count, 2)
         self.assertEqual(job.max_retries, 5)
 
+    def test_parent_run_ids_default_empty(self):
+        """Test parent_run_ids defaults to empty list."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+        )
+        self.assertEqual(job.parent_run_ids, [])
+
+    def test_fdp_job_with_lineage(self):
+        """Test FDP job with parent_run_ids and dbt_model_name."""
+        job = PipelineJob(
+            run_id="transform_event_transaction_excess_20260101",
+            system_id="GENERIC",
+            entity_type="event_transaction_excess",
+            extract_date=date(2026, 1, 1),
+            job_type="FDP_TRANSFORMATION",
+            dbt_model_name="event_transaction_excess",
+            parent_run_ids=["generic_customers_20260101", "generic_accounts_20260101"],
+        )
+        self.assertEqual(job.job_type, "FDP_TRANSFORMATION")
+        self.assertEqual(job.dbt_model_name, "event_transaction_excess")
+        self.assertEqual(len(job.parent_run_ids), 2)
+        self.assertIn("generic_customers_20260101", job.parent_run_ids)
+
+    def test_dbt_model_name_default_none(self):
+        """Test dbt_model_name defaults to None."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+        )
+        self.assertIsNone(job.dbt_model_name)
+
 
 if __name__ == '__main__':
     unittest.main()

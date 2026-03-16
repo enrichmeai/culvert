@@ -62,6 +62,10 @@ class PipelineJob:
     retry_count: int = 0                 # how many times this job has been retried
     max_retries: int = 3                 # configured maximum retries
 
+    # FDP lineage
+    parent_run_ids: List[str] = field(default_factory=list)  # links FDP job to source ODP jobs
+    dbt_model_name: Optional[str] = None                     # for FDP jobs: which dbt model was run
+
     # FinOps
     estimated_cost_usd: Optional[float] = None
     billed_bytes_scanned: Optional[int] = None

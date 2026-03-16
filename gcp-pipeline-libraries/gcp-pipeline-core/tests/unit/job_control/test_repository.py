@@ -268,6 +268,62 @@ class TestJobControlRepository(unittest.TestCase):
         query = call_args[0][0]
         self.assertIn("status = 'FAILED'", query)
 
+    def test_create_job_with_fdp_lineage(self):
+        """Test creating an FDP job with parent_run_ids and dbt_model_name."""
+        job = PipelineJob(
+            run_id="transform_event_transaction_excess_20260101",
+            system_id="GENERIC",
+            entity_type="event_transaction_excess",
+            extract_date=date(2026, 1, 1),
+            source_files=[],
+            job_type="FDP_TRANSFORMATION",
+            dbt_model_name="event_transaction_excess",
+            parent_run_ids=["generic_customers_20260101", "generic_accounts_20260101"],
+        )
+
+        mock_query_job = MagicMock()
+        self.mock_client.query.return_value = mock_query_job
+
+        self.repo.create_job(job)
+
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+
+        self.assertIn("parent_run_ids", query)
+        self.assertIn("dbt_model_name", query)
+
+    def test_get_fdp_job_status_found(self):
+        """Test getting FDP job status for a specific model/date."""
+        mock_row = MagicMock()
+        mock_row.run_id = "transform_event_transaction_excess_20260101"
+        mock_row.status = "SUCCESS"
+        mock_row.dbt_model_name = "event_transaction_excess"
+
+        mock_query_job = MagicMock()
+        mock_query_job.result.return_value = [mock_row]
+        self.mock_client.query.return_value = mock_query_job
+
+        result = self.repo.get_fdp_job_status("GENERIC", date(2026, 1, 1), "event_transaction_excess")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(result["status"], "SUCCESS")
+        self.assertEqual(result["dbt_model_name"], "event_transaction_excess")
+
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+        self.assertIn("job_type = 'FDP_TRANSFORMATION'", query)
+        self.assertIn("dbt_model_name", query)
+
+    def test_get_fdp_job_status_not_found(self):
+        """Test getting FDP job status when no matching job exists."""
+        mock_query_job = MagicMock()
+        mock_query_job.result.return_value = []
+        self.mock_client.query.return_value = mock_query_job
+
+        result = self.repo.get_fdp_job_status("GENERIC", date(2026, 1, 1), "nonexistent_model")
+
+        self.assertIsNone(result)
+
 
 if __name__ == '__main__':
     unittest.main()

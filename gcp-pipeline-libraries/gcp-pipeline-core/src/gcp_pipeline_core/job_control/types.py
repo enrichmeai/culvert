@@ -15,12 +15,19 @@ class JobStatus(Enum):
 
 class FailureStage(Enum):
     """Pipeline failure stages."""
+    # ODP stages
     FILE_DISCOVERY = "FILE_DISCOVERY"
     FILE_VALIDATION = "FILE_VALIDATION"
     DATA_QUALITY = "DATA_QUALITY"
     ODP_LOAD = "ODP_LOAD"
-    TRANSFORMATION = "TRANSFORMATION"
     RECONCILIATION = "RECONCILIATION"
+    # FDP stages
+    FDP_DEPENDENCY = "FDP_DEPENDENCY"
+    FDP_STAGING = "FDP_STAGING"
+    FDP_MODEL = "FDP_MODEL"
+    FDP_TEST = "FDP_TEST"
+    # Generic
+    TRANSFORMATION = "TRANSFORMATION"
 
 
 class JobType(Enum):

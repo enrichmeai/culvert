@@ -4,7 +4,7 @@
 > failures today, what guardrails exist, where the gaps are, and what changes
 > are needed to make ODP and FDP layers fully resumable.
 >
-> **Status**: ODP guardrails IMPLEMENTED (2026-03-16). FDP guardrails PLANNED.
+> **Status**: ODP guardrails IMPLEMENTED (2026-03-16). FDP guardrails IMPLEMENTED (2026-03-16).
 
 ---
 
@@ -302,8 +302,8 @@ else:
 
 | # | Gap | Impact | Severity | Status |
 |---|-----|--------|----------|--------|
-| G1 | **FDP builds have no job control record** | Failed dbt runs are invisible to job tracking. Cannot query "which FDP models failed?" | CRITICAL | PLANNED |
-| G2 | **Dependency check silently skips** | If upstream ODP fails, FDP DAG succeeds with no work done, no alert, no retry | CRITICAL | PLANNED |
+| G1 | **FDP builds have no job control record** | Failed dbt runs are invisible to job tracking. Cannot query "which FDP models failed?" | CRITICAL | RESOLVED — `create_fdp_job_record` creates FDP_TRANSFORMATION record with parent_run_ids lineage |
+| G2 | **Dependency check silently skips** | If upstream ODP fails, FDP DAG succeeds with no work done, no alert, no retry | CRITICAL | RESOLVED — `handle_dependency_failure` creates FAILED record with FDP_DEPENDENCY stage |
 | G3 | **ODP retry can produce duplicates** | No cleanup of partial data before retry. `WRITE_APPEND` + no unique constraint = duplicates | HIGH | RESOLVED — `cleanup_partial_load()` + `mark_retrying()` in `create_job_record` |
 | G4 | **`on_failure_callback` doesn't use `mark_failed()`** | Failure stage, error code, error message never recorded. Only status changes to FAILED | HIGH | RESOLVED — `mark_job_failed` now calls `repo.mark_failed()` with stage/code/message |
 | G5 | **Reconciliation not wired into pipeline** | Source file record count vs. BigQuery row count never compared automatically | HIGH | RESOLVED — `reconcile_odp_load` task added after `update_job_success` |

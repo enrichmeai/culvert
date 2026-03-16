@@ -624,6 +624,33 @@ def _build_transformation_dag(
     system_id = config["system_id"]
     dbt_project_path = Variable.get("dbt_project_path", default_var="/home/airflow/gcs/dags/dbt")
 
+    def mark_fdp_job_failed(context):
+        """On-failure callback -- marks FDP job as FAILED with stage-specific details."""
+        run_id = context["ti"].xcom_pull(key="fdp_run_id")
+        task_id = context["task_instance"].task_id
+        exception = context.get("exception")
+
+        if run_id:
+            repo = JobControlRepository(project_id=project_id)
+            stage_map = {
+                "verify_model_dependencies": FailureStage.FDP_DEPENDENCY,
+                "create_fdp_job_record": FailureStage.FDP_DEPENDENCY,
+                "run_dbt_staging": FailureStage.FDP_STAGING,
+                "run_dbt_fdp": FailureStage.FDP_MODEL,
+                "run_dbt_tests": FailureStage.FDP_TEST,
+            }
+            stage = stage_map.get(task_id, FailureStage.TRANSFORMATION)
+            error_code = type(exception).__name__ if exception else "UNKNOWN"
+            error_message = str(exception)[:1024] if exception else f"Task {task_id} failed"
+
+            repo.mark_failed(
+                run_id=run_id,
+                error_code=error_code,
+                error_message=error_message,
+                failure_stage=stage,
+            )
+            logger.error(f"FDP job {run_id} marked FAILED at stage {stage.value}: {error_code}")
+
     default_args = {
         "owner": "data-engineering",
         "depends_on_past": False,
@@ -632,6 +659,7 @@ def _build_transformation_dag(
         "retries": 2,
         "retry_delay": timedelta(minutes=10),
         "start_date": datetime(2026, 1, 1),
+        "on_failure_callback": mark_fdp_job_failed,
     }
 
     dag = DAG(
@@ -650,8 +678,8 @@ def _build_transformation_dag(
         Verify that the requested FDP model's ODP dependencies are loaded.
 
         Returns branch task ID:
-        - 'run_dbt_staging' if dependencies are satisfied
-        - 'skip_transformation' if not
+        - 'create_fdp_job_record' if dependencies are satisfied
+        - 'handle_dependency_failure' if not (creates FAILED record for visibility)
         """
         conf = context.get("dag_run").conf or {}
         fdp_model = conf.get("fdp_model", "")
@@ -662,7 +690,7 @@ def _build_transformation_dag(
                 f"Unknown or missing FDP model: '{fdp_model}'. "
                 f"Expected one of: {list(fdp_deps.keys())}"
             )
-            return "skip_transformation"
+            return "handle_dependency_failure"
 
         required_entities = fdp_deps[fdp_model]
 
@@ -678,24 +706,88 @@ def _build_transformation_dag(
             logger.info(f"Dependencies satisfied for {fdp_model}: {required_entities}. Proceeding.")
             context["ti"].xcom_push(key="fdp_model", value=fdp_model)
             context["ti"].xcom_push(key="required_entities", value=required_entities)
-            return "run_dbt_staging"
+            return "create_fdp_job_record"
         else:
             missing = checker.get_missing_entities(date_obj)
             logger.warning(f"Cannot run {fdp_model}. Missing entities: {missing}")
-            return "skip_transformation"
+            context["ti"].xcom_push(key="missing_entities", value=missing)
+            return "handle_dependency_failure"
 
-    def update_job_status(status: str, **context):
-        """Update job control status after transformation."""
-        run_id = context.get("run_id", "unknown")
+    def create_fdp_job_record(**context):
+        """Create job control record for FDP transformation with ODP lineage."""
+        conf = context.get("dag_run").conf or {}
+        fdp_model = conf.get("fdp_model", "")
+        extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+        run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
+
+        date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
 
         repo = JobControlRepository(project_id=project_id)
 
-        if status == "success":
+        # Find parent ODP run_ids for lineage
+        required_entities = fdp_deps.get(fdp_model, [])
+        parent_statuses = repo.get_entity_status(system_id, date_obj)
+        parent_run_ids = [
+            s["run_id"] for s in parent_statuses
+            if s["entity_type"] in required_entities and s["status"] == "SUCCESS"
+        ]
+
+        job = PipelineJob(
+            run_id=run_id,
+            system_id=system_id,
+            entity_type=fdp_model,
+            extract_date=date_obj,
+            started_at=datetime.now(tz=timezone.utc),
+            job_type="FDP_TRANSFORMATION",
+            dbt_model_name=fdp_model,
+            parent_run_ids=parent_run_ids,
+        )
+        repo.create_job(job)
+        repo.update_status(run_id, JobStatus.RUNNING)
+
+        logger.info(f"Created FDP job record: {run_id} for model: {fdp_model}, parents: {parent_run_ids}")
+        context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+
+    def handle_dependency_failure(**context):
+        """Record dependency failure in job control so it's visible, not silently skipped."""
+        conf = context.get("dag_run").conf or {}
+        fdp_model = conf.get("fdp_model", "unknown")
+        extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+        run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
+        missing = context["ti"].xcom_pull(key="missing_entities") or []
+
+        date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
+
+        repo = JobControlRepository(project_id=project_id)
+        job = PipelineJob(
+            run_id=run_id,
+            system_id=system_id,
+            entity_type=fdp_model,
+            extract_date=date_obj,
+            started_at=datetime.now(tz=timezone.utc),
+            job_type="FDP_TRANSFORMATION",
+            dbt_model_name=fdp_model,
+        )
+        repo.create_job(job)
+        repo.mark_failed(
+            run_id=run_id,
+            error_code="DEPENDENCY_NOT_MET",
+            error_message=f"Missing ODP entities: {missing}. DAG triggered prematurely.",
+            failure_stage=FailureStage.FDP_DEPENDENCY,
+        )
+        logger.error(f"FDP dependency failure recorded for {fdp_model}: missing {missing}")
+
+        # Push run_id so on_failure_callback can find it if needed
+        context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+
+    def update_fdp_job_success(**context):
+        """Update FDP job control status to SUCCESS."""
+        run_id = context["ti"].xcom_pull(key="fdp_run_id")
+
+        if run_id:
+            repo = JobControlRepository(project_id=project_id)
             repo.update_status(run_id, JobStatus.SUCCESS)
-            logger.info(f"Job {run_id} marked as SUCCESS")
-        else:
-            repo.update_status(run_id, JobStatus.FAILED)
-            logger.error(f"Job {run_id} marked as FAILED")
+            logger.info(f"FDP job {run_id} marked as SUCCESS")
 
     # -- tasks ---------------------------------------------------------------
 
@@ -703,6 +795,11 @@ def _build_transformation_dag(
         verify = BranchPythonOperator(
             task_id="verify_model_dependencies",
             python_callable=verify_model_dependencies,
+        )
+
+        create_fdp_job = PythonOperator(
+            task_id="create_fdp_job_record",
+            python_callable=create_fdp_job_record,
         )
 
         staging = BashOperator(
@@ -731,13 +828,13 @@ def _build_transformation_dag(
         )
 
         mark_success = PythonOperator(
-            task_id="mark_success",
-            python_callable=update_job_status,
-            op_kwargs={"status": "success"},
+            task_id="mark_fdp_success",
+            python_callable=update_fdp_job_success,
         )
 
-        skip = DummyOperator(
-            task_id="skip_transformation",
+        dep_failure = PythonOperator(
+            task_id="handle_dependency_failure",
+            python_callable=handle_dependency_failure,
         )
 
         end = DummyOperator(
@@ -745,9 +842,9 @@ def _build_transformation_dag(
             trigger_rule="none_failed_min_one_success",
         )
 
-        verify >> [staging, skip]
-        staging >> fdp >> tests >> mark_success >> end
-        skip >> end
+        verify >> [create_fdp_job, dep_failure]
+        create_fdp_job >> staging >> fdp >> tests >> mark_success >> end
+        dep_failure >> end
 
     return dag
 

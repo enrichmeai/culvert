@@ -85,7 +85,9 @@ resource "google_bigquery_table" "pipeline_jobs" {
     { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE", description = "Last update time" },
     { name = "job_type", type = "STRING", mode = "NULLABLE", description = "ODP_INGESTION, FDP_TRANSFORMATION, CDP_TRANSFORMATION" },
     { name = "retry_count", type = "INTEGER", mode = "NULLABLE", description = "Number of retry attempts" },
-    { name = "max_retries", type = "INTEGER", mode = "NULLABLE", description = "Configured maximum retries" }
+    { name = "max_retries", type = "INTEGER", mode = "NULLABLE", description = "Configured maximum retries" },
+    { name = "parent_run_ids", type = "STRING", mode = "REPEATED", description = "Source ODP job run_ids for FDP lineage" },
+    { name = "dbt_model_name", type = "STRING", mode = "NULLABLE", description = "dbt model name for FDP/CDP jobs" }
   ])
 
   labels = local.common_labels
