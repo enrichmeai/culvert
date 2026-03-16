@@ -332,7 +332,6 @@ jobs:
     needs: [check-conditions, publish-core]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && 'production' || 'staging' }}
     strategy:
       fail-fast: false
       max-parallel: 2  # Avoid rate limiting
@@ -449,7 +448,6 @@ jobs:
     needs: [check-conditions, publish-others]
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && 'production' || 'staging' }}
     strategy:
       fail-fast: false
       matrix:
