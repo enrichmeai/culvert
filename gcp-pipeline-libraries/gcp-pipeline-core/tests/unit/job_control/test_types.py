@@ -55,12 +55,23 @@ class TestFailureStage(unittest.TestCase):
         self.assertIn("ODP_LOAD", stages)
         self.assertIn("TRANSFORMATION", stages)
         self.assertIn("RECONCILIATION", stages)
+        self.assertIn("FDP_DEPENDENCY", stages)
+        self.assertIn("FDP_STAGING", stages)
+        self.assertIn("FDP_MODEL", stages)
+        self.assertIn("FDP_TEST", stages)
 
     def test_reconciliation_stage(self):
         """Test RECONCILIATION failure stage exists."""
         self.assertEqual(FailureStage.RECONCILIATION.value, "RECONCILIATION")
         stage = FailureStage("RECONCILIATION")
         self.assertEqual(stage, FailureStage.RECONCILIATION)
+
+    def test_fdp_failure_stages(self):
+        """Test FDP-specific failure stages exist."""
+        self.assertEqual(FailureStage.FDP_DEPENDENCY.value, "FDP_DEPENDENCY")
+        self.assertEqual(FailureStage.FDP_STAGING.value, "FDP_STAGING")
+        self.assertEqual(FailureStage.FDP_MODEL.value, "FDP_MODEL")
+        self.assertEqual(FailureStage.FDP_TEST.value, "FDP_TEST")
 
 
 class TestJobType(unittest.TestCase):

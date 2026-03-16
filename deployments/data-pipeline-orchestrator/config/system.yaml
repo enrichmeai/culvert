@@ -69,6 +69,9 @@ retry_config:
   odp:
     max_retries: 3
     cleanup_on_retry: true        # DELETE partial ODP rows before retry
+  fdp:
+    max_retries: 2
+    cleanup_on_retry: false       # MERGE with unique_key handles idempotency
 
 # =============================================================================
 # RECONCILIATION — source-vs-destination count verification after ODP load

@@ -64,11 +64,13 @@ class JobControlRepository:
                 run_id, system_id, entity_type, extract_date,
                 status, started_at, source_files,
                 job_type, retry_count, max_retries,
+                parent_run_ids, dbt_model_name,
                 created_at, updated_at
             ) VALUES (
                 @run_id, @system_id, @entity_type, @extract_date,
                 @status, @started_at, @source_files,
                 @job_type, @retry_count, @max_retries,
+                @parent_run_ids, @dbt_model_name,
                 CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
             )
         """
@@ -85,6 +87,8 @@ class JobControlRepository:
                 bigquery.ScalarQueryParameter("job_type", "STRING", job.job_type),
                 bigquery.ScalarQueryParameter("retry_count", "INT64", job.retry_count),
                 bigquery.ScalarQueryParameter("max_retries", "INT64", job.max_retries),
+                bigquery.ArrayQueryParameter("parent_run_ids", "STRING", job.parent_run_ids),
+                bigquery.ScalarQueryParameter("dbt_model_name", "STRING", job.dbt_model_name),
             ]
         )
 
@@ -406,6 +410,57 @@ class JobControlRepository:
             }
             for row in results
         ]
+
+    def get_fdp_job_status(
+        self,
+        system_id: str,
+        extract_date: date,
+        model_name: str
+    ) -> Optional[dict]:
+        """
+        Get FDP job status for a specific model/date.
+
+        Used to check if an FDP model has already been successfully built,
+        preventing duplicate transformation runs.
+
+        Args:
+            system_id: Source system ID
+            extract_date: Extract date
+            model_name: dbt model name
+
+        Returns:
+            Dict with run_id, status, dbt_model_name, or None if not found
+        """
+        query = f"""
+            SELECT run_id, status, dbt_model_name
+            FROM `{self.full_table_id}`
+            WHERE system_id = @system_id
+              AND extract_date = @extract_date
+              AND job_type = 'FDP_TRANSFORMATION'
+              AND dbt_model_name = @model_name
+            ORDER BY created_at DESC
+            LIMIT 1
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("system_id", "STRING", system_id),
+                bigquery.ScalarQueryParameter("extract_date", "DATE", extract_date),
+                bigquery.ScalarQueryParameter("model_name", "STRING", model_name),
+            ]
+        )
+
+        results = list(self.client.query(query, job_config=job_config).result())
+
+        if not results:
+            return None
+
+        row = results[0]
+        return {
+            "run_id": row.run_id,
+            "status": row.status,
+            "dbt_model_name": row.dbt_model_name,
+        }
 
 
 __all__ = [
