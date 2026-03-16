@@ -9,7 +9,7 @@ from .types import MalformationReason, QuarantineLevel, MalformedRecord
 from .detector import MalformationDetector
 from .quarantine import QuarantineManager
 from .deletion import SafeDataDeletion, DeletionPolicy
-from .recovery import RecoveryManager, RecoveryPoint
+from .recovery import RecoveryManager, RecoveryPoint, GCSRecoveryManager
 
 # For backward compatibility, provide DataDeletionFramework
 from .framework import DataDeletionFramework
@@ -27,6 +27,7 @@ __all__ = [
     'DeletionPolicy',
     'RecoveryManager',
     'RecoveryPoint',
+    'GCSRecoveryManager',
     'DataDeletionFramework',
     'logger',
 ]
