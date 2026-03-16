@@ -95,7 +95,7 @@ Control library - Airflow DAGs, sensors, operators.
                │         │                                           │
                │         ▼                                           │
                │  ┌──────────────┐                                   │
-               │  │ Dependency   │  (Application1 only - waits for 3 entities) │
+               │  │ Dependency   │  (per-FDP-model granular checking)           │
                │  │ Checker      │                                   │
                │  └──────┬───────┘                                   │
                │         │                                           │
@@ -127,26 +127,32 @@ Control library - Airflow DAGs, sensors, operators.
 
 ## Entity Dependency Checker
 
-For systems with multiple entities (like Application1 with 3 entities), the checker waits until all are loaded.
+The framework supports **granular per-model dependency checking**, defined in `system.yaml`. Each FDP model specifies which ODP entities it requires — transformation triggers as soon as its dependencies are met, not when all entities are loaded.
 
 ```
-                    ENTITY DEPENDENCY CHECK (Application1)
-                    ────────────────────────────
+                    GRANULAR FDP DEPENDENCY CHECK (Generic system)
+                    ────────────────────────────────────────────
 
-  Customers arrives    ──► Check: [✓] customers
-  (4:00 PM)                       [ ] accounts
-                                  [ ] decision
-                                  → NOT READY
+  FDP Model                    | Requires           | Trigger
+  ─────────────────────────────|────────────────────|────────────────
+  event_transaction_excess     | customers+accounts | When BOTH loaded
+  portfolio_account_excess     | decision           | Immediately
+  portfolio_account_facility   | applications       | Immediately
+```
 
-  Accounts arrives     ──► Check: [✓] customers
-  (4:00 PM)                       [✓] accounts
-                                  [ ] decision
-                                  → NOT READY
+### Config-Driven (system.yaml)
 
-  Decision arrives     ──► Check: [✓] customers
-  (5:00 AM next day)              [✓] accounts
-                                  [✓] decision
-                                  → ALL READY! → Trigger dbt
+```yaml
+fdp_models:
+  event_transaction_excess:
+    type: join
+    requires: [customers, accounts]       # waits for both
+  portfolio_account_excess:
+    type: map
+    requires: [decision]                  # triggers immediately
+  portfolio_account_facility:
+    type: map
+    requires: [applications]              # triggers immediately
 ```
 
 ### How It Works
@@ -155,21 +161,20 @@ For systems with multiple entities (like Application1 with 3 entities), the chec
 from datetime import date
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 
-# Configure for Application1 system
+# Configure for Generic system — per-model checking
 checker = EntityDependencyChecker(
     project_id="my-project",
-    system_id="Application1",
-    required_entities=["customers", "accounts", "decision"]
+    system_id="GENERIC",
+    required_entities=["customers", "accounts"]  # for event_transaction_excess
 )
 
-# Check if all entities are loaded for today
+# Check if this specific FDP model's dependencies are met
 if checker.all_entities_loaded(extract_date=date.today()):
-    # Logic to trigger dbt
-    print("Triggering dbt...")
-else:
-    # Wait - some entities not yet loaded
-    pass
+    # Trigger dbt for event_transaction_excess only
+    print("Triggering dbt for event_transaction_excess...")
 ```
+
+The DAG factory reads `system.yaml` and generates DAGs with the correct per-model dependency logic automatically — no DAG code changes needed when adding new FDP models.
 
 ---
 
@@ -197,7 +202,7 @@ else:
 - **Metadata Extraction**: Automated extraction of file paths, entity types, and timestamps into XCom for downstream use.
 
 ### 3. Entity Dependency Management
-- **EntityDependencyChecker**: Coordinates multi-entity systems (like Application1) by ensuring all required datasets (customers, accounts, decision) are present before triggering transformations.
+- **EntityDependencyChecker**: Granular per-FDP-model dependency checking — each model triggers as soon as its required ODP entities are loaded, defined in `system.yaml`.
 
 ### 4. Global Error Callbacks
 - Standardized failure handlers that publish metadata to DLQs (Dead Letter Queues) for automated alerting and manual intervention.
@@ -214,7 +219,7 @@ When a task fails, the `on_failure_callback` from the library is triggered.
 - **Audit Logging**: The error is logged to the BigQuery `error_log` table for centralized tracking.
 
 ### 2. Periodic Recovery (Error Handling DAG)
-A dedicated **Error Handling DAG** (e.g., `application1_error_handling_dag.py`) runs every 30 minutes to manage the lifecycle of failed records.
+A dedicated **Error Handling DAG** (e.g., `generic_error_handling_dag.py`) runs every 30 minutes to manage the lifecycle of failed records.
 
 #### Automated Reprocessing Flow
 ```

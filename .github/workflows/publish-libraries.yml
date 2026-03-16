@@ -360,14 +360,58 @@ jobs:
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "📦 ${{ matrix.library }} version: $VERSION"
 
+    - name: Sync bundled assets into framework package
+      if: matrix.library == 'gcp-pipeline-framework'
+      run: |
+        FW="gcp-pipeline-libraries/gcp-pipeline-framework/src/gcp_pipeline_framework"
+
+        echo "📄 Syncing docs..."
+        rm -rf "$FW/docs" && mkdir -p "$FW/docs"
+        cp docs/*.md "$FW/docs/"
+        touch "$FW/docs/__init__.py"
+
+        echo "🏗️ Syncing infrastructure..."
+        rm -rf "$FW/infrastructure" && mkdir -p "$FW/infrastructure"
+        cp -r infrastructure/terraform "$FW/infrastructure/"
+        cp -r infrastructure/k8s "$FW/infrastructure/"
+        cp infrastructure/README.md "$FW/infrastructure/" 2>/dev/null || true
+
+        echo "⚙️ Syncing workflows..."
+        rm -rf "$FW/workflows" && mkdir -p "$FW/workflows"
+        cp .github/workflows/*.yml "$FW/workflows/"
+
+        echo "📋 Syncing root config files..."
+        rm -rf "$FW/config" && mkdir -p "$FW/config"
+        for f in .gitignore .dockerignore .gcloudignore; do
+          [ -f "$f" ] && cp "$f" "$FW/config/${f#.}"
+        done
+        for f in pyproject.toml qodana.yaml README.md PROJECT_CONTEXT.md; do
+          [ -f "$f" ] && cp "$f" "$FW/config/"
+        done
+        [ -f .github/copilot-instructions.md ] && cp .github/copilot-instructions.md "$FW/config/"
+
+        echo "🐳 Syncing deployment configs (Dockerfiles, cloudbuild)..."
+        rm -rf "$FW/deployments"
+        for d in original-data-to-bigqueryload data-pipeline-orchestrator bigquery-to-mapped-product fdp-to-consumable-product mainframe-segment-transform postgres-cdc-streaming spanner-to-bigquery-load; do
+          if [ -d "deployments/$d" ]; then
+            mkdir -p "$FW/deployments/$d"
+            for f in Dockerfile cloudbuild.yaml README.md pyproject.toml; do
+              [ -f "deployments/$d/$f" ] && cp "deployments/$d/$f" "$FW/deployments/$d/"
+            done
+          fi
+        done
+
+        echo "✅ All assets synced into framework package"
+        find "$FW" -not -name '*.py' -not -name '__pycache__' -type f | wc -l | xargs -I{} echo "  {} non-Python files bundled"
+
     - name: Build package
       run: |
         cd gcp-pipeline-libraries/${{ matrix.library }}
         python -m build
-        
+
         echo "📦 Built packages:"
         ls -la dist/
-        
+
         # Validate package
         twine check dist/*
 
@@ -386,15 +430,15 @@ jobs:
       run: |
         cd gcp-pipeline-libraries/${{ matrix.library }}
         TARGET="${{ needs.check-conditions.outputs.target_repo }}"
-        
+
         echo "📦 Publishing ${{ matrix.library }} v${{ steps.version.outputs.version }} to $TARGET..."
-        
+
         if [ "$TARGET" == "pypi" ]; then
           twine upload dist/* --skip-existing --non-interactive
         else
           twine upload --repository-url https://test.pypi.org/legacy/ dist/* --skip-existing --non-interactive
         fi
-        
+
         echo "✅ ${{ matrix.library }} published to $TARGET"
 
   # ==========================================================================

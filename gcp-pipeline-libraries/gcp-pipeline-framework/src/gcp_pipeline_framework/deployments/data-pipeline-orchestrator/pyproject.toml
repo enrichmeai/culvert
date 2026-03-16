@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcp-pipeline-ref-orchestration"
+version = "1.0.11"
+description = "GCP Pipeline Reference: Generic Orchestration - Airflow DAGs for Cloud Composer (JOIN + MAP patterns)"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+keywords = ["gcp", "airflow", "composer", "orchestration", "reference", "example"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+]
+dependencies = [
+    "gcp-pipeline-framework>=1.0.6",
+]
+# NOTE: NO apache-beam or gcp-pipeline-beam dependency -- orchestration only
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/data-pipeline-orchestrator"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Framework = "https://pypi.org/project/gcp-pipeline-framework/"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.0.0",
+    "gcp-pipeline-tester>=1.0.6",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["dags*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.py", "*.yml", "*.yaml", "*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

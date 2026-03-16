@@ -1,0 +1,10 @@
+---
+# Namespace for Airflow orchestrator
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: airflow
+  labels:
+    app.kubernetes.io/name: airflow
+    app.kubernetes.io/part-of: data-pipeline
+

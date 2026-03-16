@@ -1,6 +1,45 @@
 # Libraries
 
-5-library architecture for mainframe-to-GCP data migration.
+5-library architecture for mainframe-to-GCP data migration, following a **paved path** pattern demonstrated through production-ready reference deployments.
+
+These libraries provide **generic mechanisms** (sensors, operators, macros, validators) — all system-specific logic is **config-driven** via `system.yaml` files in each deployment. No library code changes are needed when onboarding a new system.
+
+---
+
+## paved path — Reference Deployments
+
+The libraries are demonstrated through a complete end-to-end pipeline (the "Generic" system):
+
+```
+Mainframe files → GCS landing bucket
+                       ↓ (.ok trigger file → Pub/Sub notification)
+              data-pipeline-orchestrator (Airflow DAG)
+                       ↓ (triggers Dataflow job)
+           original-data-to-bigqueryload (Apache Beam)
+                       ↓ (loads into ODP tables)
+              BigQuery ODP (customers, accounts, decision, applications)
+                       ↓
+           bigquery-to-mapped-product (dbt: ODP → FDP)
+                       ↓ (joins, maps, PII masking)
+              BigQuery FDP (event_transaction_excess, portfolio_account_excess, ...)
+                       ↓
+           fdp-to-consumable-product (dbt: FDP → CDP)
+                       ↓ (complex business logic — hand-written SQL)
+              BigQuery CDP (customer_risk_profile, ...)
+```
+
+Each deployment has its own `config/system.yaml` containing **only** the configuration relevant to that layer — no cross-layer coupling.
+
+| Deployment | Layer | Config Contains |
+|---|---|---|
+| `original-data-to-bigqueryload` | ODP | entities (full field definitions), infrastructure |
+| `data-pipeline-orchestrator` | Orchestration | entities (slim), fdp_models (type + requires only) |
+| `bigquery-to-mapped-product` | FDP | entities, staging code maps, fdp_models (full column mappings) |
+| `fdp-to-consumable-product` | CDP | fdp_models (output columns), cdp_models (metadata for hand-written SQL) |
+
+Reference packages are published to PyPI: `gcp-pipeline-ref-ingestion`, `gcp-pipeline-ref-transform`, `gcp-pipeline-ref-orchestration`, `gcp-pipeline-ref-cdp`.
+
+See [PAVED_PATH_PROPOSAL.md](../docs/PAVED_PATH_PROPOSAL.md) for the full architecture and [DBT_CONFIG_DRIVEN_SPEC.md](../docs/DBT_CONFIG_DRIVEN_SPEC.md) for the config-driven dbt specification.
 
 ---
 
@@ -108,7 +147,7 @@ A workflow is available in `.github/workflows/publish-libraries.yml` that trigge
 3.  **Manual Trigger**: Via the "Actions" tab, where you can choose between `pypi` and `testpypi`.
 
 ### Consuming Libraries in Deployments
-All deployment units (Application1, Application2, CDP) are configured to pull the `gcp-pipeline-*` libraries directly from PyPI. 
+All deployment units are configured to pull the `gcp-pipeline-*` libraries directly from PyPI.
 To ensure consistent builds, the CI/CD workflows for these deployments install the libraries using:
 ```bash
 pip install gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester
@@ -229,7 +268,7 @@ To maintain the integrity of the library architecture, the following rules and r
 ### gcp-pipeline-orchestration (Control Layer)
 - **Dataflow Operators**: `BaseDataflowOperator` supporting both **Classic and Flex** templates with local execution stubs.
 - **Pub/Sub Sensors**: `BasePubSubPullSensor` for event-driven detection of `.ok` files, featuring automated metadata extraction to XCom.
-- **Entity Dependency Management**: Smart sensors to wait for all dependent entities before triggering transformations.
+- **Entity Dependency Management**: Granular per-FDP-model dependency checking — each model triggers as soon as its required ODP entities are loaded, driven by `system.yaml` config.
 - **Error Callbacks**: Global failure handlers that publish to DLQs for centralized alerting.
 
 ### gcp-pipeline-transform (SQL/dbt Layer)
@@ -240,6 +279,22 @@ To maintain the integrity of the library architecture, the following rules and r
     - **Environment-Aware**: Full masking in Prod, Partial in Staging, No masking in Dev.
 - **Safety Validations**: `validate_no_pii_in_export` macro to prevent accidental leakage in final data outputs.
 - **SQL Templates**: Standardized patterns for Staging and FDP (Final Data Product) models.
+
+---
+
+## Config-Driven dbt Generation
+
+FDP and CDP dbt models are auto-generated from `system.yaml` using a shared generator script:
+
+```bash
+# Generate FDP models (staging views, source YAML, FDP SQL)
+python generate_dbt_models.py --layer fdp --config config/system.yaml
+
+# Generate CDP scaffolding (FDP staging views, source YAML, metadata)
+python generate_dbt_models.py --layer cdp --config config/system.yaml
+```
+
+Three model types are supported: **MAP** (1:1 column rename), **JOIN** (multi-source with join conditions), and **CUSTOM** (hand-written SQL — generator produces scaffolding only). FDP models are typically MAP/JOIN; CDP models are typically CUSTOM.
 
 ---
 
@@ -365,8 +420,8 @@ The libraries are designed for "Local-First" development. You can validate DAG s
 
 **Example: Validate DAG syntax**
 ```bash
-cd deployments/application1-orchestration
-python dags/application1_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
+cd deployments/data-pipeline-orchestrator
+python dags/generic_pubsub_trigger_dag.py # Works due to AIRFLOW_AVAILABLE stub
 ```
 
 **Example: Test Beam transform with mocks**
