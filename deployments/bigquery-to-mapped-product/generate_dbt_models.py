@@ -32,14 +32,16 @@ GENERATED_HEADER = "-- Auto-generated from system.yaml — DO NOT EDIT MANUALLY\
 GENERATED_YAML_HEADER = "# Auto-generated from system.yaml — DO NOT EDIT MANUALLY\n# To modify, update system.yaml and re-run: python generate_dbt_models.py\n"
 
 
-def load_config(config_path: Path) -> Dict[str, Any]:
+def load_config(config_path: Path, layer: str = "fdp") -> Dict[str, Any]:
     """Load and validate system.yaml."""
     if not config_path.exists():
         raise FileNotFoundError(f"Config not found: {config_path}")
     with open(config_path) as f:
         config = yaml.safe_load(f)
-    if "entities" not in config:
-        raise ValueError("Config missing 'entities' section")
+    if layer == "fdp" and "entities" not in config:
+        raise ValueError("FDP config missing 'entities' section")
+    if layer == "cdp" and "fdp_models" not in config:
+        raise ValueError("CDP config missing 'fdp_models' section")
     return config
 
 
@@ -675,7 +677,7 @@ def main():
     )
     parser.add_argument(
         "--config",
-        default=str(Path(__file__).parent.parent / "original-data-to-bigqueryload" / "config" / "system.yaml"),
+        default=str(Path(__file__).parent / "config" / "system.yaml"),
         help="Path to system.yaml",
     )
     parser.add_argument(
@@ -701,7 +703,7 @@ def main():
     else:
         output_dir = Path(__file__).parent.parent / "fdp-to-consumable-product" / "dbt"
 
-    config = load_config(config_path)
+    config = load_config(config_path, layer=args.layer)
     system_name = config.get("system_name", "generic")
 
     logger.info(f"Layer:  {args.layer.upper()}")
@@ -710,7 +712,7 @@ def main():
     logger.info(f"Dry run: {args.dry_run}\n")
 
     logger.info(f"System: {system_name}")
-    logger.info(f"Entities: {list(config['entities'].keys())}")
+    logger.info(f"Entities: {list(config.get('entities', {}).keys())}")
     logger.info(f"FDP models: {list(config.get('fdp_models', {}).keys())}")
     logger.info(f"CDP models: {list(config.get('cdp_models', {}).keys())}\n")
 
