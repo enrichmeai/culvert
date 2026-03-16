@@ -12,8 +12,8 @@
 # ============================================================================
 
 resource "google_kms_key_ring" "data_key_ring" {
-  name     = "application2-key-ring-${var.environment}"
-  location = var.gcp_region
+  name     = "generic-key-ring-${local.environment}"
+  location = local.region
 }
 
 # ============================================================================
@@ -22,7 +22,7 @@ resource "google_kms_key_ring" "data_key_ring" {
 
 # Key for Pub/Sub messaging encryption
 resource "google_kms_crypto_key" "messaging_key" {
-  name            = "gcp-pipeline-messaging-key-${var.environment}"
+  name            = "gcp-pipeline-messaging-key-${local.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 
@@ -30,16 +30,14 @@ resource "google_kms_crypto_key" "messaging_key" {
     prevent_destroy = true
   }
 
-  labels = {
-    purpose     = "messaging"
-    environment = var.environment
-    managed_by  = "terraform"
-  }
+  labels = merge(local.common_labels, {
+    purpose = "messaging"
+  })
 }
 
 # Key for GCS storage encryption
 resource "google_kms_crypto_key" "storage_key" {
-  name            = "gcp-pipeline-storage-key-${var.environment}"
+  name            = "gcp-pipeline-storage-key-${local.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 
@@ -47,16 +45,14 @@ resource "google_kms_crypto_key" "storage_key" {
     prevent_destroy = true
   }
 
-  labels = {
-    purpose     = "storage"
-    environment = var.environment
-    managed_by  = "terraform"
-  }
+  labels = merge(local.common_labels, {
+    purpose = "storage"
+  })
 }
 
 # Key for BigQuery dataset encryption
 resource "google_kms_crypto_key" "bigquery_key" {
-  name            = "gcp-pipeline-bigquery-key-${var.environment}"
+  name            = "gcp-pipeline-bigquery-key-${local.environment}"
   key_ring        = google_kms_key_ring.data_key_ring.id
   rotation_period = "7776000s" # 90 days
 
@@ -64,11 +60,9 @@ resource "google_kms_crypto_key" "bigquery_key" {
     prevent_destroy = true
   }
 
-  labels = {
-    purpose     = "bigquery"
-    environment = var.environment
-    managed_by  = "terraform"
-  }
+  labels = merge(local.common_labels, {
+    purpose = "bigquery"
+  })
 }
 
 # ============================================================================
@@ -90,11 +84,14 @@ resource "google_kms_crypto_key_iam_member" "gcs_encrypt" {
 }
 
 # BigQuery service account needs access to bigquery key
-resource "google_kms_crypto_key_iam_member" "bigquery_encrypt" {
-  crypto_key_id = google_kms_crypto_key.bigquery_key.id
-  role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
-  member        = "serviceAccount:bq-${data.google_project.current.number}@bigquery-encryption.iam.gserviceaccount.com"
-}
+# Note: The BQ encryption SA (bq-<project-number>@bigquery-encryption.iam.gserviceaccount.com)
+# is auto-created by Google when CMEK is first used with BigQuery.
+# Uncomment this after first BigQuery CMEK usage, or create the SA manually.
+# resource "google_kms_crypto_key_iam_member" "bigquery_encrypt" {
+#   crypto_key_id = google_kms_crypto_key.bigquery_key.id
+#   role          = "roles/cloudkms.cryptoKeyEncrypterDecrypter"
+#   member        = "serviceAccount:bq-${data.google_project.current.number}@bigquery-encryption.iam.gserviceaccount.com"
+# }
 
 # ============================================================================
 # DATA SOURCES
@@ -122,4 +119,3 @@ output "bigquery_key_id" {
   description = "KMS key ID for BigQuery encryption"
   value       = google_kms_crypto_key.bigquery_key.id
 }
-
