@@ -1,9 +1,9 @@
 # =============================================================================
-# Generic System Configuration
+# Generic System Configuration — ORCHESTRATION
 # =============================================================================
-# This file defines the complete pipeline for the Generic system.
-# To create a new pipeline, copy this file and modify the values below.
-# No Python code changes required.
+# This file defines the orchestration for the Generic system.
+# It is used by the DAG factory to generate Airflow DAGs with correct
+# entity ingestion triggers and FDP dependency checking.
 # =============================================================================
 
 system_id: GENERIC
@@ -12,348 +12,37 @@ file_prefix: generic
 ok_file_suffix: ".ok"
 
 # =============================================================================
-# ENTITIES — ODP tables, CSV schemas, and validation rules
+# ENTITIES — which entities to ingest (names + descriptions only)
 # =============================================================================
 entities:
   customers:
     description: "Customer records from mainframe"
-    primary_key: [customer_id]
-    partition_field: created_date
-    cluster_fields: [_run_id, status]
-    fields:
-      - name: customer_id
-        type: STRING
-        required: true
-        primary_key: true
-        description: "Unique customer identifier"
-      - name: first_name
-        type: STRING
-        required: true
-        max_length: 100
-        description: "Customer first name"
-      - name: last_name
-        type: STRING
-        required: true
-        max_length: 100
-        description: "Customer last name"
-      - name: ssn
-        type: STRING
-        required: true
-        pii: true
-        pii_type: SSN
-        description: "Social Security Number (PII)"
-      - name: dob
-        type: DATE
-        required: true
-        pii: true
-        pii_type: DATE_OF_BIRTH
-        description: "Date of birth (PII)"
-      - name: status
-        type: STRING
-        allowed_values: [A, I, C]
-        description: "Status: A=Active, I=Inactive, C=Closed"
-      - name: created_date
-        type: DATE
-        description: "Customer creation date"
-
   accounts:
     description: "Account records from mainframe"
-    primary_key: [account_id]
-    partition_field: open_date
-    cluster_fields: [_run_id, account_type]
-    fields:
-      - name: account_id
-        type: STRING
-        required: true
-        primary_key: true
-        description: "Unique account identifier"
-      - name: customer_id
-        type: STRING
-        required: true
-        foreign_key: customers.customer_id
-        description: "Foreign key to customers"
-      - name: account_type
-        type: STRING
-        allowed_values: [CHECKING, SAVINGS, MONEY_MARKET, CD, IRA]
-        description: "Account type"
-      - name: balance
-        type: NUMERIC
-        description: "Current account balance"
-      - name: status
-        type: STRING
-        allowed_values: [A, I, C]
-        description: "Status: A=Active, I=Inactive, C=Closed"
-      - name: open_date
-        type: DATE
-        description: "Account open date"
-
   decision:
     description: "Credit decision records"
-    primary_key: [decision_id]
-    partition_field: decision_date
-    cluster_fields: [_run_id, decision_code]
-    fields:
-      - name: decision_id
-        type: STRING
-        required: true
-        primary_key: true
-        description: "Unique decision identifier"
-      - name: customer_id
-        type: STRING
-        required: true
-        foreign_key: customers.customer_id
-        description: "Foreign key to customers"
-      - name: application_id
-        type: STRING
-        description: "Related application ID"
-      - name: decision_code
-        type: STRING
-        required: true
-        allowed_values: [APPROVE, DECLINE, REVIEW, PENDING]
-        description: "Decision outcome code"
-      - name: decision_date
-        type: TIMESTAMP
-        required: true
-        description: "When decision was made"
-      - name: score
-        type: INTEGER
-        description: "Credit score (300-850)"
-      - name: reason_codes
-        type: STRING
-        description: "Pipe-separated reason codes"
-
   applications:
     description: "Loan application records"
-    primary_key: [application_id]
-    partition_field: application_date
-    cluster_fields: [_run_id, status]
-    fields:
-      - name: application_id
-        type: STRING
-        required: true
-        primary_key: true
-        description: "Unique application identifier"
-      - name: customer_id
-        type: STRING
-        required: true
-        foreign_key: customers.customer_id
-        description: "Foreign key to customers"
-      - name: loan_amount
-        type: FLOAT
-        description: "Requested loan amount"
-      - name: interest_rate
-        type: FLOAT
-        description: "Interest rate for the loan"
-      - name: term_months
-        type: INTEGER
-        description: "Loan term in months"
-      - name: application_date
-        type: DATE
-        required: true
-        description: "Date of application submission"
-      - name: status
-        type: STRING
-        required: true
-        allowed_values: [SUBMITTED, IN_PROGRESS, APPROVED, DECLINED, CANCELLED]
-        description: "Current status of application"
-      - name: event_type
-        type: STRING
-        description: "Type of event"
-      - name: account_type
-        type: STRING
-        description: "Type of account"
 
 # =============================================================================
-# STAGING — code mappings applied in the staging layer (views)
-# These are reusable across FDP models that reference the same staging table.
+# FDP MODELS — dependency checking (when to trigger transformation)
 # =============================================================================
-staging:
-  customers:
-    code_maps:
-      status:
-        target: status_desc
-        values:
-          A: Active
-          I: Inactive
-          C: Closed
-          _default: Unknown
-  accounts:
-    code_maps:
-      status:
-        target: status_desc
-        values:
-          A: Active
-          I: Inactive
-          C: Closed
-          _default: Unknown
-      account_type:
-        target: account_type_desc
-        values:
-          CHECKING: Checking Account
-          SAVINGS: Savings Account
-          MONEY_MARKET: Money Market Account
-          CD: Certificate of Deposit
-          IRA: Individual Retirement Account
-  decision:
-    code_maps:
-      decision_code:
-        target: decision_outcome
-        values:
-          APPROVE: Approved
-          DECLINE: Declined
-          REVIEW: Under Review
-          PENDING: Pending
-  applications:
-    rename:
-      status: application_status
-
-# =============================================================================
-# FDP MODELS — transformation targets, dependencies, and column mappings
-# =============================================================================
-# Three types:
-#   map    — 1:1 from single staging table, column mappings in YAML, SQL auto-generated
-#   join   — multi-source with join config, SQL auto-generated
-#   custom — hand-written SQL, only metadata generated
+# Only type and requires are needed here — column mappings live in the
+# bigquery-to-mapped-product deployment's system.yaml.
 # =============================================================================
 fdp_models:
   event_transaction_excess:
     type: join
     requires: [customers, accounts]
     description: "Joined customer-account transactions"
-    tags: [fdp, generic, event, join]
-    sources:
-      - staging: stg_generic_customers
-        alias: c
-      - staging: stg_generic_accounts
-        alias: a
-    join:
-      type: inner
-      condition: "c.customer_id = a.customer_id"
-    surrogate_key:
-      name: event_key
-      columns: ["c.customer_id", "a.account_id", "c._extract_date"]
-    columns:
-      - source: c.customer_id
-        target: customer_id
-      - source: c.first_name
-        target: first_name
-      - source: c.last_name
-        target: last_name
-      - source: c.dob
-        target: date_of_birth
-      - source: c.status_desc
-        target: customer_status
-      - source: a.account_id
-        target: account_id
-      - source: a.account_type_desc
-        target: account_type_desc
-      - source: a.balance
-        target: current_balance
-      - source: a.open_date
-        target: account_open_date
-    pii:
-      - column: c.ssn
-        target: ssn_masked
-        type: SSN
-    materialized: incremental
-    incremental_strategy: merge
-    unique_key: event_key
-    partition_by: _extract_date
-    cluster_by: [customer_id, account_id]
-    incremental_filter: "c._processed_at > (select max(_transformed_ts) from {{ this }}) OR a._processed_at > (select max(_transformed_ts) from {{ this }})"
-
   portfolio_account_excess:
     type: map
     requires: [decision]
     description: "Decision-based portfolio accounts"
-    tags: [fdp, generic, portfolio, map]
-    sources:
-      - staging: stg_generic_decision
-    surrogate_key:
-      name: portfolio_key
-      columns: [decision_id, customer_id]
-    columns:
-      - source: decision_id
-        target: decision_id
-      - source: customer_id
-        target: customer_id
-      - source: decision_code
-        target: decision_code
-      - source: decision_outcome
-        target: decision_outcome
-      - source: decision_date
-        target: decision_date
-      - source: score
-        target: score
-      - source: reason_codes
-        target: decision_reason
-    materialized: incremental
-    incremental_strategy: merge
-    unique_key: portfolio_key
-    partition_by: _extract_date
-    cluster_by: [customer_id, decision_id]
-    incremental_filter: "_processed_at > (select max(_transformed_ts) from {{ this }})"
-
   portfolio_account_facility:
     type: map
     requires: [applications]
     description: "Application-based portfolio facilities"
-    tags: [fdp, generic, facility, map]
-    sources:
-      - staging: stg_generic_applications
-    unique_key: facility_key
-    columns:
-      - source: application_id
-        target: facility_key
-      - source: application_id
-        target: application_id
-      - source: customer_id
-        target: customer_id
-      - source: loan_amount
-        target: loan_amount
-      - source: interest_rate
-        target: interest_rate
-      - source: term_months
-        target: term_months
-      - source: application_date
-        target: application_date
-      - source: application_status
-        target: application_status
-      - source: event_type
-        target: event_type
-      - source: account_type
-        target: account_type
-    materialized: incremental
-    partition_by: _extract_date
-    cluster_by: [application_id, customer_id]
-    incremental_filter: "_extract_date > (select max(_extract_date) from {{ this }})"
-
-# =============================================================================
-# CDP MODELS — Consumable Data Products built from FDP tables
-# =============================================================================
-# CDP models typically involve complex business logic (aggregations, scoring,
-# window functions, cross-entity calculations) that cannot be expressed in
-# simple column mappings. Most CDP models will be type: custom.
-#
-# The generator still auto-creates scaffolding for custom CDP models:
-#   - FDP staging views (thin passthroughs from FDP tables)
-#   - FDP sources YAML (with column tests)
-#   - CDP model metadata YAML (column descriptions + tests)
-# But the actual CDP SQL is hand-written by the team.
-#
-# For simple CDPs (rare), type: map or type: join are still available.
-# =============================================================================
-cdp_models:
-  customer_risk_profile:
-    type: custom
-    requires: [event_transaction_excess, portfolio_account_excess, portfolio_account_facility]
-    description: "Customer risk profile - complex scoring, segmentation, and denormalised per-customer view"
-    custom_sql: models/cdp/customer_risk_profile.sql
-    tags: [cdp, generic, risk]
-    materialized: incremental
-    unique_key: risk_profile_key
-    partition_by: _extract_date
-    cluster_by: [customer_id]
 
 # =============================================================================
 # INFRASTRUCTURE — GCP resource naming conventions
@@ -362,7 +51,6 @@ infrastructure:
   datasets:
     odp: "odp_{system}"
     fdp: "fdp_{system}"
-    cdp: "cdp_{system}"
     job_control: "job_control"
   buckets:
     landing: "{project_id}-{system}-{env}-landing"

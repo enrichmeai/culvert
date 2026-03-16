@@ -1,0 +1,111 @@
+# =============================================================================
+# Generic System Configuration — CDP TRANSFORMATION
+# =============================================================================
+# This file defines the CDP transformation layer for the Generic system.
+# It is used by the dbt model generator to produce FDP staging views and
+# CDP scaffolding. CDP SQL is hand-written for complex business logic.
+# Run: python generate_dbt_models.py --layer cdp --config config/system.yaml
+# =============================================================================
+
+system_id: GENERIC
+system_name: Generic
+
+# =============================================================================
+# FDP MODELS — needed to auto-generate FDP staging views and sources YAML
+# =============================================================================
+# Only output column definitions are needed here (target names from FDP).
+# Full column mappings live in the bigquery-to-mapped-product config.
+# =============================================================================
+fdp_models:
+  event_transaction_excess:
+    description: "Joined customer-account transactions"
+    surrogate_key:
+      name: event_key
+      columns: ["c.customer_id", "a.account_id", "c._extract_date"]
+    columns:
+      - source: c.customer_id
+        target: customer_id
+      - source: c.first_name
+        target: first_name
+      - source: c.last_name
+        target: last_name
+      - source: c.dob
+        target: date_of_birth
+      - source: c.status_desc
+        target: customer_status
+      - source: a.account_id
+        target: account_id
+      - source: a.account_type_desc
+        target: account_type_desc
+      - source: a.balance
+        target: current_balance
+      - source: a.open_date
+        target: account_open_date
+    pii:
+      - column: c.ssn
+        target: ssn_masked
+        type: SSN
+
+  portfolio_account_excess:
+    description: "Decision-based portfolio accounts"
+    surrogate_key:
+      name: portfolio_key
+      columns: [decision_id, customer_id]
+    columns:
+      - source: decision_id
+        target: decision_id
+      - source: customer_id
+        target: customer_id
+      - source: decision_code
+        target: decision_code
+      - source: decision_outcome
+        target: decision_outcome
+      - source: decision_date
+        target: decision_date
+      - source: score
+        target: score
+      - source: reason_codes
+        target: decision_reason
+
+  portfolio_account_facility:
+    description: "Application-based portfolio facilities"
+    columns:
+      - source: application_id
+        target: facility_key
+      - source: application_id
+        target: application_id
+      - source: customer_id
+        target: customer_id
+      - source: loan_amount
+        target: loan_amount
+      - source: interest_rate
+        target: interest_rate
+      - source: term_months
+        target: term_months
+      - source: application_date
+        target: application_date
+      - source: application_status
+        target: application_status
+      - source: event_type
+        target: event_type
+      - source: account_type
+        target: account_type
+
+# =============================================================================
+# CDP MODELS — Consumable Data Products built from FDP tables
+# =============================================================================
+# CDP models typically involve complex business logic. Most are type: custom.
+# The generator produces scaffolding (FDP staging, sources, metadata).
+# The actual CDP SQL is hand-written by the team.
+# =============================================================================
+cdp_models:
+  customer_risk_profile:
+    type: custom
+    requires: [event_transaction_excess, portfolio_account_excess, portfolio_account_facility]
+    description: "Customer risk profile - complex scoring, segmentation, and denormalised per-customer view"
+    custom_sql: models/cdp/customer_risk_profile.sql
+    tags: [cdp, generic, risk]
+    materialized: incremental
+    unique_key: risk_profile_key
+    partition_by: _extract_date
+    cluster_by: [customer_id]
