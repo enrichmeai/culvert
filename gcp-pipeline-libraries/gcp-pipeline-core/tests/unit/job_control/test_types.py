@@ -5,6 +5,7 @@ import unittest
 from gcp_pipeline_core.job_control import (
     JobStatus,
     FailureStage,
+    JobType,
 )
 
 
@@ -53,6 +54,35 @@ class TestFailureStage(unittest.TestCase):
         self.assertIn("DATA_QUALITY", stages)
         self.assertIn("ODP_LOAD", stages)
         self.assertIn("TRANSFORMATION", stages)
+        self.assertIn("RECONCILIATION", stages)
+
+    def test_reconciliation_stage(self):
+        """Test RECONCILIATION failure stage exists."""
+        self.assertEqual(FailureStage.RECONCILIATION.value, "RECONCILIATION")
+        stage = FailureStage("RECONCILIATION")
+        self.assertEqual(stage, FailureStage.RECONCILIATION)
+
+
+class TestJobType(unittest.TestCase):
+    """Test JobType enum."""
+
+    def test_job_type_values(self):
+        """Test all job type values exist."""
+        self.assertEqual(JobType.ODP_INGESTION.value, "ODP_INGESTION")
+        self.assertEqual(JobType.FDP_TRANSFORMATION.value, "FDP_TRANSFORMATION")
+        self.assertEqual(JobType.CDP_TRANSFORMATION.value, "CDP_TRANSFORMATION")
+
+    def test_job_type_from_string(self):
+        """Test creating JobType from string value."""
+        jt = JobType("ODP_INGESTION")
+        self.assertEqual(jt, JobType.ODP_INGESTION)
+
+    def test_all_job_types_defined(self):
+        """Test that all expected job types are defined."""
+        types = [t.value for t in JobType]
+        self.assertIn("ODP_INGESTION", types)
+        self.assertIn("FDP_TRANSFORMATION", types)
+        self.assertIn("CDP_TRANSFORMATION", types)
 
 
 if __name__ == '__main__':
