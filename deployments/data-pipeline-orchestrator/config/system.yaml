@@ -61,3 +61,19 @@ infrastructure:
     topic: "{system}-file-notifications"
     subscription: "{system}-file-notifications-sub"
   file_pattern: "{file_prefix}_{entity}_{date}.csv"
+
+# =============================================================================
+# RETRY CONFIG — cleanup and retry behavior for failed jobs
+# =============================================================================
+retry_config:
+  odp:
+    max_retries: 3
+    cleanup_on_retry: true        # DELETE partial ODP rows before retry
+
+# =============================================================================
+# RECONCILIATION — source-vs-destination count verification after ODP load
+# =============================================================================
+reconciliation:
+  enabled: true
+  on_mismatch: "fail"            # "fail" raises exception; "warn" logs only
+  tolerance_percentage: 0        # 0 = strict (no tolerance)

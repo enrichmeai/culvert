@@ -33,7 +33,8 @@ from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor, PubSubCompl
 from gcp_pipeline_orchestration import EntityDependencyChecker, BaseDataflowOperator
 from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
-from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob
+from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
+from gcp_pipeline_core.audit import ReconciliationEngine
 
 logger = logging.getLogger(__name__)
 
@@ -299,7 +300,10 @@ def _build_pubsub_trigger_dag(
         trigger_odp = TriggerDagRunOperator(
             task_id="trigger_odp_load",
             trigger_dag_id=ingestion_dag_id,
-            conf={"file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}"},
+            conf={
+                "file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}",
+                "hdr_metadata": "{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}",
+            },
             wait_for_completion=False,
         )
 
@@ -346,14 +350,32 @@ def _build_ingestion_dag(
     )
 
     def mark_job_failed(context):
-        """On-failure callback -- marks job as FAILED in job control."""
+        """On-failure callback -- marks job as FAILED with error context in job control."""
         run_id = context["ti"].xcom_pull(key="run_id")
         task_id = context["task_instance"].task_id
+        exception = context.get("exception")
 
         if run_id:
             repo = JobControlRepository(project_id=project_id)
-            repo.update_status(run_id, JobStatus.FAILED)
-            logger.error(f"Job {run_id} marked as FAILED -- failed task: {task_id}")
+            stage_map = {
+                "create_job_record": FailureStage.FILE_DISCOVERY,
+                "run_dataflow_pipeline": FailureStage.ODP_LOAD,
+                "update_job_success": FailureStage.ODP_LOAD,
+                "reconcile_odp_load": FailureStage.RECONCILIATION,
+                "check_ready_fdp_models": FailureStage.ODP_LOAD,
+                "trigger_ready_transforms": FailureStage.ODP_LOAD,
+            }
+            stage = stage_map.get(task_id, FailureStage.ODP_LOAD)
+            error_code = type(exception).__name__ if exception else "UNKNOWN"
+            error_message = str(exception)[:1024] if exception else f"Task {task_id} failed"
+
+            repo.mark_failed(
+                run_id=run_id,
+                error_code=error_code,
+                error_message=error_message,
+                failure_stage=stage,
+            )
+            logger.error(f"Job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
     default_args = {
         "owner": "data-engineering",
@@ -378,7 +400,7 @@ def _build_ingestion_dag(
     # -- callables -----------------------------------------------------------
 
     def create_job_record(**context):
-        """Create job control record before processing."""
+        """Create job control record before processing. Cleans up partial data from prior failures."""
         conf = context.get("dag_run").conf or {}
         file_metadata_raw = conf.get("file_metadata", {})
         file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
@@ -388,14 +410,32 @@ def _build_ingestion_dag(
         data_file = file_metadata.get("data_file", "")
         run_id = context.get("run_id", f"{config['file_prefix']}_{entity}_{extract_date}")
 
+        extract_date_obj = datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now(tz=timezone.utc).date()
+
         repo = JobControlRepository(project_id=project_id)
+
+        # Cleanup partial data from previously failed jobs for this entity/date
+        existing = repo.get_entity_status(system_id, extract_date_obj)
+        for entry in existing:
+            if entry["entity_type"] == entity and entry["status"] == "FAILED":
+                old_run_id = entry["run_id"]
+                odp_table = f"{project_id}.odp_{config['file_prefix']}.{entity}"
+                logger.info(f"Found failed job {old_run_id}. Cleaning up partial data from {odp_table}")
+                try:
+                    deleted = repo.cleanup_partial_load(old_run_id, odp_table)
+                    logger.info(f"Cleaned up {deleted} partial rows from {odp_table} for run {old_run_id}")
+                except Exception as e:
+                    logger.warning(f"Cleanup of partial load failed (non-fatal): {e}")
+                repo.mark_retrying(old_run_id, retry_count=1)
+
         job = PipelineJob(
             run_id=run_id,
             system_id=system_id,
             entity_type=entity,
-            extract_date=datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now(tz=timezone.utc).date(),
+            extract_date=extract_date_obj,
             source_files=[data_file],
             started_at=datetime.now(tz=timezone.utc),
+            job_type="ODP_INGESTION",
         )
         repo.create_job(job)
         repo.update_status(run_id, JobStatus.RUNNING)
@@ -445,6 +485,42 @@ def _build_ingestion_dag(
             repo = JobControlRepository(project_id=project_id)
             repo.update_status(run_id, JobStatus.SUCCESS)
             logger.info(f"Job {run_id} marked as SUCCESS")
+
+    def reconcile_odp_load(**context):
+        """Compare HDR/TRL expected count with actual BigQuery row count after ODP load."""
+        run_id = context["ti"].xcom_pull(key="run_id")
+        entity = context["ti"].xcom_pull(key="entity")
+
+        conf = context.get("dag_run").conf or {}
+        hdr_metadata_raw = conf.get("hdr_metadata", {})
+        hdr_metadata = json.loads(hdr_metadata_raw) if isinstance(hdr_metadata_raw, str) else hdr_metadata_raw
+        expected_count = hdr_metadata.get("record_count") if hdr_metadata else None
+
+        if not expected_count:
+            logger.warning(f"No expected record count from HDR/TRL for {entity}. Skipping reconciliation.")
+            return
+
+        odp_table = f"{project_id}.odp_{config['file_prefix']}.{entity}"
+        error_table = f"{project_id}.odp_{config['file_prefix']}.{entity}_errors"
+
+        engine = ReconciliationEngine(
+            entity_type=entity,
+            run_id=run_id,
+            project_id=project_id,
+        )
+        result = engine.reconcile_with_bigquery(
+            expected_count=expected_count,
+            destination_table=odp_table,
+            error_table=error_table,
+        )
+
+        if not result.is_reconciled:
+            raise Exception(
+                f"ODP reconciliation MISMATCH for {entity}: "
+                f"expected={result.expected_count}, actual={result.actual_count}, "
+                f"errors={result.error_count}, match={result.match_percentage:.1f}%"
+            )
+        logger.info(f"ODP reconciliation passed for {entity}: {result.actual_count}/{result.expected_count} rows")
 
     def trigger_ready_transforms(**context):
         """
@@ -508,6 +584,11 @@ def _build_ingestion_dag(
             python_callable=update_job_success,
         )
 
+        reconcile = PythonOperator(
+            task_id="reconcile_odp_load",
+            python_callable=reconcile_odp_load,
+        )
+
         check_deps = PythonOperator(
             task_id="check_ready_fdp_models",
             python_callable=check_ready_fdp_models,
@@ -522,7 +603,7 @@ def _build_ingestion_dag(
             task_id="end",
         )
 
-        create_job >> run_dataflow >> mark_success >> check_deps >> trigger_transforms >> end
+        create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end
 
     return dag
 

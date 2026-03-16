@@ -57,6 +57,11 @@ class PipelineJob:
     created_at: datetime = field(default_factory=lambda: datetime.now(tz=timezone.utc))
     updated_at: Optional[datetime] = None
 
+    # Job classification
+    job_type: Optional[str] = None       # "ODP_INGESTION", "FDP_TRANSFORMATION", "CDP_TRANSFORMATION"
+    retry_count: int = 0                 # how many times this job has been retried
+    max_retries: int = 3                 # configured maximum retries
+
     # FinOps
     estimated_cost_usd: Optional[float] = None
     billed_bytes_scanned: Optional[int] = None

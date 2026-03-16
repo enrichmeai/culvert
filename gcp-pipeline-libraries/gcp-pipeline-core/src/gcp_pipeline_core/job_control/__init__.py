@@ -27,7 +27,7 @@ Example:
     >>> repo.update_status(job.run_id, JobStatus.SUCCESS, total_records=5000)
 """
 
-from .types import JobStatus, FailureStage
+from .types import JobStatus, FailureStage, JobType
 from .models import PipelineJob
 from .repository import JobControlRepository
 
@@ -35,6 +35,7 @@ __all__ = [
     # Types
     'JobStatus',
     'FailureStage',
+    'JobType',
     # Models
     'PipelineJob',
     # Repository

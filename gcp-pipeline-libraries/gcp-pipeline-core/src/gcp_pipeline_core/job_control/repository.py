@@ -63,10 +63,12 @@ class JobControlRepository:
             INSERT INTO `{self.full_table_id}` (
                 run_id, system_id, entity_type, extract_date,
                 status, started_at, source_files,
+                job_type, retry_count, max_retries,
                 created_at, updated_at
             ) VALUES (
                 @run_id, @system_id, @entity_type, @extract_date,
                 @status, @started_at, @source_files,
+                @job_type, @retry_count, @max_retries,
                 CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP()
             )
         """
@@ -80,6 +82,9 @@ class JobControlRepository:
                 bigquery.ScalarQueryParameter("status", "STRING", job.status.value),
                 bigquery.ScalarQueryParameter("started_at", "TIMESTAMP", job.started_at),
                 bigquery.ArrayQueryParameter("source_files", "STRING", job.source_files),
+                bigquery.ScalarQueryParameter("job_type", "STRING", job.job_type),
+                bigquery.ScalarQueryParameter("retry_count", "INT64", job.retry_count),
+                bigquery.ScalarQueryParameter("max_retries", "INT64", job.max_retries),
             ]
         )
 
@@ -300,6 +305,107 @@ class JobControlRepository:
             ))
 
         return jobs
+
+    def mark_retrying(self, run_id: str, retry_count: int) -> None:
+        """
+        Transition job to RETRYING status with retry count.
+
+        Args:
+            run_id: Job run ID
+            retry_count: Current retry attempt number
+        """
+        query = f"""
+            UPDATE `{self.full_table_id}`
+            SET status = 'RETRYING',
+                retry_count = @retry_count,
+                updated_at = CURRENT_TIMESTAMP()
+            WHERE run_id = @run_id
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("run_id", "STRING", run_id),
+                bigquery.ScalarQueryParameter("retry_count", "INT64", retry_count),
+            ]
+        )
+
+        self.client.query(query, job_config=job_config).result()
+        logger.info(f"Marked job {run_id} as RETRYING (attempt {retry_count})")
+
+    def cleanup_partial_load(self, run_id: str, table_id: str) -> int:
+        """
+        Delete rows from a failed partial ODP load.
+
+        Uses the _run_id column stamped on every row by the Beam pipeline
+        to identify and remove rows belonging to a specific failed run.
+
+        Args:
+            run_id: Job run ID whose partial rows should be deleted
+            table_id: Fully-qualified BigQuery table (project.dataset.table)
+
+        Returns:
+            Number of rows deleted
+        """
+        query = f"""
+            DELETE FROM `{table_id}`
+            WHERE _run_id = @run_id
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("run_id", "STRING", run_id),
+            ]
+        )
+
+        result = self.client.query(query, job_config=job_config).result()
+        deleted = result.num_dml_affected_rows or 0
+        logger.info(f"Cleaned up {deleted} partial rows from {table_id} for run {run_id}")
+        return deleted
+
+    def get_failed_jobs(
+        self,
+        system_id: str,
+        extract_date: date
+    ) -> List[dict]:
+        """
+        Get all FAILED jobs for a system/date.
+
+        Used for retry cleanup decisions — find previous failed attempts
+        before starting a new run.
+
+        Args:
+            system_id: Source system ID
+            extract_date: Extract date
+
+        Returns:
+            List of dicts with run_id, entity_type, status, retry_count
+        """
+        query = f"""
+            SELECT run_id, entity_type, status, retry_count
+            FROM `{self.full_table_id}`
+            WHERE system_id = @system_id
+              AND extract_date = @extract_date
+              AND status = 'FAILED'
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("system_id", "STRING", system_id),
+                bigquery.ScalarQueryParameter("extract_date", "DATE", extract_date),
+            ]
+        )
+
+        results = self.client.query(query, job_config=job_config).result()
+
+        return [
+            {
+                "run_id": row.run_id,
+                "entity_type": row.entity_type,
+                "status": row.status,
+                "retry_count": row.retry_count or 0,
+            }
+            for row in results
+        ]
 
 
 __all__ = [

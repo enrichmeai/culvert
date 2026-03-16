@@ -185,6 +185,89 @@ class TestJobControlRepository(unittest.TestCase):
         self.assertEqual(statuses[1]["entity_type"], "accounts")
         self.assertEqual(statuses[1]["status"], "RUNNING")
 
+    def test_create_job_with_job_type(self):
+        """Test creating a job with job_type field."""
+        job = PipelineJob(
+            run_id="test_run_001",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+            source_files=["gs://bucket/file.csv"],
+            job_type="ODP_INGESTION",
+        )
+
+        mock_query_job = MagicMock()
+        self.mock_client.query.return_value = mock_query_job
+
+        self.repo.create_job(job)
+
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+
+        self.assertIn("job_type", query)
+        self.assertIn("retry_count", query)
+        self.assertIn("max_retries", query)
+
+    def test_mark_retrying(self):
+        """Test transitioning a job to RETRYING status."""
+        mock_query_job = MagicMock()
+        self.mock_client.query.return_value = mock_query_job
+
+        self.repo.mark_retrying("test_run_001", retry_count=2)
+
+        self.mock_client.query.assert_called_once()
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+
+        self.assertIn("UPDATE", query)
+        self.assertIn("status = 'RETRYING'", query)
+        self.assertIn("retry_count", query)
+
+    def test_cleanup_partial_load(self):
+        """Test deleting partial rows from a failed ODP load."""
+        mock_result = MagicMock()
+        mock_result.num_dml_affected_rows = 150
+
+        mock_query_job = MagicMock()
+        mock_query_job.result.return_value = mock_result
+        self.mock_client.query.return_value = mock_query_job
+
+        deleted = self.repo.cleanup_partial_load(
+            "test_run_001",
+            "project.odp_generic.customers"
+        )
+
+        self.mock_client.query.assert_called_once()
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+
+        self.assertIn("DELETE FROM", query)
+        self.assertIn("_run_id", query)
+        self.assertEqual(deleted, 150)
+
+    def test_get_failed_jobs(self):
+        """Test retrieving failed jobs for a system/date."""
+        mock_row = MagicMock()
+        mock_row.run_id = "run_001"
+        mock_row.entity_type = "customers"
+        mock_row.status = "FAILED"
+        mock_row.retry_count = 1
+
+        mock_query_job = MagicMock()
+        mock_query_job.result.return_value = [mock_row]
+        self.mock_client.query.return_value = mock_query_job
+
+        failed = self.repo.get_failed_jobs("Application1", date(2026, 1, 1))
+
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(failed[0]["run_id"], "run_001")
+        self.assertEqual(failed[0]["status"], "FAILED")
+        self.assertEqual(failed[0]["retry_count"], 1)
+
+        call_args = self.mock_client.query.call_args
+        query = call_args[0][0]
+        self.assertIn("status = 'FAILED'", query)
+
 
 if __name__ == '__main__':
     unittest.main()

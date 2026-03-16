@@ -102,6 +102,51 @@ class TestPipelineJob(unittest.TestCase):
         )
         self.assertEqual(job2.source_files, [])
 
+    def test_job_type_default_none(self):
+        """Test job_type defaults to None for backward compatibility."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+        )
+        self.assertIsNone(job.job_type)
+
+    def test_job_type_set_to_odp(self):
+        """Test job_type can be set to ODP_INGESTION."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+            job_type="ODP_INGESTION",
+        )
+        self.assertEqual(job.job_type, "ODP_INGESTION")
+
+    def test_retry_count_defaults(self):
+        """Test retry_count and max_retries defaults."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+        )
+        self.assertEqual(job.retry_count, 0)
+        self.assertEqual(job.max_retries, 3)
+
+    def test_retry_count_custom(self):
+        """Test custom retry_count and max_retries."""
+        job = PipelineJob(
+            run_id="test",
+            system_id="Application1",
+            entity_type="Customer",
+            extract_date=date(2026, 1, 1),
+            retry_count=2,
+            max_retries=5,
+        )
+        self.assertEqual(job.retry_count, 2)
+        self.assertEqual(job.max_retries, 5)
+
 
 if __name__ == '__main__':
     unittest.main()

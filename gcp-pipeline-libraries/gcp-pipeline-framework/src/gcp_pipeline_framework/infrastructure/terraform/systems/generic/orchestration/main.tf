@@ -82,7 +82,10 @@ resource "google_bigquery_table" "pipeline_jobs" {
     { name = "error_file_path", type = "STRING", mode = "NULLABLE", description = "Error file path" },
     { name = "failure_stage", type = "STRING", mode = "NULLABLE", description = "Stage where failure occurred" },
     { name = "created_at", type = "TIMESTAMP", mode = "REQUIRED", description = "Record creation time" },
-    { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE", description = "Last update time" }
+    { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE", description = "Last update time" },
+    { name = "job_type", type = "STRING", mode = "NULLABLE", description = "ODP_INGESTION, FDP_TRANSFORMATION, CDP_TRANSFORMATION" },
+    { name = "retry_count", type = "INTEGER", mode = "NULLABLE", description = "Number of retry attempts" },
+    { name = "max_retries", type = "INTEGER", mode = "NULLABLE", description = "Configured maximum retries" }
   ])
 
   labels = local.common_labels
@@ -172,7 +175,7 @@ resource "google_bigquery_dataset_iam_member" "generic_dbt_fdp_editor" {
 
 resource "google_bigquery_dataset_iam_member" "generic_dbt_job_control" {
   dataset_id = google_bigquery_dataset.job_control.dataset_id
-  role       = "roles/bigquery.dataViewer"
+  role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.generic_dbt.email}"
 }
 
