@@ -35,6 +35,7 @@ from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.audit import ReconciliationEngine
+from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
 
 logger = logging.getLogger(__name__)
 
@@ -350,7 +351,7 @@ def _build_ingestion_dag(
     )
 
     def mark_job_failed(context):
-        """On-failure callback -- marks job as FAILED with error context in job control."""
+        """On-failure callback -- marks job as FAILED, classifies error, stores to GCS."""
         run_id = context["ti"].xcom_pull(key="run_id")
         task_id = context["task_instance"].task_id
         exception = context.get("exception")
@@ -375,6 +376,30 @@ def _build_ingestion_dag(
                 error_message=error_message,
                 failure_stage=stage,
             )
+
+            # Classify and store error via ErrorHandler
+            if exception:
+                try:
+                    error_storage = GCSErrorStorage(
+                        bucket_name=infra["error_bucket"],
+                        prefix=f"error_logs/{run_id}",
+                    )
+                    handler = ErrorHandler(
+                        pipeline_name=dag_id,
+                        run_id=run_id,
+                        error_storage=error_storage,
+                    )
+                    handler.handle_exception(exception, source_file=task_id)
+                except Exception as e:
+                    logger.warning(f"Error handler storage failed (non-fatal): {e}")
+
+            # Record audit trail for failed ODP
+            entity = context["ti"].xcom_pull(key="entity") or "unknown"
+            audit = AuditTrail(run_id=run_id, pipeline_name=dag_id, entity_type=entity)
+            audit.record_processing_start(source_file="unknown")
+            audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
+            audit.record_processing_end(success=False)
+
             logger.error(f"Job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
     default_args = {
@@ -478,13 +503,31 @@ def _build_ingestion_dag(
         context["ti"].xcom_push(key="ready_fdp_models", value=ready_models)
 
     def update_job_success(**context):
-        """Update job control status to success."""
+        """Update job control status to success and record audit trail."""
         run_id = context["ti"].xcom_pull(key="run_id")
+        entity = context["ti"].xcom_pull(key="entity")
 
         if run_id:
             repo = JobControlRepository(project_id=project_id)
             repo.update_status(run_id, JobStatus.SUCCESS)
             logger.info(f"Job {run_id} marked as SUCCESS")
+
+            # Record audit trail for ODP load
+            conf = context.get("dag_run").conf or {}
+            file_metadata_raw = conf.get("file_metadata", {})
+            file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+            data_file = file_metadata.get("data_file", "unknown")
+
+            audit = AuditTrail(
+                run_id=run_id,
+                pipeline_name=dag_id,
+                entity_type=entity or "unknown",
+            )
+            audit.record_processing_start(
+                source_file=data_file,
+                metadata={"job_type": "ODP_INGESTION", "system_id": system_id},
+            )
+            audit.record_processing_end(success=True)
 
     def reconcile_odp_load(**context):
         """Compare HDR/TRL expected count with actual BigQuery row count after ODP load."""
@@ -625,7 +668,7 @@ def _build_transformation_dag(
     dbt_project_path = Variable.get("dbt_project_path", default_var="/home/airflow/gcs/dags/dbt")
 
     def mark_fdp_job_failed(context):
-        """On-failure callback -- marks FDP job as FAILED with stage-specific details."""
+        """On-failure callback -- marks FDP job as FAILED, classifies error, stores to GCS."""
         run_id = context["ti"].xcom_pull(key="fdp_run_id")
         task_id = context["task_instance"].task_id
         exception = context.get("exception")
@@ -638,6 +681,7 @@ def _build_transformation_dag(
                 "run_dbt_staging": FailureStage.FDP_STAGING,
                 "run_dbt_fdp": FailureStage.FDP_MODEL,
                 "run_dbt_tests": FailureStage.FDP_TEST,
+                "reconcile_fdp_model": FailureStage.RECONCILIATION,
             }
             stage = stage_map.get(task_id, FailureStage.TRANSFORMATION)
             error_code = type(exception).__name__ if exception else "UNKNOWN"
@@ -649,6 +693,32 @@ def _build_transformation_dag(
                 error_message=error_message,
                 failure_stage=stage,
             )
+
+            # Classify and store error via ErrorHandler
+            if exception:
+                try:
+                    infra = _resolve_infra(config, project_id, Variable.get("environment", default_var="int"))
+                    error_storage = GCSErrorStorage(
+                        bucket_name=infra["error_bucket"],
+                        prefix=f"error_logs/{run_id}",
+                    )
+                    handler = ErrorHandler(
+                        pipeline_name=dag_id,
+                        run_id=run_id,
+                        error_storage=error_storage,
+                    )
+                    handler.handle_exception(exception, source_file=task_id)
+                except Exception as e:
+                    logger.warning(f"Error handler storage failed (non-fatal): {e}")
+
+            # Record audit trail for failed FDP
+            conf = context.get("dag_run").conf or {}
+            fdp_model = conf.get("fdp_model", "unknown")
+            audit = AuditTrail(run_id=run_id, pipeline_name=dag_id, entity_type=fdp_model)
+            audit.record_processing_start(source_file=f"odp_{config['file_prefix']}.*")
+            audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
+            audit.record_processing_end(success=False)
+
             logger.error(f"FDP job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
     default_args = {
@@ -781,13 +851,67 @@ def _build_transformation_dag(
         context["ti"].xcom_push(key="fdp_run_id", value=run_id)
 
     def update_fdp_job_success(**context):
-        """Update FDP job control status to SUCCESS."""
+        """Update FDP job control status to SUCCESS and record audit trail."""
         run_id = context["ti"].xcom_pull(key="fdp_run_id")
+        conf = context.get("dag_run").conf or {}
+        fdp_model = conf.get("fdp_model", "unknown")
 
         if run_id:
             repo = JobControlRepository(project_id=project_id)
             repo.update_status(run_id, JobStatus.SUCCESS)
             logger.info(f"FDP job {run_id} marked as SUCCESS")
+
+            # Record audit trail for FDP transformation
+            audit = AuditTrail(
+                run_id=run_id,
+                pipeline_name=dag_id,
+                entity_type=fdp_model,
+            )
+            audit.record_processing_start(
+                source_file=f"odp_{config['file_prefix']}.*",
+                metadata={
+                    "job_type": "FDP_TRANSFORMATION",
+                    "system_id": system_id,
+                    "dbt_model": fdp_model,
+                },
+            )
+            audit.record_processing_end(success=True)
+
+    def reconcile_fdp_model_output(**context):
+        """Verify FDP model has rows after transformation."""
+        run_id = context["ti"].xcom_pull(key="fdp_run_id")
+        conf = context.get("dag_run").conf or {}
+        fdp_model = conf.get("fdp_model", "")
+
+        fdp_dataset = config.get("infrastructure", {}).get("datasets", {}).get("fdp", "fdp_{system}")
+        fdp_dataset_resolved = fdp_dataset.format(system=config.get("file_prefix", ""))
+        fdp_table = f"{project_id}.{fdp_dataset_resolved}.{fdp_model}"
+
+        required_entities = fdp_deps.get(fdp_model, [])
+        odp_dataset = config.get("infrastructure", {}).get("datasets", {}).get("odp", "odp_{system}")
+        odp_dataset_resolved = odp_dataset.format(system=config.get("file_prefix", ""))
+        source_tables = [f"{project_id}.{odp_dataset_resolved}.{e}" for e in required_entities]
+
+        model_info = config.get("fdp_models", {}).get(fdp_model, {})
+        join_type = "map" if model_info.get("type") == "map" else "inner"
+
+        engine = ReconciliationEngine(
+            entity_type=fdp_model,
+            run_id=run_id,
+            project_id=project_id,
+        )
+        result = engine.reconcile_fdp_model(
+            model_name=fdp_model,
+            source_tables=source_tables,
+            destination_table=fdp_table,
+            join_type=join_type,
+        )
+
+        if not result.is_reconciled:
+            raise Exception(
+                f"FDP reconciliation MISMATCH for {fdp_model}: {result.message}"
+            )
+        logger.info(f"FDP reconciliation passed for {fdp_model}: {result.actual_count} rows")
 
     # -- tasks ---------------------------------------------------------------
 
@@ -827,6 +951,11 @@ def _build_transformation_dag(
             ''',
         )
 
+        reconcile_fdp = PythonOperator(
+            task_id="reconcile_fdp_model",
+            python_callable=reconcile_fdp_model_output,
+        )
+
         mark_success = PythonOperator(
             task_id="mark_fdp_success",
             python_callable=update_fdp_job_success,
@@ -843,7 +972,7 @@ def _build_transformation_dag(
         )
 
         verify >> [create_fdp_job, dep_failure]
-        create_fdp_job >> staging >> fdp >> tests >> mark_success >> end
+        create_fdp_job >> staging >> fdp >> tests >> reconcile_fdp >> mark_success >> end
         dep_failure >> end
 
     return dag

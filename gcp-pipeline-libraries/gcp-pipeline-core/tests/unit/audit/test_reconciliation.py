@@ -285,6 +285,102 @@ class TestReconciliationWithLogger(unittest.TestCase):
         self.assertIn("failed", call_args[0][0].lower())
 
 
+class TestFDPReconciliation(unittest.TestCase):
+    """Tests for FDP model reconciliation."""
+
+    def setUp(self):
+        self.engine = ReconciliationEngine(
+            entity_type="event_transaction_excess",
+            run_id="transform_event_transaction_excess_20260316",
+            project_id="test-project",
+        )
+
+    @patch('gcp_pipeline_core.audit.reconciliation.ReconciliationEngine._query_count')
+    def test_fdp_map_model_reconciled(self, mock_query):
+        """MAP model: 1:1 count from single source should reconcile."""
+        # source count, then destination count
+        mock_query.side_effect = [500, 500]
+        mock_client = MagicMock()
+
+        result = self.engine.reconcile_fdp_model(
+            model_name="portfolio_account_excess",
+            source_tables=["project.odp_generic.decision"],
+            destination_table="project.fdp_generic.portfolio_account_excess",
+            join_type="map",
+            bq_client=mock_client,
+        )
+
+        self.assertEqual(result.status, ReconciliationStatus.RECONCILED)
+        self.assertEqual(result.actual_count, 500)
+
+    @patch('gcp_pipeline_core.audit.reconciliation.ReconciliationEngine._query_count')
+    def test_fdp_map_model_mismatch(self, mock_query):
+        """MAP model: count mismatch should fail."""
+        # Order: destination count first, then source count
+        mock_query.side_effect = [300, 500]
+        mock_client = MagicMock()
+
+        result = self.engine.reconcile_fdp_model(
+            model_name="portfolio_account_excess",
+            source_tables=["project.odp_generic.decision"],
+            destination_table="project.fdp_generic.portfolio_account_excess",
+            join_type="map",
+            bq_client=mock_client,
+        )
+
+        self.assertEqual(result.status, ReconciliationStatus.MISMATCH)
+        self.assertEqual(result.difference, 200)
+
+    @patch('gcp_pipeline_core.audit.reconciliation.ReconciliationEngine._query_count')
+    def test_fdp_join_model_has_rows(self, mock_query):
+        """JOIN model: non-empty FDP table should reconcile."""
+        mock_query.return_value = 750
+        mock_client = MagicMock()
+
+        result = self.engine.reconcile_fdp_model(
+            model_name="event_transaction_excess",
+            source_tables=["project.odp_generic.customers", "project.odp_generic.accounts"],
+            destination_table="project.fdp_generic.event_transaction_excess",
+            join_type="inner",
+            bq_client=mock_client,
+        )
+
+        self.assertEqual(result.status, ReconciliationStatus.RECONCILED)
+        self.assertEqual(result.actual_count, 750)
+
+    @patch('gcp_pipeline_core.audit.reconciliation.ReconciliationEngine._query_count')
+    def test_fdp_join_model_empty(self, mock_query):
+        """JOIN model: empty FDP table should fail."""
+        mock_query.return_value = 0
+        mock_client = MagicMock()
+
+        result = self.engine.reconcile_fdp_model(
+            model_name="event_transaction_excess",
+            source_tables=["project.odp_generic.customers", "project.odp_generic.accounts"],
+            destination_table="project.fdp_generic.event_transaction_excess",
+            join_type="inner",
+            bq_client=mock_client,
+        )
+
+        self.assertEqual(result.status, ReconciliationStatus.MISMATCH)
+        self.assertIn("empty", result.message)
+
+    def test_fdp_reconciliation_handles_error(self):
+        """Should handle BigQuery errors gracefully."""
+        mock_client = MagicMock()
+        mock_client.query.side_effect = Exception("BQ timeout")
+
+        result = self.engine.reconcile_fdp_model(
+            model_name="event_transaction_excess",
+            source_tables=["project.odp_generic.customers"],
+            destination_table="project.fdp_generic.event_transaction_excess",
+            bq_client=mock_client,
+        )
+
+        self.assertEqual(result.status, ReconciliationStatus.ERROR)
+        self.assertIn("failed", result.message.lower())
+
+
 if __name__ == '__main__':
     unittest.main()
 

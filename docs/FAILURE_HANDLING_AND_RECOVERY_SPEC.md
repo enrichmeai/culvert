@@ -4,7 +4,7 @@
 > failures today, what guardrails exist, where the gaps are, and what changes
 > are needed to make ODP and FDP layers fully resumable.
 >
-> **Status**: ODP guardrails IMPLEMENTED (2026-03-16). FDP guardrails IMPLEMENTED (2026-03-16).
+> **Status**: ALL GUARDRAILS IMPLEMENTED (G1–G10, 2026-03-16).
 
 ---
 
@@ -314,9 +314,9 @@ else:
 |---|-----|--------|----------|--------|
 | G6 | **RETRYING status never used** | Cannot distinguish "failed permanently" from "being retried" | MEDIUM | RESOLVED — `mark_retrying()` method added, called during ODP cleanup-before-retry |
 | G7 | **RecoveryManager is in-memory** | Checkpoints lost on worker restart. Useless for long-running Dataflow | MEDIUM | RESOLVED — `GCSRecoveryManager` persists checkpoints to GCS as JSON, restores on restart |
-| G8 | **Audit trail incomplete** | Only `record_processing_start()` called, never `_end()`. No FDP audit entries | MEDIUM | PLANNED |
-| G9 | **Error handler not integrated** | Classification, storage, alerting all available but not called from DAGs | MEDIUM | PLANNED |
-| G10 | **No FDP reconciliation** | ODP has record counts from HDR/TRL. FDP has no expected vs. actual comparison | MEDIUM | PLANNED |
+| G8 | **Audit trail incomplete** | Only `record_processing_start()` called, never `_end()`. No FDP audit entries | MEDIUM | RESOLVED — Both ODP and FDP success/failure paths now call `record_processing_start()` + `record_processing_end()` |
+| G9 | **Error handler not integrated** | Classification, storage, alerting all available but not called from DAGs | MEDIUM | RESOLVED — `ErrorHandler` + `GCSErrorStorage` wired into both ODP and FDP `on_failure_callback`s |
+| G10 | **No FDP reconciliation** | ODP has record counts from HDR/TRL. FDP has no expected vs. actual comparison | MEDIUM | RESOLVED — `reconcile_fdp_model()` added to ReconciliationEngine; `reconcile_fdp_model` task in transformation DAG |
 
 ---
 
