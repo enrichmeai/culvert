@@ -8,7 +8,7 @@ from .customers import CustomerSchema
 from .accounts import AccountSchema
 from .decision import DecisionSchema
 from .applications import ApplicationsSchema
-from .registry import ENTITY_SCHEMAS, get_schema, get_all_entity_names, get_primary_key
+from .registry import ENTITY_SCHEMAS, ENTITY_HEADERS, get_schema, get_all_entity_names, get_primary_key
 
 __all__ = [
     # Entities
@@ -18,6 +18,7 @@ __all__ = [
     'ApplicationsSchema',
     # Registry
     'ENTITY_SCHEMAS',
+    'ENTITY_HEADERS',
     'get_schema',
     'get_all_entity_names',
     'get_primary_key',

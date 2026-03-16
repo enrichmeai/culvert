@@ -3,6 +3,9 @@ Unit tests for Generic Orchestration DAGs.
 
 Tests DAG structure, configuration, and helper functions without requiring
 a live Airflow environment or GCP credentials.
+
+NOTE: DAG files are thin wrappers around dag_factory.py, which is config-driven
+via system.yaml. Tests check both the wrapper files AND the factory + config.
 """
 
 import pytest
@@ -11,8 +14,12 @@ import os
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
+import yaml
+
 # Add dags to path for import
 DAGS_PATH = Path(__file__).parent.parent.parent / "dags"
+CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "system.yaml"
+FACTORY_PATH = DAGS_PATH / "dag_factory.py"
 if str(DAGS_PATH) not in sys.path:
     sys.path.insert(0, str(DAGS_PATH))
 
@@ -20,68 +27,70 @@ if str(DAGS_PATH) not in sys.path:
 class TestDAGConstants:
     """Validate DAG configuration constants are correct."""
 
-    def test_data_ingestion_dag_system_id(self):
-        """SYSTEM_ID must be GENERIC, not a stale value."""
-        with patch.dict(os.environ, {"GCP_PROJECT_ID": "test-project"}):
-            # Mock airflow modules before import
-            airflow_mock = MagicMock()
-            sys.modules.setdefault("airflow", airflow_mock)
-            sys.modules.setdefault("airflow.models", airflow_mock)
-            sys.modules.setdefault("airflow.operators.python", airflow_mock)
-            sys.modules.setdefault("airflow.operators.trigger_dagrun", airflow_mock)
-            sys.modules.setdefault("airflow.operators.dummy", airflow_mock)
-            sys.modules.setdefault("airflow.providers.google.cloud.operators.dataflow", airflow_mock)
-            sys.modules.setdefault("gcp_pipeline_orchestration", airflow_mock)
-            sys.modules.setdefault("gcp_pipeline_core.job_control", airflow_mock)
+    def test_system_config_exists(self):
+        """system.yaml config must exist."""
+        assert CONFIG_PATH.exists(), f"System config missing: {CONFIG_PATH}"
 
-            dag_file = DAGS_PATH / "data_ingestion_dag.py"
-            content = dag_file.read_text()
-            assert 'SYSTEM_ID = "GENERIC"' in content, \
-                f"SYSTEM_ID should be 'GENERIC', found stale value. Check {dag_file}"
+    def test_system_config_has_system_id(self):
+        """system.yaml must define system_id as GENERIC."""
+        config = yaml.safe_load(CONFIG_PATH.read_text())
+        assert config["system_id"] == "GENERIC", \
+            f"system_id should be 'GENERIC', got '{config['system_id']}'"
 
-    def test_transformation_dag_system_id(self):
-        """Transformation DAG SYSTEM_ID must be GENERIC."""
-        dag_file = DAGS_PATH / "transformation_dag.py"
-        content = dag_file.read_text()
-        assert 'SYSTEM_ID = "GENERIC"' in content, \
-            f"SYSTEM_ID should be 'GENERIC' in {dag_file}"
+    def test_system_config_has_entities(self):
+        """system.yaml must define all expected entities."""
+        config = yaml.safe_load(CONFIG_PATH.read_text())
+        for entity in ["customers", "accounts", "decision", "applications"]:
+            assert entity in config["entities"], \
+                f"Expected entity '{entity}' missing from system.yaml"
 
-    def test_pubsub_trigger_dag_system_id(self):
-        """PubSub trigger DAG SYSTEM_ID must be GENERIC."""
-        dag_file = DAGS_PATH / "pubsub_trigger_dag.py"
-        content = dag_file.read_text()
-        assert 'SYSTEM_ID = "GENERIC"' in content, \
-            f"SYSTEM_ID should be 'GENERIC' in {dag_file}"
+    def test_system_config_has_fdp_models(self):
+        """system.yaml must define FDP models with dependencies."""
+        config = yaml.safe_load(CONFIG_PATH.read_text())
+        fdp = config.get("fdp_models", {})
+        assert "event_transaction_excess" in fdp
+        assert "portfolio_account_excess" in fdp
+        assert "portfolio_account_facility" in fdp
+        assert set(fdp["event_transaction_excess"]["requires"]) == {"customers", "accounts"}
+        assert fdp["portfolio_account_excess"]["requires"] == ["decision"]
+        assert fdp["portfolio_account_facility"]["requires"] == ["applications"]
 
-    def test_required_entities_in_ingestion_dag(self):
-        """Ingestion DAG must list expected Generic entities."""
-        dag_file = DAGS_PATH / "data_ingestion_dag.py"
-        content = dag_file.read_text()
-        for entity in ["customers", "accounts", "decision"]:
-            assert entity in content, f"Expected entity '{entity}' missing from ingestion DAG"
+    def test_dag_factory_exists(self):
+        """dag_factory.py must exist."""
+        assert FACTORY_PATH.exists(), "dag_factory.py missing from dags/"
+
+    def test_dag_factory_has_job_control(self):
+        """DAG factory must use JobControlRepository for run tracking."""
+        content = FACTORY_PATH.read_text()
+        assert "JobControlRepository" in content, \
+            "DAG factory must use JobControlRepository for job tracking"
+        assert "JobStatus" in content, \
+            "DAG factory must reference JobStatus enum"
+
+    def test_dag_factory_has_failure_callback(self):
+        """DAG factory must define on_failure_callback."""
+        content = FACTORY_PATH.read_text()
+        assert "on_failure_callback" in content, \
+            "DAG factory must define on_failure_callback to update job_control on failure"
+
+    def test_dag_factory_has_dag_definitions(self):
+        """DAG factory must create DAGs with dag_id."""
+        content = FACTORY_PATH.read_text()
+        assert "dag_id" in content, \
+            "DAG factory must contain dag_id definitions"
 
     def test_all_dag_files_present(self):
-        """All four required DAG files must exist."""
+        """All required DAG files must exist."""
         required = [
             "data_ingestion_dag.py",
             "transformation_dag.py",
             "pubsub_trigger_dag.py",
             "error_handling_dag.py",
+            "dag_factory.py",
         ]
         for dag_file in required:
             path = DAGS_PATH / dag_file
             assert path.exists(), f"Required DAG file missing: {dag_file}"
-
-    def test_dag_files_have_dag_definition(self):
-        """Each DAG file must contain a DAG definition."""
-        dag_files = list(DAGS_PATH.glob("*.py"))
-        assert len(dag_files) >= 4, "Expected at least 4 DAG files"
-        for dag_file in dag_files:
-            if dag_file.name.startswith("__"):
-                continue
-            content = dag_file.read_text()
-            assert "dag_id" in content, \
-                f"{dag_file.name} does not contain a dag_id — not a valid DAG file"
 
     def test_no_hardcoded_project_ids(self):
         """DAG files must not contain hardcoded project IDs."""
@@ -93,19 +102,3 @@ class TestDAGConstants:
             for pattern in forbidden_patterns:
                 assert pattern not in content, \
                     f"Hardcoded project ID '{pattern}' found in {dag_file.name}"
-
-    def test_job_control_referenced_in_ingestion_dag(self):
-        """Ingestion DAG must use job control for run tracking."""
-        dag_file = DAGS_PATH / "data_ingestion_dag.py"
-        content = dag_file.read_text()
-        assert "JobControlRepository" in content, \
-            "Ingestion DAG must use JobControlRepository for job tracking"
-        assert "JobStatus" in content, \
-            "Ingestion DAG must reference JobStatus enum"
-
-    def test_on_failure_callback_present(self):
-        """Ingestion DAG must have an on_failure_callback."""
-        dag_file = DAGS_PATH / "data_ingestion_dag.py"
-        content = dag_file.read_text()
-        assert "on_failure_callback" in content, \
-            "Ingestion DAG must define on_failure_callback to update job_control on failure"

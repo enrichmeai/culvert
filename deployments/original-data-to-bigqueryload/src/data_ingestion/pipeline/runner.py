@@ -23,25 +23,11 @@ from gcp_pipeline_core.job_control import (
 
 from .options import GenericPipelineOptions
 from .transforms import ValidateFileDoFn, ParseAndValidateRecordDoFn
-from ..config import (
-    SYSTEM_ID,
-    ODP_DATASET,
-    CUSTOMERS_HEADERS,
-    ACCOUNTS_HEADERS,
-    DECISION_HEADERS,
-    APPLICATIONS_HEADERS,
-)
+from ..config import SYSTEM_ID, ODP_DATASET
 from ..schema import ENTITY_SCHEMAS, get_schema
+from ..schema.registry import ENTITY_HEADERS
 
 logger = logging.getLogger(__name__)
-
-
-ENTITY_HEADERS = {
-    'customers': CUSTOMERS_HEADERS,
-    'accounts': ACCOUNTS_HEADERS,
-    'decision': DECISION_HEADERS,
-    'applications': APPLICATIONS_HEADERS,
-}
 
 
 def run_pipeline(argv=None):

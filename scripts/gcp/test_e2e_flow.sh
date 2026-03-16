@@ -133,10 +133,10 @@ if [ "$SYSTEM" = "generic" ] || [ "$SYSTEM" = "all" ]; then
     # Generic Applications file
     cat > "$TEST_DIR/generic_applications.csv" << 'EOF'
 HDR|Generic|APPLICATIONS|20260106
-application_id,customer_id,ssn,loan_amount,interest_rate,term_months,application_date,status,event_type,account_type
-APP001,C001,123-45-6789,25000.00,5.5,60,2025-01-10,APPROVED,NEW_APPLICATION,PORTFOLIO
-APP002,C002,987-65-4321,15000.00,6.0,36,2025-02-15,PENDING,NEW_APPLICATION,EXCESS
-APP003,C003,555-55-5555,50000.00,4.5,84,2025-03-20,APPROVED,REFINANCE,PORTFOLIO
+application_id,customer_id,loan_amount,interest_rate,term_months,application_date,status,event_type,account_type
+APP001,C001,25000.00,5.5,60,2025-01-10,APPROVED,NEW_APPLICATION,PORTFOLIO
+APP002,C002,15000.00,6.0,36,2025-02-15,PENDING,NEW_APPLICATION,EXCESS
+APP003,C003,50000.00,4.5,84,2025-03-20,APPROVED,REFINANCE,PORTFOLIO
 TRL|RecordCount=3|Checksum=jkl012
 EOF
 
