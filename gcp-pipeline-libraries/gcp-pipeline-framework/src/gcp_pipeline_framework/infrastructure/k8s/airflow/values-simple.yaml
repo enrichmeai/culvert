@@ -1,0 +1,125 @@
+# Airflow Helm Values for GKE Deployment (Simplified)
+#
+# Usage:
+#   helm install airflow apache-airflow/airflow \
+#     --namespace airflow --create-namespace \
+#     --values values.yaml
+
+# Use KubernetesExecutor for dynamic pod creation
+executor: KubernetesExecutor
+
+# Airflow image
+images:
+  airflow:
+    repository: apache/airflow
+    tag: 2.8.1-python3.11
+
+# Database (use built-in PostgreSQL for simplicity)
+postgresql:
+  enabled: true
+
+# Redis (not needed for KubernetesExecutor)
+redis:
+  enabled: false
+
+# Web server
+webserver:
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  service:
+    type: LoadBalancer
+
+# Scheduler
+scheduler:
+  replicas: 1
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Workers (KubernetesExecutor creates pods dynamically)
+workers:
+  replicas: 0
+
+# DAG configuration - use git-sync disabled, we'll sync from GCS
+dags:
+  gitSync:
+    enabled: false
+  persistence:
+    enabled: false
+
+# Mount DAGs from emptyDir (synced via init/sidecar containers)
+extraVolumes:
+  - name: dags-volume
+    emptyDir: {}
+
+extraVolumeMounts:
+  - name: dags-volume
+    mountPath: /opt/airflow/dags
+
+# Sync DAGs from GCS on startup
+extraInitContainers:
+  - name: gcs-sync-init
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    command:
+      - /bin/bash
+      - -c
+      - |
+        gsutil -m rsync -r gs://joseph-antony-aruja-airflow-dags /opt/airflow/dags || echo "No DAGs yet"
+    volumeMounts:
+      - name: dags-volume
+        mountPath: /opt/airflow/dags
+
+# Sidecar for continuous DAG sync
+extraContainers:
+  - name: gcs-sync
+    image: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    command:
+      - /bin/bash
+      - -c
+      - |
+        while true; do
+          gsutil -m rsync -r gs://joseph-antony-aruja-airflow-dags /opt/airflow/dags || echo "Sync failed"
+          sleep 60
+        done
+    volumeMounts:
+      - name: dags-volume
+        mountPath: /opt/airflow/dags
+    resources:
+      requests:
+        memory: "128Mi"
+        cpu: "100m"
+      limits:
+        memory: "256Mi"
+        cpu: "200m"
+
+# Service account with Workload Identity
+serviceAccount:
+  create: true
+  name: airflow-worker
+  annotations:
+    iam.gke.io/gcp-service-account: airflow-sa@joseph-antony-aruja.iam.gserviceaccount.com
+
+# Environment variables (simple key-value format)
+env:
+  - name: AIRFLOW__CORE__DAGS_FOLDER
+    value: "/opt/airflow/dags"
+  - name: AIRFLOW__KUBERNETES__DELETE_WORKER_PODS
+    value: "True"
+  - name: GCP_PROJECT_ID
+    value: "joseph-antony-aruja"
+
+# Logging
+logs:
+  persistence:
+    enabled: false
+

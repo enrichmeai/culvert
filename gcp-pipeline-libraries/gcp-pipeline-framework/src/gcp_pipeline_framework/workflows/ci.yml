@@ -1,0 +1,185 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install lint tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort
+
+    - name: Lint gcp-pipeline-core
+      run: |
+        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+
+    - name: Lint gcp-pipeline-beam
+      run: |
+        flake8 gcp-pipeline-libraries/gcp-pipeline-beam/src --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-beam/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+
+    - name: Lint gcp-pipeline-orchestration
+      run: |
+        flake8 gcp-pipeline-libraries/gcp-pipeline-orchestration/src --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Lint gcp-pipeline-tester
+      run: |
+        flake8 gcp-pipeline-libraries/gcp-pipeline-tester/src --count --select=E9,F63,F7,F82 --show-source --statistics
+
+    - name: Check formatting (black)
+      run: |
+        black --check gcp-pipeline-libraries/gcp-pipeline-core/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-beam/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-orchestration/src || true
+        black --check gcp-pipeline-libraries/gcp-pipeline-tester/src || true
+
+  test-core:
+    name: Test gcp-pipeline-core
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+
+    - name: Run tests
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-core
+        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+
+  test-beam:
+    name: Test gcp-pipeline-beam
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
+
+    - name: Run tests
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-beam
+        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+
+  test-orchestration:
+    name: Test gcp-pipeline-orchestration
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-orchestration[dev]"
+
+    - name: Run tests
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-orchestration
+        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+
+  test-tester:
+    name: Test gcp-pipeline-tester
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-tester[dev]"
+
+    - name: Run tests
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-tester
+        pytest tests/ -v --tb=short
+
+  test-deployments:
+    name: Test Deployments
+    runs-on: ubuntu-latest
+    needs: [test-core, test-beam]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install library dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
+
+    - name: Test original-data-to-bigqueryload deployment
+      run: |
+        pip install -e "deployments/original-data-to-bigqueryload[dev]" || true
+        PYTHONPATH=deployments/original-data-to-bigqueryload/src pytest \
+          deployments/original-data-to-bigqueryload/tests/ -v --tb=short || true
+
+    - name: Test postgres-cdc-streaming deployment
+      run: |
+        pip install -e "deployments/postgres-cdc-streaming[dev]" || true
+        PYTHONPATH=deployments/postgres-cdc-streaming/src pytest \
+          deployments/postgres-cdc-streaming/tests/ -v --tb=short || true

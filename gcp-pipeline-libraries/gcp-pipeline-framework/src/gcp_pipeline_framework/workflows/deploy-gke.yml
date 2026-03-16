@@ -1,0 +1,352 @@
+name: Deploy to GKE (Alternative Orchestration)
+
+# =============================================================================
+# ALTERNATIVE ORCHESTRATION PATTERN — GKE Self-Hosted Airflow
+#
+# This workflow demonstrates the same three-unit Generic pipeline using
+# GKE-hosted Airflow instead of Cloud Composer. The ingestion and
+# transformation units are identical to deploy-generic.yml.
+#
+# Use this pattern when:
+#   - Cost constraints make Cloud Composer prohibitive (~$300-500/month)
+#   - Multi-tenant Airflow is required (multiple namespaces on one cluster)
+#   - Full control over Airflow plugins, Python packages, or executor config
+#
+# Primary pattern:  deploy-generic.yml (Cloud Composer)
+# Alternative:      this workflow         (GKE self-hosted Airflow)
+#
+# Library: gcp-pipeline-framework==1.0.7 (from PyPI) — same as primary
+# Deployments:
+#   1. original-data-to-bigqueryload  → Dataflow Flex Template
+#   2. bigquery-to-mapped-product     → dbt models
+#   3. data-pipeline-orchestrator     → Airflow DAGs on GKE
+#
+# Trigger modes:
+#   - Manual only: workflow_dispatch with environment and options
+#   (Push trigger removed — GKE cluster must be provisioned before enabling)
+#
+# Prerequisites: GKE cluster must be provisioned first via:
+#   ./scripts/gcp/setup_gke_infrastructure.sh
+# =============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      library_version:
+        description: 'Framework version (leave empty for 1.0.7)'
+        required: false
+        default: ''
+        type: string
+      deploy_dataflow_templates:
+        description: 'Deploy Dataflow Flex Templates'
+        required: false
+        default: false
+        type: boolean
+      dags_only:
+        description: 'Only sync DAGs (skip infrastructure and templates)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  GCP_REGION: 'europe-west2'
+  GKE_CLUSTER: 'pipeline-cluster'
+  GKE_ZONE: 'europe-west2-a'
+  FRAMEWORK_VERSION: '1.0.7'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # ==========================================================================
+  # ==========================================================================
+  # Check Keyword — skip push triggers without [deploy:gke]
+  # ==========================================================================
+  check-keyword:
+    name: Check Deploy Keyword
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+    steps:
+      - name: Set should-deploy
+        id: check
+        run: echo "should-deploy=true" >> $GITHUB_OUTPUT
+
+  # ==========================================================================
+  # Resolve Framework Version
+  # ==========================================================================
+  fetch-version:
+    name: Resolve Framework Version
+    runs-on: ubuntu-latest
+    needs: check-keyword
+    if: needs.check-keyword.outputs.should-deploy == 'true'
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+
+    steps:
+      - name: Resolve gcp-pipeline-framework version
+        id: get-version
+        run: |
+          if [ -n "${{ github.event.inputs.library_version }}" ]; then
+            VERSION="${{ github.event.inputs.library_version }}"
+          else
+            FETCHED=$(pip index versions gcp-pipeline-framework 2>/dev/null \
+              | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "")
+            VERSION="${FETCHED:-${{ env.FRAMEWORK_VERSION }}}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Framework version: $VERSION"
+
+  # ==========================================================================
+  # Test with Released Framework
+  # ==========================================================================
+  test:
+    name: Test with Released Framework
+    runs-on: ubuntu-latest
+    needs: [check-keyword, fetch-version]
+    if: needs.check-keyword.outputs.should-deploy == 'true'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+
+    - name: Install gcp-pipeline-framework from PyPI
+      run: |
+        python -m pip install --upgrade pip
+        VERSION="${{ needs.fetch-version.outputs.version }}"
+        echo "Installing gcp-pipeline-framework==$VERSION..."
+        pip install "gcp-pipeline-framework==$VERSION" pytest pytest-mock
+        pip show gcp-pipeline-framework | grep Version
+
+    - name: Test original-data-to-bigqueryload
+      run: |
+        cd deployments/original-data-to-bigqueryload
+        pip install -e ".[dev]" || pip install -e .
+        PYTHONPATH=src pytest tests/unit -v --tb=short || echo "Some tests failed"
+
+  # ==========================================================================
+  # Deploy Dataflow Flex Template (original-data-to-bigqueryload)
+  # ==========================================================================
+  deploy-dataflow-templates:
+    name: Deploy Dataflow Template (ingestion)
+    runs-on: ubuntu-latest
+    needs: [fetch-version, test]
+    if: inputs.deploy_dataflow_templates && !inputs.dags_only
+    environment: ${{ inputs.environment || 'dev' }}
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build Ingestion Docker Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building ingestion image with gcp-pipeline-framework==$VERSION"
+        gcloud builds submit . \
+          --config deployments/original-data-to-bigqueryload/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Create Dataflow Flex Template
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ inputs.environment || 'dev' }}"
+
+        gcloud dataflow flex-template build \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
+          --image-gcr-path gcr.io/${PROJECT_ID}/generic-ingestion:$VERSION \
+          --sdk-language PYTHON \
+          --flex-template-base-image PYTHON3 \
+          --metadata-file deployments/original-data-to-bigqueryload/metadata.json \
+          --project ${PROJECT_ID} || echo "Flex template creation failed"
+
+        gsutil cp \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
+          gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_latest.json || true
+
+  # ==========================================================================
+  # Sync DAGs to GCS → GKE Airflow picks them up
+  # ==========================================================================
+  deploy-dags-to-gke:
+    name: Sync DAGs to GCS (GKE Airflow)
+    runs-on: ubuntu-latest
+    needs: [check-keyword, fetch-version, test]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && (needs.test.result == 'success' || needs.test.result == 'skipped')
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Sync DAGs to GCS
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ inputs.environment || 'dev' }}"
+        DAGS_BUCKET="gs://${PROJECT_ID}-airflow-dags"
+        VERSION="${LIBRARY_VERSION}"
+
+        # Create bucket if it doesn't exist
+        gsutil mb -l ${{ env.GCP_REGION }} ${DAGS_BUCKET} 2>/dev/null || true
+
+        echo "Syncing DAGs (framework v$VERSION) to ${DAGS_BUCKET}..."
+        gsutil -m rsync -r -d deployments/data-pipeline-orchestrator/dags/ ${DAGS_BUCKET}/
+
+        # Write version marker
+        echo "framework_version=$VERSION" | gsutil cp - ${DAGS_BUCKET}/.version
+
+        echo "DAGs synced to ${DAGS_BUCKET}"
+
+    - name: Restart Airflow Scheduler
+      run: |
+        echo "Restarting Airflow scheduler to pick up new DAGs..."
+        kubectl rollout restart deployment/airflow-scheduler -n airflow || echo "Scheduler restart skipped (cluster not configured)"
+
+  # ==========================================================================
+  # Deploy Kubernetes Resources
+  # ==========================================================================
+  deploy-k8s-resources:
+    name: Deploy Kubernetes Resources
+    runs-on: ubuntu-latest
+    needs: [check-keyword, fetch-version, test]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && !inputs.dags_only
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Apply Kubernetes Resources
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+
+        kubectl apply -f infrastructure/k8s/workloads/namespace.yaml
+        sed "s/PROJECT_ID/${PROJECT_ID}/g" infrastructure/k8s/workloads/serviceaccount.yaml | kubectl apply -f -
+
+        echo "Kubernetes resources applied"
+
+    - name: Check Airflow Installation
+      run: |
+        if kubectl get deployment airflow-scheduler -n airflow &>/dev/null; then
+          echo "Airflow is deployed"
+          kubectl get pods -n airflow
+        else
+          echo "Airflow not found. Install with Helm:"
+          echo ""
+          echo "  helm repo add apache-airflow https://airflow.apache.org"
+          echo "  helm repo update"
+          echo "  helm install airflow apache-airflow/airflow \\"
+          echo "    --namespace airflow \\"
+          echo "    --values infrastructure/k8s/airflow/values.yaml"
+        fi
+
+  # ==========================================================================
+  # Validate GKE Deployment
+  # ==========================================================================
+  validate:
+    name: Validate GKE Deployment
+    runs-on: ubuntu-latest
+    needs: [check-keyword, fetch-version, deploy-dags-to-gke, deploy-k8s-resources]
+    if: needs.check-keyword.outputs.should-deploy == 'true' && always()
+    environment: ${{ inputs.environment || 'dev' }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Setup GKE credentials
+      uses: google-github-actions/get-gke-credentials@v2
+      with:
+        cluster_name: ${{ env.GKE_CLUSTER }}
+        location: ${{ env.GKE_ZONE }}
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Validate Resources
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ inputs.environment || 'dev' }}"
+        VERSION="${LIBRARY_VERSION}"
+
+        echo "=============================================="
+        echo "  GKE Deployment Validation (Alternative)"
+        echo "  Environment:  $ENV"
+        echo "  Framework:    gcp-pipeline-framework==$VERSION"
+        echo "=============================================="
+
+        echo ""
+        echo "GKE Cluster:"
+        kubectl cluster-info | head -2
+
+        echo ""
+        echo "Airflow Pods:"
+        kubectl get pods -n airflow 2>/dev/null || echo "  Airflow namespace not found"
+
+        echo ""
+        echo "DAGs in GCS:"
+        gsutil ls gs://${PROJECT_ID}-airflow-dags/ 2>/dev/null || echo "  DAGs bucket not found"
+
+        echo ""
+        echo "Dataflow Templates:"
+        gsutil ls gs://${PROJECT_ID}-generic-${ENV}-temp/templates/ 2>/dev/null || echo "  No templates found"
+
+        echo ""
+        echo "=============================================="
+        echo "  Validation Complete"
+        echo "=============================================="

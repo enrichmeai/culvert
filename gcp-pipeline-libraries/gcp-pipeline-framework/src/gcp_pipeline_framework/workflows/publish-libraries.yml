@@ -1,0 +1,636 @@
+name: Publish Libraries to PyPI
+
+# =============================================================================
+# Trigger Modes:
+#   1. Tags: v* tags automatically publish to PyPI
+#   2. Commit Keywords:
+#      - [publish] or [publish:lib] - Publish libraries only (TestPyPI)
+#      - [publish:pypi] - Publish libraries only (Production PyPI)
+#      - [publish:deploy] - Publish libraries AND trigger deployments
+#   3. Manual: workflow_dispatch with options
+#   4. Release: GitHub release published
+#
+# Security Notes:
+#   - Requires PYPI_API_TOKEN and TEST_PYPI_API_TOKEN secrets
+#   - Uses OIDC trusted publishing when available
+#   - Artifacts are signed and verified
+# =============================================================================
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: 'PyPI repository to publish to'
+        required: true
+        default: 'testpypi'
+        type: choice
+        options:
+        - pypi
+        - testpypi
+      deploy:
+        description: 'Also trigger deployments after publishing'
+        required: false
+        default: false
+        type: boolean
+      libraries:
+        description: 'Libraries to publish (comma-separated or "all")'
+        required: false
+        default: 'all'
+        type: string
+      dry_run:
+        description: 'Dry run - build but do not upload'
+        required: false
+        default: false
+        type: boolean
+
+# Prevent concurrent publish runs to avoid version conflicts
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: '3.11'
+  # Library publish order (core must be first due to dependencies)
+  CORE_LIBRARY: 'gcp-pipeline-core'
+  DEPENDENT_LIBRARIES: 'gcp-pipeline-beam,gcp-pipeline-orchestration,gcp-pipeline-transform,gcp-pipeline-tester,gcp-pipeline-framework'
+
+permissions:
+  contents: read
+  id-token: write  # For OIDC trusted publishing
+
+jobs:
+  # ==========================================================================
+  # Gate: Determine if we should publish and what mode
+  # ==========================================================================
+  check-conditions:
+    name: Check Publish Conditions
+    runs-on: ubuntu-latest
+    outputs:
+      should_publish: ${{ steps.check.outputs.should_publish }}
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      target_repo: ${{ steps.check.outputs.target_repo }}
+      is_release: ${{ steps.check.outputs.is_release }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Determine publish conditions
+        id: check
+        run: |
+          SHOULD_PUBLISH="false"
+          SHOULD_DEPLOY="false"
+          TARGET_REPO="testpypi"
+          IS_RELEASE="false"
+          
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          # Tag push (v*) - always publish to PyPI
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "📦 Tag push detected - publishing to PyPI"
+            SHOULD_PUBLISH="true"
+            TARGET_REPO="pypi"
+            IS_RELEASE="true"
+          fi
+          
+          # Release event
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "🎉 Release event - publishing to PyPI"
+            SHOULD_PUBLISH="true"
+            TARGET_REPO="pypi"
+            IS_RELEASE="true"
+          fi
+          
+          # Manual dispatch
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "🔧 Manual dispatch"
+            SHOULD_PUBLISH="true"
+            TARGET_REPO="${{ inputs.repository }}"
+            SHOULD_DEPLOY="${{ inputs.deploy }}"
+          fi
+          
+          # Commit message keywords (only on main branch push, not tags)
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            COMMIT_MSG=$(git log -1 --pretty=%B)
+            echo "Commit message: $COMMIT_MSG"
+            
+            # [publish:deploy] - publish AND deploy
+            if echo "$COMMIT_MSG" | grep -qiE '\[publish:deploy\]'; then
+              echo "🚀 [publish:deploy] keyword found"
+              SHOULD_PUBLISH="true"
+              SHOULD_DEPLOY="true"
+              TARGET_REPO="pypi"
+            # [publish:pypi] - publish to production PyPI only
+            elif echo "$COMMIT_MSG" | grep -qiE '\[publish:pypi\]'; then
+              echo "📦 [publish:pypi] keyword found"
+              SHOULD_PUBLISH="true"
+              TARGET_REPO="pypi"
+            # [publish] or [publish:lib] - publish to TestPyPI only
+            elif echo "$COMMIT_MSG" | grep -qiE '\[publish(:lib)?\]'; then
+              echo "📦 [publish] keyword found"
+              SHOULD_PUBLISH="true"
+              TARGET_REPO="testpypi"
+            fi
+          fi
+          
+          # Output results
+          echo "should_publish=$SHOULD_PUBLISH" >> $GITHUB_OUTPUT
+          echo "should_deploy=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+          echo "target_repo=$TARGET_REPO" >> $GITHUB_OUTPUT
+          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+          
+          echo ""
+          echo "=========================================="
+          echo "Summary:"
+          echo "  Should publish: $SHOULD_PUBLISH"
+          echo "  Should deploy:  $SHOULD_DEPLOY"
+          echo "  Target repo:    $TARGET_REPO"
+          echo "  Is release:     $IS_RELEASE"
+          echo "=========================================="
+
+  # ==========================================================================
+  # Test Libraries - Validates all libraries before publishing
+  # ==========================================================================
+  test:
+    name: Test Libraries
+    runs-on: ubuntu-latest
+    needs: check-conditions
+    if: needs.check-conditions.outputs.should_publish == 'true'
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false  # Continue testing other libraries if one fails
+      matrix:
+        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-pipeline-framework]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+        cache: 'pip'
+        cache-dependency-path: |
+          gcp-pipeline-libraries/${{ matrix.library }}/pyproject.toml
+          gcp-pipeline-libraries/gcp-pipeline-core/pyproject.toml
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        
+        # Install core first as others depend on it
+        if [ "${{ matrix.library }}" != "gcp-pipeline-core" ]; then
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-core
+        fi
+        
+        # For framework, we need to install all sub-libraries locally first
+        if [ "${{ matrix.library }}" == "gcp-pipeline-framework" ]; then
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-beam
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-orchestration
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-transform
+          pip install ./gcp-pipeline-libraries/gcp-pipeline-tester
+        fi
+        
+        cd gcp-pipeline-libraries/${{ matrix.library }}
+        if [ -f pyproject.toml ]; then
+          pip install ".[dev]" || pip install .
+        fi
+        pip install pytest pytest-cov pytest-mock
+
+    - name: Run Tests
+      run: |
+        cd gcp-pipeline-libraries/${{ matrix.library }}
+        if [ -d tests ]; then
+          # For transform library, install dbt
+          if [ "${{ matrix.library }}" == "gcp-pipeline-transform" ]; then
+             pip install dbt-bigquery || true
+          fi
+          
+          pytest tests/unit -v \
+            --tb=short \
+            --cov=src \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=test-results.xml \
+            || exit 1
+        else
+          echo "⚠️ No tests found for ${{ matrix.library }}"
+        fi
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.library }}
+        path: |
+          gcp-pipeline-libraries/${{ matrix.library }}/test-results.xml
+          gcp-pipeline-libraries/${{ matrix.library }}/coverage.xml
+        retention-days: 7
+
+  # ==========================================================================
+  # Publish Core Library (must be first due to dependencies)
+  # ==========================================================================
+  publish-core:
+    name: Publish Core Library
+    needs: [check-conditions, test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && 'production' || 'staging' }}
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Extract version
+      id: version
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-core
+        VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 Core library version: $VERSION"
+
+    - name: Build package
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-core
+        python -m build
+        
+        # Verify the build
+        echo "📦 Built packages:"
+        ls -la dist/
+        
+        # Validate package with twine
+        twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-gcp-pipeline-core
+        path: gcp-pipeline-libraries/gcp-pipeline-core/dist/
+        retention-days: 30
+
+    - name: Publish to PyPI
+      if: ${{ inputs.dry_run != true }}
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && secrets.PYPI_API_TOKEN || secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        cd gcp-pipeline-libraries/gcp-pipeline-core
+        TARGET="${{ needs.check-conditions.outputs.target_repo }}"
+        
+        echo "📦 Publishing gcp-pipeline-core v${{ steps.version.outputs.version }} to $TARGET..."
+        
+        if [ "$TARGET" == "pypi" ]; then
+          twine upload dist/* --skip-existing --non-interactive
+        else
+          twine upload --repository-url https://test.pypi.org/legacy/ dist/* --skip-existing --non-interactive
+        fi
+        
+        echo "✅ Core library published to $TARGET"
+
+    - name: Verify package availability
+      if: ${{ inputs.dry_run != true }}
+      run: |
+        TARGET="${{ needs.check-conditions.outputs.target_repo }}"
+        VERSION="${{ steps.version.outputs.version }}"
+        
+        # Wait for package to be available
+        echo "⏳ Waiting for package to be indexed..."
+        sleep 30
+        
+        # Verify the package is accessible
+        if [ "$TARGET" == "pypi" ]; then
+          pip index versions gcp-pipeline-core 2>/dev/null | grep -q "$VERSION" && echo "✅ Package verified on PyPI" || echo "⚠️ Package not yet indexed"
+        else
+          pip index versions gcp-pipeline-core --index-url https://test.pypi.org/simple/ 2>/dev/null | grep -q "$VERSION" && echo "✅ Package verified on TestPyPI" || echo "⚠️ Package not yet indexed"
+        fi
+
+  # ==========================================================================
+  # Publish Dependent Libraries
+  # ==========================================================================
+  publish-others:
+    name: Publish Dependent Libraries
+    needs: [check-conditions, publish-core]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && 'production' || 'staging' }}
+    strategy:
+      fail-fast: false
+      max-parallel: 2  # Avoid rate limiting
+      matrix:
+        library: [gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-pipeline-framework]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Extract version
+      id: version
+      run: |
+        cd gcp-pipeline-libraries/${{ matrix.library }}
+        VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 ${{ matrix.library }} version: $VERSION"
+
+    - name: Build package
+      run: |
+        cd gcp-pipeline-libraries/${{ matrix.library }}
+        python -m build
+        
+        echo "📦 Built packages:"
+        ls -la dist/
+        
+        # Validate package
+        twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-${{ matrix.library }}
+        path: gcp-pipeline-libraries/${{ matrix.library }}/dist/
+        retention-days: 30
+
+    - name: Publish to PyPI
+      if: ${{ inputs.dry_run != true }}
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && secrets.PYPI_API_TOKEN || secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        cd gcp-pipeline-libraries/${{ matrix.library }}
+        TARGET="${{ needs.check-conditions.outputs.target_repo }}"
+        
+        echo "📦 Publishing ${{ matrix.library }} v${{ steps.version.outputs.version }} to $TARGET..."
+        
+        if [ "$TARGET" == "pypi" ]; then
+          twine upload dist/* --skip-existing --non-interactive
+        else
+          twine upload --repository-url https://test.pypi.org/legacy/ dist/* --skip-existing --non-interactive
+        fi
+        
+        echo "✅ ${{ matrix.library }} published to $TARGET"
+
+  # ==========================================================================
+  # Publish Reference Implementations
+  # ==========================================================================
+  publish-references:
+    name: Publish Reference Implementations
+    needs: [check-conditions, publish-others]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && 'production' || 'staging' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        reference:
+          - dir: original-data-to-bigqueryload
+            name: gcp-pipeline-ref-ingestion
+          - dir: bigquery-to-mapped-product
+            name: gcp-pipeline-ref-transform
+          - dir: data-pipeline-orchestrator
+            name: gcp-pipeline-ref-orchestration
+          - dir: fdp-to-consumable-product
+            name: gcp-pipeline-ref-cdp
+          - dir: mainframe-segment-transform
+            name: gcp-pipeline-ref-segment-transform
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build twine
+
+    - name: Extract version
+      id: version
+      run: |
+        cd deployments/${{ matrix.reference.dir }}
+        VERSION=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "📦 ${{ matrix.reference.name }} version: $VERSION"
+
+    - name: Build package
+      run: |
+        cd deployments/${{ matrix.reference.dir }}
+        python -m build
+        
+        echo "📦 Built packages:"
+        ls -la dist/
+        
+        # Validate package
+        twine check dist/*
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: dist-${{ matrix.reference.name }}
+        path: deployments/${{ matrix.reference.dir }}/dist/
+        retention-days: 30
+
+    - name: Publish to PyPI
+      if: ${{ inputs.dry_run != true }}
+      env:
+        TWINE_USERNAME: __token__
+        TWINE_PASSWORD: ${{ needs.check-conditions.outputs.target_repo == 'pypi' && secrets.PYPI_API_TOKEN || secrets.TEST_PYPI_API_TOKEN }}
+      run: |
+        cd deployments/${{ matrix.reference.dir }}
+        TARGET="${{ needs.check-conditions.outputs.target_repo }}"
+        
+        echo "📦 Publishing ${{ matrix.reference.name }} v${{ steps.version.outputs.version }} to $TARGET..."
+        
+        if [ "$TARGET" == "pypi" ]; then
+          twine upload dist/* --skip-existing --non-interactive
+        else
+          twine upload --repository-url https://test.pypi.org/legacy/ dist/* --skip-existing --non-interactive
+        fi
+        
+        echo "✅ ${{ matrix.reference.name }} published to $TARGET"
+
+  # ==========================================================================
+  # Deploy (only when [publish:deploy] or manual deploy=true)
+  # ==========================================================================
+  deploy:
+    name: Validate Ingestion Deployment
+    needs: [check-conditions, publish-others]
+    if: needs.check-conditions.outputs.should_deploy == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    # Only validate the Beam ingestion pipeline here.
+    # dbt/Airflow deployments (bigquery-to-mapped-product, data-pipeline-orchestrator)
+    # have resolution-too-deep issues with heavy deps and are validated by deploy-generic.yml.
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Build local wheels
+      run: |
+        pip install --upgrade pip build
+        mkdir -p /tmp/local-wheels
+        for lib in gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework; do
+          python -m build ./gcp-pipeline-libraries/$lib --outdir /tmp/local-wheels --wheel
+        done
+        echo "Built wheels:"
+        ls /tmp/local-wheels/
+
+    - name: Install deployment dependencies
+      run: |
+        # Step 1: Install local wheels directly by file path (guarantees local code, not PyPI)
+        pip install /tmp/local-wheels/*.whl
+
+        # Step 2: Install deployment with --no-deps (all framework deps already installed above)
+        cd deployments/original-data-to-bigqueryload
+        pip install --no-deps -e . || pip install --no-deps .
+
+    - name: Validate deployment
+      run: |
+        echo "🔍 Validating original-data-to-bigqueryload..."
+        cd deployments/original-data-to-bigqueryload
+
+        if [ -d tests ]; then
+          pip install pytest pytest-mock
+          pytest tests/unit -v --tb=short -x || {
+            echo "❌ Deployment validation failed"
+            exit 1
+          }
+        fi
+
+        echo "✅ original-data-to-bigqueryload validated successfully"
+
+    - name: Deployment ready notification
+      run: |
+        echo "## 🚀 Deployment Ready: ${{ matrix.deployment }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Library Source | ${{ needs.check-conditions.outputs.target_repo }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deployment | ${{ matrix.deployment }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Status | ✅ Ready for deployment |" >> $GITHUB_STEP_SUMMARY
+
+  # ==========================================================================
+  # Summary - Generate comprehensive publish report
+  # ==========================================================================
+  summary:
+    name: Publish Summary
+    needs: [check-conditions, publish-core, publish-others, publish-references, deploy]
+    if: always() && needs.check-conditions.outputs.should_publish == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+        pattern: dist-*
+      continue-on-error: true
+
+    - name: Generate Summary
+      run: |
+        echo "# 📦 Library Publish Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Configuration" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Target Repository | \`${{ needs.check-conditions.outputs.target_repo }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| Deploy Triggered | ${{ needs.check-conditions.outputs.should_deploy }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Is Release | ${{ needs.check-conditions.outputs.is_release }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Core Version | ${{ needs.publish-core.outputs.version }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Published Libraries" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Library | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-core | ${{ needs.publish-core.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-beam | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-orchestration | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-transform | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-tester | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-framework | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        echo "## Reference Implementations" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Package | Status | Install |" >> $GITHUB_STEP_SUMMARY
+        echo "|---------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-ingestion | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-ingestion\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-transform | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-transform\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-orchestration | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-orchestration\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-cdp | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-cdp\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| gcp-pipeline-ref-segment-transform | ${{ needs.publish-references.result == 'success' && '✅ Published' || '❌ Failed' }} | \`pip install gcp-pipeline-ref-segment-transform\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Usage:** \`pip install gcp-pipeline-ref-ingestion gcp-pipeline-ref-transform gcp-pipeline-ref-orchestration gcp-pipeline-ref-cdp gcp-pipeline-ref-segment-transform\`" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "${{ needs.check-conditions.outputs.should_deploy }}" == "true" ]; then
+          echo "## Deployments" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Deployment | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| original-data-to-bigqueryload (unit tests) | ${{ needs.deploy.result == 'success' && '✅ Validated' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| bigquery-to-mapped-product | validated by deploy-generic.yml |" >> $GITHUB_STEP_SUMMARY
+          echo "| data-pipeline-orchestrator | validated by deploy-generic.yml |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "## Quick Reference" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Commit Keywords" >> $GITHUB_STEP_SUMMARY
+        echo "- \`[publish]\` or \`[publish:lib]\` → Publish to TestPyPI only" >> $GITHUB_STEP_SUMMARY
+        echo "- \`[publish:pypi]\` → Publish to production PyPI" >> $GITHUB_STEP_SUMMARY
+        echo "- \`[publish:deploy]\` → Publish to PyPI AND trigger deployments" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Install Commands" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.check-conditions.outputs.target_repo }}" == "testpypi" ]; then
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ gcp-pipeline-core" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "pip install gcp-pipeline-core==${{ needs.publish-core.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+        fi

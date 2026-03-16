@@ -1,0 +1,32 @@
+# Cloud Build source upload exclusions
+# Exclude large directories not needed for Docker builds
+
+.git
+.github
+venv*/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+.tox/
+.cache/
+.pytest_cache/
+node_modules/
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Exclude test artifacts
+.coverage
+htmlcov/
+junit*.xml
+
+# Exclude docs (not needed in Docker image)
+docs/
+
+# Exclude other deployment dirs when building a specific one
+# (each cloudbuild.yaml copies only what it needs)

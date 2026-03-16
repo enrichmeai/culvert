@@ -1,0 +1,21 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+  - build
+  - --build-arg
+  - LIBRARY_VERSION=$_LIBRARY_VERSION
+  - --tag
+  - gcr.io/$PROJECT_ID/generic-dag-validator:$_LIBRARY_VERSION
+  - -f
+  - Dockerfile
+  - .
+  dir: deployments/data-pipeline-orchestrator
+
+images:
+- gcr.io/$PROJECT_ID/generic-dag-validator:$_LIBRARY_VERSION
+
+substitutions:
+  _LIBRARY_VERSION: latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
