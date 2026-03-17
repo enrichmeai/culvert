@@ -402,14 +402,14 @@ jobs:
         ENV="${{ github.event.inputs.environment || 'int' }}"
         COMPOSER_ENV="generic-${ENV}-composer"
 
-        echo "Installing gcp-pipeline-framework>=${VERSION} on $COMPOSER_ENV"
+        echo "Installing gcp-pipeline-framework==${VERSION} on $COMPOSER_ENV"
 
         gcloud composer environments update $COMPOSER_ENV \
           --location=${{ env.GCP_REGION }} \
           --project=$PROJECT_ID \
-          --update-pypi-package "gcp-pipeline-framework>=${VERSION}"
+          --update-pypi-package "gcp-pipeline-framework==${VERSION}"
 
-        echo "Composer environment updated with gcp-pipeline-framework>=${VERSION}"
+        echo "Composer environment updated with gcp-pipeline-framework==${VERSION}"
 
     - name: Upload DAGs to Cloud Composer
       env:

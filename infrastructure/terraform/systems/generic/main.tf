@@ -749,7 +749,7 @@ resource "google_composer_environment" "generic_composer" {
       image_version = "composer-2.16.1-airflow-2.10.5"
 
       pypi_packages = {
-        gcp-pipeline-framework = ">=1.0.6"
+        gcp-pipeline-framework = "==1.0.13"
       }
 
       env_variables = {
