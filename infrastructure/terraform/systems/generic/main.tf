@@ -541,6 +541,34 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
   lifecycle { ignore_changes = [schema] }
 }
 
+resource "google_bigquery_table" "fdp_portfolio_account_facility" {
+  dataset_id          = google_bigquery_dataset.fdp_generic.dataset_id
+  table_id            = "portfolio_account_facility"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "_extract_date"
+  }
+  clustering = ["customer_id", "account_id"]
+
+  schema = jsonencode([
+    { name = "application_id", type = "STRING", mode = "REQUIRED" },
+    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
+    { name = "account_id", type = "STRING", mode = "REQUIRED" },
+    { name = "loan_amount", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "interest_rate", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "term_months", type = "INTEGER", mode = "NULLABLE" },
+    { name = "status", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
 # ============================================================================
 # BIGQUERY TABLES — Job Control
 # ============================================================================

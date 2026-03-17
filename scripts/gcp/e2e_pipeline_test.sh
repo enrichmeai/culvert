@@ -54,8 +54,10 @@ hdr()  { echo -e "\n${BLUE}${BOLD}── $* ──${NC}"; }
 
 # bq_scalar: run a BQ query and return a single scalar value (empty string on error)
 bq_scalar() {
-  bq query --use_legacy_sql=false --project_id="$PROJECT_ID" --format=csv \
-    --quiet "$1" 2>/dev/null | tail -1 | tr -d ' \r' || true
+  local result
+  result=$(bq query --use_legacy_sql=false --project_id="$PROJECT_ID" --format=csv \
+    --quiet "$1" 2>/dev/null | tail -1 | tr -d ' \r') || true
+  echo "$result"
 }
 
 # bq_rows: return a pretty table from BQ query

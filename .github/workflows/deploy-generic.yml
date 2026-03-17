@@ -220,6 +220,7 @@ jobs:
         done
         import_resource "google_bigquery_table.fdp_event_transaction_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/event_transaction_excess"
         import_resource "google_bigquery_table.fdp_portfolio_account_excess" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_excess"
+        import_resource "google_bigquery_table.fdp_portfolio_account_facility" "projects/${PROJECT_ID}/datasets/fdp_generic/tables/portfolio_account_facility"
         import_resource "google_bigquery_table.pipeline_jobs" "projects/${PROJECT_ID}/datasets/job_control/tables/pipeline_jobs"
         import_resource "google_bigquery_table.audit_trail" "projects/${PROJECT_ID}/datasets/job_control/tables/audit_trail"
 
