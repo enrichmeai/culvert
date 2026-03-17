@@ -63,12 +63,12 @@ from .callbacks import (
     on_data_quality_failure,
     create_error_handler,
 )
+from .dependency import EntityDependencyChecker
 
 # Airflow-dependent modules are NOT imported here.
 # Import them directly where needed:
 #   from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 #   from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
-#   from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 
 __all__ = [
     # Factories
@@ -97,5 +97,7 @@ __all__ = [
     'on_schema_mismatch',
     'on_data_quality_failure',
     'create_error_handler',
+    # Dependency
+    'EntityDependencyChecker',
 ]
 
