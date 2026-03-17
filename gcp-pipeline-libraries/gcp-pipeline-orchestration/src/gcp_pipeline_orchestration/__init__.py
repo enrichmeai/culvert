@@ -45,8 +45,6 @@ from .factories import (
     TaskConfig,
     ValidationError,
 )
-from .factories.dag_factory import create_dags
-
 # Import routing
 from .routing import (
     DAGRouter,
@@ -121,7 +119,5 @@ __all__ = [
     'BasePubSubPullSensor',
     # Dependency
     'EntityDependencyChecker',
-    # Config-driven DAG factory
-    'create_dags',
 ]
 

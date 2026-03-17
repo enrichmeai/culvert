@@ -15,34 +15,30 @@ Usage (in any DAG entrypoint file):
     create_dags(config, globals())
 """
 
-from __future__ import annotations
-
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 import json
 import logging
 import os
 
+from airflow import DAG
+from airflow.models import Variable
+
 try:
-    from airflow import DAG
-    from airflow.models import Variable
-    try:
-        # Airflow 3.x
-        from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
-        from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
-        from airflow.providers.standard.operators.bash import BashOperator
-        from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
-    except ImportError:
-        # Airflow 2.x
-        from airflow.operators.python import PythonOperator, BranchPythonOperator
-        from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-        from airflow.operators.bash import BashOperator
-        try:
-            from airflow.operators.empty import EmptyOperator as DummyOperator
-        except ImportError:
-            from airflow.operators.dummy import DummyOperator
+    # Airflow 3.x
+    from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+    from airflow.providers.standard.operators.bash import BashOperator
+    from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
-    pass  # Airflow is optional; will fail at runtime if create_dags() is called without it
+    # Airflow 2.x
+    from airflow.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+    from airflow.operators.bash import BashOperator
+    try:
+        from airflow.operators.empty import EmptyOperator as DummyOperator
+    except ImportError:
+        from airflow.operators.dummy import DummyOperator
 
 from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
