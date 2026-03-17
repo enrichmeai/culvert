@@ -776,8 +776,10 @@ resource "google_composer_environment" "generic_composer" {
     software_config {
       image_version = "composer-2.16.1-airflow-2.10.5"
 
+      # Only install orchestration-specific packages (NO beam to avoid Airflow conflicts)
       pypi_packages = {
-        gcp-pipeline-framework = "==1.0.13"
+        gcp-pipeline-core          = "==1.0.13"
+        gcp-pipeline-orchestration = "==1.0.13"
       }
 
       env_variables = {

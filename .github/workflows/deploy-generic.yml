@@ -172,9 +172,10 @@ jobs:
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
       run: |
         cd infrastructure/terraform/systems/generic
+        ENV="${{ github.event.inputs.environment || 'int' }}"
         terraform init \
           -backend-config="bucket=gcp-pipeline-terraform-state" \
-          -backend-config="prefix=generic/${{ github.event.inputs.environment || 'int' }}"
+          -backend-config="prefix=generic/${ENV}"
 
     - name: Terraform Import Existing Resources
       env:
@@ -193,7 +194,7 @@ jobs:
             echo "  Already in state: $addr"
           else
             echo "  Importing: $addr"
-            terraform import "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
+            terraform import -var-file="env/${ENV}.tfvars" "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
           fi
         }
 
@@ -231,13 +232,26 @@ jobs:
 
         echo "=== Import complete ==="
 
+    - name: Terraform Plan
+      env:
+        TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+        TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+      run: |
+        cd infrastructure/terraform/systems/generic
+        ENV="${{ github.event.inputs.environment || 'int' }}"
+        echo "=== Terraform Plan for environment: $ENV ==="
+        terraform plan -var-file="env/${ENV}.tfvars" -out=tfplan
+        echo "=== Plan complete ==="
+
     - name: Terraform Apply
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
       run: |
         cd infrastructure/terraform/systems/generic
-        terraform apply -auto-approve
+        ENV="${{ github.event.inputs.environment || 'int' }}"
+        echo "=== Applying Terraform for environment: $ENV ==="
+        terraform apply -auto-approve tfplan
 
     - name: Validate Infrastructure (scripts)
       env:
@@ -403,14 +417,16 @@ jobs:
         ENV="${{ github.event.inputs.environment || 'int' }}"
         COMPOSER_ENV="generic-${ENV}-composer"
 
-        echo "Installing gcp-pipeline-framework==${VERSION} on $COMPOSER_ENV"
+        echo "Installing gcp-pipeline-core and gcp-pipeline-orchestration (v${VERSION}) on $COMPOSER_ENV"
+        echo "Note: NOT installing gcp-pipeline-beam to avoid Airflow/Beam dependency conflicts"
 
         gcloud composer environments update $COMPOSER_ENV \
           --location=${{ env.GCP_REGION }} \
           --project=$PROJECT_ID \
-          --update-pypi-package "gcp-pipeline-framework==${VERSION}"
+          --update-pypi-package "gcp-pipeline-core==${VERSION}" \
+          --update-pypi-package "gcp-pipeline-orchestration==${VERSION}"
 
-        echo "Composer environment updated with gcp-pipeline-framework==${VERSION}"
+        echo "Composer environment updated with orchestration packages"
 
     - name: Upload DAGs to Cloud Composer
       env:
