@@ -38,27 +38,13 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-# Try to import Airflow - if not available, create stub classes
-try:
-    from airflow.models import BaseOperator
-    from airflow.providers.google.cloud.operators.dataflow import (
-        DataflowTemplatedJobStartOperator,
-        DataflowStartFlexTemplateOperator,
-        DataflowCreatePythonJobOperator,
-    )
-    from airflow.utils.context import Context
-    AIRFLOW_AVAILABLE = True
-except (ImportError, ModuleNotFoundError):
-    AIRFLOW_AVAILABLE = False
-    class BaseOperator:
-        def __init__(self, task_id=None, **kwargs):
-            self.task_id = task_id
-            for key, value in kwargs.items():
-                setattr(self, key, value)
-    DataflowTemplatedJobStartOperator = None
-    DataflowStartFlexTemplateOperator = None
-    DataflowCreatePythonJobOperator = None
-    Context = dict
+from airflow.models import BaseOperator
+from airflow.utils.context import Context
+from airflow.providers.google.cloud.operators.dataflow import (
+    DataflowTemplatedJobStartOperator,
+    DataflowStartFlexTemplateOperator,
+    DataflowCreatePythonJobOperator,
+)
 
 
 class SourceType(Enum):

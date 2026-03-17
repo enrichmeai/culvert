@@ -22,7 +22,7 @@ variable "gcp_region" {
 variable "bq_location" {
   description = "BigQuery dataset location"
   type        = string
-  default     = "EU" # EU multi-region
+  default     = "europe-west2" # Must match existing datasets
 }
 
 # ============================================================================
@@ -30,13 +30,9 @@ variable "bq_location" {
 # ============================================================================
 
 variable "environment" {
-  description = "Deployment environment (integration only)"
+  description = "Deployment environment"
   type        = string
   default     = "int"
-  validation {
-    condition     = var.environment == "int"
-    error_message = "Environment must be int (integration)"
-  }
 }
 
 variable "force_destroy" {
