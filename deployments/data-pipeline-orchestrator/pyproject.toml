@@ -20,8 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "gcp-pipeline-core>=1.0.6",
-    "gcp-pipeline-orchestration>=1.0.6",
+    "gcp-pipeline-core>=1.0.13",
+    "gcp-pipeline-orchestration>=1.0.13",
 ]
 # NOTE: NO apache-beam or gcp-pipeline-beam dependency -- orchestration only
 
@@ -35,7 +35,7 @@ Framework = "https://pypi.org/project/gcp-pipeline-framework/"
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
-    "gcp-pipeline-tester>=1.0.6",
+    "gcp-pipeline-tester>=1.0.13",
 ]
 
 [tool.setuptools.packages.find]
