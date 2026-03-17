@@ -9,19 +9,19 @@ description = "Umbrella package for GCP Data Migration Pipeline Libraries"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "gcp-pipeline-core==1.0.11",
-    "gcp-pipeline-beam==1.0.11",
+    "gcp-pipeline-core==1.0.13",
+    "gcp-pipeline-beam==1.0.13",
     "gcp-pipeline-orchestration==1.0.13",
-    "gcp-pipeline-transform==1.0.11",
-    "gcp-pipeline-tester==1.0.11",
+    "gcp-pipeline-transform==1.0.13",
+    "gcp-pipeline-tester==1.0.13",
 ]
 
 [project.optional-dependencies]
-core = ["gcp-pipeline-core==1.0.11"]
-beam = ["gcp-pipeline-beam==1.0.11"]
+core = ["gcp-pipeline-core==1.0.13"]
+beam = ["gcp-pipeline-beam==1.0.13"]
 orchestration = ["gcp-pipeline-orchestration==1.0.13"]
-transform = ["gcp-pipeline-transform==1.0.11"]
-tester = ["gcp-pipeline-tester==1.0.11"]
+transform = ["gcp-pipeline-transform==1.0.13"]
+tester = ["gcp-pipeline-tester==1.0.13"]
 
 [project.scripts]
 gcp-pipeline-docs = "gcp_pipeline_framework.cli:main"

@@ -393,6 +393,24 @@ jobs:
           --project ${{ secrets.GCP_PROJECT_ID }} \
           --timeout=2400s
 
+    - name: Install PyPI packages on Composer
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ github.event.inputs.environment || 'int' }}"
+        COMPOSER_ENV="generic-${ENV}-composer"
+
+        echo "Installing gcp-pipeline-framework>=${VERSION} on $COMPOSER_ENV"
+
+        gcloud composer environments update $COMPOSER_ENV \
+          --location=${{ env.GCP_REGION }} \
+          --project=$PROJECT_ID \
+          --update-pypi-package "gcp-pipeline-framework>=${VERSION}"
+
+        echo "Composer environment updated with gcp-pipeline-framework>=${VERSION}"
+
     - name: Upload DAGs to Cloud Composer
       env:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
