@@ -38,13 +38,20 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-from airflow.models import BaseOperator
-from airflow.utils.context import Context
-from airflow.providers.google.cloud.operators.dataflow import (
-    DataflowTemplatedJobStartOperator,
-    DataflowStartFlexTemplateOperator,
-    DataflowCreatePythonJobOperator,
-)
+# Check if Airflow is available
+try:
+    from airflow.models import BaseOperator
+    from airflow.utils.context import Context
+    from airflow.providers.google.cloud.operators.dataflow import (
+        DataflowTemplatedJobStartOperator,
+        DataflowStartFlexTemplateOperator,
+        DataflowCreatePythonJobOperator,
+    )
+    AIRFLOW_AVAILABLE = True
+except ImportError:
+    BaseOperator = object
+    Context = dict
+    AIRFLOW_AVAILABLE = False
 
 
 class SourceType(Enum):
@@ -118,7 +125,7 @@ class DataflowJobConfig:
         return errors
 
 
-class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
+class BaseDataflowOperator(BaseOperator):
     """
     Base Dataflow operator for data pipelines.
 
@@ -195,12 +202,7 @@ class BaseDataflowOperator(BaseOperator if AIRFLOW_AVAILABLE else object):
         additional_params: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
-        if AIRFLOW_AVAILABLE:
-            super().__init__(task_id=task_id, **kwargs)
-        else:
-            self.task_id = task_id
-            for key, value in kwargs.items():
-                setattr(self, key, value)
+        super().__init__(task_id=task_id, **kwargs)
         self.pipeline_name = pipeline_name
         self.source_type = SourceType(source_type)
         self.processing_mode = ProcessingMode(processing_mode)
