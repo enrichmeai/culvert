@@ -11,6 +11,7 @@ requires-python = ">=3.9"
 dependencies = [
     "google-cloud-storage",
     "google-cloud-pubsub",
+    "PyYAML>=6.0",
     "gcp-pipeline-core",
 ]
 
