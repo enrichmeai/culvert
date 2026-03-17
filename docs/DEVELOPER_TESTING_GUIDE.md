@@ -934,22 +934,213 @@ These test specs define what to validate at each data layer. Use them as accepta
 | ODP-11 | Schema enforcement | Upload file with extra/missing columns | Extra columns ignored; missing columns routed to dead letter or padded per config |
 | ODP-12 | Partitioning | `SELECT DISTINCT _PARTITIONDATE FROM odp_{system}.{entity} WHERE _run_id = '{run_id}'` | Data is partitioned by `_extract_date` |
 
-### FDP Transformation Test Spec
+### ODP → FDP Transformation Test Spec
+
+This section covers the full path from ODP load through FDP output, including error scenarios. Treat these as the **minimum acceptance criteria** for any new ODP→FDP transformation.
+
+#### Happy Path Tests
 
 **Purpose:** Verify that ODP data is correctly transformed, business rules applied, PII masked, and loaded into the Foundation Data Product layer.
 
-| Test ID | Test Name | Validation | Expected Result |
-|---------|-----------|-----------|-----------------|
-| FDP-01 | Source-to-target row count | Compare `SELECT COUNT(*) FROM odp_{system}.{entity}` with `SELECT COUNT(*) FROM fdp_{system}.{fdp_table}` | Counts align per business rules (1:1, N:1, or filtered) |
-| FDP-02 | Audit column propagation | `SELECT _run_id, _transformed_at FROM fdp_{system}.{fdp_table} LIMIT 5` | `_run_id` carried from ODP; `_transformed_at` is non-null |
-| FDP-03 | PII masking | `SELECT {pii_column}_masked FROM fdp_{system}.{fdp_table} LIMIT 5` | Values are hashed/masked, never raw PII |
-| FDP-04 | No raw PII in FDP | `SELECT {pii_column} FROM fdp_{system}.{fdp_table} LIMIT 1` | Column does not exist or is null (raw PII removed) |
-| FDP-05 | Business rule: joins | Verify join keys between ODP tables produce expected FDP output | No orphaned records (unless business rule allows) |
-| FDP-06 | Business rule: calculations | Spot-check calculated fields against known test data | Calculated values match expected |
-| FDP-07 | Incremental merge | Run dbt twice with same data | No duplicate records; `_transformed_at` updated on second run |
-| FDP-08 | dbt tests pass | `dbt test --target {env}` | All tests pass: unique keys, not-null, accepted values, referential integrity |
-| FDP-09 | Partitioning and clustering | Check table metadata in BQ Console > Schema tab | Partitioned by `_extract_date`, clustered by primary key |
-| FDP-10 | Empty source handling | Run dbt with no new ODP data | FDP unchanged; no errors |
+| Test ID | Test Name | Validation Query | Expected Result |
+|---------|-----------|-----------------|-----------------|
+| FDP-01 | Source-to-target row count (MAP) | `SELECT COUNT(*) FROM odp_{system}.{entity}` vs `SELECT COUNT(*) FROM fdp_{system}.{fdp_table} WHERE _extract_date = '{date}'` | Counts match (MAP = 1:1) |
+| FDP-02 | Source-to-target row count (JOIN) | `SELECT COUNT(DISTINCT {join_key}) FROM fdp_{system}.{fdp_table}` vs expected cardinality from ODP join | Counts align with join logic (N:1 = deduplicated) |
+| FDP-03 | Audit column propagation | `SELECT _run_id, _extract_date, _transformed_at FROM fdp_{system}.{fdp_table} WHERE _extract_date = '{date}' LIMIT 5` | `_run_id` matches the ODP run; `_transformed_at` is non-null |
+| FDP-04 | `_run_id` lineage | `SELECT DISTINCT _run_id FROM fdp_{system}.{fdp_table} WHERE _extract_date = '{date}'` then look up in `job_control.pipeline_jobs` | `_run_id` traces back to the originating ODP load |
+| FDP-05 | Column mapping — code translation | `SELECT status_code, status_description FROM fdp_{system}.{fdp_table} WHERE status_code = 'A' LIMIT 1` | `status_description = 'Active'` (staging macro applied) |
+| FDP-06 | Column mapping — field rename | `SELECT {target_column} FROM fdp_{system}.{fdp_table} LIMIT 1` | Column name matches FDP spec; source name absent |
+| FDP-07 | JOIN correctness | `SELECT f.*, c.name FROM fdp_{system}.{fdp_table} f LEFT JOIN odp_{system}.customers c ON f.customer_id = c.customer_id WHERE c.customer_id IS NULL LIMIT 5` | Zero rows — no unmatched join keys |
+| FDP-08 | PII masking applied | `SELECT {pii_column} FROM fdp_{system}.{fdp_table} LIMIT 5` | Values are hashed (FULL/PARTIAL per environment); raw value absent |
+| FDP-09 | No raw PII column in output | Check schema: `bq show --schema {PROJECT_ID}:fdp_{system}.{fdp_table}` | Raw PII fields (`ssn`, `dob`, etc.) not present in FDP schema |
+| FDP-10 | Surrogate key uniqueness | `SELECT {surrogate_key}, COUNT(*) FROM fdp_{system}.{fdp_table} GROUP BY 1 HAVING COUNT(*) > 1` | Zero rows |
+| FDP-11 | Partitioning and clustering | Check table metadata in BQ Console > Schema tab | Partitioned by `_extract_date`, clustered by surrogate/primary key |
+| FDP-12 | Incremental merge — no duplicates | Run dbt twice with identical ODP data | `SELECT COUNT(*) FROM fdp_{system}.{fdp_table}` unchanged on second run |
+| FDP-13 | Incremental merge — updated records | Load new ODP data with same key but changed value; re-run dbt | Existing row updated; `_transformed_at` is later than first run |
+| FDP-14 | dbt built-in tests pass | `dbt test --target {env} --select {fdp_model}` | All schema tests pass: `unique`, `not_null`, `accepted_values`, `relationships` |
+| FDP-15 | dbt staging layer correctness | `SELECT * FROM fdp_{system}.stg_{entity} WHERE _extract_date = '{date}' LIMIT 5` | Staging view returns cleaned, code-translated rows (not raw ODP values) |
+
+---
+
+#### Error Scenario Tests
+
+These tests verify that the transformation layer handles failures gracefully and produces actionable diagnostics.
+
+| Test ID | Error Scenario | How to Trigger | Expected Behaviour |
+|---------|---------------|----------------|-------------------|
+| FDP-ERR-01 | ODP source table empty | Run dbt before ODP load completes | dbt run exits cleanly with 0 rows processed; no FDP rows written for that `_extract_date`; no failure in job_control |
+| FDP-ERR-02 | ODP source table missing | Drop or rename the ODP table, run dbt | dbt fails with a clear compilation or runtime error; error surfaced in Airflow task log with table name |
+| FDP-ERR-03 | JOIN produces zero rows | Load customers with no matching accounts; run FDP dbt | FDP table contains 0 rows for that run; `dbt test` `not_null` tests fail if key field is required — alert fires |
+| FDP-ERR-04 | Unexpected NULL in required column | Load ODP data with NULLs in a field that maps to a `not_null` FDP column | `dbt test` fails; Airflow transformation_dag marks task FAILED; error visible in Cloud Logging |
+| FDP-ERR-05 | Schema drift — ODP column renamed | Rename a column in ODP (simulate upstream schema change) | dbt compile fails with a column reference error; CI/CD pipeline blocked before deploying |
+| FDP-ERR-06 | Schema drift — new ODP column | Add an unmapped column to ODP | dbt ignores unmapped columns; no failure; new column absent from FDP (expected behaviour) |
+| FDP-ERR-07 | Invalid accepted value | Load ODP data with an `accepted_values` violation (e.g., `status = 'X'`) | `dbt test` fails; row is flagged in test results; does NOT prevent FDP write (test-only failure) |
+| FDP-ERR-08 | Duplicate surrogate keys in source | Load ODP with duplicate primary keys | FDP incremental MERGE deduplicates on latest `_processed_at`; `dbt test unique` passes after run |
+| FDP-ERR-09 | PII masking misconfiguration | Disable masking macro in dev (set `mask_pii` to passthrough) | Raw PII is visible in dev FDP — **confirm this is expected for dev only**; prod must always mask |
+| FDP-ERR-10 | Stale ODP data (re-run old extract date) | Re-run dbt with `_extract_date = '{past_date}'` | Incremental model skips rows already merged for that key; existing FDP rows unchanged |
+| FDP-ERR-11 | Partial ODP load (only 1 of 3 JOIN entities) | Load `customers` but not `accounts` or `decision`; run FDP dbt | JOIN FDP produces 0 rows (INNER JOIN); MAP FDP (applications) proceeds independently; Airflow FDP-dependency check blocks JOIN transformation until all entities ready |
+| FDP-ERR-12 | dbt compilation error | Introduce Jinja syntax error in a dbt model SQL | `dbt compile` fails immediately; no models run; error message includes file path and line number |
+| FDP-ERR-13 | BigQuery write permission denied | Revoke `bigquery.dataEditor` from the dbt service account | dbt run fails with `Access Denied`; Airflow task retries up to configured limit then marks FAILED |
+| FDP-ERR-14 | Transformation DAG triggered before ODP complete | Manually trigger `transformation_dag` before ingestion finishes | FDP-dependency check in `data_ingestion_dag` gates the trigger; transformation DAG not triggered until all required entities reach SUCCESS |
+
+---
+
+#### Unit Test Patterns (Python)
+
+These are the patterns to follow when writing dbt model unit tests using `gcp-pipeline-tester`.
+
+**Pattern 1 — MAP transformation (1:1, column rename + code translate)**
+
+```python
+from gcp_pipeline_tester.dbt import DbtModelTestCase
+
+class TestApplicationsFdpModel(DbtModelTestCase):
+    model = "fdp_portfolio_account_facility"
+    source_fixture = "tests/fixtures/odp_applications_sample.csv"
+
+    def test_column_mapping(self):
+        result = self.run_model()
+        row = result[result["application_id"] == "APP-001"].iloc[0]
+        self.assertEqual(row["product_type"], "Personal Loan")  # code A → label
+        self.assertEqual(row["application_status"], "Approved")  # code 1 → label
+
+    def test_pii_masked(self):
+        result = self.run_model()
+        # Raw SSN must never appear in FDP
+        self.assertNotIn("123-45-6789", result["applicant_ssn_masked"].values)
+
+    def test_audit_columns_present(self):
+        result = self.run_model()
+        for col in ["_run_id", "_extract_date", "_transformed_at"]:
+            self.assertIn(col, result.columns)
+            self.assertTrue(result[col].notna().all(), f"{col} must be non-null")
+```
+
+**Pattern 2 — JOIN transformation (N ODP tables → 1 FDP table)**
+
+```python
+class TestEventTransactionExcessModel(DbtModelTestCase):
+    model = "fdp_event_transaction_excess"
+    source_fixtures = {
+        "odp_generic.customers": "tests/fixtures/odp_customers_sample.csv",
+        "odp_generic.accounts":  "tests/fixtures/odp_accounts_sample.csv",
+        "odp_generic.decision":  "tests/fixtures/odp_decision_sample.csv",
+    }
+
+    def test_join_produces_expected_rows(self):
+        result = self.run_model()
+        # 3 customers × 2 accounts each = 6 matched rows
+        self.assertEqual(len(result), 6)
+
+    def test_no_orphaned_join_keys(self):
+        result = self.run_model()
+        self.assertTrue(result["customer_id"].notna().all())
+        self.assertTrue(result["account_id"].notna().all())
+
+    def test_surrogate_key_unique(self):
+        result = self.run_model()
+        self.assertEqual(result["event_transaction_key"].nunique(), len(result))
+```
+
+**Pattern 3 — Error scenario: empty ODP source**
+
+```python
+class TestFdpHandlesEmptyOdp(DbtModelTestCase):
+    model = "fdp_portfolio_account_facility"
+    source_fixtures = {
+        "odp_generic.applications": "tests/fixtures/empty.csv",  # zero data rows
+    }
+
+    def test_empty_source_produces_no_output(self):
+        result = self.run_model()
+        self.assertEqual(len(result), 0)
+
+    def test_empty_source_does_not_raise(self):
+        # dbt must exit 0 — no exception, no Airflow FAILED state
+        self.assertRunSucceeds()
+```
+
+**Pattern 4 — Incremental merge idempotency**
+
+```python
+class TestFdpIncrementalMerge(DbtModelTestCase):
+    model = "fdp_portfolio_account_facility"
+    source_fixture = "tests/fixtures/odp_applications_sample.csv"
+
+    def test_second_run_does_not_duplicate(self):
+        self.run_model()  # first run
+        count_after_first = self.row_count()
+        self.run_model()  # second run with same data
+        count_after_second = self.row_count()
+        self.assertEqual(count_after_first, count_after_second)
+
+    def test_updated_record_is_merged_not_duplicated(self):
+        self.run_model()
+        self.update_fixture_field("APP-001", "status_code", "D")  # D = Declined
+        self.run_model()
+        rows = self.fetch_by_key("application_id", "APP-001")
+        self.assertEqual(len(rows), 1)  # still 1 row, not 2
+        self.assertEqual(rows.iloc[0]["application_status"], "Declined")
+```
+
+---
+
+#### SQL Validation Queries (run after dbt in GCP)
+
+```sql
+-- FDP-01: Row count vs ODP source (MAP pattern)
+SELECT
+  (SELECT COUNT(*) FROM `{PROJECT_ID}.odp_{system}.applications`
+   WHERE _extract_date = '{date}') AS odp_count,
+  (SELECT COUNT(*) FROM `{PROJECT_ID}.fdp_{system}.portfolio_account_facility`
+   WHERE _extract_date = '{date}') AS fdp_count;
+
+-- FDP-02: JOIN completeness — no unmatched keys
+SELECT COUNT(*) AS orphaned_rows
+FROM `{PROJECT_ID}.fdp_{system}.event_transaction_excess` f
+LEFT JOIN `{PROJECT_ID}.odp_{system}.customers` c USING (customer_id)
+WHERE c.customer_id IS NULL
+  AND f._extract_date = '{date}';
+
+-- FDP-03: Surrogate key uniqueness
+SELECT surrogate_key, COUNT(*) AS occurrences
+FROM `{PROJECT_ID}.fdp_{system}.{fdp_table}`
+WHERE _extract_date = '{date}'
+GROUP BY 1
+HAVING COUNT(*) > 1;
+
+-- FDP-04: Audit column completeness
+SELECT
+  COUNTIF(_run_id IS NULL) AS missing_run_id,
+  COUNTIF(_extract_date IS NULL) AS missing_extract_date,
+  COUNTIF(_transformed_at IS NULL) AS missing_transformed_at
+FROM `{PROJECT_ID}.fdp_{system}.{fdp_table}`
+WHERE _extract_date = '{date}';
+
+-- FDP-05: Run ID traces to ODP load
+SELECT j.run_id, j.status, j.entity, j.stage
+FROM `{PROJECT_ID}.job_control.pipeline_jobs` j
+WHERE j.run_id IN (
+  SELECT DISTINCT _run_id
+  FROM `{PROJECT_ID}.fdp_{system}.{fdp_table}`
+  WHERE _extract_date = '{date}'
+);
+
+-- FDP-06: Confirm no raw PII value appears in FDP (spot-check SSN)
+-- Expected: zero rows
+SELECT COUNT(*) AS raw_pii_rows
+FROM `{PROJECT_ID}.fdp_{system}.{fdp_table}`
+WHERE REGEXP_CONTAINS(TO_JSON_STRING({fdp_table}), r'\d{3}-\d{2}-\d{4}');
+
+-- FDP-ERR-03: Detect partial JOIN (only some entities loaded today)
+SELECT entity, COUNT(*) AS loaded_count
+FROM `{PROJECT_ID}.job_control.pipeline_jobs`
+WHERE DATE(created_at) = '{date}'
+  AND system = '{system}'
+  AND status = 'SUCCESS'
+GROUP BY entity;
+-- If not all required entities appear → JOIN FDP should not have been triggered
+```
 
 ### CDP Test Spec
 

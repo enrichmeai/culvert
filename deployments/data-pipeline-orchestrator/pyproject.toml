@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-orchestration"
-version = "1.0.11"
+version = "1.0.13"
 description = "GCP Pipeline Reference: Generic Orchestration - Airflow DAGs for Cloud Composer (JOIN + MAP patterns)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -20,7 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
-    "gcp-pipeline-framework>=1.0.6",
+    "gcp-pipeline-core>=1.0.6",
+    "gcp-pipeline-orchestration>=1.0.6",
 ]
 # NOTE: NO apache-beam or gcp-pipeline-beam dependency -- orchestration only
 

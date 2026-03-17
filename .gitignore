@@ -108,3 +108,4 @@ ANALYSIS_AND_PROMPT.md
 .venv_*/
 venv*/
 .venv*/
+infrastructure/terraform/systems/generic/.terraform.lock.hcl
