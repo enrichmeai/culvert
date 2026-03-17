@@ -516,29 +516,17 @@ jobs:
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install gcp-pipeline-framework for E2E tests
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Run E2E Tests (file upload → full pipeline)
       env:
-        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+        PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        ENV: ${{ github.event.inputs.environment || 'int' }}
       run: |
-        python -m pip install --upgrade pip
-        VERSION="${LIBRARY_VERSION}"
-        echo "Installing gcp-pipeline-framework==$VERSION for E2E testing..."
-        pip install "gcp-pipeline-framework==$VERSION" pytest pytest-mock
-        pip show gcp-pipeline-framework | grep Version
-
-    - name: Run E2E Tests
-      env:
-        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
-      run: |
-        VERSION="${LIBRARY_VERSION}"
-        echo "Running E2E tests (framework v$VERSION)"
-
-        python -m pytest --pyargs gcp_pipeline_tester.tests -v --tb=short || echo "Some E2E tests failed"
-
-        if [ -d "deployments/original-data-to-bigqueryload/tests/e2e" ]; then
-          PYTHONPATH=deployments/original-data-to-bigqueryload/src \
-            pytest deployments/original-data-to-bigqueryload/tests/e2e -v --tb=short || echo "Deployment E2E tests failed"
-        fi
+        echo "Running real E2E: upload files → Pub/Sub → Airflow → Dataflow → ODP → dbt → FDP"
+        chmod +x scripts/gcp/e2e_pipeline_test.sh
+        scripts/gcp/e2e_pipeline_test.sh --timeout 1200
 
   # ==========================================================================
   # Summary
