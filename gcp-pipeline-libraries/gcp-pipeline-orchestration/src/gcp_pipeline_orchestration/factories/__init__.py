@@ -36,7 +36,7 @@ Example:
     ```
 """
 
-from .dag_factory import DAGFactory
+from .base_dag_factory import DAGFactory
 from .config import (
     DAGConfig,
     TaskConfig,
