@@ -15,6 +15,8 @@ Usage (in any DAG entrypoint file):
     create_dags(config, globals())
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List
 import json
