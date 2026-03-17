@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV /Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311
+set -gx VIRTUAL_ENV /Users/josepharuja/Documents/projects/jsr/gcp-pipeline-reference/venv311
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/"bin $PATH

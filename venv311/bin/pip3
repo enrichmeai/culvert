@@ -1,4 +1,4 @@
-#!/Users/josepharuja/Documents/projects/jsr/legacy-migration-reference/venv311/bin/python3.11
+#!/Users/josepharuja/Documents/projects/jsr/gcp-pipeline-reference/venv311/bin/python3.11
 import sys
 from pip._internal.cli.main import main
 if __name__ == '__main__':
