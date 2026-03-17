@@ -291,14 +291,326 @@ resource "google_bigquery_dataset" "job_control" {
 }
 
 # ============================================================================
-# BIGQUERY TABLES
+# BIGQUERY TABLES — ODP (Original Data Product)
 # ============================================================================
-# NOTE: BigQuery tables are NOT managed by Terraform.
-# Tables are created by scripts/gcp/03_create_infrastructure.sh and schemas
-# are managed at runtime by pipeline code (Dataflow/Beam) and dbt.
-# This avoids Terraform import conflicts with deletion_protection and
-# schema drift between imported state and runtime-managed schemas.
+
+resource "google_bigquery_table" "odp_customers" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "customers"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "created_date"
+  }
+  clustering = ["_run_id", "status"]
+
+  schema = jsonencode([
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "first_name", type = "STRING", mode = "NULLABLE" },
+    { name = "last_name", type = "STRING", mode = "NULLABLE" },
+    { name = "ssn", type = "STRING", mode = "NULLABLE" },
+    { name = "dob", type = "DATE", mode = "NULLABLE" },
+    { name = "status", type = "STRING", mode = "NULLABLE" },
+    { name = "created_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_customers_errors" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "customers_errors"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "raw_record", type = "STRING", mode = "NULLABLE" },
+    { name = "error_type", type = "STRING", mode = "NULLABLE" },
+    { name = "error_message", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_accounts" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "accounts"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "open_date"
+  }
+  clustering = ["_run_id", "account_type"]
+
+  schema = jsonencode([
+    { name = "account_id", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "account_type", type = "STRING", mode = "NULLABLE" },
+    { name = "balance", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "status", type = "STRING", mode = "NULLABLE" },
+    { name = "open_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_accounts_errors" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "accounts_errors"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "account_id", type = "STRING", mode = "NULLABLE" },
+    { name = "raw_record", type = "STRING", mode = "NULLABLE" },
+    { name = "error_type", type = "STRING", mode = "NULLABLE" },
+    { name = "error_message", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_decision" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "decision"
+  deletion_protection = false
+
+  clustering = ["_run_id", "decision_code"]
+
+  schema = jsonencode([
+    { name = "decision_id", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "application_id", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_code", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_date", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "score", type = "INTEGER", mode = "NULLABLE" },
+    { name = "reason_codes", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_decision_errors" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "decision_errors"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "decision_id", type = "STRING", mode = "NULLABLE" },
+    { name = "raw_record", type = "STRING", mode = "NULLABLE" },
+    { name = "error_type", type = "STRING", mode = "NULLABLE" },
+    { name = "error_message", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_applications" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "applications"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "application_date"
+  }
+
+  schema = jsonencode([
+    { name = "application_id", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "loan_amount", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "interest_rate", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "term_months", type = "INTEGER", mode = "NULLABLE" },
+    { name = "application_date", type = "DATE", mode = "NULLABLE" },
+    { name = "status", type = "STRING", mode = "NULLABLE" },
+    { name = "event_type", type = "STRING", mode = "NULLABLE" },
+    { name = "account_type", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "odp_applications_errors" {
+  dataset_id          = google_bigquery_dataset.odp_generic.dataset_id
+  table_id            = "applications_errors"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "application_id", type = "STRING", mode = "NULLABLE" },
+    { name = "raw_record", type = "STRING", mode = "NULLABLE" },
+    { name = "error_type", type = "STRING", mode = "NULLABLE" },
+    { name = "error_message", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "_processed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
 # ============================================================================
+# BIGQUERY TABLES — FDP (Foundation Data Product)
+# ============================================================================
+
+resource "google_bigquery_table" "fdp_event_transaction_excess" {
+  dataset_id          = google_bigquery_dataset.fdp_generic.dataset_id
+  table_id            = "event_transaction_excess"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "_extract_date"
+  }
+  clustering = ["customer_id", "account_id"]
+
+  schema = jsonencode([
+    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
+    { name = "first_name", type = "STRING", mode = "NULLABLE" },
+    { name = "last_name", type = "STRING", mode = "NULLABLE" },
+    { name = "account_id", type = "STRING", mode = "REQUIRED" },
+    { name = "current_balance", type = "NUMERIC", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "fdp_portfolio_account_excess" {
+  dataset_id          = google_bigquery_dataset.fdp_generic.dataset_id
+  table_id            = "portfolio_account_excess"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "_extract_date"
+  }
+  clustering = ["customer_id", "_run_id"]
+
+  schema = jsonencode([
+    { name = "decision_id", type = "STRING", mode = "REQUIRED" },
+    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
+    { name = "decision_code", type = "STRING", mode = "REQUIRED" },
+    { name = "score", type = "INTEGER", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+# ============================================================================
+# BIGQUERY TABLES — Job Control
+# ============================================================================
+
+resource "google_bigquery_table" "pipeline_jobs" {
+  dataset_id          = google_bigquery_dataset.job_control.dataset_id
+  table_id            = "pipeline_jobs"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "created_at"
+  }
+  clustering = ["system_id", "entity_type", "status"]
+
+  schema = jsonencode([
+    { name = "run_id", type = "STRING", mode = "REQUIRED" },
+    { name = "system_id", type = "STRING", mode = "REQUIRED" },
+    { name = "entity_type", type = "STRING", mode = "REQUIRED" },
+    { name = "extract_date", type = "DATE", mode = "REQUIRED" },
+    { name = "status", type = "STRING", mode = "REQUIRED" },
+    { name = "started_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "completed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "failed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "source_files", type = "STRING", mode = "REPEATED" },
+    { name = "total_records", type = "INTEGER", mode = "NULLABLE" },
+    { name = "error_code", type = "STRING", mode = "NULLABLE" },
+    { name = "error_message", type = "STRING", mode = "NULLABLE" },
+    { name = "error_file_path", type = "STRING", mode = "NULLABLE" },
+    { name = "failure_stage", type = "STRING", mode = "NULLABLE" },
+    { name = "created_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "job_type", type = "STRING", mode = "NULLABLE" },
+    { name = "retry_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "max_retries", type = "INTEGER", mode = "NULLABLE" },
+    { name = "parent_run_ids", type = "STRING", mode = "REPEATED" },
+    { name = "dbt_model_name", type = "STRING", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
+
+resource "google_bigquery_table" "audit_trail" {
+  dataset_id          = google_bigquery_dataset.job_control.dataset_id
+  table_id            = "audit_trail"
+  deletion_protection = false
+
+  time_partitioning {
+    type  = "DAY"
+    field = "processed_timestamp"
+  }
+  clustering = ["pipeline_name", "entity_type"]
+
+  schema = jsonencode([
+    { name = "run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "pipeline_name", type = "STRING", mode = "NULLABLE" },
+    { name = "entity_type", type = "STRING", mode = "NULLABLE" },
+    { name = "source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "record_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "processed_timestamp", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "processing_duration_seconds", type = "FLOAT", mode = "NULLABLE" },
+    { name = "success", type = "BOOLEAN", mode = "NULLABLE" },
+    { name = "error_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "audit_hash", type = "STRING", mode = "NULLABLE" }
+  ])
+
+  labels = local.common_labels
+  lifecycle { ignore_changes = [schema] }
+}
 
 # ============================================================================
 # SERVICE ACCOUNTS
@@ -435,6 +747,10 @@ resource "google_composer_environment" "generic_composer" {
   config {
     software_config {
       image_version = "composer-2.16.1-airflow-2.10.5"
+
+      pypi_packages = {
+        gcp-pipeline-orchestration = ">=1.0.6"
+      }
 
       env_variables = {
         GCP_PROJECT_ID    = var.gcp_project_id
