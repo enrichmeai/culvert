@@ -4,13 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-orchestration"
-version = "1.0.11"
+version = "1.0.12"
 description = "Orchestration library for GCP data pipelines"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "apache-airflow>=2.5.0",
-    "apache-airflow-providers-google>=10.1.0",
     "google-cloud-storage",
     "google-cloud-pubsub",
     "gcp-pipeline-core",
@@ -24,6 +22,10 @@ pythonpath = ["src", "../gcp-pipeline-core/src"]
 testpaths = ["tests"]
 
 [project.optional-dependencies]
+airflow = [
+    "apache-airflow>=2.5.0",
+    "apache-airflow-providers-google>=10.1.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",

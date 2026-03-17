@@ -410,7 +410,7 @@ resource "google_composer_environment" "generic_composer" {
       image_version = "composer-2-airflow-2"
 
       pypi_packages = {
-        gcp-pipeline-framework = ">=1.0.6"
+        gcp-pipeline-orchestration = ">=1.0.6"
       }
 
       env_variables = {
