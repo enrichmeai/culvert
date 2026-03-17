@@ -22,14 +22,27 @@ import logging
 import os
 
 from airflow import DAG
-from airflow.operators.python import PythonOperator, BranchPythonOperator
-from airflow.operators.trigger_dagrun import TriggerDagRunOperator
-from airflow.operators.bash import BashOperator
-from airflow.operators.dummy import DummyOperator
 from airflow.models import Variable
 
-from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
-from gcp_pipeline_orchestration import EntityDependencyChecker, BaseDataflowOperator
+try:
+    # Airflow 3.x
+    from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
+    from airflow.providers.standard.operators.bash import BashOperator
+    from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
+except ImportError:
+    # Airflow 2.x
+    from airflow.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+    from airflow.operators.bash import BashOperator
+    try:
+        from airflow.operators.empty import EmptyOperator as DummyOperator
+    except ImportError:
+        from airflow.operators.dummy import DummyOperator
+
+from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
@@ -107,7 +120,7 @@ def _build_pubsub_trigger_dag(
         dag_id=dag_id,
         default_args=default_args,
         description=f"Listen for {config['system_name']} file arrivals via Pub/Sub and trigger ODP load",
-        schedule_interval=None,
+        schedule=None,
         catchup=False,
         max_active_runs=5,
         tags=[config["file_prefix"], "trigger", "pubsub"],
@@ -309,7 +322,7 @@ def _build_ingestion_dag(
         dag_id=dag_id,
         default_args=default_args,
         description=f"Load {config['system_name']} entity data to ODP (BigQuery)",
-        schedule_interval=None,
+        schedule=None,
         catchup=False,
         tags=[config["file_prefix"], "odp", "dataflow"],
     )
@@ -512,7 +525,7 @@ def _build_transformation_dag(
         dag_id=dag_id,
         default_args=default_args,
         description=f"Transform {config['system_name']} ODP to FDP — runs per-model based on granular dependencies",
-        schedule_interval=None,
+        schedule=None,
         catchup=False,
         tags=[config["file_prefix"], "fdp", "dbt", "transformation"],
     )
@@ -675,7 +688,7 @@ def _build_pipeline_status_dag(
         dag_id=dag_id,
         default_args=default_args,
         description=f"Daily status check for {config['system_name']} pipeline completeness — alerts on gaps or failures",
-        schedule_interval="0 23 * * *",
+        schedule="0 23 * * *",
         catchup=False,
         tags=[config["file_prefix"], "status", "observability"],
     )

@@ -61,7 +61,7 @@ env:
   DEPENDENT_LIBRARIES: 'gcp-pipeline-beam,gcp-pipeline-orchestration,gcp-pipeline-transform,gcp-pipeline-tester,gcp-pipeline-framework'
 
 permissions:
-  contents: read
+  contents: write  # Needed for creating GitHub releases
   id-token: write  # For OIDC trusted publishing
 
 jobs:
@@ -588,11 +588,55 @@ jobs:
         echo "| Status | ✅ Ready for deployment |" >> $GITHUB_STEP_SUMMARY
 
   # ==========================================================================
+  # Create GitHub Release - Auto-generates release notes on production publish
+  # ==========================================================================
+  create-release:
+    name: Create GitHub Release
+    needs: [check-conditions, publish-core, publish-others]
+    if: |
+      always() &&
+      needs.publish-others.result == 'success' &&
+      needs.check-conditions.outputs.target_repo == 'pypi'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Create release with auto-generated notes
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        VERSION="${{ needs.publish-core.outputs.version }}"
+        TAG="v$VERSION"
+
+        echo "Creating GitHub release $TAG..."
+
+        # Create tag if it doesn't exist
+        if ! git rev-parse "$TAG" >/dev/null 2>&1; then
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Created tag $TAG"
+        else
+          echo "Tag $TAG already exists"
+        fi
+
+        # Create release with auto-generated notes (skip if already exists)
+        gh release create "$TAG" \
+          --title "v$VERSION" \
+          --generate-notes \
+          --latest \
+        || echo "Release $TAG already exists, skipping"
+
+  # ==========================================================================
   # Summary - Generate comprehensive publish report
   # ==========================================================================
   summary:
     name: Publish Summary
-    needs: [check-conditions, publish-core, publish-others, publish-references, deploy]
+    needs: [check-conditions, publish-core, publish-others, publish-references, deploy, create-release]
     if: always() && needs.check-conditions.outputs.should_publish == 'true'
     runs-on: ubuntu-latest
 

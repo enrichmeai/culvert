@@ -48,6 +48,107 @@ gh run list --workflow=deploy-generic.yml --limit 3
 
 ---
 
+## Install from PyPI and Reconstruct the Project
+
+All libraries, reference implementations, documentation, infrastructure-as-code, and CI/CD workflows are published to PyPI. You can reconstruct the entire project from packages — no access to the source repo required.
+
+### Option 1: Quick Reconstruction with `reconstruct.py`
+
+Download [`reconstruct.py`](./reconstruct.py) and run it — it creates a temp venv, installs everything from PyPI, and exports the full project layout:
+
+```bash
+# From public PyPI (latest version)
+python reconstruct.py
+
+# Specific version
+python reconstruct.py --version 1.0.11
+
+# From a private index (Nexus, Artifactory, etc.)
+python reconstruct.py --index-url https://nexus.internal/repository/pypi/simple/
+
+# Custom destination
+python reconstruct.py --dest /path/to/my-pipeline-project
+```
+
+This produces a ready-to-use project directory:
+```
+gcp-pipeline-reference/
+├── docs/                      # 24 documentation guides
+├── infrastructure/
+│   ├── terraform/             # All Terraform modules and tfvars
+│   └── k8s/                   # Airflow Helm values, workload configs
+├── .github/workflows/         # 7 CI/CD workflow definitions
+├── deployments/               # Dockerfiles, cloudbuild.yaml, pyproject.toml per deployment
+│   ├── original-data-to-bigqueryload/
+│   ├── bigquery-to-mapped-product/
+│   ├── data-pipeline-orchestrator/
+│   └── ...
+├── gcp-pipeline-libraries/    # Full library source code
+├── .gitignore, pyproject.toml, README.md
+```
+
+Push it to your internal repo:
+```bash
+cd gcp-pipeline-reference
+git init && git add -A && git commit -m "Import GCP Pipeline Reference from PyPI"
+git remote add origin <your-internal-repo-url>
+git push -u origin main
+```
+
+### Option 2: CLI Export (docs + infrastructure only)
+
+If you already have `gcp-pipeline-framework` installed:
+
+```bash
+pip install gcp-pipeline-framework
+
+# List all bundled docs
+gcp-pipeline-docs list
+
+# View a specific guide
+gcp-pipeline-docs show DEVELOPER_TESTING_GUIDE.md
+
+# Export just the docs
+gcp-pipeline-docs export-docs --dest docs
+
+# Export the full project structure (docs + infra + workflows + deployment configs)
+gcp-pipeline-docs export-project --dest my-project
+```
+
+### Option 3: Python API
+
+```python
+from gcp_pipeline_framework import list_docs, get_docs_path, export_project
+
+# List all documentation
+for doc in list_docs():
+    print(doc)
+
+# Read a specific guide
+content = (get_docs_path() / "DEVELOPER_TESTING_GUIDE.md").read_text()
+
+# Export everything to a directory
+export_project("my-project")
+```
+
+### What's Published to PyPI
+
+| Package | Contents |
+|---------|----------|
+| `gcp-pipeline-framework` | Umbrella + all docs, Terraform, K8s, workflows, deployment configs |
+| `gcp-pipeline-core` | Foundation library (audit, monitoring, error handling, job control) |
+| `gcp-pipeline-beam` | Apache Beam ingestion library |
+| `gcp-pipeline-orchestration` | Airflow operators and DAG utilities |
+| `gcp-pipeline-transform` | Shared dbt macros |
+| `gcp-pipeline-tester` | Test mocks, fixtures, base classes |
+| `gcp-pipeline-ref-ingestion` | Reference: GCS → BigQuery ODP ingestion source |
+| `gcp-pipeline-ref-transform` | Reference: ODP → FDP dbt models |
+| `gcp-pipeline-ref-orchestration` | Reference: Airflow DAGs for Cloud Composer |
+| `gcp-pipeline-ref-cdp` | Reference: FDP → CDP dbt models |
+| `gcp-pipeline-ref-segment-transform` | Reference: CDP → mainframe segment files |
+
+---
+
 ## Architecture Overview
 
 ```
