@@ -529,7 +529,7 @@ jobs:
 
     - name: Run E2E Tests (file upload → full pipeline)
       env:
-        PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+        PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
         ENV: ${{ github.event.inputs.environment || 'int' }}
       run: |
         echo "Running real E2E: upload files → Pub/Sub → Airflow → Dataflow → ODP → dbt → FDP"
