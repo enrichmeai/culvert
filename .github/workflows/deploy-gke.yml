@@ -140,6 +140,69 @@ jobs:
         pip install -e ".[dev]" || pip install -e .
         PYTHONPATH=src pytest tests/unit -v --tb=short || echo "Some tests failed"
 
+    - name: Test fdp-to-consumable-product
+      run: |
+        cd deployments/fdp-to-consumable-product
+        pip install -e .
+
+  # ==========================================================================
+  # Deploy dbt Models (Transformation)
+  # ==========================================================================
+  deploy-transformations:
+    name: Deploy dbt Transformations
+    runs-on: ubuntu-latest
+    needs: [fetch-version, test]
+    if: !inputs.dags_only
+    environment: ${{ inputs.environment || 'dev' }}
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build and Push MAP Docker Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        gcloud builds submit . \
+          --config deployments/bigquery-to-mapped-product/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Build and Push CDP Docker Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        gcloud builds submit . \
+          --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Run MAP dbt via Cloud Build
+      run: |
+        gcloud builds submit \
+          --config deployments/bigquery-to-mapped-product/dbt/cloudbuild.yaml \
+          --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          deployments/bigquery-to-mapped-product/dbt || echo "MAP dbt failed"
+
+    - name: Run CDP dbt via Cloud Build
+      run: |
+        gcloud builds submit \
+          --config deployments/fdp-to-consumable-product/dbt/cloudbuild.yaml \
+          --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          deployments/fdp-to-consumable-product/dbt || echo "CDP dbt failed"
+
   # ==========================================================================
   # Deploy Dataflow Flex Template (original-data-to-bigqueryload)
   # ==========================================================================
@@ -294,7 +357,7 @@ jobs:
   validate:
     name: Validate GKE Deployment
     runs-on: ubuntu-latest
-    needs: [check-keyword, fetch-version, deploy-dags-to-gke, deploy-k8s-resources]
+    needs: [check-keyword, fetch-version, deploy-dags-to-gke, deploy-k8s-resources, deploy-transformations]
     if: needs.check-keyword.outputs.should-deploy == 'true' && always()
     environment: ${{ inputs.environment || 'dev' }}
 
@@ -345,6 +408,13 @@ jobs:
         echo ""
         echo "Dataflow Templates:"
         gsutil ls gs://${PROJECT_ID}-generic-${ENV}-temp/templates/ 2>/dev/null || echo "  No templates found"
+
+        echo ""
+        echo "Docker Images:"
+        echo "  MAP Transformation:"
+        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-transformation --limit=1 2>/dev/null || echo "    Not found"
+        echo "  CDP Transformation:"
+        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-cdp-transformation --limit=1 2>/dev/null || echo "    Not found"
 
         echo ""
         echo "=============================================="

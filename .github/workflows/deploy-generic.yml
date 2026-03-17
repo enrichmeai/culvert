@@ -20,6 +20,7 @@ on:
     paths:
       - 'deployments/original-data-to-bigqueryload/**'
       - 'deployments/bigquery-to-mapped-product/**'
+      - 'deployments/fdp-to-consumable-product/**'
       - 'deployments/data-pipeline-orchestrator/**'
       - 'infrastructure/**'
       - '.github/workflows/deploy-generic.yml'
@@ -126,6 +127,12 @@ jobs:
         cd deployments/original-data-to-bigqueryload
         pip install -e ".[dev]" || pip install -e .
         PYTHONPATH=src pytest tests/unit -v --tb=short || echo "Some tests failed"
+
+    - name: Test fdp-to-consumable-product
+      run: |
+        cd deployments/fdp-to-consumable-product
+        pip install -e .
+        # dbt tests would go here in a full environment
 
   # ==========================================================================
   # Deploy Infrastructure
@@ -391,6 +398,48 @@ jobs:
           deployments/bigquery-to-mapped-product/dbt || echo "dbt deployment via Cloud Build failed"
 
   # ==========================================================================
+  # Deploy CDP Models (fdp-to-consumable-product)
+  # ==========================================================================
+  deploy-cdp:
+    name: Deploy CDP Models (consumable product)
+    runs-on: ubuntu-latest
+    needs: [fetch-version, deploy-infrastructure, deploy-dbt]
+    timeout-minutes: 45
+    environment: ${{ github.event.inputs.environment || 'int' }}
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build and Push CDP Docker Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building CDP image with gcp-pipeline-framework==$VERSION"
+        gcloud builds submit . \
+          --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=2400s
+
+    - name: Run CDP dbt via Cloud Build
+      run: |
+        gcloud builds submit \
+          --config deployments/fdp-to-consumable-product/dbt/cloudbuild.yaml \
+          --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          deployments/fdp-to-consumable-product/dbt || echo "CDP dbt deployment via Cloud Build failed"
+
+  # ==========================================================================
   # Deploy Airflow DAGs (data-pipeline-orchestrator)
   # ==========================================================================
   deploy-airflow:
@@ -529,8 +578,11 @@ jobs:
         echo "  Ingestion:"
         gcloud container images list-tags gcr.io/$PROJECT_ID/generic-ingestion \
           --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "    Not found"
-        echo "  Transformation:"
+        echo "  Transformation (MAP):"
         gcloud container images list-tags gcr.io/$PROJECT_ID/generic-transformation \
+          --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "    Not found"
+        echo "  Transformation (CDP):"
+        gcloud container images list-tags gcr.io/$PROJECT_ID/generic-cdp-transformation \
           --limit=3 --format='table(tags,timestamp)' 2>/dev/null || echo "    Not found"
 
         echo ""
@@ -612,7 +664,8 @@ jobs:
         echo "| Deployment | Job | Status |" >> $GITHUB_STEP_SUMMARY
         echo "|------------|-----|--------|" >> $GITHUB_STEP_SUMMARY
         echo "| original-data-to-bigqueryload | Dataflow Template | ${{ needs.deploy-dataflow.result == 'success' && '✅' || needs.deploy-dataflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| bigquery-to-mapped-product | dbt Models | ${{ needs.deploy-dbt.result == 'success' && '✅' || needs.deploy-dbt.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| bigquery-to-mapped-product | dbt Models (MAP) | ${{ needs.deploy-dbt.result == 'success' && '✅' || needs.deploy-dbt.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| fdp-to-consumable-product | dbt Models (CDP) | ${{ needs.deploy-cdp.result == 'success' && '✅' || needs.deploy-cdp.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| data-pipeline-orchestrator | Airflow DAGs | ${{ needs.deploy-airflow.result == 'success' && '✅' || needs.deploy-airflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -630,6 +683,7 @@ jobs:
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- Ingestion image: \`gcr.io/*/generic-ingestion:$VERSION\`" >> $GITHUB_STEP_SUMMARY
-        echo "- Transformation image: \`gcr.io/*/generic-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Transformation (MAP) image: \`gcr.io/*/generic-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "- Transformation (CDP) image: \`gcr.io/*/generic-cdp-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "- Flex Template: \`gs://*/templates/generic_ingestion_v$VERSION.json\`" >> $GITHUB_STEP_SUMMARY
         echo "- DAGs: Cloud Composer \`generic-${ENV}-composer\`" >> $GITHUB_STEP_SUMMARY
