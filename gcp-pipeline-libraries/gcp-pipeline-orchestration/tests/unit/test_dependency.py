@@ -4,7 +4,7 @@ import unittest
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-from gcp_pipeline_orchestration import EntityDependencyChecker
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 from gcp_pipeline_core.job_control import JobStatus
 
 
