@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-core"
-version = "1.0.13"
+version = "1.0.14"
 description = "Core library for GCP data pipelines"
 readme = "README.md"
 requires-python = ">=3.9"
