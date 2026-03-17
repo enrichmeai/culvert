@@ -1,8 +1,17 @@
 import pytest
 from unittest.mock import MagicMock, patch
+
+# Skip tests if Airflow is not available
+try:
+    from airflow.providers.google.cloud.operators.dataflow import DataflowCreatePythonJobOperator
+    AIRFLOW_AVAILABLE = True
+except ImportError:
+    AIRFLOW_AVAILABLE = False
+
 import gcp_pipeline_orchestration.operators.dataflow as dataflow_mod
 from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator, SourceType, ProcessingMode
 
+@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not available")
 class TestBaseDataflowOperator:
     def setup_method(self):
         # Ensure stubs are MagicMocks for the tests
