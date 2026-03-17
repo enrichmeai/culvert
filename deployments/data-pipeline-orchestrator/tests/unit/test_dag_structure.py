@@ -1,31 +1,35 @@
 """
 Unit tests for Generic Orchestration DAGs.
 
-Tests DAG structure, configuration, and helper functions without requiring
-a live Airflow environment or GCP credentials.
-
-NOTE: DAG files are thin wrappers around dag_factory.py, which is config-driven
-via system.yaml. Tests check both the wrapper files AND the factory + config.
+Tests DAG structure and configuration. All DAG logic lives in
+gcp-pipeline-orchestration. The deployment has a single entrypoint
+(generic_pipeline.py) that calls create_dags() from the library.
 """
 
 import pytest
 import sys
-import os
-from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 import yaml
 
-# Add dags to path for import
 DAGS_PATH = Path(__file__).parent.parent.parent / "dags"
 CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "system.yaml"
-FACTORY_PATH = DAGS_PATH / "dag_factory.py"
-if str(DAGS_PATH) not in sys.path:
-    sys.path.insert(0, str(DAGS_PATH))
+ENTRYPOINT_PATH = DAGS_PATH / "generic_pipeline.py"
+
+# Library dag_factory (where all DAG logic lives)
+LIBRARY_FACTORY_PATH = (
+    Path(__file__).parent.parent.parent.parent.parent
+    / "gcp-pipeline-libraries"
+    / "gcp-pipeline-orchestration"
+    / "src"
+    / "gcp_pipeline_orchestration"
+    / "factories"
+    / "dag_factory.py"
+)
 
 
 class TestDAGConstants:
-    """Validate DAG configuration constants are correct."""
+    """Validate DAG configuration and entrypoint structure."""
 
     def test_system_config_exists(self):
         """system.yaml config must exist."""
@@ -55,42 +59,41 @@ class TestDAGConstants:
         assert fdp["portfolio_account_excess"]["requires"] == ["decision"]
         assert fdp["portfolio_account_facility"]["requires"] == ["applications"]
 
-    def test_dag_factory_exists(self):
-        """dag_factory.py must exist."""
-        assert FACTORY_PATH.exists(), "dag_factory.py missing from dags/"
+    def test_entrypoint_exists(self):
+        """Single DAG entrypoint generic_pipeline.py must exist."""
+        assert ENTRYPOINT_PATH.exists(), "generic_pipeline.py missing from dags/"
 
-    def test_dag_factory_has_job_control(self):
-        """DAG factory must use JobControlRepository for run tracking."""
-        content = FACTORY_PATH.read_text()
+    def test_entrypoint_calls_create_dags(self):
+        """Entrypoint must delegate to library create_dags()."""
+        content = ENTRYPOINT_PATH.read_text()
+        assert "create_dags" in content, \
+            "generic_pipeline.py must call create_dags() from the library"
+        assert "globals()" in content, \
+            "create_dags() must be passed globals() so Airflow can discover DAGs"
+
+    def test_library_factory_has_job_control(self):
+        """Library dag_factory must use JobControlRepository for run tracking."""
+        assert LIBRARY_FACTORY_PATH.exists(), \
+            "Library dag_factory.py not found — check LIBRARY_FACTORY_PATH"
+        content = LIBRARY_FACTORY_PATH.read_text()
         assert "JobControlRepository" in content, \
-            "DAG factory must use JobControlRepository for job tracking"
+            "dag_factory must use JobControlRepository for job tracking"
         assert "JobStatus" in content, \
-            "DAG factory must reference JobStatus enum"
+            "dag_factory must reference JobStatus enum"
 
-    def test_dag_factory_has_failure_callback(self):
-        """DAG factory must define on_failure_callback."""
-        content = FACTORY_PATH.read_text()
+    def test_library_factory_has_failure_callback(self):
+        """Library dag_factory must define on_failure_callback."""
+        content = LIBRARY_FACTORY_PATH.read_text()
         assert "on_failure_callback" in content, \
-            "DAG factory must define on_failure_callback to update job_control on failure"
+            "dag_factory must define on_failure_callback to update job_control on failure"
 
-    def test_dag_factory_has_dag_definitions(self):
-        """DAG factory must create DAGs with dag_id."""
-        content = FACTORY_PATH.read_text()
-        assert "dag_id" in content, \
-            "DAG factory must contain dag_id definitions"
-
-    def test_all_dag_files_present(self):
-        """All required DAG files must exist."""
-        required = [
-            "data_ingestion_dag.py",
-            "transformation_dag.py",
-            "pubsub_trigger_dag.py",
-            "error_handling_dag.py",
-            "dag_factory.py",
-        ]
-        for dag_file in required:
-            path = DAGS_PATH / dag_file
-            assert path.exists(), f"Required DAG file missing: {dag_file}"
+    def test_library_factory_has_dag_definitions(self):
+        """Library dag_factory must create four named DAGs."""
+        content = LIBRARY_FACTORY_PATH.read_text()
+        assert "pubsub_trigger_dag" in content
+        assert "ingestion_dag" in content
+        assert "transformation_dag" in content
+        assert "pipeline_status_dag" in content
 
     def test_no_hardcoded_project_ids(self):
         """DAG files must not contain hardcoded project IDs."""
