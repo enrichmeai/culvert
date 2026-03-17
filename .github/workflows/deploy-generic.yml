@@ -170,6 +170,10 @@ jobs:
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+        TF_VAR_gcp_region: europe-west2
+        TF_VAR_bq_location: europe-west2
+        TF_VAR_force_destroy: "true"
+        TF_VAR_enable_versioning: "true"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -181,6 +185,10 @@ jobs:
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+        TF_VAR_gcp_region: europe-west2
+        TF_VAR_bq_location: europe-west2
+        TF_VAR_force_destroy: "true"
+        TF_VAR_enable_versioning: "true"
       run: |
         cd infrastructure/terraform/systems/generic
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
@@ -194,7 +202,7 @@ jobs:
             echo "  Already in state: $addr"
           else
             echo "  Importing: $addr"
-            terraform import -var-file="env/${ENV}.tfvars" "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
+            terraform import "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
           fi
         }
 
@@ -236,17 +244,25 @@ jobs:
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+        TF_VAR_gcp_region: europe-west2
+        TF_VAR_bq_location: europe-west2
+        TF_VAR_force_destroy: "true"
+        TF_VAR_enable_versioning: "true"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
         echo "=== Terraform Plan for environment: $ENV ==="
-        terraform plan -var-file="env/${ENV}.tfvars" -out=tfplan
+        terraform plan -out=tfplan
         echo "=== Plan complete ==="
 
     - name: Terraform Apply
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
         TF_VAR_environment: ${{ github.event.inputs.environment || 'int' }}
+        TF_VAR_gcp_region: europe-west2
+        TF_VAR_bq_location: europe-west2
+        TF_VAR_force_destroy: "true"
+        TF_VAR_enable_versioning: "true"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"

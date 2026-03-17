@@ -104,6 +104,67 @@ cdp_models:
     requires: [event_transaction_excess, portfolio_account_excess, portfolio_account_facility]
     description: "Customer risk profile - complex scoring, segmentation, and denormalised per-customer view"
     custom_sql: models/cdp/customer_risk_profile.sql
+    columns:
+      - source: risk_profile_key
+        target: risk_profile_key
+        description: "Surrogate key — customer_id + extract_date"
+      - source: customer_id
+        target: customer_id
+      - source: first_name
+        target: first_name
+      - source: last_name
+        target: last_name
+      - source: date_of_birth
+        target: date_of_birth
+      - source: ssn_masked
+        target: ssn_masked
+      - source: customer_status
+        target: customer_status
+      - source: account_id
+        target: account_id
+      - source: account_type_desc
+        target: account_type_desc
+      - source: current_balance
+        target: current_balance
+      - source: account_open_date
+        target: account_open_date
+      - source: decision_id
+        target: decision_id
+      - source: decision_code
+        target: decision_code
+      - source: decision_outcome
+        target: decision_outcome
+      - source: decision_date
+        target: decision_date
+      - source: risk_score
+        target: risk_score
+      - source: decision_reason
+        target: decision_reason
+      - source: application_id
+        target: application_id
+      - source: loan_amount
+        target: loan_amount
+      - source: interest_rate
+        target: interest_rate
+      - source: term_months
+        target: term_months
+      - source: application_date
+        target: application_date
+      - source: facility_status
+        target: facility_status
+      - source: event_type
+        target: event_type
+      - source: account_type
+        target: account_type
+      - source: cdp_segment
+        target: cdp_segment
+      - source: _run_id
+        target: _run_id
+      - source: _extract_date
+        target: _extract_date
+      - source: _cdp_transformed_ts
+        target: _cdp_transformed_ts
+    tests: [validate_cdp_segment, validate_risk_profile_completeness, validate_pii_masked]
     tags: [cdp, generic, risk]
     materialized: incremental
     unique_key: risk_profile_key
