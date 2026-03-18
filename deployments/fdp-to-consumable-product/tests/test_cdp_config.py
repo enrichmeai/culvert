@@ -58,7 +58,7 @@ def test_cdp_model_requires_all_fdp(cdp_model):
 
 def test_cdp_model_has_columns(cdp_model):
     columns = cdp_model.get("columns", [])
-    assert len(columns) == 23, f"Expected 23 columns, got {len(columns)}"
+    assert len(columns) == 29, f"Expected 29 columns, got {len(columns)}"
 
 
 def test_cdp_model_has_tests(cdp_model):

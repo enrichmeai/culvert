@@ -1,4 +1,4 @@
-"""
+i"""
 Config-driven DAG factory for GCP data pipelines.
 
 Reads system.yaml and generates four Airflow DAGs dynamically:
@@ -132,34 +132,82 @@ def _build_pubsub_trigger_dag(
             logger.warning("No messages received from Pub/Sub")
             return {"status": "no_message"}
         message = messages[0] if isinstance(messages, list) else messages
+        
+        # Extract file_name and bucket from various message formats
+        file_name = ""
+        bucket = ""
+        
         if isinstance(message, str):
             message_data = json.loads(message)
+            file_name = message_data.get("name", "")
+            bucket = message_data.get("bucket", "")
+        elif isinstance(message, dict):
+            # Try direct access first
+            file_name = message.get("name", "")
+            bucket = message.get("bucket", "")
+            
+            # If not found, check nested 'message' structure (PubSub format)
+            if not file_name:
+                nested_msg = message.get("message", {})
+                attributes = nested_msg.get("attributes", {}) if isinstance(nested_msg, dict) else {}
+                file_name = attributes.get("objectId", "")
+                bucket = attributes.get("bucketId", "")
+                
+                # Also try parsing the data payload
+                if not file_name:
+                    data = nested_msg.get("data", "") if isinstance(nested_msg, dict) else ""
+                    if data:
+                        try:
+                            import base64
+                            if isinstance(data, bytes):
+                                data_str = data.decode('utf-8')
+                            else:
+                                try:
+                                    data_str = base64.b64decode(data).decode('utf-8')
+                                except Exception:
+                                    data_str = data
+                            data_json = json.loads(data_str)
+                            file_name = data_json.get("name", "")
+                            bucket = data_json.get("bucket", "")
+                        except Exception as e:
+                            logger.debug(f"Could not parse message data: {e}")
         else:
             message_data = message
-        file_name = message_data.get("name", "")
-        bucket = message_data.get("bucket", "")
+            file_name = getattr(message_data, "name", "") or ""
+            bucket = getattr(message_data, "bucket", "") or ""
+            
         logger.info(f"Received notification for: gs://{bucket}/{file_name}")
-        if not file_name.endswith(config.get("ok_file_suffix", ".ok")):
-            logger.info(f"Skipping non-.ok file: {file_name}")
-            return {"status": "skip", "reason": "not_ok_file"}
+        
+        trigger_suffix = config.get("ok_file_suffix", ".ok")
+        if not file_name.endswith(trigger_suffix):
+            logger.info(f"Skipping file without {trigger_suffix} suffix: {file_name}")
+            return {"status": "skip", "reason": "not_trigger_file"}
+            
         entity = None
         for e in entities:
             if e in file_name.lower():
                 entity = e
                 break
+                
         extract_date = None
-        base_name = file_name.replace(".ok", "")
+        base_name = file_name.replace(trigger_suffix, "")
         for part in base_name.split("_"):
             if part.isdigit() and len(part) == 8:
                 extract_date = part
                 break
+        
+        # Derive .csv data file path from .ok trigger file
+        ok_file = f"gs://{bucket}/{file_name}"
+        data_file = f"gs://{bucket}/{file_name.replace(trigger_suffix, '.csv')}"
+        
         result = {
             "status": "success",
-            "ok_file": f"gs://{bucket}/{file_name}",
-            "data_file": f"gs://{bucket}/{file_name.replace('.ok', '.csv')}",
+            "ok_file": ok_file,
+            "data_file": data_file,
             "entity": entity,
             "extract_date": extract_date,
             "bucket": bucket,
+            "file_name": file_name,
         }
         logger.info(f"Parsed file metadata: {result}")
         context["ti"].xcom_push(key="file_metadata", value=result)
