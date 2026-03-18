@@ -196,12 +196,13 @@ def _build_pubsub_trigger_dag(
                 extract_date = part
                 break
 
-        # When trigger_suffix is .csv, data_file is the same as the trigger file
-        data_file = f"gs://{bucket}/{file_name}"
+        # Derive .csv data file path from .ok trigger file
+        trigger_file = f"gs://{bucket}/{file_name}"
+        data_file = f"gs://{bucket}/{file_name.replace(trigger_suffix, '.csv')}"
 
         result = {
             "status": "success",
-            "trigger_file": data_file,
+            "trigger_file": trigger_file,
             "data_file": data_file,
             "entity": entity,
             "extract_date": extract_date,
