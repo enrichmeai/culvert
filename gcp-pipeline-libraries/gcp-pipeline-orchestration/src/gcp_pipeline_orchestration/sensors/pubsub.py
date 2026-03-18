@@ -126,24 +126,52 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
         Returns:
             Filtered list containing only matching file messages
         """
+        import json
+        import base64
+        
         filtered = []
 
         for msg in messages:
             try:
-                payload = msg.get('message', {})
-                attributes = payload.get('attributes', {})
+                # Handle different message formats from PubSubPullSensor
+                # Format 1: Direct message dict with 'message' key
+                # Format 2: ReceivedMessage object
+                if hasattr(msg, 'message'):
+                    payload = msg.message
+                    attributes = dict(payload.attributes) if payload.attributes else {}
+                    data = payload.data
+                else:
+                    payload = msg.get('message', msg)
+                    attributes = payload.get('attributes', {})
+                    data = payload.get('data', '')
 
-                # Get object name from GCS notification
-                # Support multiple attribute formats
-                object_name = (
-                    attributes.get('objectId') or
-                    attributes.get('gcs_path', '').split('/')[-1] or
-                    attributes.get('name', '')
-                )
+                # Try to get object name from attributes first
+                object_name = attributes.get('objectId', '')
+                
+                # If not in attributes, try to parse from data (JSON payload)
+                if not object_name and data:
+                    try:
+                        # Data might be base64 encoded
+                        if isinstance(data, bytes):
+                            data_str = data.decode('utf-8')
+                        elif isinstance(data, str):
+                            try:
+                                data_str = base64.b64decode(data).decode('utf-8')
+                            except Exception:
+                                data_str = data
+                        else:
+                            data_str = str(data)
+                        
+                        data_json = json.loads(data_str)
+                        object_name = data_json.get('name', '')
+                    except (json.JSONDecodeError, Exception) as e:
+                        logger.debug(f"Could not parse message data as JSON: {e}")
 
                 if object_name and object_name.endswith(self.filter_extension):
                     filtered.append(msg)
-                    logger.debug("Found matching file: %s", object_name)
+                    logger.info(f"Found matching file: {object_name}")
+                else:
+                    logger.debug(f"Skipping file (no match for {self.filter_extension}): {object_name}")
 
             except Exception as exc:
                 logger.warning("Error filtering message: %s", exc)
