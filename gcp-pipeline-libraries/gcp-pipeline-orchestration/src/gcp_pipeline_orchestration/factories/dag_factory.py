@@ -195,14 +195,13 @@ def _build_pubsub_trigger_dag(
             if part.isdigit() and len(part) == 8:
                 extract_date = part
                 break
-        
-        # Derive .csv data file path from .ok trigger file
-        ok_file = f"gs://{bucket}/{file_name}"
-        data_file = f"gs://{bucket}/{file_name.replace(trigger_suffix, '.csv')}"
-        
+
+        # When trigger_suffix is .csv, data_file is the same as the trigger file
+        data_file = f"gs://{bucket}/{file_name}"
+
         result = {
             "status": "success",
-            "ok_file": ok_file,
+            "trigger_file": data_file,
             "data_file": data_file,
             "entity": entity,
             "extract_date": extract_date,
