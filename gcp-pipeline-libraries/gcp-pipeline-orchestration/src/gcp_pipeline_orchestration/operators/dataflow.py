@@ -38,7 +38,10 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-# Check if Airflow is available
+# Check if Airflow is available - detailed error handling for debugging
+AIRFLOW_AVAILABLE = False
+_AIRFLOW_IMPORT_ERROR = None
+
 try:
     from airflow.models import BaseOperator
     from airflow.utils.context import Context
@@ -48,10 +51,36 @@ try:
         DataflowCreatePythonJobOperator,
     )
     AIRFLOW_AVAILABLE = True
-except ImportError:
-    BaseOperator = object
+    logger.debug("Airflow imports successful")
+except ImportError as e:
+    _AIRFLOW_IMPORT_ERROR = str(e)
+    logger.warning(f"Airflow not available: {e}")
+    
+    # Define a stub BaseOperator that properly handles __init__ arguments
+    class BaseOperator:
+        """Stub BaseOperator when Airflow is not installed."""
+        template_fields: List[str] = []
+        
+        def __init__(self, task_id: str, **kwargs):
+            self.task_id = task_id
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
     Context = dict
-    AIRFLOW_AVAILABLE = False
+except Exception as e:
+    _AIRFLOW_IMPORT_ERROR = str(e)
+    logger.error(f"Unexpected error importing Airflow: {e}")
+    
+    class BaseOperator:
+        """Stub BaseOperator when Airflow import fails."""
+        template_fields: List[str] = []
+        
+        def __init__(self, task_id: str, **kwargs):
+            self.task_id = task_id
+            for key, value in kwargs.items():
+                setattr(self, key, value)
+    
+    Context = dict
 
 
 class SourceType(Enum):
