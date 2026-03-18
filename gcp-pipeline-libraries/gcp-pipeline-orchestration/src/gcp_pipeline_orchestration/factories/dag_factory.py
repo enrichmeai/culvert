@@ -236,7 +236,8 @@ def _build_pubsub_trigger_dag(
             lines = content.strip().split("\n")
             parser = HDRTRLParser()
             metadata = parser.parse_file_lines(lines)
-            if metadata.header.system_id != system_id:
+            # Case-insensitive comparison for system_id (HDR may use GENERIC, Generic, etc.)
+            if metadata.header.system_id.upper() != system_id.upper():
                 logger.error(f"System ID mismatch: expected {system_id}, got {metadata.header.system_id}")
                 return "handle_validation_error"
             context["ti"].xcom_push(key="hdr_metadata", value={
