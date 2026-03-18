@@ -116,13 +116,17 @@ def _build_pubsub_trigger_dag(
         "execution_timeout": timedelta(hours=1),
     }
 
+    # Schedule to run every minute - sensor polls every 30s for messages
+    # Cost: ~$5-7/month for near real-time file processing
+    trigger_schedule = config.get("trigger_schedule", "*/1 * * * *")
+    
     dag = DAG(
         dag_id=dag_id,
         default_args=default_args,
         description=f"Listen for {config['system_name']} file arrivals via Pub/Sub and trigger ODP load",
-        schedule=None,
+        schedule=trigger_schedule,
         catchup=False,
-        max_active_runs=5,
+        max_active_runs=1,  # Only one sensor active at a time
         tags=[config["file_prefix"], "trigger", "pubsub"],
     )
 
@@ -282,8 +286,10 @@ def _build_pubsub_trigger_dag(
             max_messages=1,
             filter_extension=config.get("ok_file_suffix", ".ok"),
             metadata_xcom_key="file_metadata",
-            poke_interval=30,
-            timeout=3600,
+            poke_interval=10,  # Check every 10 seconds
+            timeout=55,  # Timeout before next scheduled run
+            mode="reschedule",  # Release worker between pokes
+            soft_fail=True,  # Don't fail if no message, just skip
         )
         parse_message = PythonOperator(task_id="parse_message", python_callable=parse_pubsub_message)
         validate = BranchPythonOperator(task_id="validate_file", python_callable=validate_file)
