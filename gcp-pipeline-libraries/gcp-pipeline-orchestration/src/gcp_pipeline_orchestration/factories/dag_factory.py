@@ -1,4 +1,4 @@
-i"""
+"""
 Config-driven DAG factory for GCP data pipelines.
 
 Reads system.yaml and generates four Airflow DAGs dynamically:
