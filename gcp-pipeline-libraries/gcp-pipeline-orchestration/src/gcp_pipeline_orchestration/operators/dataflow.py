@@ -38,23 +38,20 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
-# Check if Airflow is available - detailed error handling for debugging
+# Check if Airflow is available - separate core imports from provider imports
 AIRFLOW_AVAILABLE = False
+DATAFLOW_OPERATORS_AVAILABLE = False
 _AIRFLOW_IMPORT_ERROR = None
 
+# Step 1: Try to import core Airflow components (these must succeed for DAG creation)
 try:
     from airflow.models import BaseOperator
     from airflow.utils.context import Context
-    from airflow.providers.google.cloud.operators.dataflow import (
-        DataflowTemplatedJobStartOperator,
-        DataflowStartFlexTemplateOperator,
-        DataflowCreatePythonJobOperator,
-    )
     AIRFLOW_AVAILABLE = True
-    logger.debug("Airflow imports successful")
+    logger.debug("Core Airflow imports successful")
 except ImportError as e:
     _AIRFLOW_IMPORT_ERROR = str(e)
-    logger.warning(f"Airflow not available: {e}")
+    logger.warning(f"Core Airflow not available: {e}")
     
     # Define a stub BaseOperator that properly handles __init__ arguments
     class BaseOperator:
@@ -67,20 +64,61 @@ except ImportError as e:
                 setattr(self, key, value)
     
     Context = dict
-except Exception as e:
-    _AIRFLOW_IMPORT_ERROR = str(e)
-    logger.error(f"Unexpected error importing Airflow: {e}")
-    
-    class BaseOperator:
-        """Stub BaseOperator when Airflow import fails."""
-        template_fields: List[str] = []
+
+# Step 2: Try to import Google Cloud Dataflow operators (optional - only needed at runtime)
+if AIRFLOW_AVAILABLE:
+    try:
+        from airflow.providers.google.cloud.operators.dataflow import (
+            DataflowTemplatedJobStartOperator,
+            DataflowStartFlexTemplateOperator,
+            DataflowCreatePythonJobOperator,
+        )
+        DATAFLOW_OPERATORS_AVAILABLE = True
+        logger.debug("Dataflow operators imports successful")
+    except ImportError as e:
+        logger.warning(f"Dataflow operators not available: {e}. Install apache-airflow-providers-google.")
+        DATAFLOW_OPERATORS_AVAILABLE = False
         
-        def __init__(self, task_id: str, **kwargs):
-            self.task_id = task_id
-            for key, value in kwargs.items():
-                setattr(self, key, value)
+        # Define stub operators that raise helpful errors at runtime
+        class DataflowTemplatedJobStartOperator:
+            """Stub - requires apache-airflow-providers-google."""
+            def __init__(self, **kwargs):
+                raise ImportError(
+                    "DataflowTemplatedJobStartOperator requires apache-airflow-providers-google. "
+                    "Install with: pip install apache-airflow-providers-google"
+                )
+        
+        class DataflowStartFlexTemplateOperator:
+            """Stub - requires apache-airflow-providers-google."""
+            def __init__(self, **kwargs):
+                raise ImportError(
+                    "DataflowStartFlexTemplateOperator requires apache-airflow-providers-google. "
+                    "Install with: pip install apache-airflow-providers-google"
+                )
+        
+        class DataflowCreatePythonJobOperator:
+            """Stub - requires apache-airflow-providers-google."""
+            def __init__(self, **kwargs):
+                raise ImportError(
+                    "DataflowCreatePythonJobOperator requires apache-airflow-providers-google. "
+                    "Install with: pip install apache-airflow-providers-google"
+                )
+else:
+    # Airflow not available - define all stubs
+    class DataflowTemplatedJobStartOperator:
+        """Stub - requires Airflow."""
+        def __init__(self, **kwargs):
+            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
     
-    Context = dict
+    class DataflowStartFlexTemplateOperator:
+        """Stub - requires Airflow."""
+        def __init__(self, **kwargs):
+            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
+    
+    class DataflowCreatePythonJobOperator:
+        """Stub - requires Airflow."""
+        def __init__(self, **kwargs):
+            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
 
 
 class SourceType(Enum):
