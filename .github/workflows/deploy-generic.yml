@@ -131,8 +131,8 @@ jobs:
     - name: Test fdp-to-consumable-product
       run: |
         cd deployments/fdp-to-consumable-product
-        pip install -e .
-        # dbt tests would go here in a full environment
+        pip install -e ".[dev]"
+        pytest tests/ -v --tb=short
 
   # ==========================================================================
   # Deploy Infrastructure

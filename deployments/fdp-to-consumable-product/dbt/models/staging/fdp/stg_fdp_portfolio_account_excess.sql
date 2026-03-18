@@ -1,3 +1,5 @@
+-- Auto-generated from system.yaml — DO NOT EDIT MANUALLY
+-- To modify, update system.yaml and re-run: python generate_dbt_models.py
 /*
   Staging: FDP Portfolio Account Excess
   Source: fdp_generic.portfolio_account_excess (decision MAP from ODP)

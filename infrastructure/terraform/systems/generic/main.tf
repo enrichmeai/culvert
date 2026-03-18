@@ -278,6 +278,18 @@ resource "google_bigquery_dataset" "fdp_generic" {
   lifecycle { ignore_changes = [location] }
 }
 
+# CDP dataset - Consumable Data Product (business-ready)
+resource "google_bigquery_dataset" "cdp_generic" {
+  dataset_id    = "cdp_generic"
+  friendly_name = "CDP Generic - Consumable Data Product"
+  description   = "Business-ready Generic data (customer_risk_profile)"
+  location      = var.bq_location
+
+  labels = local.common_labels
+
+  lifecycle { ignore_changes = [location] }
+}
+
 # Job control dataset (shared across systems)
 resource "google_bigquery_dataset" "job_control" {
   dataset_id    = "job_control"
@@ -726,6 +738,12 @@ resource "google_bigquery_dataset_iam_member" "generic_dbt_fdp_editor" {
   member     = "serviceAccount:${google_service_account.generic_dbt.email}"
 }
 
+resource "google_bigquery_dataset_iam_member" "generic_dbt_cdp_editor" {
+  dataset_id = google_bigquery_dataset.cdp_generic.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.generic_dbt.email}"
+}
+
 resource "google_bigquery_dataset_iam_member" "generic_dbt_job_control" {
   dataset_id = google_bigquery_dataset.job_control.dataset_id
   role       = "roles/bigquery.dataViewer"
@@ -789,6 +807,7 @@ resource "google_composer_environment" "generic_composer" {
         EM_ERROR_BUCKET   = google_storage_bucket.error.name
         ODP_DATASET       = google_bigquery_dataset.odp_generic.dataset_id
         FDP_DATASET       = google_bigquery_dataset.fdp_generic.dataset_id
+        CDP_DATASET       = google_bigquery_dataset.cdp_generic.dataset_id
         JOB_CONTROL_TABLE = "${google_bigquery_dataset.job_control.dataset_id}.pipeline_jobs"
       }
     }
