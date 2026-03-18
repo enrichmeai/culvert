@@ -578,9 +578,11 @@ resource "google_bigquery_table" "pipeline_jobs" {
   table_id            = "pipeline_jobs"
   deletion_protection = false
 
-  # Note: Partitioning removed to match existing int environment table
-  # For new environments, consider adding time_partitioning on created_at
-  clustering = ["system_id", "status"]
+  time_partitioning {
+    type  = "DAY"
+    field = "created_at"
+  }
+  clustering = ["system_id", "entity_type", "status"]
 
   schema = jsonencode([
     { name = "run_id", type = "STRING", mode = "REQUIRED" },
