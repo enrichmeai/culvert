@@ -56,8 +56,9 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
 # ============================================================================
 
 resource "google_bigquery_table" "pipeline_jobs" {
-  dataset_id = google_bigquery_dataset.job_control.dataset_id
-  table_id   = "pipeline_jobs"
+  dataset_id          = google_bigquery_dataset.job_control.dataset_id
+  table_id            = "pipeline_jobs"
+  deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
