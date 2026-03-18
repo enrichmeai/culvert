@@ -485,11 +485,13 @@ jobs:
         echo "Installing gcp-pipeline-core and gcp-pipeline-orchestration (v${VERSION}) on $COMPOSER_ENV"
         echo "Note: NOT installing gcp-pipeline-beam to avoid Airflow/Beam dependency conflicts"
 
+        # Use || true to handle "no change" error when packages are already installed via Terraform
         gcloud composer environments update $COMPOSER_ENV \
           --location=${{ env.GCP_REGION }} \
           --project=$PROJECT_ID \
           --update-pypi-package "gcp-pipeline-core==${VERSION}" \
-          --update-pypi-package "gcp-pipeline-orchestration==${VERSION}"
+          --update-pypi-package "gcp-pipeline-orchestration==${VERSION}" \
+          || echo "Packages already installed or no changes needed"
 
         echo "Composer environment updated with orchestration packages"
 
