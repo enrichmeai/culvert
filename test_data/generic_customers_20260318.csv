@@ -1,0 +1,5 @@
+HDR|GENERIC|customers|20260318
+customer_id,name,email
+1,Test User,test@example.com
+TRL|RecordCount=1|Checksum=abc123
+
