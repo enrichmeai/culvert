@@ -593,9 +593,9 @@ with generic_pubsub_trigger_dag:
         conf={
             "file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}",
             "hdr_metadata": "{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}",
-            "data_file": "{{ ti.xcom_pull(task_ids='parse_message').data_file }}",
-            "entity": "{{ ti.xcom_pull(task_ids='parse_message').entity }}",
-            "extract_date": "{{ ti.xcom_pull(task_ids='parse_message').extract_date }}",
+            "data_file": "{{ ti.xcom_pull(task_ids='parse_message')['data_file'] }}",
+            "entity": "{{ ti.xcom_pull(task_ids='parse_message')['entity'] }}",
+            "extract_date": "{{ ti.xcom_pull(task_ids='parse_message')['extract_date'] }}",
         },
         wait_for_completion=False,
     )
