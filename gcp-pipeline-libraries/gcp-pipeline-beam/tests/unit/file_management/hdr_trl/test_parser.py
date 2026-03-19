@@ -22,7 +22,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
         result = self.parser.parse_header(line)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.em_id, "Application1")
+        self.assertEqual(result.system_id, "Application1")
         self.assertEqual(result.entity_type, "Customer")
         self.assertEqual(result.extract_date, "20260101")
 
@@ -32,7 +32,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
         result = self.parser.parse_header(line)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result.em_id, "Application2")
+        self.assertEqual(result.system_id, "Application2")
         self.assertEqual(result.entity_type, "Applications")
 
     def test_parse_valid_trailer(self):
@@ -76,7 +76,7 @@ class TestHDRTRLParserDefaults(unittest.TestCase):
 
         metadata = self.parser.parse_file_lines(lines)
 
-        self.assertEqual(metadata.header.em_id, "Application1")
+        self.assertEqual(metadata.header.system_id, "Application1")
         self.assertEqual(metadata.trailer.record_count, 2)
         self.assertEqual(metadata.data_start_line, 1)
         self.assertEqual(metadata.data_end_line, 3)
@@ -144,7 +144,7 @@ class TestHDRTRLParserCustomPatterns(unittest.TestCase):
         # Test custom header
         header = parser.parse_header("HEADER:MY_SYSTEM:MY_ENTITY:20260101")
         self.assertIsNotNone(header)
-        self.assertEqual(header.em_id, "MY_SYSTEM")
+        self.assertEqual(header.system_id, "MY_SYSTEM")
         self.assertEqual(header.entity_type, "MY_ENTITY")
 
         # Test custom trailer
@@ -164,7 +164,7 @@ class TestHDRTRLParserCustomPatterns(unittest.TestCase):
 
         header = parser.parse_header("HDR|Application1|Customer|20260101")
         self.assertIsNotNone(header)
-        self.assertEqual(header.em_id, "Application1")
+        self.assertEqual(header.system_id, "Application1")
 
         trailer = parser.parse_trailer("TRL|RecordCount=500|Checksum=abc123")
         self.assertIsNotNone(trailer)

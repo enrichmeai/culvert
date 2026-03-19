@@ -17,14 +17,14 @@ class TestHeaderRecord(unittest.TestCase):
         """Test creating a HeaderRecord."""
         header = HeaderRecord(
             record_type="HDR",
-            em_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
             raw_line="HDR|Application1|Customer|20260101"
         )
 
         self.assertEqual(header.record_type, "HDR")
-        self.assertEqual(header.em_id, "Application1")
+        self.assertEqual(header.system_id, "Application1")
         self.assertEqual(header.entity_type, "Customer")
         self.assertEqual(header.extract_date, "20260101")
 
@@ -32,7 +32,7 @@ class TestHeaderRecord(unittest.TestCase):
         """Test extract_date_parsed property."""
         header = HeaderRecord(
             record_type="HDR",
-            em_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
             raw_line="HDR|Application1|Customer|20260101"
@@ -48,7 +48,7 @@ class TestHeaderRecord(unittest.TestCase):
         """Test HeaderRecord with extra fields."""
         header = HeaderRecord(
             record_type="HDR",
-            em_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
             raw_line="HDR|Application1|Customer|20260101",
@@ -94,7 +94,7 @@ class TestParsedFileMetadata(unittest.TestCase):
         """Test creating ParsedFileMetadata."""
         header = HeaderRecord(
             record_type="HDR",
-            em_id="Application1",
+            system_id="Application1",
             entity_type="Customer",
             extract_date="20260101",
             raw_line="HDR|Application1|Customer|20260101"
@@ -113,7 +113,7 @@ class TestParsedFileMetadata(unittest.TestCase):
             data_end_line=100
         )
 
-        self.assertEqual(metadata.header.em_id, "Application1")
+        self.assertEqual(metadata.header.system_id, "Application1")
         self.assertEqual(metadata.trailer.record_count, 100)
         self.assertEqual(metadata.data_start_line, 1)
         self.assertEqual(metadata.data_end_line, 100)

@@ -463,6 +463,48 @@ class JobControlRepository:
         }
 
 
+    def update_cost_metrics(
+        self,
+        run_id: str,
+        estimated_cost_usd: float = 0.0,
+        billed_bytes_scanned: int = 0,
+        billed_bytes_written: int = 0,
+    ) -> None:
+        """
+        Update FinOps cost metrics on a job record.
+
+        Args:
+            run_id: Job run ID
+            estimated_cost_usd: Estimated cost in USD
+            billed_bytes_scanned: Bytes scanned (e.g., BigQuery queries)
+            billed_bytes_written: Bytes written (e.g., BigQuery loads)
+        """
+        query = f"""
+            UPDATE `{self.full_table_id}`
+            SET estimated_cost_usd = @cost,
+                billed_bytes_scanned = @scanned,
+                billed_bytes_written = @written,
+                updated_at = CURRENT_TIMESTAMP()
+            WHERE run_id = @run_id
+        """
+
+        job_config = bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("run_id", "STRING", run_id),
+                bigquery.ScalarQueryParameter("cost", "FLOAT64", estimated_cost_usd),
+                bigquery.ScalarQueryParameter("scanned", "INT64", billed_bytes_scanned),
+                bigquery.ScalarQueryParameter("written", "INT64", billed_bytes_written),
+            ]
+        )
+
+        self.client.query(query, job_config=job_config).result()
+        logger.info(
+            f"Updated cost metrics for {run_id}: "
+            f"${estimated_cost_usd:.4f}, {billed_bytes_scanned} bytes scanned, "
+            f"{billed_bytes_written} bytes written"
+        )
+
+
 __all__ = [
     'JobControlRepository',
 ]

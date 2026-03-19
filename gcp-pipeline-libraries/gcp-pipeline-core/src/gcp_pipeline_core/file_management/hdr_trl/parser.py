@@ -89,7 +89,7 @@ class HDRTRLParser:
 
         return HeaderRecord(
             record_type=self.hdr_prefix.rstrip(self.delimiter),
-            em_id=match.group(1),
+            system_id=match.group(1),
             entity_type=match.group(2),
             extract_date=match.group(3),
             raw_line=line
