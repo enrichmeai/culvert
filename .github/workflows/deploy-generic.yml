@@ -514,11 +514,22 @@ jobs:
 
         if [ -n "$DAGS_BUCKET" ]; then
           # Clean up any stale library code that may have been accidentally uploaded
+          # Libraries should be installed via PyPI, NOT copied to DAGs folder
           # This prevents "relative import beyond top-level package" errors
-          echo "Cleaning up stale library code from DAGs bucket..."
+          echo "Cleaning up ALL stale library code from DAGs bucket..."
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_core 2>/dev/null || true
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_orchestration 2>/dev/null || true
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_beam 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_transform 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_tester 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_framework 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/__pycache__ 2>/dev/null || true
+          
+          # Also clean root dags folder for any stale packages
+          gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_core 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_orchestration 2>/dev/null || true
+          
+          echo "Cleanup complete. Now uploading only DAG .py files..."
           
           # Upload DAG entrypoint into generic/ subdirectory
           gsutil -m cp -r deployments/data-pipeline-orchestrator/dags/* ${DAGS_BUCKET}/generic/
