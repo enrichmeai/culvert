@@ -226,11 +226,14 @@ The loader:
 
 ### 2. Orchestration (data-pipeline-orchestrator)
 
-**`dag_factory.py`** reads `system.yaml` → generates DAGs dynamically:
-- Reads `entities` → generates entity list for Pub/Sub trigger DAG
-- Reads `fdp_models` → generates FDP dependency map
-- Reads `infrastructure` → generates bucket/topic/subscription names
-- Produces: `{system}_pubsub_trigger_dag`, `{system}_ingestion_dag`, `{system}_transformation_dag`
+**`generate_dags.py`** reads `system.yaml` → produces static DAG files at build time:
+- Reads `entities` → bakes entity list into each DAG
+- Reads `fdp_models` → bakes FDP dependency map
+- Reads `infrastructure` → bakes bucket/topic/subscription templates
+- Reads `retry_config` → bakes retry limits into error handling DAG
+- Produces 5 files: `{system}_pubsub_trigger_dag`, `{system}_ingestion_dag`, `{system}_transformation_dag`, `{system}_pipeline_status_dag`, `{system}_error_handling_dag`
+
+> **Note:** The library's `dag_factory.py` still exists as a runtime alternative for other teams. This deployment uses build-time generation only — `generic_pipeline.py` has been removed.
 
 ### 3. Transformation (bigquery-to-mapped-product)
 
@@ -247,7 +250,7 @@ dbt SQL models are the **one thing teams MUST write** — the transformation log
 | CSV headers | - | Yes (derived from field names) |
 | Allowed values | - | Yes (from field definitions) |
 | Settings (datasets, buckets) | - | Yes (from infrastructure section) |
-| DAGs | - | Yes (from dag_factory) |
+| DAGs | - | Yes (from generate_dags.py) |
 | FDP dependencies | - | Yes (from fdp_models section) |
 | dbt SQL models | Yes | No (business logic) |
 | dbt sources YAML | - | Could be generated |

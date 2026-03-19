@@ -45,7 +45,9 @@ Wire the full monitoring, alerting, auditing, and observability capabilities fro
 
 ### What the Original Hardcoded DAGs Had (commit a526ecd, before factory)
 
-The original 4 DAGs had basic auditing but **no** Slack, no AuditPublisher, no lineage, no FinOps, no health checks, no OTEL. The `error_handling_dag.py` was the most advanced — it had error categorization (CRITICAL/VALIDATION/INTEGRATION), automatic retry routing, and manual review queues. That error routing logic was **not** carried forward into the factory pattern.
+The original 4 hardcoded DAGs had basic auditing but no Dynatrace, no ServiceNow, no AuditPublisher, no lineage, no FinOps, no health checks, no OTEL. The `error_handling_dag.py` was the most advanced — it had error categorization, automatic retry routing, and manual review queues. That error routing logic has now been **restored** in the build-time generated `error_handling_dag` (5th DAG).
+
+> **Note:** The deployment now uses build-time generated DAGs via `generate_dags.py`. The runtime factory entrypoint (`generic_pipeline.py`) has been removed. The library's `dag_factory.py` still exists for other consumers.
 
 ---
 

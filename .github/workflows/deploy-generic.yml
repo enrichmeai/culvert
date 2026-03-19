@@ -513,6 +513,13 @@ jobs:
             --format='value(config.dagGcsPrefix)' 2>/dev/null) || true
 
         if [ -n "$DAGS_BUCKET" ]; then
+          # Clean up any stale library code that may have been accidentally uploaded
+          # This prevents "relative import beyond top-level package" errors
+          echo "Cleaning up stale library code from DAGs bucket..."
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_core 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_orchestration 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_beam 2>/dev/null || true
+          
           # Upload DAG entrypoint into generic/ subdirectory
           gsutil -m cp -r deployments/data-pipeline-orchestrator/dags/* ${DAGS_BUCKET}/generic/
           echo "version=$VERSION" | gsutil cp - ${DAGS_BUCKET}/generic/.version
