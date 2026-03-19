@@ -451,8 +451,15 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
         return {"status": "skip", "reason": "not_ok_file", "file_name": file_name}
 
     extract_date = None
+    entity = None
     base_name = file_name.replace(OK_FILE_SUFFIX, "")
-    for part in base_name.split("_"):
+    # Parse entity from filename pattern: {prefix}_{entity}_{date}.ok
+    # Example: generic_customers_20260319.ok -> entity=customers
+    parts = base_name.split("_")
+    if len(parts) >= 3:
+        # Format: prefix_entity_date
+        entity = parts[1]
+    for part in parts:
         if part.isdigit() and len(part) == 8:
             extract_date = part
             break
