@@ -530,14 +530,13 @@ jobs:
           gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_orchestration 2>/dev/null || true
           
           echo "Cleanup complete. Now uploading only DAG .py files..."
-          
-          # Upload DAG entrypoint into generic/ subdirectory
-          gsutil -m cp -r deployments/data-pipeline-orchestrator/dags/* ${DAGS_BUCKET}/generic/
+
+          # DAGs are pre-generated and committed to git (via generate_dags.py)
+          # No runtime generation needed — upload what's in the repo
+          gsutil -m cp deployments/data-pipeline-orchestrator/dags/*.py ${DAGS_BUCKET}/generic/
           echo "version=$VERSION" | gsutil cp - ${DAGS_BUCKET}/generic/.version
 
-          # Upload config/ one level up so generic_pipeline.py can find it via sys.path
-          # generic_pipeline.py: sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-          # → dags/config/ is reachable as "config" from dags/generic/
+          # Upload config/ for reference (DAGs are self-contained but config aids debugging)
           gsutil -m cp -r deployments/data-pipeline-orchestrator/config ${DAGS_BUCKET}/
 
           echo "DAGs deployed to $DAGS_BUCKET/generic/"
