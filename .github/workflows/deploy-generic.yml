@@ -621,40 +621,15 @@ jobs:
         echo "=============================================="
 
   # ==========================================================================
-  # E2E Tests
+  # E2E Tests — run locally, not in CI
   # ==========================================================================
-  e2e-test:
-    name: End-to-End Tests
-    runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-dataflow, deploy-dbt, deploy-airflow]
-    if: needs.deploy-dataflow.result == 'success'
-    timeout-minutes: 30
-    environment: ${{ github.event.inputs.environment || 'int' }}
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-
-    - name: Authenticate to GCP
-      uses: google-github-actions/auth@v2
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v2
-
-    - name: Run E2E Tests (file upload → full pipeline)
-      env:
-        PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-        ENV: ${{ github.event.inputs.environment || 'int' }}
-      run: |
-        echo "Running real E2E: upload files → Pub/Sub → Airflow → Dataflow → ODP → dbt → FDP"
-        chmod +x scripts/gcp/e2e_pipeline_test.sh
-        scripts/gcp/e2e_pipeline_test.sh --timeout 1200
+  # E2E tests are run locally after deployment using:
+  #   ./scripts/gcp/deploy_dags_and_test.sh --test-only
+  #   ./scripts/gcp/e2e_pipeline_test.sh --timeout 2400
+  #
+  # They require a running Composer environment and take 20-40 min
+  # (Dataflow cold starts). Not suitable for CI runners.
+  # ==========================================================================
 
   # ==========================================================================
   # Summary
@@ -662,7 +637,7 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-airflow, validate, e2e-test]
+    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-airflow, validate]
     if: always()
 
     steps:
@@ -697,7 +672,7 @@ jobs:
         echo "| Tests | ${{ needs.test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Infrastructure | ${{ needs.deploy-infrastructure.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| Validate | ${{ needs.validate.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| E2E Tests | ${{ needs.e2e-test.result == 'success' && '✅' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| E2E Tests | ⏭️ (run locally) |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "## Artifacts" >> $GITHUB_STEP_SUMMARY
