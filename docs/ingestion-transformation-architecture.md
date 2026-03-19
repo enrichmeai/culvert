@@ -56,16 +56,19 @@ A single pipeline handles all 4 entities (`customers`, `accounts`, `decision`, `
 
 **Stack:** Apache Airflow 2.x on Cloud Composer · `gcp-pipeline-orchestration`
 
-**Pattern: Config-Driven DAG Factory**
+**Pattern: Build-Time DAG Generation**
 
-A 23-line entrypoint (`generic_pipeline.py`) loads `system.yaml` → factory generates **4 DAGs dynamically**.
+`generate_dags.py` reads `system.yaml` → produces **5 static DAG files** with all config baked in. No runtime factory — what you see in git is what runs in Airflow.
 
-| DAG | Trigger | Purpose |
+| DAG | Schedule | Purpose |
 |---|---|---|
-| `pubsub_trigger_dag` | Pub/Sub message | Validate file, parse metadata, trigger ingestion |
-| `ingestion_dag` | DAG 1 | Run Dataflow, reconcile ODP, trigger ready FDP models |
-| `transformation_dag` | DAG 2 | Run dbt staging + FDP models, test, reconcile |
-| `pipeline_status_dag` | Daily 23:00 | Alert if any entity/model incomplete for the day |
+| `pubsub_trigger_dag` | Every minute | Validate file, parse metadata, trigger ingestion |
+| `ingestion_dag` | Triggered | Run Dataflow, reconcile ODP, trigger ready FDP models |
+| `transformation_dag` | Triggered | Run dbt staging + FDP models, test, reconcile |
+| `pipeline_status_dag` | Daily 23:00 | Health check — alert if any entity/model incomplete |
+| `error_handling_dag` | Every 30 min | Scan failed jobs, auto-retry, alert on critical |
+
+**Observability:** All DAGs include Dynatrace events, ServiceNow incident creation, audit publishing to Pub/Sub, FinOps cost tracking, OpenTelemetry tracing, Cloud Monitoring metrics, and data lineage — all graceful no-ops if not configured.
 
 **Job Control:** Every run writes to `job_control.pipeline_jobs` — tracking `run_id`, `entity`, `status`, `stage`, `error_code`. Failures record their exact stage (`FILE_DISCOVERY` / `ODP_LOAD` / `RECONCILIATION` / `FDP_DEPENDENCY`).
 
