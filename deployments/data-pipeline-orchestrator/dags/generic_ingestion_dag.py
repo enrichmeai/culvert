@@ -46,7 +46,6 @@ from gcp_pipeline_core.audit.publisher import AuditPublisher
 from gcp_pipeline_core.audit.records import AuditRecord
 from gcp_pipeline_core.audit.lineage import DataLineageTracker
 from gcp_pipeline_core.finops.tracker import BigQueryCostTracker
-
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -120,13 +119,13 @@ def _send_failure_alert(dag_id: str, task_id: str, exception=None, metadata=None
         error_msg = str(exception)[:500] if exception else "Unknown error"
         alert_mgr.create_alert(
             level=AlertLevel.CRITICAL,
-            title=f"Pipeline Failure: {{dag_id}}",
-            message=f"Task `{{task_id}}` failed: {{error_msg}}",
+            title=f"Pipeline Failure: {dag_id}",
+            message=f"Task `{task_id}` failed: {error_msg}",
             source=dag_id,
-            metadata=metadata or {{"task_id": task_id, "dag_id": dag_id}},
+            metadata=metadata or {"task_id": task_id, "dag_id": dag_id},
         )
     except Exception as e:
-        logger.warning(f"Slack alert failed (non-fatal): {{e}}")
+        logger.warning(f"Slack alert failed (non-fatal): {e}")
 
 
 def _publish_audit(run_id, pipeline_name, entity, source_file,
@@ -147,13 +146,13 @@ def _publish_audit(run_id, pipeline_name, entity, source_file,
             success=success,
             error_count=error_count,
             audit_hash="",
-            metadata=metadata or {{}},
+            metadata=metadata or {},
         )
         publisher = AuditPublisher(project_id=project_id, topic_name=topic)
         msg_id = publisher.publish(record)
-        logger.info(f"Published audit record to {{topic}}: {{msg_id}}")
+        logger.info(f"Published audit record to {topic}: {msg_id}")
     except Exception as e:
-        logger.warning(f"Audit publishing failed (non-fatal): {{e}}")
+        logger.warning(f"Audit publishing failed (non-fatal): {e}")
 
 
 def _track_pipeline_cost(run_id: str, labels_filter: dict = None):
@@ -199,14 +198,14 @@ def _track_pipeline_cost(run_id: str, labels_filter: dict = None):
                 billed_bytes_scanned=bytes_scanned,
                 billed_bytes_written=bytes_written,
             )
-            logger.info(f"FinOps: {{run_id}} cost=${{cost_usd:.6f}}, "
-                         f"scanned={{bytes_scanned:,}} bytes, "
-                         f"written={{bytes_written:,}} bytes, "
-                         f"jobs={{results[0].job_count}}")
+            logger.info(f"FinOps: {run_id} cost=${cost_usd:.6f}, "
+                         f"scanned={bytes_scanned:,} bytes, "
+                         f"written={bytes_written:,} bytes, "
+                         f"jobs={results[0].job_count}")
         else:
-            logger.info(f"FinOps: no BQ jobs found with label run_id={{run_id}}")
+            logger.info(f"FinOps: no BQ jobs found with label run_id={run_id}")
     except Exception as e:
-        logger.warning(f"FinOps cost tracking failed (non-fatal): {{e}}")
+        logger.warning(f"FinOps cost tracking failed (non-fatal): {e}")
 
 
 def _publish_lineage(run_id, pipeline_name, entity, source_file,
@@ -225,10 +224,10 @@ def _publish_lineage(run_id, pipeline_name, entity, source_file,
             success=success,
             error_count=error_count,
             audit_hash="",
-            metadata=metadata or {{}},
+            metadata=metadata or {},
         )
         lineage = DataLineageTracker.generate_data_lineage(record)
-        logger.info(f"Data lineage: {{lineage}}")
+        logger.info(f"Data lineage: {lineage}")
         # Publish lineage alongside audit record
         project_id = _get_project_id()
         topic = Variable.get("audit_pubsub_topic", default_var="generic-pipeline-events")
@@ -245,12 +244,12 @@ def _publish_lineage(run_id, pipeline_name, entity, source_file,
             success=success,
             error_count=error_count,
             audit_hash="",
-            metadata={{"lineage": lineage, **(metadata or {{}})}},
+            metadata={"lineage": lineage, **(metadata or {})},
         )
         msg_id = publisher.publish(lineage_record)
-        logger.info(f"Published lineage record to {{topic}}: {{msg_id}}")
+        logger.info(f"Published lineage record to {topic}: {msg_id}")
     except Exception as e:
-        logger.warning(f"Lineage publishing failed (non-fatal): {{e}}")
+        logger.warning(f"Lineage publishing failed (non-fatal): {e}")
 
 
 def _init_otel(dag_id):
@@ -266,7 +265,7 @@ def _init_otel(dag_id):
                 environment=Variable.get("environment", default_var="int"),
             )
             configure_otel(config)
-            logger.info(f"OTEL initialized for {{dag_id}} → Dynatrace")
+            logger.info(f"OTEL initialized for {dag_id} → Dynatrace")
         else:
             # Try GCP Cloud Trace as fallback
             project_id = _get_project_id()
@@ -277,9 +276,9 @@ def _init_otel(dag_id):
                     environment=Variable.get("environment", default_var="int"),
                 )
                 configure_otel(config)
-                logger.info(f"OTEL initialized for {{dag_id}} → GCP Cloud Trace")
+                logger.info(f"OTEL initialized for {dag_id} → GCP Cloud Trace")
     except Exception as e:
-        logger.debug(f"OTEL init skipped (non-fatal): {{e}}")
+        logger.debug(f"OTEL init skipped (non-fatal): {e}")
 
 
 def _create_otel_context(run_id, system_id, entity_type=None):
@@ -300,26 +299,26 @@ def _push_cloud_monitoring_metric(metric_name, value, labels=None):
 
         project_id = _get_project_id()
         client = monitoring_v3.MetricServiceClient()
-        project_name = f"projects/{{project_id}}"
+        project_name = f"projects/{project_id}"
 
         series = monitoring_v3.TimeSeries()
-        series.metric.type = f"custom.googleapis.com/pipeline/{{metric_name}}"
-        for k, v in (labels or {{}}).items():
+        series.metric.type = f"custom.googleapis.com/pipeline/{metric_name}"
+        for k, v in (labels or {}).items():
             series.metric.labels[k] = str(v)
         series.resource.type = "global"
         series.resource.labels["project_id"] = project_id
 
         now = _time.time()
         interval = monitoring_v3.TimeInterval(
-            {{"end_time": {{"seconds": int(now), "nanos": int((now % 1) * 1e9)}}}}
+            {"end_time": {"seconds": int(now), "nanos": int((now % 1) * 1e9)}}
         )
-        point = monitoring_v3.Point({{"interval": interval, "value": {{"double_value": float(value)}}}})
+        point = monitoring_v3.Point({"interval": interval, "value": {"double_value": float(value)}})
         series.points = [point]
 
         client.create_time_series(name=project_name, time_series=[series])
-        logger.info(f"Cloud Monitoring: {{metric_name}}={{value}}")
+        logger.info(f"Cloud Monitoring: {metric_name}={value}")
     except Exception as e:
-        logger.debug(f"Cloud Monitoring push failed (non-fatal): {{e}}")
+        logger.debug(f"Cloud Monitoring push failed (non-fatal): {e}")
 
 
 def _log_observability_status(dag_id):
@@ -335,7 +334,7 @@ def _log_observability_status(dag_id):
             dt_url = Variable.get("dynatrace_environment_url")
             dt_token = Variable.get("dynatrace_api_token")
             if dt_url and dt_token:
-                status.append(f"  Dynatrace alerts:     ACTIVE ({{dt_url}})")
+                status.append(f"  Dynatrace alerts:     ACTIVE ({dt_url})")
             else:
                 status.append("  Dynatrace alerts:     NOT CONFIGURED (empty dynatrace_environment_url or dynatrace_api_token)")
         except Exception:
@@ -351,8 +350,8 @@ def _log_observability_status(dag_id):
                     group = Variable.get("servicenow_assignment_group", default_var="")
                 except Exception:
                     pass
-                detail = f"({{snow_url}}, group={{group}})" if group else f"({{snow_url}})"
-                status.append(f"  ServiceNow incidents: ACTIVE {{detail}}")
+                detail = f"({snow_url}, group={group})" if group else f"({snow_url})"
+                status.append(f"  ServiceNow incidents: ACTIVE {detail}")
             else:
                 status.append("  ServiceNow incidents: NOT CONFIGURED (empty servicenow_instance_url or servicenow_username)")
         except Exception:
@@ -361,7 +360,7 @@ def _log_observability_status(dag_id):
         # Audit publishing
         try:
             topic = Variable.get("audit_pubsub_topic", default_var="generic-pipeline-events")
-            status.append(f"  Audit publishing:     ACTIVE (topic: {{topic}})")
+            status.append(f"  Audit publishing:     ACTIVE (topic: {topic})")
         except Exception:
             status.append("  Audit publishing:     ACTIVE (topic: generic-pipeline-events, default)")
 
@@ -372,11 +371,11 @@ def _log_observability_status(dag_id):
         try:
             dt_otel = Variable.get("dynatrace_otel_url", default_var="")
             if dt_otel:
-                status.append(f"  OTEL tracing:         ACTIVE -> Dynatrace ({{dt_otel}})")
+                status.append(f"  OTEL tracing:         ACTIVE -> Dynatrace ({dt_otel})")
             else:
                 project_id = Variable.get("gcp_project_id", default_var="")
                 if project_id:
-                    status.append(f"  OTEL tracing:         ACTIVE -> GCP Cloud Trace ({{project_id}})")
+                    status.append(f"  OTEL tracing:         ACTIVE -> GCP Cloud Trace ({project_id})")
                 else:
                     status.append("  OTEL tracing:         DISABLED (no dynatrace_otel_url or gcp_project_id)")
         except Exception:
@@ -386,16 +385,15 @@ def _log_observability_status(dag_id):
         try:
             project_id = Variable.get("gcp_project_id", default_var="")
             if project_id:
-                status.append(f"  Cloud Monitoring:     ACTIVE (project: {{project_id}})")
+                status.append(f"  Cloud Monitoring:     ACTIVE (project: {project_id})")
             else:
                 status.append("  Cloud Monitoring:     DISABLED (missing gcp_project_id)")
         except Exception:
             status.append("  Cloud Monitoring:     DISABLED (missing Airflow Variables)")
 
-        logger.info(f"[OBSERVABILITY] {{dag_id}} startup:\n" + "\n".join(status))
+        logger.info(f"[OBSERVABILITY] {dag_id} startup:\n" + "\n".join(status))
     except Exception as e:
-        logger.debug(f"Observability status check failed (non-fatal): {{e}}")
-
+        logger.debug(f"Observability status check failed (non-fatal): {e}")
 # =============================================================================
 # Task callables
 # =============================================================================
@@ -611,7 +609,7 @@ with generic_ingestion_dag:
         source_type="gcs",
         processing_mode="batch",
         input_path="{{ dag_run.conf.file_metadata.data_file }}",
-        output_table=f"{_project_id}:{_odp_dataset}." + "{{ dag_run.conf.file_metadata.entity }}",
+        output_table=f"{_project_id}:{_odp_dataset}.{{{ dag_run.conf.file_metadata.entity }}}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
         use_template=True,
         additional_params={"run_id": '{{ ti.xcom_pull(key="run_id") }}'},

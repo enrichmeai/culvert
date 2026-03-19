@@ -375,9 +375,30 @@ def _log_observability_status(dag_id):
 '''
 
 
-def _escape_for_fstring(code: str) -> str:
-    """Escape curly braces in code so it can be embedded in an f-string."""
-    return code.replace("{", "{{").replace("}", "}}")
+def _build_dag_code(imports_section: str, config_section: str, task_section: str) -> str:
+    """
+    Build a complete DAG file by concatenating sections.
+
+    The OBSERVABILITY_IMPORTS and OBSERVABILITY_HELPERS blocks contain raw Python
+    code with braces (dicts, f-strings) that must NOT be escaped. They are
+    concatenated as-is between the config and task sections.
+
+    Args:
+        imports_section: Airflow/library imports (no config substitution needed)
+        config_section: Baked-in constants (already has config values substituted)
+        task_section: Task callables + DAG definition (already has config values substituted)
+
+    Returns:
+        Complete DAG file as a string
+    """
+    return (
+        GENERATED_HEADER
+        + imports_section
+        + OBSERVABILITY_IMPORTS
+        + config_section
+        + OBSERVABILITY_HELPERS
+        + task_section
+    )
 
 
 def load_config(config_path: Path) -> Dict[str, Any]:
@@ -436,11 +457,11 @@ def generate_pubsub_trigger_dag(config: Dict[str, Any]) -> str:
     ingestion_dag_id = f"{system_id_lower}_ingestion_dag"
     dag_id = f"{system_id_lower}_pubsub_trigger_dag"
 
-    return GENERATED_HEADER + textwrap.dedent(f'''\
+    imports_section = textwrap.dedent('''\
 """
-{system_name} Pub/Sub Trigger DAG
+''' + f'{system_name}' + ''' Pub/Sub Trigger DAG
 
-Listens for {ok_file_suffix} files via Pub/Sub and triggers ODP load.
+Listens for ''' + f'{ok_file_suffix}' + ''' files via Pub/Sub and triggers ODP load.
 Generated from system.yaml — all config baked in at build time.
 """
 
@@ -468,7 +489,9 @@ except ImportError:
 from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
 from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
-{_escape_for_fstring(OBSERVABILITY_IMPORTS)}
+''')
+
+    config_section = textwrap.dedent(f'''\
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -503,7 +526,9 @@ def _resolve(template: str) -> str:
 def _get_project_id() -> str:
     return Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 
-{_escape_for_fstring(OBSERVABILITY_HELPERS)}
+''')
+
+    task_section = textwrap.dedent(f'''\
 # =============================================================================
 # Task callables
 # =============================================================================
@@ -718,6 +743,8 @@ with {dag_id}:
     [trigger_odp, handle_error, skip] >> end
 ''')
 
+    return _build_dag_code(imports_section, config_section, task_section)
+
 
 # =============================================================================
 # DAG 2: Ingestion DAG
@@ -742,9 +769,9 @@ def generate_ingestion_dag(config: Dict[str, Any]) -> str:
     dag_id = f"{system_id_lower}_ingestion_dag"
     transformation_dag_id = f"{system_id_lower}_transformation_dag"
 
-    return GENERATED_HEADER + textwrap.dedent(f'''\
+    imports_section = textwrap.dedent('''\
 """
-{system_name} Ingestion DAG
+''' + f'{system_name}' + ''' Ingestion DAG
 
 Runs Dataflow to load entity data to BigQuery ODP, reconciles,
 checks FDP dependencies, and triggers ready transformations.
@@ -775,7 +802,9 @@ from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
-{_escape_for_fstring(OBSERVABILITY_IMPORTS)}
+''')
+
+    config_section = textwrap.dedent(f'''\
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -806,7 +835,9 @@ def _resolve(template: str) -> str:
 def _get_project_id() -> str:
     return Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 
-{_escape_for_fstring(OBSERVABILITY_HELPERS)}
+''')
+
+    task_section = textwrap.dedent(f'''\
 # =============================================================================
 # Task callables
 # =============================================================================
@@ -1036,6 +1067,8 @@ with {dag_id}:
     create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end
 ''')
 
+    return _build_dag_code(imports_section, config_section, task_section)
+
 
 # =============================================================================
 # DAG 3: Transformation DAG
@@ -1059,9 +1092,9 @@ def generate_transformation_dag(config: Dict[str, Any]) -> str:
 
     dag_id = f"{system_id_lower}_transformation_dag"
 
-    return GENERATED_HEADER + textwrap.dedent(f'''\
+    imports_section = textwrap.dedent('''\
 """
-{system_name} Transformation DAG
+''' + f'{system_name}' + ''' Transformation DAG
 
 Transforms ODP to FDP — runs per-model based on granular dependencies.
 Generated from system.yaml — all config baked in at build time.
@@ -1092,7 +1125,9 @@ from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
-{_escape_for_fstring(OBSERVABILITY_IMPORTS)}
+''')
+
+    config_section = textwrap.dedent(f'''\
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -1122,7 +1157,9 @@ def _resolve(template: str) -> str:
 def _get_project_id() -> str:
     return Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 
-{_escape_for_fstring(OBSERVABILITY_HELPERS)}
+''')
+
+    task_section = textwrap.dedent(f'''\
 # =============================================================================
 # Task callables
 # =============================================================================
@@ -1343,6 +1380,8 @@ with {dag_id}:
     dep_failure >> end
 ''')
 
+    return _build_dag_code(imports_section, config_section, task_section)
+
 
 # =============================================================================
 # DAG 4: Pipeline Status DAG
@@ -1359,9 +1398,9 @@ def generate_pipeline_status_dag(config: Dict[str, Any]) -> str:
 
     dag_id = f"{system_id_lower}_pipeline_status_dag"
 
-    return GENERATED_HEADER + textwrap.dedent(f'''\
+    imports_section = textwrap.dedent('''\
 """
-{system_name} Pipeline Status DAG
+''' + f'{system_name}' + ''' Pipeline Status DAG
 
 Daily observer — queries job_control at end of day and alerts if
 any entity or FDP model is missing or failed. Does not trigger anything.
@@ -1382,7 +1421,9 @@ except ImportError:
 
 from gcp_pipeline_core.job_control import JobControlRepository
 from gcp_pipeline_core.monitoring.observability import ObservabilityManager
-{_escape_for_fstring(OBSERVABILITY_IMPORTS)}
+''')
+
+    config_section = textwrap.dedent(f'''\
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -1399,7 +1440,9 @@ DAG_ID = "{dag_id}"
 def _get_project_id() -> str:
     return Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 
-{_escape_for_fstring(OBSERVABILITY_HELPERS)}
+''')
+
+    task_section = textwrap.dedent(f'''\
 # =============================================================================
 # Task callable
 # =============================================================================
@@ -1516,6 +1559,8 @@ with {dag_id}:
     PythonOperator(task_id="check_pipeline_status", python_callable=check_pipeline_status)
 ''')
 
+    return _build_dag_code(imports_section, config_section, task_section)
+
 
 # =============================================================================
 # DAG 5: Error Handling DAG
@@ -1545,9 +1590,9 @@ def generate_error_handling_dag(config: Dict[str, Any]) -> str:
     ingestion_dag_id = f"{system_id_lower}_ingestion_dag"
     transformation_dag_id = f"{system_id_lower}_transformation_dag"
 
-    return GENERATED_HEADER + textwrap.dedent(f'''\
+    imports_section = textwrap.dedent('''\
 """
-{system_name} Error Handling DAG
+''' + f'{system_name}' + ''' Error Handling DAG
 
 Proactive error monitoring and recovery — runs every 30 minutes:
   1. Scans job_control for FAILED jobs
@@ -1581,7 +1626,9 @@ except ImportError:
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, FailureStage
 from gcp_pipeline_core.error_handling import ErrorSeverity, ErrorCategory
 from gcp_pipeline_core.audit import AuditTrail
-{_escape_for_fstring(OBSERVABILITY_IMPORTS)}
+''')
+
+    config_section = textwrap.dedent(f'''\
 logger = logging.getLogger(__name__)
 
 # =============================================================================
@@ -1630,7 +1677,9 @@ def _resolve(template: str) -> str:
 def _get_project_id() -> str:
     return Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
 
-{_escape_for_fstring(OBSERVABILITY_HELPERS)}
+''')
+
+    task_section = textwrap.dedent(f'''\
 # =============================================================================
 # Task callables
 # =============================================================================
@@ -1837,6 +1886,8 @@ with {dag_id}:
     scan >> [critical, retryable, manual, no_errors]
     [critical, retryable, manual, no_errors] >> end
 ''')
+
+    return _build_dag_code(imports_section, config_section, task_section)
 
 
 # =============================================================================
