@@ -100,10 +100,10 @@ if $DEPLOY; then
   # Remove old factory entrypoint if it exists
   gsutil rm "${DAGS_BUCKET}/generic/generic_pipeline.py" 2>/dev/null || true
 
-  # Upload generated DAGs
+   # Upload generated DAGs only (config is baked in at generation time)
   gsutil -m cp "${DAGS_DIR}"/*.py "${DAGS_BUCKET}/generic/"
-  # Upload config for reference
-  gsutil -m cp -r "${ORCHESTRATOR_DIR}/config" "${DAGS_BUCKET}/"
+  # Remove any stale config folder (no longer needed)
+  gsutil -m rm -r "${DAGS_BUCKET}/generic/config" 2>/dev/null || true
 
   pass "DAGs deployed to ${DAGS_BUCKET}/generic/"
 
