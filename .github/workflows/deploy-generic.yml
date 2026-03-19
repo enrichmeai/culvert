@@ -532,15 +532,15 @@ jobs:
           echo "Cleanup complete. Now uploading only DAG .py files..."
 
           # DAGs are pre-generated and committed to git (via generate_dags.py)
-          # No runtime generation needed — upload what's in the repo
+          # All config is baked in at generation time — no runtime config needed
           gsutil -m cp deployments/data-pipeline-orchestrator/dags/*.py ${DAGS_BUCKET}/generic/
           echo "version=$VERSION" | gsutil cp - ${DAGS_BUCKET}/generic/.version
 
-          # Upload config/ for reference (DAGs are self-contained but config aids debugging)
-          gsutil -m cp -r deployments/data-pipeline-orchestrator/config ${DAGS_BUCKET}/
+          # Remove any stale config folder (no longer needed - config baked in)
+          gsutil -m rm -r ${DAGS_BUCKET}/generic/config 2>/dev/null || true
+          gsutil -m rm -r ${DAGS_BUCKET}/config 2>/dev/null || true
 
           echo "DAGs deployed to $DAGS_BUCKET/generic/"
-          echo "Config deployed to $DAGS_BUCKET/config/"
         else
           echo "Composer environment '$COMPOSER_ENV' not found - skipping DAG upload"
         fi
