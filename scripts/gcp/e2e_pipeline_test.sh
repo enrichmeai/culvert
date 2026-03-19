@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # =============================================================================
 # Real End-to-End Pipeline Test
 # =============================================================================
@@ -118,7 +118,7 @@ info "Polling job_control.pipeline_jobs every ${POLL_INTERVAL}s for ODP_INGESTIO
 info "Expected stages: PENDING → RUNNING → SUCCESS"
 echo ""
 
-declare -A ODP_STATUS
+typeset -A ODP_STATUS
 for e in "${ENTITIES[@]}"; do ODP_STATUS[$e]="NOT_STARTED"; done
 
 POLL_START=$(date +%s)
@@ -215,7 +215,7 @@ report "CHECKPOINT 4: FDP Transformation"
 info "Polling for FDP_TRANSFORMATION jobs..."
 echo ""
 
-declare -A FDP_STATUS
+typeset -A FDP_STATUS
 for m in "${FDP_MODELS[@]}"; do FDP_STATUS[$m]="NOT_STARTED"; done
 
 POLL_START=$(date +%s)
