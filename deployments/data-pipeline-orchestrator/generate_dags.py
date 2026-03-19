@@ -578,7 +578,10 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
 
     logger.info(f"Received notification for: gs://{{bucket}}/{{file_name}}")
 
-    if not file_name.endswith(OK_FILEe
+    if not file_name.endswith(OK_FILE_SUFFIX):
+        logger.info(f"Skipping non-OK file: {{file_name}}")
+        return {{"status": "skip", "reason": "not_ok_file", "file_name": file_name}}
+
     extract_date = None
     base_name = file_name.replace(OK_FILE_SUFFIX, "")
     for part in base_name.split("_"):
