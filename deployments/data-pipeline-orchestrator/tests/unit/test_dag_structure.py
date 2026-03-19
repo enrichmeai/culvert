@@ -15,10 +15,9 @@ import yaml
 ORCHESTRATOR_ROOT = Path(__file__).parent.parent.parent
 DAGS_PATH = ORCHESTRATOR_ROOT / "dags"
 CONFIG_PATH = ORCHESTRATOR_ROOT / "config" / "system.yaml"
-ENTRYPOINT_PATH = DAGS_PATH / "generic_pipeline.py"
 GENERATOR_PATH = ORCHESTRATOR_ROOT / "generate_dags.py"
 
-# Library dag_factory (runtime alternative)
+# Library dag_factory (exists for other consumers, not used by this deployment)
 LIBRARY_FACTORY_PATH = (
     ORCHESTRATOR_ROOT.parent.parent
     / "gcp-pipeline-libraries"
@@ -81,17 +80,13 @@ class TestDAGConstants:
 
 
 class TestEntrypoints:
-    """Test both the factory entrypoint and the generator exist."""
+    """Test the build-time generator exists (runtime factory entrypoint removed)."""
 
-    def test_factory_entrypoint_exists(self):
-        """Single DAG entrypoint generic_pipeline.py must exist."""
-        assert ENTRYPOINT_PATH.exists(), "generic_pipeline.py missing from dags/"
-
-    def test_entrypoint_calls_create_dags(self):
-        """Entrypoint must delegate to library create_dags()."""
-        content = ENTRYPOINT_PATH.read_text()
-        assert "create_dags" in content
-        assert "globals()" in content
+    def test_no_runtime_entrypoint(self):
+        """generic_pipeline.py must NOT exist — we use build-time generated DAGs."""
+        old_entrypoint = DAGS_PATH / "generic_pipeline.py"
+        assert not old_entrypoint.exists(), \
+            "generic_pipeline.py still exists — remove it, this deployment uses build-time generated DAGs"
 
     def test_generator_exists(self):
         """Build-time DAG generator must exist."""

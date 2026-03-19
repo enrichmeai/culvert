@@ -14,8 +14,8 @@ dependencies = [
     "confluent-kafka>=2.3.0",
     "google-cloud-bigquery>=3.14.0",
     "google-cloud-storage>=2.14.0",
-    "gcp-pipeline-core",
-    "gcp-pipeline-beam",
+    "gcp-pipeline-core==1.0.24",
+    "gcp-pipeline-beam==1.0.24",
 ]
 
 [project.optional-dependencies]
