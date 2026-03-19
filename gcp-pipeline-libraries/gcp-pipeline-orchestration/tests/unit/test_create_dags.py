@@ -202,10 +202,12 @@ class TestCreateDags:
         dag = ns["generic_pipeline_status_dag"]
         assert dag.schedule == "0 23 * * *"
 
-    def test_pipeline_dags_have_no_schedule(self, system_config, mock_airflow_variable):
+    def test_pipeline_dags_have_correct_schedule(self, system_config, mock_airflow_variable):
         ns = {}
         create_dags(system_config, ns)
-        for dag_id in ["generic_pubsub_trigger_dag", "generic_ingestion_dag", "generic_transformation_dag"]:
+        # Trigger DAG polls every minute; ingestion + transformation are event-triggered (no schedule)
+        assert ns["generic_pubsub_trigger_dag"].schedule == "*/1 * * * *"
+        for dag_id in ["generic_ingestion_dag", "generic_transformation_dag"]:
             assert ns[dag_id].schedule is None
 
     def test_trigger_dag_task_ids(self, system_config, mock_airflow_variable):
@@ -294,7 +296,7 @@ class TestPubSubTriggerCallables:
         context["ti"].xcom_pull.return_value = json.dumps(message)
         result = parse_task.python_callable(**context)
         assert result["status"] == "skip"
-        assert result["reason"] == "not_ok_file"
+        assert result["reason"] == "not_trigger_file"
 
     def test_parse_message_no_messages(self, system_config, mock_airflow_variable):
         ns = {}

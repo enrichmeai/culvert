@@ -1,9 +1,9 @@
 """
 Unit tests for Generic Orchestration DAGs.
 
-Tests DAG structure and configuration. All DAG logic lives in
-gcp-pipeline-orchestration. The deployment has a single entrypoint
-(generic_pipeline.py) that calls create_dags() from the library.
+Tests DAG structure and configuration. The deployment uses a build-time
+generator (generate_dags.py) that produces 5 static DAG files from system.yaml.
+The library dag_factory.py still exists as the runtime alternative.
 """
 
 import pytest
@@ -12,13 +12,15 @@ from pathlib import Path
 
 import yaml
 
-DAGS_PATH = Path(__file__).parent.parent.parent / "dags"
-CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "system.yaml"
+ORCHESTRATOR_ROOT = Path(__file__).parent.parent.parent
+DAGS_PATH = ORCHESTRATOR_ROOT / "dags"
+CONFIG_PATH = ORCHESTRATOR_ROOT / "config" / "system.yaml"
 ENTRYPOINT_PATH = DAGS_PATH / "generic_pipeline.py"
+GENERATOR_PATH = ORCHESTRATOR_ROOT / "generate_dags.py"
 
-# Library dag_factory (where all DAG logic lives)
+# Library dag_factory (runtime alternative)
 LIBRARY_FACTORY_PATH = (
-    Path(__file__).parent.parent.parent.parent.parent
+    ORCHESTRATOR_ROOT.parent.parent
     / "gcp-pipeline-libraries"
     / "gcp-pipeline-orchestration"
     / "src"
@@ -26,6 +28,15 @@ LIBRARY_FACTORY_PATH = (
     / "factories"
     / "dag_factory.py"
 )
+
+# Expected generated DAG files
+EXPECTED_DAGS = [
+    "generic_pubsub_trigger_dag.py",
+    "generic_ingestion_dag.py",
+    "generic_transformation_dag.py",
+    "generic_pipeline_status_dag.py",
+    "generic_error_handling_dag.py",
+]
 
 
 class TestDAGConstants:
@@ -59,44 +70,86 @@ class TestDAGConstants:
         assert fdp["portfolio_account_excess"]["requires"] == ["decision"]
         assert fdp["portfolio_account_facility"]["requires"] == ["applications"]
 
-    def test_entrypoint_exists(self):
+    def test_system_config_has_retry_config(self):
+        """system.yaml must define retry configuration."""
+        config = yaml.safe_load(CONFIG_PATH.read_text())
+        retry = config.get("retry_config", {})
+        assert "odp" in retry
+        assert "fdp" in retry
+        assert retry["odp"]["max_retries"] >= 1
+        assert retry["fdp"]["max_retries"] >= 1
+
+
+class TestEntrypoints:
+    """Test both the factory entrypoint and the generator exist."""
+
+    def test_factory_entrypoint_exists(self):
         """Single DAG entrypoint generic_pipeline.py must exist."""
         assert ENTRYPOINT_PATH.exists(), "generic_pipeline.py missing from dags/"
 
     def test_entrypoint_calls_create_dags(self):
         """Entrypoint must delegate to library create_dags()."""
         content = ENTRYPOINT_PATH.read_text()
-        assert "create_dags" in content, \
-            "generic_pipeline.py must call create_dags() from the library"
-        assert "globals()" in content, \
-            "create_dags() must be passed globals() so Airflow can discover DAGs"
+        assert "create_dags" in content
+        assert "globals()" in content
+
+    def test_generator_exists(self):
+        """Build-time DAG generator must exist."""
+        assert GENERATOR_PATH.exists(), "generate_dags.py missing"
+
+    def test_generator_is_importable(self):
+        """Generator must be importable."""
+        sys.path.insert(0, str(ORCHESTRATOR_ROOT))
+        try:
+            import generate_dags
+            assert hasattr(generate_dags, "DAG_GENERATORS")
+            assert hasattr(generate_dags, "generate_all")
+        finally:
+            sys.path.pop(0)
+
+
+class TestLibraryFactory:
+    """Validate the library dag_factory still works as runtime alternative."""
+
+    def test_library_factory_exists(self):
+        assert LIBRARY_FACTORY_PATH.exists(), \
+            "Library dag_factory.py not found"
 
     def test_library_factory_has_job_control(self):
-        """Library dag_factory must use JobControlRepository for run tracking."""
-        assert LIBRARY_FACTORY_PATH.exists(), \
-            "Library dag_factory.py not found — check LIBRARY_FACTORY_PATH"
         content = LIBRARY_FACTORY_PATH.read_text()
-        assert "JobControlRepository" in content, \
-            "dag_factory must use JobControlRepository for job tracking"
-        assert "JobStatus" in content, \
-            "dag_factory must reference JobStatus enum"
+        assert "JobControlRepository" in content
+        assert "JobStatus" in content
 
     def test_library_factory_has_failure_callback(self):
-        """Library dag_factory must define on_failure_callback."""
         content = LIBRARY_FACTORY_PATH.read_text()
-        assert "on_failure_callback" in content, \
-            "dag_factory must define on_failure_callback to update job_control on failure"
+        assert "on_failure_callback" in content
 
-    def test_library_factory_has_dag_definitions(self):
-        """Library dag_factory must create four named DAGs."""
+    def test_library_factory_has_four_dags(self):
+        """Library factory creates 4 DAGs (error_handling is generator-only)."""
         content = LIBRARY_FACTORY_PATH.read_text()
         assert "pubsub_trigger_dag" in content
         assert "ingestion_dag" in content
         assert "transformation_dag" in content
         assert "pipeline_status_dag" in content
 
+
+class TestGeneratedDAGs:
+    """Test generated DAG files if they exist (after running generate_dags.py)."""
+
+    @pytest.mark.parametrize("dag_file", EXPECTED_DAGS)
+    def test_generated_dag_has_header(self, dag_file):
+        """Generated DAGs must have auto-generated header."""
+        path = DAGS_PATH / dag_file
+        if not path.exists():
+            pytest.skip(f"{dag_file} not generated yet — run generate_dags.py first")
+        content = path.read_text()
+        assert "Auto-generated from system.yaml" in content
+
+
+class TestNoHardcodedSecrets:
+    """DAG files must not contain hardcoded project IDs or secrets."""
+
     def test_no_hardcoded_project_ids(self):
-        """DAG files must not contain hardcoded project IDs."""
         forbidden_patterns = ["my-project", "enrichmeai-dev", "PROJECT-ID-HERE"]
         for dag_file in DAGS_PATH.glob("*.py"):
             if dag_file.name.startswith("__"):
