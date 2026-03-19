@@ -23,8 +23,8 @@ dependencies = [
     "google-cloud-bigquery>=3.0.0",
     "google-cloud-storage>=2.0.0",
     "pydantic>=2.0.0",
-    "gcp-pipeline-core>=1.0.13",
-    "gcp-pipeline-beam>=1.0.13",
+    "gcp-pipeline-core==1.0.24",
+    "gcp-pipeline-beam==1.0.24",
 ]
 # NOTE: NO apache-airflow dependency!
 
@@ -42,7 +42,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
     "pytest-cov>=4.0.0",
-    "gcp-pipeline-tester>=1.0.13",
+    "gcp-pipeline-tester==1.0.24",
 ]
 
 [tool.setuptools.packages.find]

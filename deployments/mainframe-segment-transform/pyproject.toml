@@ -21,8 +21,8 @@ classifiers = [
 ]
 dependencies = [
     "apache-beam[gcp]==2.56.0",
-    "gcp-pipeline-core>=1.0.13",
-    "gcp-pipeline-beam>=1.0.13",
+    "gcp-pipeline-core==1.0.24",
+    "gcp-pipeline-beam==1.0.24",
 ]
 
 [project.urls]

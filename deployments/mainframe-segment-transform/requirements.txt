@@ -1,5 +1,5 @@
 apache-beam[gcp]==2.56.0
 google-cloud-bigquery>=3.10.0
 google-cloud-storage>=2.10.0
-gcp-pipeline-core
-gcp-pipeline-beam
+gcp-pipeline-core==1.0.24
+gcp-pipeline-beam==1.0.24
