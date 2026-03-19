@@ -611,7 +611,7 @@ with generic_ingestion_dag:
         source_type="gcs",
         processing_mode="batch",
         input_path="{{ dag_run.conf.file_metadata.data_file }}",
-        output_table=f"{_project_id}:{_odp_dataset}.{{{ dag_run.conf.file_metadata.entity }}}",
+        output_table=f"{_project_id}:{_odp_dataset}." + "{{ dag_run.conf.file_metadata.entity }}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
         use_template=True,
         additional_params={"run_id": '{{ ti.xcom_pull(key="run_id") }}'},
