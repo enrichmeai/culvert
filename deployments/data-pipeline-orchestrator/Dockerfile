@@ -28,7 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN pip install --upgrade pip
 
 # Install Airflow then providers separately to avoid resolver loops
-RUN pip install --no-cache-dir "apache-airflow==2.8.1"
+# Version should match Cloud Composer: composer-2.16.1-airflow-2.10.5
+RUN pip install --no-cache-dir "apache-airflow==2.10.5"
 RUN pip install --no-cache-dir "apache-airflow-providers-google>=10.0.0"
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
@@ -40,7 +41,6 @@ RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
-    pip show gcp-pipeline-framework | grep Version && \
     pip show gcp-pipeline-core | grep Version && \
     pip show gcp-pipeline-orchestration | grep Version
 
