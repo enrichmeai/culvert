@@ -446,16 +446,7 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
 
     logger.info(f"Received notification for: gs://{bucket}/{file_name}")
 
-    if not file_name.endswith(OK_FILE_SUFFIX):
-        logger.info(f"Skipping file without {OK_FILE_SUFFIX} suffix: {file_name}")
-        return {"status": "skip", "reason": "not_trigger_file"}
-
-    entity = None
-    for e in ENTITIES:
-        if e in file_name.lower():
-            entity = e
-            break
-
+    if not file_name.endswith(OK_FILEe
     extract_date = None
     base_name = file_name.replace(OK_FILE_SUFFIX, "")
     for part in base_name.split("_"):
@@ -599,6 +590,9 @@ with generic_pubsub_trigger_dag:
         conf={
             "file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}",
             "hdr_metadata": "{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}",
+            "data_file": "{{ ti.xcom_pull(task_ids='parse_message').data_file }}",
+            "entity": "{{ ti.xcom_pull(task_ids='parse_message').entity }}",
+            "extract_date": "{{ ti.xcom_pull(task_ids='parse_message').extract_date }}",
         },
         wait_for_completion=False,
     )
