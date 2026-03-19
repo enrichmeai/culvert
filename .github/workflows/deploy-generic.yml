@@ -228,6 +228,7 @@ jobs:
         import_resource "google_bigquery_dataset.odp_generic" "projects/${PROJECT_ID}/datasets/odp_generic"
         import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
         import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
+        import_resource "google_bigquery_dataset.cdp_generic" "projects/${PROJECT_ID}/datasets/cdp_generic"
 
         echo "=== Importing existing BigQuery tables ==="
         for entity in customers accounts decision applications; do
