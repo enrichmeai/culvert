@@ -101,9 +101,11 @@ if $DEPLOY; then
   gsutil rm "${DAGS_BUCKET}/generic/generic_pipeline.py" 2>/dev/null || true
 
    # Upload generated DAGs only (config is baked in at generation time)
-  gsutil -m cp "${DAGS_DIR}"/*.py "${DAGS_BUCKET}/generic/"
-  # Remove any stale config folder (no longer needed)
+  # Only upload actual DAG files (not __init__.py - DAGs are standalone scripts)
+  gsutil -m cp "${DAGS_DIR}"/generic_*.py "${DAGS_BUCKET}/generic/"
+  # Remove any stale files
   gsutil -m rm -r "${DAGS_BUCKET}/generic/config" 2>/dev/null || true
+  gsutil rm "${DAGS_BUCKET}/generic/__init__.py" 2>/dev/null || true
 
   pass "DAGs deployed to ${DAGS_BUCKET}/generic/"
 
