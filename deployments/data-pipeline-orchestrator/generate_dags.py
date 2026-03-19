@@ -722,6 +722,9 @@ with {dag_id}:
         conf={{
             "file_metadata": "{{{{ ti.xcom_pull(task_ids='parse_message') | tojson }}}}",
             "hdr_metadata": "{{{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}}}",
+            "data_file": "{{{{ ti.xcom_pull(task_ids='parse_message').data_file }}}}",
+            "entity": "{{{{ ti.xcom_pull(task_ids='parse_message').entity }}}}",
+            "extract_date": "{{{{ ti.xcom_pull(task_ids='parse_message').extract_date }}}}",
         }},
         wait_for_completion=False,
     )
@@ -1043,8 +1046,8 @@ with {dag_id}:
         region=Variable.get("gcp_region", default_var="europe-west2"),
         source_type="gcs",
         processing_mode="batch",
-        input_path="{{{{ dag_run.conf.file_metadata.data_file }}}}",
-        output_table=f"{{_project_id}}:{{_odp_dataset}}." + "{{{{ dag_run.conf.file_metadata.entity }}}}",
+        input_path="{{{{ dag_run.conf.data_file }}}}",
+        output_table=f"{{_project_id}}:{{_odp_dataset}}." + "{{{{ dag_run.conf.entity }}}}",
         template_path=f"gs://{{_template_bucket}}/templates/{{FILE_PREFIX}}_pipeline.json",
         use_template=True,
         additional_params={{"run_id": '{{{{ ti.xcom_pull(key="run_id") }}}}'}},
