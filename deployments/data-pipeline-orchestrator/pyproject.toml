@@ -35,7 +35,7 @@ Framework = "https://pypi.org/project/gcp-pipeline-framework/"
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
-    "gcp-pipeline-tester==1.0.25",
+    "gcp-pipeline-tester==1.0.24",
 ]
 
 [tool.setuptools.packages.find]
