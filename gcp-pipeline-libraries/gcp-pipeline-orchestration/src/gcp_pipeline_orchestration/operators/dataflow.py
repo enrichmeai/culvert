@@ -199,6 +199,7 @@ class BaseDataflowOperator(BaseOperator):
     Wraps DataflowTemplatedJobStartOperator with:
     - Source type abstraction (GCS/Pub/Sub)
     - Processing mode abstraction (Batch/Streaming)
+    - Template type abstraction (Classic/Flex)
     - Routing metadata integration
     - Consistent error handling
 
@@ -209,13 +210,14 @@ class BaseDataflowOperator(BaseOperator):
         pipeline_name: Name of the pipeline (for job naming)
         source_type: 'gcs' or 'pubsub'
         processing_mode: 'batch' or 'streaming'
+        template_type: 'classic' or 'flex' (default: 'flex' for Docker-based templates)
         project_id: GCP project ID
         region: GCP region
         input_path: GCS input path (for GCS source)
         input_subscription: Pub/Sub subscription (for Pub/Sub source)
         output_table: BigQuery output table
         error_table: BigQuery error table (optional)
-        template_path: GCS path to Dataflow template
+        template_path: GCS path to Dataflow template spec JSON
         temp_location: GCS temp location
         max_workers: Maximum number of workers
         machine_type: Worker machine type
@@ -249,6 +251,7 @@ class BaseDataflowOperator(BaseOperator):
         pipeline_name: str,
         source_type: Literal["gcs", "pubsub"] = "gcs",
         processing_mode: Literal["batch", "streaming"] = "batch",
+        template_type: Literal["classic", "flex"] = "flex",
         project_id: str = "{{ var.value.gcp_project_id }}",
         region: str = "{{ var.value.gcp_region }}",
         input_path: Optional[str] = None,
@@ -273,6 +276,7 @@ class BaseDataflowOperator(BaseOperator):
         self.pipeline_name = pipeline_name
         self.source_type = SourceType(source_type)
         self.processing_mode = ProcessingMode(processing_mode)
+        self.template_type = template_type
         self.project_id = project_id
         self.region = region
         self.input_path = input_path
@@ -425,12 +429,12 @@ class BaseDataflowOperator(BaseOperator):
 
         if not self.use_template:
             result = self._execute_python_job(context, job_name)
-        # Use appropriate operator based on mode
-        elif self.processing_mode == ProcessingMode.STREAMING:
-            # Streaming uses Flex Templates
+        # Use appropriate operator based on template type
+        elif self.template_type == "flex":
+            # Flex Templates (Docker-based)
             result = self._execute_flex_template(context, job_name, parameters)
         else:
-            # Batch uses classic templates
+            # Classic templates
             result = self._execute_classic_template(context, job_name, parameters)
 
         logger.info(f"Dataflow job submitted successfully: {job_name}")

@@ -1,5 +1,7 @@
 steps:
+# Step 1: Build the Dataflow Flex Template Docker image
 - name: 'gcr.io/cloud-builders/docker'
+  id: 'build-image'
   args:
   - build
   - --build-arg
@@ -11,6 +13,86 @@ steps:
   - -f
   - deployments/original-data-to-bigqueryload/Dockerfile
   - .
+
+# Step 2: Push the Docker image to GCR
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image'
+  args:
+  - push
+  - gcr.io/$PROJECT_ID/generic-ingestion:$_LIBRARY_VERSION
+  waitFor: ['build-image']
+
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image-latest'
+  args:
+  - push
+  - gcr.io/$PROJECT_ID/generic-ingestion:latest
+  waitFor: ['build-image']
+
+# Step 3: Create the Dataflow Flex Template spec and upload to GCS
+- name: 'gcr.io/cloud-builders/gcloud'
+  id: 'create-flex-template'
+  entrypoint: 'bash'
+  args:
+  - '-c'
+  - |
+    # Create the Flex Template spec JSON
+    cat > /tmp/generic_pipeline.json <<EOF
+    {
+      "image": "gcr.io/$PROJECT_ID/generic-ingestion:$_LIBRARY_VERSION",
+      "sdkInfo": {
+        "language": "PYTHON"
+      },
+      "metadata": {
+        "name": "generic-ingestion-pipeline",
+        "description": "GCS to BigQuery ingestion pipeline for Generic system",
+        "parameters": [
+          {
+            "name": "source_file",
+            "label": "Source File Path",
+            "helpText": "GCS path to the source data file (gs://bucket/path/file.csv)",
+            "isOptional": false
+          },
+          {
+            "name": "entity",
+            "label": "Entity Type",
+            "helpText": "Entity type: customers, accounts, decision, applications",
+            "isOptional": false
+          },
+          {
+            "name": "extract_date",
+            "label": "Extract Date",
+            "helpText": "Extract date in YYYYMMDD format",
+            "isOptional": false
+          },
+          {
+            "name": "output_table",
+            "label": "Output BigQuery Table",
+            "helpText": "Destination BigQuery table (project:dataset.table)",
+            "isOptional": false
+          },
+          {
+            "name": "error_table",
+            "label": "Error BigQuery Table",
+            "helpText": "Error records BigQuery table (project:dataset.table)",
+            "isOptional": true
+          },
+          {
+            "name": "run_id",
+            "label": "Run ID",
+            "helpText": "Unique run identifier for job tracking",
+            "isOptional": true
+          }
+        ]
+      }
+    }
+    EOF
+    
+    # Upload the template spec to GCS
+    gsutil cp /tmp/generic_pipeline.json gs://$PROJECT_ID-generic-int-temp/templates/generic_pipeline.json
+    
+    echo "Flex Template uploaded to gs://$PROJECT_ID-generic-int-temp/templates/generic_pipeline.json"
+  waitFor: ['push-image']
 
 images:
 - gcr.io/$PROJECT_ID/generic-ingestion:$_LIBRARY_VERSION
