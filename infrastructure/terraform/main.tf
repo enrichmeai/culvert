@@ -417,7 +417,13 @@ resource "google_composer_environment" "generic_composer" {
       image_version = "composer-2-airflow-2"
 
       pypi_packages = {
-        gcp-pipeline-framework = "==1.0.13"
+        gcp-pipeline-core                 = "==1.0.26"
+        gcp-pipeline-orchestration        = "==1.0.26"
+        apache-airflow-providers-google   = ">=10.0.0"
+      }
+
+      airflow_config_overrides = {
+        core-dags_are_paused_at_creation = "False"
       }
 
       env_variables = {
@@ -439,3 +445,41 @@ resource "google_composer_environment" "generic_composer" {
     google_project_iam_member.generic_composer_bigquery,
   ]
 }
+
+# =============================================================================
+# AIRFLOW VARIABLES (Set after Composer environment is ready)
+# =============================================================================
+
+resource "null_resource" "airflow_variables" {
+  depends_on = [google_composer_environment.generic_composer]
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+        --location=${local.region} \
+        variables set -- gcp_project_id ${local.project_id}
+
+      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+        --location=${local.region} \
+        variables set -- gcp_region ${local.region}
+
+      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+        --location=${local.region} \
+        variables set -- environment ${local.environment}
+
+      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+        --location=${local.region} \
+        variables set -- dataflow_templates_bucket ${google_storage_bucket.temp.name}
+
+      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+        --location=${local.region} \
+        variables set -- generic_pubsub_subscription ${google_pubsub_subscription.generic_notifications.name}
+    EOT
+  }
+
+  triggers = {
+    # Re-run if Composer environment changes
+    composer_id = google_composer_environment.generic_composer.id
+  }
+}
+

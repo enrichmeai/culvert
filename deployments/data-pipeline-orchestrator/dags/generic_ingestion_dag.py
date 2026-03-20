@@ -613,6 +613,8 @@ with generic_ingestion_dag:
         output_table=f"{_project_id}:{_odp_dataset}." + "{{ dag_run.conf.entity }}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
         use_template=True,
+        max_workers=2,
+        machine_type="n1-standard-2",
         additional_params={
             "run_id": '{{ ti.xcom_pull(key="run_id") }}',
             "source_file": "{{ dag_run.conf.data_file }}",
@@ -627,3 +629,4 @@ with generic_ingestion_dag:
     end = DummyOperator(task_id="end")
 
     create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end
+# Force DAG reload - Fri Mar 20 22:53:13 GMT 2026
