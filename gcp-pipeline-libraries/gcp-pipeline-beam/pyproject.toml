@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-beam"
-version = "1.0.24"
+version = "1.0.26"
 description = "Beam ingestion library for GCP data pipelines"
 readme = "README.md"
 requires-python = ">=3.9"
