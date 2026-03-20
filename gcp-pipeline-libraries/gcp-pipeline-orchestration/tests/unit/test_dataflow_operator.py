@@ -69,6 +69,7 @@ class TestBaseDataflowOperator:
             pipeline_name='test-pipeline',
             source_type='pubsub',
             processing_mode='streaming',
+            template_type='flex',
             input_subscription='sub',
             output_table='p:d.t'
         )
@@ -86,6 +87,7 @@ class TestBaseDataflowOperator:
             task_id='test_task',
             pipeline_name='test-pipeline',
             processing_mode='batch',
+            template_type='classic',
             input_path='gs://in',
             output_table='p:d.t'
         )
@@ -94,3 +96,23 @@ class TestBaseDataflowOperator:
         operator.execute(context)
         
         mock_classic_op.assert_called_once()
+
+    def test_execute_batch_flex_template(self):
+        """Test that batch mode with flex template uses FlexTemplateOperator."""
+        mock_flex_op = dataflow_mod.DataflowStartFlexTemplateOperator
+        operator = BaseDataflowOperator(
+            task_id='test_task',
+            pipeline_name='test-pipeline',
+            processing_mode='batch',
+            template_type='flex',  # Default is now flex
+            input_path='gs://in',
+            output_table='p:d.t'
+        )
+        
+        context = MagicMock()
+        operator.execute(context)
+        
+        mock_flex_op.assert_called_once()
+        args, kwargs = mock_flex_op.call_args
+        assert kwargs['body']['launchParameter']['parameters']['processingMode'] == 'batch'
+
