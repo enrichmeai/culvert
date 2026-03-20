@@ -483,8 +483,10 @@ jobs:
         ENV="${{ github.event.inputs.environment || 'int' }}"
         COMPOSER_ENV="generic-${ENV}-composer"
 
-        echo "Installing gcp-pipeline-core and gcp-pipeline-orchestration (v${VERSION}) on $COMPOSER_ENV"
-        echo "Note: NOT installing gcp-pipeline-beam to avoid Airflow/Beam dependency conflicts"
+        echo "Installing packages on $COMPOSER_ENV"
+        echo "  - gcp-pipeline-core==${VERSION}"
+        echo "  - gcp-pipeline-orchestration==${VERSION}"
+        echo "  - apache-airflow-providers-google>=10.0.0 (for Dataflow operators)"
 
         # Use || true to handle "no change" error when packages are already installed via Terraform
         gcloud composer environments update $COMPOSER_ENV \
@@ -492,6 +494,7 @@ jobs:
           --project=$PROJECT_ID \
           --update-pypi-package "gcp-pipeline-core==${VERSION}" \
           --update-pypi-package "gcp-pipeline-orchestration==${VERSION}" \
+          --update-pypi-package "apache-airflow-providers-google>=10.0.0" \
           || echo "Packages already installed or no changes needed"
 
         echo "Composer environment updated with orchestration packages"
@@ -546,6 +549,38 @@ jobs:
         else
           echo "Composer environment '$COMPOSER_ENV' not found - skipping DAG upload"
         fi
+
+    - name: Configure Airflow Variables
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ github.event.inputs.environment || 'int' }}"
+        COMPOSER_ENV="generic-${ENV}-composer"
+        REGION="${{ env.GCP_REGION }}"
+
+        echo "Setting Airflow Variables for $COMPOSER_ENV..."
+
+        # Set required variables
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- gcp_project_id $PROJECT_ID || true
+
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- gcp_region $REGION || true
+
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- environment $ENV || true
+
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- dataflow_templates_bucket ${PROJECT_ID}-generic-${ENV}-temp || true
+
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- generic_pubsub_subscription generic-file-notifications-sub || true
+
+        echo "Airflow Variables configured"
 
   # ==========================================================================
   # Validate Deployment
