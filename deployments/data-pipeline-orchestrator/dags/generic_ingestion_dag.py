@@ -608,11 +608,17 @@ with generic_ingestion_dag:
         region=Variable.get("gcp_region", default_var="europe-west2"),
         source_type="gcs",
         processing_mode="batch",
+        template_type="flex",
         input_path="{{ dag_run.conf.data_file }}",
         output_table=f"{_project_id}:{_odp_dataset}." + "{{ dag_run.conf.entity }}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
         use_template=True,
-        additional_params={"run_id": '{{ ti.xcom_pull(key="run_id") }}'},
+        additional_params={
+            "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+            "source_file": "{{ dag_run.conf.data_file }}",
+            "entity": "{{ dag_run.conf.entity }}",
+            "extract_date": "{{ dag_run.conf.extract_date }}",
+        },
     )
     mark_success = PythonOperator(task_id="update_job_success", python_callable=update_job_success)
     reconcile = PythonOperator(task_id="reconcile_odp_load", python_callable=reconcile_odp_load)

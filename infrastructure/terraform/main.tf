@@ -173,6 +173,13 @@ resource "google_storage_bucket_object" "entity_folders" {
   bucket  = google_storage_bucket.landing.name
 }
 
+# Create templates folder in temp bucket for Dataflow templates
+resource "google_storage_bucket_object" "templates_folder" {
+  name    = "templates/.keep"
+  content = "# Dataflow templates are uploaded here by CI/CD"
+  bucket  = google_storage_bucket.temp.name
+}
+
 # =============================================================================
 # PUB/SUB — FILE NOTIFICATIONS
 # =============================================================================
