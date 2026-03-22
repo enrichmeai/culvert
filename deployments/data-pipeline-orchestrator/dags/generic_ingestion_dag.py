@@ -113,7 +113,7 @@ def _get_alert_manager() -> AlertManager:
 
 
 def _send_failure_alert(dag_id: str, task_id: str, exception=None, metadata=None):
-    """Send Slack + logging alert on task failure. Graceful no-op if Slack not configured."""
+    """Send alert on task failure via Dynatrace/ServiceNow. Graceful no-op if not configured."""
     try:
         alert_mgr = _get_alert_manager()
         error_msg = str(exception)[:500] if exception else "Unknown error"
@@ -125,7 +125,7 @@ def _send_failure_alert(dag_id: str, task_id: str, exception=None, metadata=None
             metadata=metadata or {"task_id": task_id, "dag_id": dag_id},
         )
     except Exception as e:
-        logger.warning(f"Slack alert failed (non-fatal): {e}")
+        logger.warning(f"Alert dispatch failed (non-fatal): {e}")
 
 
 def _publish_audit(run_id, pipeline_name, entity, source_file,
@@ -232,21 +232,8 @@ def _publish_lineage(run_id, pipeline_name, entity, source_file,
         project_id = _get_project_id()
         topic = Variable.get("audit_pubsub_topic", default_var="generic-pipeline-events")
         publisher = AuditPublisher(project_id=project_id, topic_name=topic)
-        import json
-        lineage_record = AuditRecord(
-            run_id=run_id,
-            pipeline_name=pipeline_name,
-            entity_type=entity,
-            source_file=source_file,
-            record_count=record_count,
-            processed_timestamp=datetime.now(tz=timezone.utc),
-            processing_duration_seconds=duration_seconds,
-            success=success,
-            error_count=error_count,
-            audit_hash="",
-            metadata={"lineage": lineage, **(metadata or {})},
-        )
-        msg_id = publisher.publish(lineage_record)
+        record.metadata = {"lineage": lineage, **(metadata or {})}
+        msg_id = publisher.publish(record)
         logger.info(f"Published lineage record to {topic}: {msg_id}")
     except Exception as e:
         logger.warning(f"Lineage publishing failed (non-fatal): {e}")
@@ -430,7 +417,7 @@ def mark_job_failed(context):
         audit.record_processing_start(source_file="unknown")
         audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
         audit.record_processing_end(success=False)
-        # Slack alert on failure
+        # Alert on failure
         _send_failure_alert(DAG_ID, task_id, exception, {"run_id": run_id, "entity": entity, "stage": stage.value})
         # Publish failure audit record
         _publish_audit(run_id, DAG_ID, entity, "unknown", success=False, error_count=1,
@@ -613,8 +600,6 @@ with generic_ingestion_dag:
         output_table=f"{_project_id}:{_odp_dataset}." + "{{ dag_run.conf.entity }}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
         use_template=True,
-        max_workers=2,
-        machine_type="n1-standard-2",
         additional_params={
             "run_id": '{{ ti.xcom_pull(key="run_id") }}',
             "source_file": "{{ dag_run.conf.data_file }}",
@@ -629,4 +614,3 @@ with generic_ingestion_dag:
     end = DummyOperator(task_id="end")
 
     create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end
-# Force DAG reload - Fri Mar 20 22:53:13 GMT 2026

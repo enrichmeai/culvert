@@ -2,7 +2,7 @@
 # =============================================================================
 # Step 6: Test Pipeline with Sample Data
 # =============================================================================
-# Usage: ./scripts/gcp/06_test_pipeline.sh [generic|generic]
+# Usage: ./scripts/gcp/06_test_pipeline.sh [generic|applications]
 # =============================================================================
 
 set -e
@@ -73,24 +73,24 @@ EOF
     TOPIC="generic-file-notifications"
 
     echo ""
-    echo -e "${BLUE}=== Uploading to $BUCKET ===${NC}"
+    echo -e "${BLUE}=== Uploading to $BUCKET/generic/ ===${NC}"
 
     for entity in customers accounts decision; do
         FILE="/tmp/generic_${entity}_${DATE}.csv"
         echo -n "  Uploading $(basename $FILE)... "
-        gsutil cp "$FILE" "$BUCKET/" && echo -e "${GREEN}✅${NC}"
+        gsutil cp "$FILE" "$BUCKET/generic/" && echo -e "${GREEN}✅${NC}"
 
         # Create .ok trigger file
         touch "${FILE}.ok"
         echo -n "  Uploading $(basename $FILE).ok... "
-        gsutil cp "${FILE}.ok" "$BUCKET/" && echo -e "${GREEN}✅${NC}"
+        gsutil cp "${FILE}.ok" "$BUCKET/generic/" && echo -e "${GREEN}✅${NC}"
     done
 
     echo ""
     echo -e "${BLUE}=== Publishing Notifications ===${NC}"
 
     for entity in customers accounts decision; do
-        FILE_NAME="generic_${entity}_${DATE}.csv.ok"
+        FILE_NAME="generic/generic_${entity}_${DATE}.csv.ok"
         BUCKET_NAME="${PROJECT_ID}-generic-landing"
         echo -n "  Publishing $FILE_NAME... "
         gcloud pubsub topics publish "$TOPIC" \
@@ -122,19 +122,19 @@ EOF
     FILE="/tmp/generic_applications_${DATE}.csv"
 
     echo ""
-    echo -e "${BLUE}=== Uploading to $BUCKET ===${NC}"
+    echo -e "${BLUE}=== Uploading to $BUCKET/generic/ ===${NC}"
 
     echo -n "  Uploading $(basename $FILE)... "
-    gsutil cp "$FILE" "$BUCKET/" && echo -e "${GREEN}✅${NC}"
+    gsutil cp "$FILE" "$BUCKET/generic/" && echo -e "${GREEN}✅${NC}"
 
     touch "${FILE}.ok"
     echo -n "  Uploading $(basename $FILE).ok... "
-    gsutil cp "${FILE}.ok" "$BUCKET/" && echo -e "${GREEN}✅${NC}"
+    gsutil cp "${FILE}.ok" "$BUCKET/generic/" && echo -e "${GREEN}✅${NC}"
 
     echo ""
     echo -e "${BLUE}=== Publishing Notification ===${NC}"
 
-    FILE_NAME="generic_applications_${DATE}.csv.ok"
+    FILE_NAME="generic/generic_applications_${DATE}.csv.ok"
     echo -n "  Publishing $FILE_NAME... "
     gcloud pubsub topics publish "$TOPIC" \
         --project="$PROJECT_ID" \
@@ -146,8 +146,8 @@ EOF
 # Main
 case "$DEPLOYMENT" in
     generic)  test_em ;;
-    generic) test_loa ;;
-    *)   echo "Usage: $0 [generic|generic]"; exit 1 ;;
+    applications) test_loa ;;
+    *)   echo "Usage: $0 [generic|applications]"; exit 1 ;;
 esac
 
 echo ""
@@ -157,7 +157,7 @@ echo "==============================================${NC}"
 echo ""
 echo "Monitor with:"
 echo "  # Check files in bucket"
-echo "  gsutil ls gs://${PROJECT_ID}-${DEPLOYMENT}-landing/"
+echo "  gsutil ls gs://${PROJECT_ID}-generic-landing/generic/"
 echo ""
 echo "  # Check Pub/Sub messages"
 echo "  gcloud pubsub subscriptions pull ${DEPLOYMENT}-file-notifications-sub --auto-ack"

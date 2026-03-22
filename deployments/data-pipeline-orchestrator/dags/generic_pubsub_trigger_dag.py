@@ -116,7 +116,7 @@ def _get_alert_manager() -> AlertManager:
 
 
 def _send_failure_alert(dag_id: str, task_id: str, exception=None, metadata=None):
-    """Send Slack + logging alert on task failure. Graceful no-op if Slack not configured."""
+    """Send alert on task failure via Dynatrace/ServiceNow. Graceful no-op if not configured."""
     try:
         alert_mgr = _get_alert_manager()
         error_msg = str(exception)[:500] if exception else "Unknown error"
@@ -128,7 +128,7 @@ def _send_failure_alert(dag_id: str, task_id: str, exception=None, metadata=None
             metadata=metadata or {"task_id": task_id, "dag_id": dag_id},
         )
     except Exception as e:
-        logger.warning(f"Slack alert failed (non-fatal): {e}")
+        logger.warning(f"Alert dispatch failed (non-fatal): {e}")
 
 
 def _publish_audit(run_id, pipeline_name, entity, source_file,
@@ -235,21 +235,8 @@ def _publish_lineage(run_id, pipeline_name, entity, source_file,
         project_id = _get_project_id()
         topic = Variable.get("audit_pubsub_topic", default_var="generic-pipeline-events")
         publisher = AuditPublisher(project_id=project_id, topic_name=topic)
-        import json
-        lineage_record = AuditRecord(
-            run_id=run_id,
-            pipeline_name=pipeline_name,
-            entity_type=entity,
-            source_file=source_file,
-            record_count=record_count,
-            processed_timestamp=datetime.now(tz=timezone.utc),
-            processing_duration_seconds=duration_seconds,
-            success=success,
-            error_count=error_count,
-            audit_hash="",
-            metadata={"lineage": lineage, **(metadata or {})},
-        )
-        msg_id = publisher.publish(lineage_record)
+        record.metadata = {"lineage": lineage, **(metadata or {})}
+        msg_id = publisher.publish(record)
         logger.info(f"Published lineage record to {topic}: {msg_id}")
     except Exception as e:
         logger.warning(f"Lineage publishing failed (non-fatal): {e}")
@@ -452,10 +439,17 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
 
     extract_date = None
     entity = None
-    base_name = file_name.replace(OK_FILE_SUFFIX, "")
-    # Parse entity from filename pattern: {prefix}_{entity}_{date}.ok
-    # Example: generic_customers_20260319.ok -> entity=customers
-    parts = base_name.split("_")
+    # Strip .ok suffix to get the data file path
+    # Convention: data file = generic_customers_20260319.csv
+    #             ok file   = generic_customers_20260319.csv.ok
+    data_file_name = file_name[:-len(OK_FILE_SUFFIX)] if file_name.endswith(OK_FILE_SUFFIX) else file_name
+    # Strip path prefix (e.g., "generic/") to parse just the filename
+    bare_name = data_file_name.rsplit("/", 1)[-1]
+    # Remove .csv extension for parsing entity and date
+    stem = bare_name.rsplit(".", 1)[0] if "." in bare_name else bare_name
+    # Parse entity from filename pattern: {prefix}_{entity}_{date}
+    # Example: generic_customers_20260319 -> entity=customers, date=20260319
+    parts = stem.split("_")
     if len(parts) >= 3:
         # Format: prefix_entity_date
         entity = parts[1]
@@ -465,7 +459,7 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
             break
 
     trigger_file = f"gs://{bucket}/{file_name}"
-    data_file = f"gs://{bucket}/{file_name.replace(OK_FILE_SUFFIX, '.csv')}"
+    data_file = f"gs://{bucket}/{data_file_name}"
 
     result = {
         "status": "success",

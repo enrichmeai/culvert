@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-ingestion"
-version = "1.0.13"
+version = "1.0.14"
 description = "Reference Implementation: GCS-to-BigQuery Ingestion Pipeline using gcp-pipeline-framework"
 readme = "README.md"
 license = {text = "MIT"}
@@ -23,8 +23,8 @@ dependencies = [
     "google-cloud-bigquery>=3.0.0",
     "google-cloud-storage>=2.0.0",
     "pydantic>=2.0.0",
-    "gcp-pipeline-core==1.0.26",
-    "gcp-pipeline-beam==1.0.26",
+    "gcp-pipeline-core==1.0.28",
+    "gcp-pipeline-beam==1.0.28",
 ]
 # NOTE: NO apache-airflow dependency!
 
@@ -42,7 +42,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
     "pytest-cov>=4.0.0",
-    "gcp-pipeline-tester==1.0.26",
+    "gcp-pipeline-tester==1.0.28",
 ]
 
 [tool.setuptools.packages.find]
