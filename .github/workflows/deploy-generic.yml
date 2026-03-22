@@ -9,9 +9,12 @@ name: Deploy Generic
 #   3. data-pipeline-orchestrator     → Airflow DAGs (orchestration)
 #
 # Trigger modes:
-#   - Automatic: Push to main branch (commit-triggered deploy)
-#   - Automatic: After "Publish Libraries to PyPI" workflow completes
+#   - Automatic: Push to main branch (path-filtered deploy)
 #   - Manual:    workflow_dispatch with environment selection
+#
+# NOTE: Deploy does NOT auto-trigger after publish. Publish and deploy
+# are separate steps to avoid race conditions. Publish first, verify
+# libraries on PyPI, then deploy via separate commit or manual trigger.
 # =============================================================================
 
 on:
@@ -24,11 +27,9 @@ on:
       - 'deployments/data-pipeline-orchestrator/**'
       - 'infrastructure/**'
       - '.github/workflows/deploy-generic.yml'
-  workflow_run:
-    workflows: ["Publish Libraries to PyPI"]
-    branches: [main]
-    types:
-      - completed
+  # NOTE: No workflow_run trigger from publish. Publish and deploy are
+  # separate steps. Publish libraries first, verify on PyPI, then deploy
+  # via a separate commit or manual workflow_dispatch.
   workflow_dispatch:
     inputs:
       environment:
@@ -68,8 +69,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push' ||
-      github.event.workflow_run.conclusion == 'success'
+      github.event_name == 'push'
     outputs:
       version: ${{ steps.get-version.outputs.version }}
 

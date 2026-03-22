@@ -5,8 +5,9 @@ name: Publish Libraries to PyPI
 #   1. Tags: v* tags automatically publish to PyPI
 #   2. Commit Keywords:
 #      - [publish] or [publish:lib] - Publish libraries only (TestPyPI)
-#      - [publish:pypi] - Publish libraries only (Production PyPI)
-#      - [publish:deploy] - Publish libraries AND trigger deployments
+#      - [publish:pypi] - Publish libraries to Production PyPI
+#      NOTE: [publish:deploy] removed — publish and deploy are separate steps.
+#      Publish first, verify on PyPI, then deploy via separate commit.
 #   3. Manual: workflow_dispatch with options
 #   4. Release: GitHub release published
 #
@@ -122,11 +123,11 @@ jobs:
             COMMIT_MSG=$(git log -1 --pretty=%B)
             echo "Commit message: $COMMIT_MSG"
             
-            # [publish:deploy] - publish AND deploy
+            # [publish:deploy] - treated same as [publish:pypi] (deploy is separate)
             if echo "$COMMIT_MSG" | grep -qiE '\[publish:deploy\]'; then
-              echo "🚀 [publish:deploy] keyword found"
+              echo "📦 [publish:deploy] keyword found — publishing to PyPI (deploy is a separate step)"
               SHOULD_PUBLISH="true"
-              SHOULD_DEPLOY="true"
+              SHOULD_DEPLOY="false"
               TARGET_REPO="pypi"
             # [publish:pypi] - publish to production PyPI only
             elif echo "$COMMIT_MSG" | grep -qiE '\[publish:pypi\]'; then
