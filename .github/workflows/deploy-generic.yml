@@ -62,6 +62,50 @@ permissions:
 
 jobs:
   # ==========================================================================
+  # Detect which deployments changed (skip unchanged on push)
+  # ==========================================================================
+  detect-changes:
+    name: Detect Changed Deployments
+    runs-on: ubuntu-latest
+    outputs:
+      ingestion: ${{ steps.changes.outputs.ingestion }}
+      transformation: ${{ steps.changes.outputs.transformation }}
+      cdp: ${{ steps.changes.outputs.cdp }}
+      orchestration: ${{ steps.changes.outputs.orchestration }}
+      infrastructure: ${{ steps.changes.outputs.infrastructure }}
+      workflow: ${{ steps.changes.outputs.workflow }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: Detect changed paths
+      id: changes
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          # Manual trigger: deploy everything
+          echo "ingestion=true" >> $GITHUB_OUTPUT
+          echo "transformation=true" >> $GITHUB_OUTPUT
+          echo "cdp=true" >> $GITHUB_OUTPUT
+          echo "orchestration=true" >> $GITHUB_OUTPUT
+          echo "infrastructure=true" >> $GITHUB_OUTPUT
+          echo "workflow=true" >> $GITHUB_OUTPUT
+          echo "Manual trigger — all deployments enabled"
+        else
+          # Push trigger: only deploy what changed
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files:"
+          echo "$CHANGED"
+
+          echo "ingestion=$(echo "$CHANGED" | grep -q '^deployments/original-data-to-bigqueryload/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "transformation=$(echo "$CHANGED" | grep -q '^deployments/bigquery-to-mapped-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "cdp=$(echo "$CHANGED" | grep -q '^deployments/fdp-to-consumable-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "orchestration=$(echo "$CHANGED" | grep -q '^deployments/data-pipeline-orchestrator/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "infrastructure=$(echo "$CHANGED" | grep -q '^infrastructure/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "workflow=$(echo "$CHANGED" | grep -q '^.github/workflows/deploy-generic.yml' && echo true || echo false)" >> $GITHUB_OUTPUT
+        fi
+
+  # ==========================================================================
   # Resolve Library Version from PyPI
   # ==========================================================================
   fetch-version:
@@ -308,7 +352,8 @@ jobs:
   deploy-dataflow:
     name: Deploy Dataflow Template (ingestion)
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure]
+    needs: [fetch-version, deploy-infrastructure, detect-changes]
+    if: needs.detect-changes.outputs.ingestion == 'true' || needs.detect-changes.outputs.workflow == 'true'
     timeout-minutes: 60
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -362,7 +407,8 @@ jobs:
   deploy-dbt:
     name: Deploy dbt Models (transformation)
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure]
+    needs: [fetch-version, deploy-infrastructure, detect-changes]
+    if: needs.detect-changes.outputs.transformation == 'true' || needs.detect-changes.outputs.workflow == 'true'
     timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -404,7 +450,8 @@ jobs:
   deploy-cdp:
     name: Deploy CDP Models (consumable product)
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure, deploy-dbt]
+    needs: [fetch-version, deploy-infrastructure, deploy-dbt, detect-changes]
+    if: false  # CDP disabled until image is rebuilt with dbt deps fix
     timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -446,7 +493,8 @@ jobs:
   deploy-airflow:
     name: Deploy Airflow DAGs (orchestration)
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure]
+    needs: [fetch-version, deploy-infrastructure, detect-changes]
+    if: needs.detect-changes.outputs.orchestration == 'true' || needs.detect-changes.outputs.workflow == 'true'
     timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -588,7 +636,7 @@ jobs:
   validate:
     name: Validate Deployment
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-airflow]
+    needs: [fetch-version, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-airflow]
     if: needs.deploy-infrastructure.result == 'success'
     timeout-minutes: 10
     environment: ${{ github.event.inputs.environment || 'int' }}
@@ -674,7 +722,7 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-airflow, validate]
+    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-airflow, validate]
     if: always()
 
     steps:
