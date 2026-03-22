@@ -52,24 +52,18 @@ ODP Ingestion Pipeline - reads mainframe extracts from GCS and loads to BigQuery
 |-----------|---------|
 | `data_ingestion/pipeline/` | Beam pipeline and transforms |
 | `data_ingestion/config/` | System configuration |
-| `data_ingestion/schema/` | **Python Schemas**: Source-of-truth `EntitySchema` definitions used for validation and PII masking logic. |
-| `data_ingestion/schemas/` | **JSON Schemas**: Physical BigQuery table schemas used for manual loads, recovery, and external tool integration. |
+| `data_ingestion/schema/` | **Python Schemas**: Source-of-truth `EntitySchema` definitions used for validation, PII masking logic, and BigQuery schema generation. |
 | `data_ingestion/validation/` | File and record validators |
 
 ---
 
 ## Schema Architecture
 
-The ingestion unit maintains two types of schemas to separate logical rules from physical storage contracts:
+The ingestion unit maintains Python schema definitions that serve as the single source of truth:
 
-1.  **Logical Engine (`schema/` Python)**:
-    *   **Purpose**: Used by the Beam pipeline for runtime CSV parsing, record-level validation, and in-flight PII masking.
-    *   **Feature**: Can dynamically generate BigQuery schemas during job execution (`CREATE_IF_NEEDED`).
-2.  **Physical Contract (`schemas/` JSON)**:
-    *   **Purpose**: Provides a tool-agnostic representation of the BigQuery tables.
-    *   **Usage**: Consumed by Terraform to pre-provision infrastructure (with partitioning/clustering) and used for manual `bq load` recovery operations.
-
-This dual-schema approach ensures that **Infrastructure builds the container, but Ingestion carries the blueprint.**
+*   **Purpose**: Used by the Beam pipeline for runtime CSV parsing, record-level validation, in-flight PII masking, and BigQuery schema generation.
+*   **Feature**: Can dynamically generate BigQuery schemas during job execution (`CREATE_IF_NEEDED`).
+*   **Location**: `data_ingestion/schema/` — one Python module per entity (customers, accounts, decision, applications) plus `registry.py` for entity schema registration.
 
 ---
 
@@ -158,7 +152,7 @@ python -m pytest tests/unit/ -v
 ### 3. Local Execution (DirectRunner)
 Run the Beam pipeline locally to validate parsing and schema:
 ```bash
-python -m data_ingestion.pipeline.main \
+python -m data_ingestion.pipeline.runner \
     --input_file=tests/data/sample_customers.csv \
     --output_table=my-project:odp_generic.customers \
     --runner=DirectRunner \

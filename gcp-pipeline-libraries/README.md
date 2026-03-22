@@ -1,6 +1,8 @@
 # Libraries
 
-5-library architecture for mainframe-to-GCP data migration, following a **paved path** pattern demonstrated through production-ready reference deployments.
+> **Current Version:** 1.0.28 (all 6 libraries aligned)
+
+4-library architecture for mainframe-to-GCP data migration, following a **paved path** pattern demonstrated through production-ready reference deployments. Two supplementary packages (`gcp-pipeline-tester` for testing utilities, `gcp-pipeline-framework` as the umbrella package) complete the ecosystem.
 
 These libraries provide **generic mechanisms** (sensors, operators, macros, validators) — all system-specific logic is **config-driven** via `system.yaml` files in each deployment. No library code changes are needed when onboarding a new system.
 
@@ -390,14 +392,15 @@ Alternatively, you can run tests for all libraries from the project root:
 
 ---
 
-## Total: 834 tests passing ✅
+## Total: 737 tests passing
 
 | Library | Tests |
 |---------|-------|
-| gcp-pipeline-core | 256 |
-| gcp-pipeline-beam | 478 |
-| gcp-pipeline-tester | 100 |
-| **Total** | **834** |
+| gcp-pipeline-core | 219 |
+| gcp-pipeline-beam | 359 |
+| gcp-pipeline-orchestration | 58 |
+| gcp-pipeline-tester | 101 |
+| **Total** | **737** |
 
 ---
 

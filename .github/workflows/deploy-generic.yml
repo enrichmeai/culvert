@@ -126,7 +126,7 @@ jobs:
       run: |
         cd deployments/original-data-to-bigqueryload
         pip install -e ".[dev]" || pip install -e .
-        PYTHONPATH=src pytest tests/unit -v --tb=short || echo "Some tests failed"
+        PYTHONPATH=src pytest tests/unit -v --tb=short
 
     - name: Test fdp-to-consumable-product
       run: |
@@ -349,7 +349,7 @@ jobs:
           --image gcr.io/${PROJECT_ID}/generic-ingestion:$VERSION \
           --sdk-language PYTHON \
           --metadata-file deployments/original-data-to-bigqueryload/metadata.json \
-          --project ${PROJECT_ID} || echo "Flex template creation failed"
+          --project ${PROJECT_ID}
 
         gsutil cp \
           gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
@@ -396,7 +396,7 @@ jobs:
           --config deployments/bigquery-to-mapped-product/dbt/cloudbuild.yaml \
           --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
           --project ${{ secrets.GCP_PROJECT_ID }} \
-          deployments/bigquery-to-mapped-product/dbt || echo "dbt deployment via Cloud Build failed"
+          deployments/bigquery-to-mapped-product/dbt
 
   # ==========================================================================
   # Deploy CDP Models (fdp-to-consumable-product)
@@ -438,7 +438,7 @@ jobs:
           --config deployments/fdp-to-consumable-product/dbt/cloudbuild.yaml \
           --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
           --project ${{ secrets.GCP_PROJECT_ID }} \
-          deployments/fdp-to-consumable-product/dbt || echo "CDP dbt deployment via Cloud Build failed"
+          deployments/fdp-to-consumable-product/dbt
 
   # ==========================================================================
   # Deploy Airflow DAGs (data-pipeline-orchestrator)

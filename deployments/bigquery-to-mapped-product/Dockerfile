@@ -42,6 +42,9 @@ WORKDIR /app/deployments/bigquery-to-mapped-product/dbt
 RUN TRANSFORM_PKG=$(python -c "import gcp_pipeline_transform; import os; print(os.path.dirname(gcp_pipeline_transform.__file__))") && \
     cp -r "$TRANSFORM_PKG/dbt_shared/macros" /app/deployments/bigquery-to-mapped-product/dbt/shared_macros
 
+# Install dbt package dependencies (e.g. dbt_utils from packages.yml)
+RUN dbt deps --profiles-dir .
+
 # Set dbt profiles dir (if needed, otherwise uses default)
 ENV DBT_PROFILES_DIR=/app/deployments/bigquery-to-mapped-product/dbt
 

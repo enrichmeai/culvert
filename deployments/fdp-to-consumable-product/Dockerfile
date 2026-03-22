@@ -42,6 +42,9 @@ WORKDIR /app/deployments/fdp-to-consumable-product/dbt
 RUN TRANSFORM_PKG=$(python -c "import gcp_pipeline_transform; import os; print(os.path.dirname(gcp_pipeline_transform.__file__))") && \
     cp -r "$TRANSFORM_PKG/dbt_shared/macros" /app/deployments/fdp-to-consumable-product/dbt/shared_macros
 
+# Install dbt package dependencies (e.g. dbt_utils from packages.yml)
+RUN dbt deps --profiles-dir .
+
 ENV DBT_PROFILES_DIR=/app/deployments/fdp-to-consumable-product/dbt
 
 # Create version marker
