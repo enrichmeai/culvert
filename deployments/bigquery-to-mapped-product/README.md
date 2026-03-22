@@ -39,8 +39,8 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 | Step | Description |
 |------|-------------|
 | 1 | Staging models clean and type-cast raw ODP data |
-| 2 | `add_audit_columns` macro injects `run_id` and `source_file` |
-| 3 | `mask_pii` macro applies environment-aware masking to sensitive fields |
+| 2 | `data_quality_check` macro validates data integrity |
+| 3 | `incremental_strategy` macro handles incremental load logic |
 | 4 | `event_transaction_excess` performs `INNER JOIN` between Customers and Accounts |
 | 5 | `portfolio_account_excess` maps Decision ODP 1:1 to FDP |
 
@@ -69,18 +69,22 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 |-----------|---------|
 | `dbt/models/staging/generic/` | Staging models (clean raw data) |
 | `dbt/models/fdp/` | FDP models (JOIN and MAP logic) |
+| `dbt/models/marts/` | Marts models (aggregated views) |
+| `dbt/models/analytics/` | Analytics models (reporting views) |
 
 ### Key files
 
 | Layer | File |
 |-------|------|
-| Staging | `stg_customers.sql` |
-| Staging | `stg_accounts.sql` |
-| Staging | `stg_decision.sql` |
-| Staging | `stg_applications.sql` |
+| Staging | `stg_generic_customers.sql` |
+| Staging | `stg_generic_accounts.sql` |
+| Staging | `stg_generic_decision.sql` |
+| Staging | `stg_generic_applications.sql` |
+| Staging | `_generic_sources.yml` |
 | FDP | `event_transaction_excess.sql` |
 | FDP | `portfolio_account_excess.sql` |
 | FDP | `portfolio_account_facility.sql` |
+| FDP | `_fdp_generic_models.yml` |
 
 ---
 

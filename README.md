@@ -2,7 +2,7 @@
 
 A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
 
-> **Last Updated:** March 2026 | **Version:** 1.0.10
+> **Last Updated:** March 2026 | **Version:** 1.0.28 (libraries), 1.0.14 (reference packages)
 
 ---
 
@@ -237,11 +237,12 @@ gh run list --workflow=deploy-generic.yml --limit 3
 ### Library Publishing
 
 ```bash
-# Publish libraries to PyPI AND trigger deployment
-git commit -m "release: description [publish:deploy]"
-
-# Publish libraries to PyPI only
+# Publish libraries to PyPI (publish and deploy are separate steps)
 git commit -m "chore: update version [publish:pypi]"
+
+# Deploy is triggered separately — either by pushing deployment changes
+# or via manual workflow_dispatch
+gh workflow run deploy-generic.yml
 ```
 
 ---
@@ -307,7 +308,7 @@ python -m pytest tests/unit/
 
 ```bash
 cd deployments/original-data-to-bigqueryload
-python -m data_ingestion.pipeline.main \
+python -m data_ingestion.pipeline.runner \
     --source_file=path/to/local/file.csv \
     --output_table=project:dataset.table \
     --runner=DirectRunner \
@@ -334,25 +335,28 @@ This script:
 3. Uploads the `.ok` trigger file.
 4. Publishes a message to the `generic-file-notifications` Pub/Sub topic.
 
+Pipeline events (status, errors) are published to the `generic-pipeline-events` Pub/Sub topic.
+
 ---
 
 ## Architecture
 
-### 5-Library Model (Published as `gcp-pipeline-framework`)
+### 4-Library Model (Published as `gcp-pipeline-framework`)
 
-Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.10`) and are **not embedded** in this repository.
+Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.28`) and are **not embedded** in this repository.
 
 ```
 gcp-pipeline-core (Foundation — no Beam, no Airflow)
-        ↓
-   ┌────┴────┐
-   ↓         ↓
-gcp-pipeline-beam         gcp-pipeline-orchestration
-(Ingestion — Beam)        (Control — Airflow)
-        ↓                          ↓
-gcp-pipeline-transform    gcp-pipeline-tester
-(dbt macros)              (Test utilities)
+        |
+   ┌────┼────────────┐
+   ↓    ↓            ↓
+gcp-pipeline-beam    gcp-pipeline-orchestration    gcp-pipeline-transform
+(Ingestion — Beam)   (Control — Airflow)           (SQL — dbt macros)
 ```
+
+Supplementary packages:
+- `gcp-pipeline-tester` — Testing utilities (mocks, fixtures, base classes)
+- `gcp-pipeline-framework` — Umbrella package that installs all libraries
 
 | Library | Purpose | Tests |
 |---------|---------|-------|
@@ -372,8 +376,10 @@ gcp-pipeline-transform    gcp-pipeline-tester
 | **Orchestration** | [`data-pipeline-orchestrator`](./deployments/data-pipeline-orchestrator/) | Airflow DAGs on Cloud Composer; Pub/Sub sensing, validation, coordination |
 
 Specialised patterns maintained in separate deployments (not part of the active Generic CI/CD):
-- **Spanner:** [`spanner-to-bigquery-load`](./deployments/spanner-to-bigquery-load/)
-- **Mainframe Segment:** [`mainframe-segment-transform`](./deployments/mainframe-segment-transform/)
+- **CDP:** [`fdp-to-consumable-product`](./deployments/fdp-to-consumable-product/) (code-complete)
+- **Mainframe Segment:** [`mainframe-segment-transform`](./deployments/mainframe-segment-transform/) (code-complete)
+- **Spanner:** [`spanner-to-bigquery-load`](./deployments/spanner-to-bigquery-load/) (reference)
+- **Postgres CDC:** [`postgres-cdc-streaming`](./deployments/postgres-cdc-streaming/) (reference)
 
 ---
 
@@ -474,14 +480,17 @@ gcp-pipeline-libraries/                                    # Library source (pub
 ├── gcp-pipeline-beam/                                     # Ingestion
 ├── gcp-pipeline-orchestration/                            # Control
 ├── gcp-pipeline-transform/                                # dbt macros
-└── gcp-pipeline-tester/                                   # Testing utilities
+├── gcp-pipeline-tester/                                   # Testing utilities
+└── gcp-pipeline-framework/                                # Umbrella package
 
 deployments/
 ├── original-data-to-bigqueryload/                         # Generic Ingestion (Dataflow Flex Template)
 ├── bigquery-to-mapped-product/                            # Generic Transformation (dbt)
 ├── data-pipeline-orchestrator/                            # Generic Orchestration (Cloud Composer)
-├── spanner-to-bigquery-load/                              # Spanner Federated (specialist)
-└── mainframe-segment-transform/                           # Mainframe Segment (specialist)
+├── fdp-to-consumable-product/                             # CDP Transformation (dbt, code-complete)
+├── mainframe-segment-transform/                           # Mainframe Segment (Beam, code-complete)
+├── postgres-cdc-streaming/                                # Postgres CDC (Beam streaming, reference)
+├── spanner-to-bigquery-load/                              # Spanner Federated (dbt, reference)
 
 infrastructure/terraform/
 └── systems/generic/
@@ -495,7 +504,7 @@ infrastructure/terraform/
 ## Run All Tests
 
 ```bash
-# Library tests (737 tests)
+# Library tests (763 tests)
 cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
 cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q

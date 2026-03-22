@@ -2,7 +2,7 @@
 
 > **Last Updated:** March 2026
 
-This directory contains **5 deployment units (3 active, 2 reference)** that demonstrate different data pipeline patterns for mainframe-to-GCP migration using the shared library architecture.
+This directory contains **7 deployment units (3 active, 2 code-complete, 2 reference)** that demonstrate different data pipeline patterns for mainframe-to-GCP migration using the shared library architecture.
 
 ---
 
@@ -30,16 +30,25 @@ This directory contains **5 deployment units (3 active, 2 reference)** that demo
 │  │                     │   │                     │   │                 │   │
 │  │ data-pipeline-      │   │ original-data-to-   │   │ bigquery-to-    │   │
 │  │ orchestrator        │   │ bigqueryload        │   │ mapped-product  │   │
-│  └─────────────────────┘   └─────────────────────┘   └─────────────────┘   │
-│                                                                             │
+│  └─────────────────────┘   └─────────────────────┘   └────────┬────────┘   │
+│                                                                │            │
+│  ┌─────────────────────────────────────────────────────────────┘            │
+│  │                                                                          │
+│  ▼                                                                          │
 │  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     SPECIALIZED PIPELINES                            │   │
+│  │                     CDP & SPECIALIZED PIPELINES                      │   │
 │  ├─────────────────────┬───────────────────────────────────────────────┤   │
-│  │ mainframe-segment-  │ CDP pipeline: FDP → Segmented GCS exports     │   │
-│  │ transform           │ (Apache Beam)                                 │   │
+│  │ fdp-to-consumable-  │ CDP pipeline: FDP → CDP consumable products   │   │
+│  │ product             │ (dbt, code-complete)                          │   │
+│  ├─────────────────────┼───────────────────────────────────────────────┤   │
+│  │ mainframe-segment-  │ Segment pipeline: CDP → Segmented GCS exports │   │
+│  │ transform           │ (Apache Beam, code-complete)                  │   │
 │  ├─────────────────────┼───────────────────────────────────────────────┤   │
 │  │ spanner-to-bigquery │ Federated: Spanner → BigQuery FDP             │   │
-│  │ -load               │ (dbt with External Queries)                   │   │
+│  │ -load               │ (dbt with External Queries, reference)        │   │
+│  ├─────────────────────┼───────────────────────────────────────────────┤   │
+│  │ postgres-cdc-       │ Streaming: Postgres → Kafka → Beam → BigQuery │   │
+│  │ streaming           │ (Beam streaming, reference/planned)           │   │
 │  └─────────────────────┴───────────────────────────────────────────────┘   │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -54,8 +63,10 @@ This directory contains **5 deployment units (3 active, 2 reference)** that demo
 | 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | Cloud Composer (Google-managed) | Event-driven orchestration, entity dependencies |
 | 2 | **original-data-to-bigqueryload** | Beam pipeline for CSV → BigQuery ingestion | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
 | 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN patterns, PII masking, audit columns |
-| 4 | **mainframe-segment-transform** | Beam pipeline for FDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
+| 4 | **mainframe-segment-transform** | Beam pipeline for CDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
 | 5 | **spanner-to-bigquery-load** | dbt models with Spanner federated queries | BigQuery (federated) | External queries, cross-service integration |
+| 6 | **fdp-to-consumable-product** | dbt models for FDP → CDP transformation | BigQuery (native SQL) | 3-table JOIN, incremental model, code-complete |
+| 7 | **postgres-cdc-streaming** | Streaming pipeline: Postgres → Kafka → Beam → BigQuery | Dataflow (streaming) | CDC, real-time ingestion, reference/planned |
 
 ---
 
@@ -80,10 +91,11 @@ This directory contains **5 deployment units (3 active, 2 reference)** that demo
 **Key files:**
 ```
 dags/
-├── pubsub_trigger_dag.py    # Listens for file arrival events
-├── data_ingestion_dag.py    # Triggers Dataflow ingestion jobs
-├── transformation_dag.py    # Triggers dbt transformation
-└── error_handling_dag.py    # Monitors and handles failures
+├── generic_pubsub_trigger_dag.py    # Listens for file arrival events
+├── generic_ingestion_dag.py         # Triggers Dataflow ingestion jobs
+├── generic_transformation_dag.py    # Triggers dbt transformation
+├── generic_error_handling_dag.py    # Monitors and handles failures
+└── generic_pipeline_status_dag.py   # Pipeline status monitoring
 ```
 
 **Flow:**
@@ -165,17 +177,20 @@ TRL|RecordCount=2|Checksum=abc123
 dbt/
 ├── models/
 │   ├── staging/
-│   │   ├── stg_customers.sql     # Clean customer data
-│   │   ├── stg_accounts.sql      # Clean account data
-│   │   ├── stg_decision.sql      # Clean decision data
-│   │   └── stg_applications.sql  # Clean applications data
-│   └── fdp/
-│       ├── event_transaction_excess.sql    # JOIN: customers + accounts
-│       ├── portfolio_account_excess.sql    # MAP: decision only
-│       └── portfolio_account_facility.sql  # MAP: applications only
+│   │   └── generic/
+│   │       ├── stg_generic_customers.sql     # Clean customer data
+│   │       ├── stg_generic_accounts.sql      # Clean account data
+│   │       ├── stg_generic_decision.sql      # Clean decision data
+│   │       └── stg_generic_applications.sql  # Clean applications data
+│   ├── fdp/
+│   │   ├── event_transaction_excess.sql    # JOIN: customers + accounts
+│   │   ├── portfolio_account_excess.sql    # MAP: decision only
+│   │   └── portfolio_account_facility.sql  # MAP: applications only
+│   ├── marts/                              # Aggregated business views
+│   └── analytics/                          # Reporting views
 └── macros/
-    ├── add_audit_columns.sql     # Inject run_id, source_file
-    └── mask_pii.sql              # Environment-aware masking
+    ├── data_quality_check.sql     # Data quality validation
+    └── incremental_strategy.sql   # Incremental load logic
 ```
 
 **Flow:**
@@ -192,17 +207,17 @@ BigQuery ODP → Staging Models → FDP Models → BigQuery FDP
 
 ### 4. mainframe-segment-transform (CDP/Segmentation)
 
-**What it is:** Apache Beam pipeline that reads FDP tables and exports segmented files to GCS.
+**What it is:** Apache Beam pipeline that reads CDP tables and exports segmented files to GCS.
 
 **What it does:**
-- Reads multiple FDP tables in parallel from BigQuery
+- Reads CDP tables (e.g., `cdp_generic.customer_risk_profile`) from BigQuery
 - Applies segmentation logic (e.g., by region, customer type)
 - Normalizes data for downstream consumption
 - Writes segmented JSONL files to GCS
 - Handles large datasets without memory issues
 
 **What it demonstrates:**
-- **Consumable Data Product (CDP) pattern:** FDP → external-facing exports
+- **Consumable Data Product (CDP) pattern:** CDP → external-facing exports
 - **Parallel BigQuery reads:** Multiple tables read simultaneously
 - **Segmented writes:** Data split into manageable chunks for consumers
 - **Fluent API usage:** Clean pipeline definition using `BeamPipelineBuilder`
@@ -215,7 +230,7 @@ src/cdp_example/
 
 **Flow:**
 ```
-BigQuery FDP (multiple tables) → Parallel Reads → Segment → GCS (JSONL files)
+BigQuery CDP (multiple tables) → Parallel Reads → Segment → GCS (JSONL files)
 ```
 
 **Use case:**
@@ -263,6 +278,60 @@ Cloud Spanner → BigQuery External Query → dbt Model → BigQuery FDP
 
 ---
 
+### 6. fdp-to-consumable-product (CDP Transformation)
+
+**What it is:** dbt models that transform FDP data into Consumable Data Products (CDP).
+
+**What it does:**
+- Reads from multiple FDP tables
+- Applies complex business logic (3-table JOIN)
+- Creates consumable, business-facing data products
+- Writes to CDP tables in BigQuery
+
+**What it demonstrates:**
+- **FDP → CDP pattern:** Foundation data transformed into consumable products
+- **3-table JOIN:** Complex multi-source aggregation (`event_transaction_excess` + `portfolio_account_excess` + `portfolio_account_facility`)
+- **Incremental model:** Efficient incremental processing for large datasets
+- **Hand-written SQL:** CDP models use custom SQL (not auto-generated)
+
+**Key files:**
+```
+dbt/
+├── models/
+│   └── cdp/
+│       └── customer_risk_profile.sql    # 3-table JOIN CDP model
+└── dbt_project.yml                       # CDP configuration
+```
+
+**Flow:**
+```
+BigQuery FDP (3 tables) → 3-Table JOIN → BigQuery CDP (customer_risk_profile)
+```
+
+**Status:** Code-complete, deployed via CI/CD.
+
+---
+
+### 7. postgres-cdc-streaming (Real-Time Streaming)
+
+**What it is:** Apache Beam streaming pipeline for real-time Change Data Capture from Postgres via Kafka.
+
+**What it does:**
+- Captures change events from Postgres via CDC
+- Streams through Kafka topics
+- Processes with Apache Beam in streaming mode
+- Writes to BigQuery ODP in near real-time
+
+**What it demonstrates:**
+- **CDC pattern:** Real-time change capture from operational databases
+- **Streaming ingestion:** Continuous processing vs. batch
+- **Kafka integration:** Event streaming with Apache Kafka
+- **Beam streaming:** Dataflow streaming mode with windowing
+
+**Status:** Reference/planned — stub implementation for future paved path.
+
+---
+
 ## Patterns Demonstrated
 
 | Pattern | Deployment | Description |
@@ -275,7 +344,9 @@ Cloud Spanner → BigQuery External Query → dbt Model → BigQuery FDP
 | **ODP → FDP** | transform | Raw to business-ready data |
 | **JOIN (3→2)** | transform | Multiple sources to targets |
 | **PII Masking** | transform | Environment-aware data protection |
-| **CDP Export** | segment | FDP to external-facing files |
+| **CDP Export** | segment | CDP to external-facing files |
+| **FDP → CDP** | cdp | Foundation to consumable data products |
+| **CDC Streaming** | postgres-cdc | Real-time change data capture |
 | **Segmented Writes** | segment | Large dataset handling |
 | **Federated Query** | spanner | Cross-service data access |
 
@@ -324,9 +395,17 @@ Cloud Spanner → BigQuery External Query → dbt Model → BigQuery FDP
 │     └──────────────────┘                                                    │
 │           │                                                                 │
 │           ▼                                                                 │
-│  5. OPTIONAL: CDP EXPORT (mainframe-segment-transform)                      │
+│  5. CDP TRANSFORMATION (fdp-to-consumable-product)                          │
 │     ┌──────────────────┐                                                    │
-│     │ Read FDP tables  │ → parallel BigQuery reads                         │
+│     │ Read FDP tables  │ → 3-table JOIN                                    │
+│     │ Apply Logic      │ → business rules                                  │
+│     │ Write to CDP     │ → BigQuery consumable tables                      │
+│     └──────────────────┘                                                    │
+│           │                                                                 │
+│           ▼                                                                 │
+│  6. OPTIONAL: CDP EXPORT (mainframe-segment-transform)                      │
+│     ┌──────────────────┐                                                    │
+│     │ Read CDP tables  │ → parallel BigQuery reads                         │
 │     │ Apply Segments   │ → group by region/type                            │
 │     │ Export to GCS    │ → JSONL files for consumers                       │
 │     └──────────────────┘                                                    │
@@ -343,15 +422,17 @@ Cloud Spanner → BigQuery External Query → dbt Model → BigQuery FDP
 # Set GCP project
 gcloud config set project YOUR_PROJECT_ID
 
-# Create infrastructure
-./scripts/gcp/setup_gke_infrastructure.sh
+# Create infrastructure (one-time per environment)
+./scripts/gcp/01_enable_services.sh
+./scripts/gcp/02_create_state_bucket.sh
+./scripts/gcp/03_create_infrastructure.sh generic
 ```
 
 ### Run Each Deployment
 
 | Deployment | How to Run |
 |------------|------------|
-| **orchestrator** | Deploy to GKE with Helm, DAGs sync from GCS |
+| **orchestrator** | Deploy DAGs to Cloud Composer, DAGs sync from GCS |
 | **ingestion** | Triggered by Airflow or run directly via Dataflow |
 | **transform** | Triggered by Airflow or run `dbt run` directly |
 | **segment** | Run via Dataflow with custom parameters |
@@ -360,7 +441,7 @@ gcloud config set project YOUR_PROJECT_ID
 ### Quick Test
 ```bash
 # Run E2E test (simulates full flow)
-./scripts/gcp/e2e_automation_test.sh
+./scripts/gcp/06_test_pipeline.sh generic
 ```
 
 ---
@@ -373,13 +454,15 @@ Each deployment uses the shared libraries from `gcp-pipeline-libraries/`:
 |------------|----------------|
 | orchestrator | `gcp-pipeline-core`, `gcp-pipeline-orchestration` |
 | ingestion | `gcp-pipeline-core`, `gcp-pipeline-beam` |
-| transform | `gcp-pipeline-transform` (dbt macros) |
+| transform | `gcp-pipeline-core`, `gcp-pipeline-transform` (dbt macros) |
+| cdp | `gcp-pipeline-core`, `gcp-pipeline-transform` (dbt macros) |
 | segment | `gcp-pipeline-core`, `gcp-pipeline-beam` |
 | spanner | `gcp-pipeline-transform` (dbt macros) |
+| postgres-cdc | `gcp-pipeline-core`, `gcp-pipeline-beam` |
 
 **Zero-Bleed Policy:** No library imports code from another layer (e.g., `gcp-pipeline-orchestration` never imports `apache_beam`).
 
-Note: The `PYTHONPATH` overrides below are only necessary while using the embedded library source code. Once transitioned to Nexus packages, standard `pytest` commands will work.
+Libraries are installed from PyPI. Each deployment's `pyproject.toml` declares its library dependencies.
 
 ```bash
 # Generic Ingestion
@@ -400,6 +483,7 @@ dbt test
 | Unit | Tests |
 |------|-------|
 | original-data-to-bigqueryload | 26 |
-| bigquery-to-mapped-product | 26 |
-| **Total** | **52** |
+| data-pipeline-orchestrator | 2 |
+| bigquery-to-mapped-product | 0 |
+| **Total** | **28** |
 
