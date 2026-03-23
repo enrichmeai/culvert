@@ -93,6 +93,7 @@ dbt_packages/
 dbt_modules/
 target/
 profiles.yml
+!deployments/*/dbt/profiles.yml
 shared_macros/
 
 # Compiled files
