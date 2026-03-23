@@ -24,7 +24,7 @@ staged as (
         account_open_date,
         _run_id,
         _extract_date,
-        _transformed_ts
+        _transformed_at
     from source
 )
 

@@ -133,7 +133,7 @@ The following architectural decisions underpin the E2E flow described in this do
 | **Orchestration** | Multi-DAG pattern (Trigger, Load, Transform) | Failure isolation — retry transformation without re-ingesting data |
 | **Ingestion** | Apache Beam on Dataflow | HDR/TRL validation, split-file reassembly, per-record DLQ — capabilities `bq load` lacks |
 | **Orchestration Runtime** | Cloud Composer (Airflow) | Complex state coordination (JOIN pattern), DAG Factory, operational UI |
-| **Transformation** | dbt push-down SQL on BigQuery | Audit macros (`_run_id`, `_transformed_ts`), incremental models, PII masking |
+| **Transformation** | dbt push-down SQL on BigQuery | Audit macros (`_run_id`, `_transformed_at`), incremental models, PII masking |
 | **Security** | Dedicated Service Account per unit | Principle of Least Privilege; ingestion SA cannot modify FDP tables |
 | **Pluggability** | Metadata Contract (`run_id` + `job_control`) | Any tool respecting the contract can replace Beam or dbt without redesigning orchestration |
 | **Infrastructure** | Single unified Terraform module | All GCS, BigQuery datasets, Pub/Sub, IAM provisioned from `infrastructure/terraform/main.tf`; BigQuery tables are application-managed |
@@ -575,7 +575,7 @@ CREATE TABLE fdp_generic.event_transaction_excess (
     -- Audit columns
     _run_id                 STRING,
     _extract_date           DATE,
-    _transformed_ts         TIMESTAMP
+    _transformed_at         TIMESTAMP
 )
 PARTITION BY _extract_date
 CLUSTER BY application_id, event_date;
@@ -613,7 +613,7 @@ CREATE TABLE fdp_generic.portfolio_account_excess (
     -- Audit columns
     _run_id                 STRING,
     _extract_date           DATE,
-    _transformed_ts         TIMESTAMP
+    _transformed_at         TIMESTAMP
 )
 PARTITION BY _extract_date
 CLUSTER BY portfolio_id, account_id;
@@ -663,7 +663,7 @@ SELECT
     -- Audit columns
     _run_id,
     _extract_date,
-    CURRENT_TIMESTAMP() AS _transformed_ts
+    CURRENT_TIMESTAMP() AS _transformed_at
 
 FROM applications
 WHERE event_type_code IS NOT NULL  -- Filter for event-related records
@@ -713,7 +713,7 @@ SELECT
     -- Audit columns
     _run_id,
     _extract_date,
-    CURRENT_TIMESTAMP() AS _transformed_ts
+    CURRENT_TIMESTAMP() AS _transformed_at
 
 FROM applications
 WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
@@ -2588,7 +2588,7 @@ gs://{PROJECT_ID}-generic-{ENV}-temp/         # Dataflow temp/staging files
 | `_source_file` | STRING | Source file name |
 | `_processed_ts` | TIMESTAMP | When record was loaded |
 | `_extract_date` | DATE | Extract date from HDR record |
-| `_transformed_ts` | TIMESTAMP | When record was transformed (FDP only) |
+| `_transformed_at` | TIMESTAMP | When record was transformed (FDP only) |
 
 ---
 

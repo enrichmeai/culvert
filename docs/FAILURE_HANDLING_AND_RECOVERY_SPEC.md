@@ -229,8 +229,8 @@ config(
 **Incremental filter** (only processes new data):
 ```sql
 {% if is_incremental() %}
-WHERE c._processed_at > (SELECT MAX(_transformed_ts) FROM {{ this }})
-   OR a._processed_at > (SELECT MAX(_transformed_ts) FROM {{ this }})
+WHERE c._processed_at > (SELECT MAX(_transformed_at) FROM {{ this }})
+   OR a._processed_at > (SELECT MAX(_transformed_at) FROM {{ this }})
 {% endif %}
 ```
 
@@ -255,7 +255,7 @@ The dbt `incremental_strategy='merge'` with `unique_key='event_key'` means:
 
 **However, there are edge cases:**
 
-1. **Timestamp-based incremental filter**: The `WHERE _processed_at > MAX(_transformed_ts)` check relies on `_transformed_ts` being set by the dbt model (`current_timestamp()`). If a partial run set `_transformed_ts` for some rows, a retry may skip those rows' source records because `_processed_at` is no longer > the new `MAX(_transformed_ts)`.
+1. **Timestamp-based incremental filter**: The `WHERE _processed_at > MAX(_transformed_at)` check relies on `_transformed_at` being set by the dbt model (`current_timestamp()`). If a partial run set `_transformed_at` for some rows, a retry may skip those rows' source records because `_processed_at` is no longer > the new `MAX(_transformed_at)`.
 
 2. **Cross-entity JOINs**: `event_transaction_excess` joins customers + accounts. If the join produces different results on retry (e.g., account data was updated between runs), the MERGE will update rows — this is actually correct behavior but may confuse reconciliation.
 

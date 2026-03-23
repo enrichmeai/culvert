@@ -20,7 +20,7 @@ The framework uses a **4-library model** (core, beam, orchestration, transform) 
 
 The umbrella package `gcp-pipeline-framework` installs all five libraries in the correct dependency order.
 
-- **Current version:** `1.0.11`
+- **Current version:** `1.0.29`
 - **PyPI:** https://pypi.org/project/gcp-pipeline-framework/
 
 ### 1.2 Release Process

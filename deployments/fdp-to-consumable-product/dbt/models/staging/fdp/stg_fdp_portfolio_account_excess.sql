@@ -21,7 +21,7 @@ staged as (
         decision_reason,
         _run_id,
         _extract_date,
-        _transformed_ts
+        _transformed_at
     from source
 )
 

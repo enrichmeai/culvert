@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-framework"
-version = "1.0.28"
+version = "1.0.29"
 description = "GCP Migration Framework - Monorepo root for IDE context help"
 requires-python = ">=3.9"
 # Note: Internal monorepo packages are not listed as PEP 621 dependencies because they are not

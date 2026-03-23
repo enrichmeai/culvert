@@ -70,8 +70,8 @@ SQL library - dbt macros for audit columns and PII masking.
                   │     {{ mask_full(column) }}       │
                   │                                   │
                   │  4. Business Logic                │
-                  │     • JOINs (Application1: 2→1)             │
-                  │     • MAPs (Application2: 1→1)             │
+                  │     • JOINs (multi-source → 1)              │
+                  │     • MAPs (1:1 column rename)              │
                   │                                   │
                   └───────────────────────────────────┘
 ```

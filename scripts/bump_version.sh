@@ -172,6 +172,22 @@ update_file "$FW_CONFIG" \
     "framework config pyproject"
 echo ""
 
+# ── Framework dependency pins (==X.Y.Z) ──
+echo "Framework dependency pins:"
+FW_TOML="$PROJECT_ROOT/gcp-pipeline-libraries/gcp-pipeline-framework/pyproject.toml"
+if [ -f "$FW_TOML" ]; then
+    # Update all ==X.Y.Z pins to the new version
+    OLD_PINS=$(grep -oP '==[0-9]+\.[0-9]+\.[0-9]+' "$FW_TOML" | head -1 | sed 's/==//')
+    if [ -n "$OLD_PINS" ] && [ "$OLD_PINS" != "$VERSION" ]; then
+        sed -i '' "s/==$OLD_PINS/==$VERSION/g" "$FW_TOML"
+        echo -e "  ${YELLOW}UPDATED${NC} framework dependency pins ($OLD_PINS → $VERSION)"
+        CHANGED=$((CHANGED + 1))
+    else
+        echo -e "  ${GREEN}OK${NC}   framework dependency pins"
+    fi
+fi
+echo ""
+
 # ── Summary ──
 echo "=============================================="
 if [ "$CHANGED" -eq 0 ]; then

@@ -96,18 +96,18 @@ class TestWithMocks(BasePipelineTest):
     def test_gcs_operations(self):
         gcs_mock = GCSClientMock()
         gcs_mock.write_file("gs://bucket/input.csv", "id,name\n1,John")
-        
-        content = gcs_mock.read_file("gs://bucket/input.csv")
-        self.assertEqual(content, "id,name\n1,John")
-    
+
+        files = gcs_mock.get_written_files()
+        self.assertIn("gs://bucket/input.csv", files)
+
     def test_bigquery_operations(self):
         bq_mock = BigQueryClientMock()
-        
+
         errors = bq_mock.insert_rows_json(
             "project.dataset.table",
             [{"id": "1", "name": "John"}]
         )
-        
+
         self.assertEqual(errors, [])
         self.assertEqual(len(bq_mock.get_inserted_rows()), 1)
 ```
@@ -192,23 +192,14 @@ from gcp_pipeline_tester.mocks import GCSClientMock
 
 def test_gcs_operations():
     mock = GCSClientMock()
-    
+
     # Write file
     mock.write_file("gs://bucket/file.csv", "id,name\n1,John")
-    
-    # Read file
-    content = mock.read_file("gs://bucket/file.csv")
-    assert content == "id,name\n1,John"
-    
-    # List files
-    files = mock.list_files("gs://bucket/")
-    assert "file.csv" in files
-    
-    # Check file exists
-    assert mock.file_exists("gs://bucket/file.csv")
-    
-    # Delete file
-    mock.delete_file("gs://bucket/file.csv")
+
+    # Get all written files
+    files = mock.get_written_files()
+    assert "gs://bucket/file.csv" in files
+    assert files["gs://bucket/file.csv"] == "id,name\n1,John"
 ```
 
 ### BigQueryClientMock
@@ -355,7 +346,9 @@ Assertions for validating individual record dictionaries.
 |-----------|-------------|
 | `assert_field_exists(record, field)` | Ensure field is present |
 | `assert_field_value(record, field, value)` | Check specific field value |
-| `assert_record_structure(record, fields)` | Validate all required fields |
+| `assert_record_valid(record, schema)` | Validate record against schema |
+| `assert_field_type(record, field, expected_type)` | Check field value type |
+| `assert_field_not_empty(record, field)` | Check field is not empty |
 
 ### Beam Assertions
 
@@ -364,13 +357,13 @@ Assertions for validating individual record dictionaries.
 Assertions for validating Apache Beam `PCollection` contents.
 
 ```python
-from gcp_pipeline_tester.assertions import assert_pcollection_count, assert_pcollection_contains
+from gcp_pipeline_tester.assertions import assert_pcollection_equal, assert_record_structure
 
-# Verify record count in PCollection
-assert_pcollection_count(pcollection, expected_count=10)
+# Verify PCollection matches expected elements
+assert_pcollection_equal(pcollection, expected_elements)
 
-# Verify specific record exists in PCollection
-assert_pcollection_contains(pcollection, expected_record)
+# Verify record has expected structure
+assert_record_structure(record, expected_fields=["id", "name", "amount"])
 ```
 
 ### Pipeline Assertions
@@ -385,6 +378,7 @@ Assertions for high-level pipeline execution status.
 | `assert_no_errors(error_handler)` | Ensure no errors were recorded |
 | `assert_metrics_recorded(metrics)` | Verify metrics were emitted |
 | `assert_audit_trail_complete(audit)` | Check for required audit fields |
+| `assert_pipeline_error_count(errors, count)` | Verify expected number of errors |
 
 ---
 

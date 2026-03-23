@@ -95,7 +95,7 @@ type: custom → hand-written SQL (complex business logic)
 
 **Cross-cutting concerns via library macros:**
 - `{{ mask_pii('ssn', 'SSN') }}` — environment-aware: FULL in prod, PARTIAL in staging, NONE in dev
-- `{{ audit_columns() }}` — injects `_run_id`, `_extract_date`, `_transformed_ts`
+- `{{ audit_columns() }}` — injects `_run_id`, `_extract_date`, `_transformed_at`
 
 ---
 

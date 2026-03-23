@@ -162,8 +162,8 @@ cdp_models:
         target: _run_id
       - source: _extract_date
         target: _extract_date
-      - source: _cdp_transformed_ts
-        target: _cdp_transformed_ts
+      - source: _cdp_transformed_at
+        target: _cdp_transformed_at
     tests: [validate_cdp_segment, validate_risk_profile_completeness, validate_pii_masked]
     tags: [cdp, generic, risk]
     materialized: incremental

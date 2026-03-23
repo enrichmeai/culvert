@@ -2,7 +2,7 @@
 
 A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
 
-> **Last Updated:** March 2026 | **Version:** 1.0.28 (libraries), 1.0.14 (reference packages)
+> **Last Updated:** March 2026 | **Version:** 1.0.29 (libraries), 1.0.14 (reference packages)
 
 ---
 
@@ -44,7 +44,8 @@ gh run list --workflow=deploy-generic.yml --limit 3
 | `./scripts/gcp/02_create_state_bucket.sh` | Create Terraform state bucket |
 | `./scripts/gcp/03_create_infrastructure.sh` | Create GCS, BigQuery, Pub/Sub resources |
 | `./scripts/gcp/05_verify_setup.sh` | Verify infrastructure is ready |
-| `./scripts/gcp/06_test_pipeline.sh` | Run end-to-end pipeline test |
+| `./scripts/gcp/06_test_pipeline.sh` | Run single-entity pipeline test |
+| `./scripts/gcp/e2e_pipeline_test.sh` | Full E2E test (all entities, ODP + FDP verification) |
 
 ---
 
@@ -61,7 +62,7 @@ Download [`reconstruct.py`](./reconstruct.py) and run it — it creates a temp v
 python reconstruct.py
 
 # Specific version
-python reconstruct.py --version 1.0.11
+python reconstruct.py --version 1.0.29
 
 # From a private index (Nexus, Artifactory, etc.)
 python reconstruct.py --index-url https://nexus.internal/repository/pypi/simple/
@@ -343,7 +344,7 @@ Pipeline events (status, errors) are published to the `generic-pipeline-events` 
 
 ### 4-Library Model (Published as `gcp-pipeline-framework`)
 
-Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.28`) and are **not embedded** in this repository.
+Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.29`) and are **not embedded** in this repository.
 
 ```
 gcp-pipeline-core (Foundation — no Beam, no Airflow)

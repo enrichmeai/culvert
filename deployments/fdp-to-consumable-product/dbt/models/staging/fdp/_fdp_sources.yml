@@ -27,7 +27,7 @@ sources:
           - name: account_open_date
           - name: _run_id
           - name: _extract_date
-          - name: _transformed_ts
+          - name: _transformed_at
 
       - name: portfolio_account_excess
         description: "Decision/portfolio MAP — risk decisions per customer"
@@ -44,7 +44,7 @@ sources:
           - name: decision_reason
           - name: _run_id
           - name: _extract_date
-          - name: _transformed_ts
+          - name: _transformed_at
 
       - name: portfolio_account_facility
         description: "Applications MAP — loan facility view"

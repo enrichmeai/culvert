@@ -64,7 +64,7 @@ models:
         tests: [not_null]
       - name: _extract_date
         tests: [not_null]
-      - name: _cdp_transformed_ts
+      - name: _cdp_transformed_at
         tests: [not_null]
 
     tests:

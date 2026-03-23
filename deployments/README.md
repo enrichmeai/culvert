@@ -62,7 +62,7 @@ This directory contains **7 deployment units (3 active, 2 code-complete, 2 refer
 |---|------------|---------|---------|---------------------|
 | 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | Cloud Composer (Google-managed) | Event-driven orchestration, entity dependencies |
 | 2 | **original-data-to-bigqueryload** | Beam pipeline for CSV → BigQuery ingestion | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
-| 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN patterns, PII masking, audit columns |
+| 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN/MAP patterns, schema routing, audit columns |
 | 4 | **mainframe-segment-transform** | Beam pipeline for CDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
 | 5 | **spanner-to-bigquery-load** | dbt models with Spanner federated queries | BigQuery (federated) | External queries, cross-service integration |
 | 6 | **fdp-to-consumable-product** | dbt models for FDP → CDP transformation | BigQuery (native SQL) | 3-table JOIN, incremental model, code-complete |
@@ -162,15 +162,15 @@ TRL|RecordCount=2|Checksum=abc123
 **What it does:**
 - Reads from ODP tables (raw data)
 - Applies business logic (JOINs, filtering, aggregation)
-- Masks PII fields (SSN, email) based on environment
-- Adds audit columns for lineage
+- Adds audit columns for lineage (`_run_id`, `_extract_date`, `_transformed_at`)
 - Writes to FDP tables (clean, business-ready data)
 
 **What it demonstrates:**
 - **ODP → FDP pattern:** Raw data (ODP) transformed into consumable data products (FDP)
-- **JOIN pattern:** 3 source tables → 2 target tables (multi-to-multi)
-- **Environment-aware PII masking:** Full masking in prod, partial in staging
-- **Audit lineage:** `run_id` carried through from ingestion
+- **JOIN pattern:** 2 source tables → 1 target table (customers + accounts → event_transaction_excess)
+- **MAP pattern:** 1 source table → 1 target table (decision → portfolio_account_excess, applications → portfolio_account_facility)
+- **Schema routing:** Custom `generate_schema_name` macro maps logical schemas to Terraform-managed datasets
+- **Audit lineage:** `_run_id` and `_extract_date` carried through from ingestion
 
 **Key files:**
 ```
@@ -189,18 +189,19 @@ dbt/
 │   ├── marts/                              # Aggregated business views (placeholder)
 │   └── analytics/                          # Reporting views (placeholder)
 └── macros/
-    ├── data_quality_check.sql     # Data quality validation
-    └── incremental_strategy.sql   # Incremental load logic
+    ├── generate_schema_name.sql  # Routes models to Terraform-managed datasets
+    ├── data_quality_check.sql    # Data quality validation
+    └── incremental_strategy.sql  # Incremental load logic
 ```
 
 **Flow:**
 ```
-BigQuery ODP → Staging Models → FDP Models → BigQuery FDP
-     │              │               │
-     │         (clean data)    (JOINs + masking)
-     │              │               │
-     └──────────────┴───────────────┘
-              Audit columns preserved
+BigQuery ODP → Staging Views (odp_generic) → FDP Models (fdp_generic) → BigQuery FDP
+     │                │                            │
+     │          (clean data)              (JOINs + audit)
+     │                │                            │
+     └────────────────┴────────────────────────────┘
+               Audit columns preserved (_run_id, _extract_date, _transformed_at)
 ```
 
 ---
@@ -342,8 +343,8 @@ BigQuery FDP (3 tables) → 3-Table JOIN → BigQuery CDP (customer_risk_profile
 | **Schema Validation** | ingestion | Type checking and PII detection |
 | **Audit Trail** | ingestion, transform | run_id for E2E traceability |
 | **ODP → FDP** | transform | Raw to business-ready data |
-| **JOIN (3→2)** | transform | Multiple sources to targets |
-| **PII Masking** | transform | Environment-aware data protection |
+| **JOIN (2→1)** | transform | Multiple sources to target |
+| **MAP (1→1)** | transform | Single source to target |
 | **CDP Export** | segment | CDP to external-facing files |
 | **FDP → CDP** | cdp | Foundation to consumable data products |
 | **CDC Streaming** | postgres-cdc | Real-time change data capture |

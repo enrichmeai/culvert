@@ -1,6 +1,6 @@
 # Libraries
 
-> **Current Version:** 1.0.28 (all 6 libraries aligned)
+> **Current Version:** 1.0.29 (all 6 libraries aligned)
 
 4-library architecture for mainframe-to-GCP data migration, following a **paved path** pattern demonstrated through production-ready reference deployments. Two supplementary packages (`gcp-pipeline-tester` for testing utilities, `gcp-pipeline-framework` as the umbrella package) complete the ecosystem.
 
@@ -342,9 +342,9 @@ To maintain the integrity of the library architecture, the following rules and r
 - Cost/time estimation per category
 
 **Transforms** (`pipelines/beam/transforms/` — 9 DoFns)
-- `CSVParserDoFn`: HDR/TRL-aware CSV parsing with delimiter config, main/errors/metadata outputs
-- `ValidateSchemaDoFn`: validates against EntitySchema (required fields, types), main/invalid outputs
-- `PIIMaskingDoFn`: in-flight masking (REDACT, HASH, PARTIAL_MASK strategies per field)
+- `RobustCsvParseDoFn`: HDR/TRL-aware CSV parsing with delimiter config, main/errors/metadata outputs
+- `SchemaValidateRecordDoFn`: validates against EntitySchema (required fields, types), main/invalid outputs
+- `MaskPIIDoFn`: in-flight masking (REDACT, HASH, PARTIAL_MASK strategies per field)
 - `DeduplicateRecordsDoFn`: key-based dedup with Beam metrics, main/duplicates outputs
 - `EnrichWithMetadataDoFn`: adds run_id, pipeline_name, timestamps, custom metadata
 - `FilterRecordsDoFn`: predicate-based filtering, main/filtered_out outputs
@@ -353,7 +353,7 @@ To maintain the integrity of the library architecture, the following rules and r
 
 **I/O** (`pipelines/beam/io/` — BigQuery, GCS, Pub/Sub)
 - `BatchWriteToBigQueryDoFn`: configurable batch size, auto-adds `_run_id` and `_processed_timestamp`
-- `BigQueryRetryDoFn`: exponential backoff with jitter, dead letter output
+- `ResilientWriteToBigQueryDoFn`: exponential backoff with jitter, dead letter output
 - `WriteSegmentedToGCSDoFn`: writes records in segments (default 10,000 per file)
 - `ReadCSVFromGCSDoFn`, `WriteCSVToGCSDoFn`: CSV-specific GCS operations
 - `PublishToPubSubDoFn`: async publishing with callbacks and Beam metrics
@@ -395,17 +395,19 @@ To maintain the integrity of the library architecture, the following rules and r
 - `DataflowStreamingSensor`: monitors pipeline heartbeat via BQ audit trail
 
 **Operators** (`operators/`)
-- `DataflowFlexTemplateOperator`: run_id injection, XCom metadata, auto-parameter construction
+- `BaseDataflowOperator`: base class with run_id injection, XCom metadata, auto-parameter construction
+- `BatchDataflowOperator`: batch ingestion (extends BaseDataflowOperator)
+- `StreamingDataflowOperator`: streaming pipelines (extends BaseDataflowOperator)
 
 **Callbacks** (`callbacks/`)
-- `PipelineCallbackHandler`: on_success/on_failure — publishes to Pub/Sub, logs to BQ, archives error files
-- `CallbackFactory`: creates callback chains from config
-- `QuarantineCallback`: quarantines files failing quality checks
-- `DLQCallback`: writes failed records to Dead Letter Queue (BQ table)
+- `ErrorHandler`: on_failure handling — publishes to Pub/Sub, logs to BQ, archives error files
+- `create_error_handler()`: factory function to create ErrorHandler from config
+- `quarantine_file()`: quarantines files failing quality checks
+- `publish_to_dlq()`: writes failed records to Dead Letter Queue (BQ table)
 
 **Routing** (`routing/`)
-- `PipelineRouter`: routes events to target DAGs based on system_id + entity_type
-- `YAMLSelector`: loads routing rules from YAML configuration
+- `DAGRouter`: routes events to target DAGs based on system_id + entity_type
+- `YAMLPipelineSelector`: loads routing rules from YAML configuration
 
 **Hooks** (`hooks/`)
 - `SecretManagerHook`: GCP Secret Manager integration with lazy-loaded client

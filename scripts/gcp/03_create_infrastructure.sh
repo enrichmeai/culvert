@@ -215,7 +215,7 @@ SCHEMA
   {"name": "cdp_segment",         "type": "STRING",    "mode": "NULLABLE"},
   {"name": "_run_id",             "type": "STRING",    "mode": "NULLABLE"},
   {"name": "_extract_date",       "type": "DATE",      "mode": "NULLABLE"},
-  {"name": "_cdp_transformed_ts", "type": "TIMESTAMP", "mode": "NULLABLE"}
+  {"name": "_cdp_transformed_at", "type": "TIMESTAMP", "mode": "NULLABLE"}
 ]
 SCHEMA
     if bq show --project_id="$PROJECT_ID" "cdp_generic.customer_risk_profile" &>/dev/null; then

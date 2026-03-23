@@ -1,4 +1,4 @@
 """
 GCP Pipeline Core Library
 """
-__version__ = "1.0.28"
+__version__ = "1.0.29"
