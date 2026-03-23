@@ -65,7 +65,7 @@
 
 
 -- Implementation of merge strategy for incremental loads
-{% if execute %}
+{% macro apply_incremental_strategy(source_data) %}
     {% if flags.FULL_REFRESH %}
         -- Full refresh: truncate and reload
         TRUNCATE TABLE {{ this }};
@@ -80,7 +80,7 @@
         INSERT INTO {{ this }}
         {{ build_append_strategy() }}
     {% endif %}
-{% endif %}
+{% endmacro %}
 
 
 -- Macro to handle late-arriving data
