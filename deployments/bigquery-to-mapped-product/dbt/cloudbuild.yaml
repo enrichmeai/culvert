@@ -3,13 +3,13 @@ steps:
   env:
   - 'GCP_PROJECT_ID=$_PROJECT_ID'
   - 'RUN_ID=$BUILD_ID'
-  args: ['run', '--target', 'prod']
+  args: ['run', '--target', 'prod', '--profiles-dir', '/app/deployments/bigquery-to-mapped-product/dbt']
 
 - name: 'gcr.io/$PROJECT_ID/generic-transformation:latest'
   env:
   - 'GCP_PROJECT_ID=$_PROJECT_ID'
   - 'RUN_ID=$BUILD_ID'
-  args: ['test', '--target', 'prod']
+  args: ['test', '--target', 'prod', '--profiles-dir', '/app/deployments/bigquery-to-mapped-product/dbt']
 
 options:
   logging: CLOUD_LOGGING_ONLY
