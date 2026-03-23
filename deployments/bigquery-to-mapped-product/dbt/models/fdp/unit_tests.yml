@@ -2,6 +2,9 @@ unit_tests:
   - name: test_portfolio_account_facility_logic
     description: "Verify that the facility_key is correctly mapped from application_id"
     model: portfolio_account_facility
+    overrides:
+      macros:
+        is_incremental: false
     given:
       - input: ref('stg_generic_applications')
         rows:
