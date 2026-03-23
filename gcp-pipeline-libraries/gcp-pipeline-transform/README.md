@@ -21,10 +21,10 @@ SQL library - dbt macros for audit columns and PII masking.
   │  │  ┌─────────────────┐    ┌─────────────────┐             │    │
   │  │  │ Audit Columns   │    │  PII Masking    │             │    │
   │  │  │                 │    │                 │             │    │
-  │  │  │ • _run_id       │    │ • SSN masking   │             │    │
-  │  │  │ • _source_file  │    │ • DOB masking   │             │    │
-  │  │  │ • _processed_at │    │ • Configurable  │             │    │
-  │  │  │ • _transformed  │    │                 │             │    │
+  │  │  │ • run_id        │    │ • mask_pii()    │             │    │
+  │  │  │ • source_file   │    │ • mask_full()   │             │    │
+  │  │  │ • processed_    │    │ • mask_partial  │             │    │
+  │  │  │   timestamp     │    │ • Configurable  │             │    │
   │  │  └─────────────────┘    └─────────────────┘             │    │
   │  │                                                          │    │
   │  └─────────────────────────────────────────────────────────┘    │
@@ -42,7 +42,7 @@ SQL library - dbt macros for audit columns and PII masking.
   └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-                    Used by: application1-transformation, application2-transformation
+                    Used by: bigquery-to-mapped-product, fdp-to-consumable-product
 ```
 
 ---
@@ -62,12 +62,12 @@ SQL library - dbt macros for audit columns and PII masking.
                   │                                   │
                   │  2. Add Audit Columns             │
                   │     {{ add_audit_columns() }}     │
-                  │     • _run_id                     │
-                  │     • _transformed_at             │
+                  │     • run_id                      │
+                  │     • processed_timestamp         │
                   │                                   │
                   │  3. Apply PII Masking             │────► FDP Tables
-                  │     {{ mask_ssn(column) }}        │
-                  │     {{ mask_dob(column) }}        │
+                  │     {{ mask_pii(col, type) }}     │
+                  │     {{ mask_full(column) }}       │
                   │                                   │
                   │  4. Business Logic                │
                   │     • JOINs (Application1: 2→1)             │
@@ -94,40 +94,42 @@ SELECT
 FROM {{ ref('stg_customers') }}
 
 -- Output columns added:
---   _run_id STRING
---   _source_file STRING
---   _processed_at TIMESTAMP
---   _transformed_at TIMESTAMP (current time)
+--   run_id STRING
+--   processed_timestamp TIMESTAMP
+--   source_file STRING
 ```
 
-### mask_ssn
+### mask_pii
 
-Masks Social Security Numbers for PII compliance.
+Metadata-driven PII masking. Routes to the correct strategy based on `pii_type`.
 
 ```sql
 -- Usage
 SELECT
     customer_id,
-    {{ mask_ssn('ssn') }} as ssn_masked
+    {{ mask_pii('ssn', 'SSN') }} as ssn_masked,
+    {{ mask_pii('email', 'EMAIL') }} as email_masked
 FROM {{ ref('stg_customers') }}
 
--- Input:  123-45-6789
--- Output: XXX-XX-6789
+-- SSN Input:  123-45-6789
+-- SSN Output: XXX-XX-6789
+-- Email Input:  john@example.com
+-- Email Output: ****@example.com
 ```
 
-### mask_dob
+### mask_full
 
-Masks date of birth for PII compliance.
+Complete masking — replaces all characters with a mask character.
 
 ```sql
 -- Usage
 SELECT
     customer_id,
-    {{ mask_dob('date_of_birth') }} as dob_masked
+    {{ mask_full('secret_key') }} as key_masked
 FROM {{ ref('stg_customers') }}
 
--- Input:  1990-05-15
--- Output: 1990-01-01 (only year preserved)
+-- Input:  ABC123
+-- Output: ******
 ```
 
 ---
@@ -142,7 +144,7 @@ from gcp_pipeline_core.schema import EntitySchema, SchemaField
 
 CustomerSchema = EntitySchema(
     entity_name="customers",
-    system_id="Application1",
+    system_id="Generic",
     fields=[
         SchemaField(name="customer_id", field_type="STRING", required=True),
         SchemaField(name="ssn", field_type="STRING", is_pii=True),
@@ -196,13 +198,11 @@ CustomerSchema = EntitySchema(
 ```
 gcp-pipeline-transform/
 └── dbt_shared/
-    ├── macros/
-    │   ├── audit_columns.sql      # add_audit_columns()
-    │   ├── pii_masking.sql        # mask_ssn(), mask_dob()
-    │   └── quality_checks.sql     # row_count_check(), etc.
-    └── templates/
-        ├── staging_model.sql      # Template for staging
-        └── fdp_model.sql          # Template for FDP
+    └── macros/
+        ├── audit_columns.sql        # add_audit_columns(), apply_audit_columns()
+        ├── pii_masking.sql          # mask_pii(), mask_full(), mask_partial_last4(), mask_email(), etc.
+        ├── data_quality_check.sql   # row_count_check(), etc.
+        └── enrichment.sql           # apply_enrichment(rules)
 ```
 
 ---
@@ -213,7 +213,7 @@ Reference in your deployment's dbt project:
 
 ```yaml
 # dbt_project.yml
-name: 'application1_transformation'
+name: 'generic_transformation'
 
 # Reference shared macros
 packages:
@@ -224,7 +224,7 @@ Or copy macros to your project:
 
 ```bash
 cp -r gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros \
-      deployments/application1-transformation/dbt/macros/shared/
+      deployments/bigquery-to-mapped-product/dbt/macros/shared/
 ```
 
 ---

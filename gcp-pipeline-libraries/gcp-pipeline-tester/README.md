@@ -236,15 +236,15 @@ def test_bigquery_operations():
     results = mock.query("SELECT * FROM dataset.table")
 ```
 
-### PubSubMock
+### PubSubClientMock
 
 Mock Pub/Sub client for messaging.
 
 ```python
-from gcp_pipeline_tester.mocks import PubSubMock
+from gcp_pipeline_tester.mocks import PubSubClientMock
 
 def test_pubsub_operations():
-    mock = PubSubMock()
+    mock = PubSubClientMock()
     
     # Publish message
     mock.publish("projects/proj/topics/topic", {"event": "file_ready"})
@@ -317,16 +317,16 @@ Ready-to-use pytest fixtures for common testing scenarios.
 
 ```python
 import pytest
-from gcp_pipeline_tester.fixtures import sample_records, sample_config
+from gcp_pipeline_tester.fixtures import sample_records, sample_config_dict
 
 def test_with_sample_records(sample_records):
     """Use pre-generated sample records."""
     assert len(sample_records) > 0
     assert 'id' in sample_records[0]
 
-def test_with_config(sample_config):
-    """Use sample pipeline config."""
-    assert sample_config.pipeline_name == 'test_pipeline'
+def test_with_config(sample_config_dict):
+    """Use sample pipeline config dictionary."""
+    assert sample_config_dict['pipeline_name'] == 'test_pipeline'
 ```
 
 ### Available Fixtures
@@ -334,10 +334,9 @@ def test_with_config(sample_config):
 | Fixture | Description |
 |---------|-------------|
 | `sample_records` | List of sample record dictionaries |
-| `sample_config` | Sample PipelineConfig |
-| `gcs_mock` | GCSClientMock instance |
-| `bigquery_mock` | BigQueryClientMock instance |
-| `pubsub_mock` | PubSubMock instance |
+| `sample_config_dict` | Sample PipelineConfig dictionary |
+| `gcs_client_mock` | GCSClientMock instance |
+| `bq_client_mock` | BigQueryClientMock instance |
 | `test_pipeline` | Beam test pipeline |
 
 ---
@@ -596,7 +595,7 @@ gcp-pipeline-tester/
 | `GCSBucketMock` | Mock GCS bucket |
 | `BigQueryClientMock` | Mock BigQuery client |
 | `BigQueryTableMock` | Mock BigQuery table |
-| `PubSubMock` | Mock Pub/Sub client |
+| `PubSubClientMock` | Mock Pub/Sub client |
 
 ### Builders
 
@@ -618,7 +617,7 @@ gcp-pipeline-tester/
 
 ## Dependencies
 
-- Python 3.10+
+- Python 3.9+
 - pytest >= 7.0.0
 - google-cloud-bigquery >= 3.0.0
 - google-cloud-storage >= 2.0.0

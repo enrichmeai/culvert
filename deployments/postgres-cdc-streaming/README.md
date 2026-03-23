@@ -112,28 +112,15 @@ deployments/postgres-cdc-streaming/
 ├── src/
 │   └── streaming_pipeline/
 │       ├── __init__.py
-│       ├── config/
-│       │   ├── __init__.py
-│       │   ├── kafka_config.py   # Kafka connection settings
-│       │   └── pipeline_config.py
-│       ├── pipeline/
-│       │   ├── __init__.py
-│       │   ├── runner.py         # Main streaming pipeline
-│       │   ├── cdc_parser.py     # Parse Debezium CDC events
-│       │   ├── transforms.py     # Streaming transforms
-│       │   └── windows.py        # Windowing strategies
-│       ├── schema/
-│       │   ├── __init__.py
-│       │   └── customers.py      # Entity schema
-│       └── sinks/
+│       └── pipeline/
 │           ├── __init__.py
-│           ├── odp_sink.py       # BigQuery streaming sink
-│           └── fdp_sink.py       # FDP transformation sink
+│           ├── runner.py         # Main streaming pipeline
+│           ├── cdc_parser.py     # Parse Debezium CDC events
+│           ├── transforms.py     # Streaming transforms
+│           └── windows.py        # Windowing strategies
 └── tests/
     └── unit/
-        ├── test_cdc_parser.py
-        ├── test_transforms.py
-        └── test_windows.py
+        └── test_cdc_parser.py
 ```
 
 ---

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "postgres-cdc-streaming"
-version = "1.0.0"
+version = "1.0.28"
 description = "Real-time CDC streaming pipeline: PostgreSQL → Kafka → Beam → BigQuery"
 readme = "README.md"
 requires-python = ">=3.11"

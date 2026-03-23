@@ -28,7 +28,7 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 ## Module Contracts
 
-### `mocks.GCSMock`
+### `mocks.GCSClientMock`
 
 **Purpose:** In-memory GCS simulation for unit tests.
 
@@ -50,7 +50,7 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 ---
 
-### `mocks.BigQueryMock`
+### `mocks.BigQueryClientMock`
 
 **Purpose:** In-memory BigQuery simulation.
 
@@ -71,7 +71,7 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 ---
 
-### `mocks.PubSubMock`
+### `mocks.PubSubClientMock`
 
 **Purpose:** In-memory Pub/Sub simulation.
 
@@ -94,19 +94,18 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 | Fixture | Scope | Provides |
 |---------|-------|---------|
-| `gcs_mock` | function | `GCSMock` instance, reset per test |
-| `bq_mock` | function | `BigQueryMock` instance, reset per test |
-| `pubsub_mock` | function | `PubSubMock` instance, reset per test |
-| `beam_pipeline` | function | `TestPipeline` for running Beam transforms in tests |
-| `run_id` | function | Unique `run_id` string per test |
-| `test_project_id` | session | `"test-project"` constant |
+| `gcs_client_mock` | function | `GCSClientMock` instance, reset per test |
+| `bq_client_mock` | function | `BigQueryClientMock` instance, reset per test |
+| `test_pipeline` | function | `TestPipeline` for running Beam transforms in tests |
+| `sample_records` | function | List of sample data records |
+| `sample_config_dict` | function | Sample configuration dictionary |
 
 **Usage:**
 ```python
-def test_my_pipeline(gcs_mock, bq_mock, run_id):
-    gcs_mock.upload_blob("my-bucket", "input/data.csv", b"col1,col2\nval1,val2")
+def test_my_pipeline(gcs_client_mock, bq_client_mock):
+    gcs_client_mock.upload_blob("my-bucket", "input/data.csv", b"col1,col2\nval1,val2")
     # ... run pipeline ...
-    assert bq_mock.get_insert_count("my_table") == 1
+    assert bq_client_mock.get_insert_count("my_table") == 1
 ```
 
 ---
@@ -158,7 +157,7 @@ def test_my_pipeline(gcs_mock, bq_mock, run_id):
 
 ---
 
-### `base.BeamTestCase`
+### `base.BaseBeamTest`
 
 **Purpose:** Base class for Beam unit tests. Manages `TestPipeline` lifecycle.
 

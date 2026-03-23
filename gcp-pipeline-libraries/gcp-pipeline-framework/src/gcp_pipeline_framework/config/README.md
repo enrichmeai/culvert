@@ -2,7 +2,7 @@
 
 A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
 
-> **Last Updated:** March 2026 | **Version:** 1.0.10
+> **Last Updated:** March 2026 | **Version:** 1.0.28
 
 ---
 
@@ -237,9 +237,9 @@ This script:
 
 ## Architecture
 
-### 5-Library Model (Published as `gcp-pipeline-framework`)
+### 4-Library Model (Published as `gcp-pipeline-framework`)
 
-Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.10`) and are **not embedded** in this repository.
+Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.28`) and are **not embedded** in this repository.
 
 ```
 gcp-pipeline-core (Foundation — no Beam, no Airflow)

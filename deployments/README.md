@@ -186,8 +186,8 @@ dbt/
 │   │   ├── event_transaction_excess.sql    # JOIN: customers + accounts
 │   │   ├── portfolio_account_excess.sql    # MAP: decision only
 │   │   └── portfolio_account_facility.sql  # MAP: applications only
-│   ├── marts/                              # Aggregated business views
-│   └── analytics/                          # Reporting views
+│   ├── marts/                              # Aggregated business views (placeholder)
+│   └── analytics/                          # Reporting views (placeholder)
 └── macros/
     ├── data_quality_check.sql     # Data quality validation
     └── incremental_strategy.sql   # Incremental load logic
@@ -260,7 +260,7 @@ BigQuery CDP (multiple tables) → Parallel Reads → Segment → GCS (JSONL fil
 ```
 dbt/
 ├── models/
-│   └── fdp_spanner/
+│   └── fdp/                                    # Schema: fdp_spanner
 │       └── spanner_customer_summary.sql    # Federated query model
 └── dbt_project.yml                          # Connection configuration
 ```

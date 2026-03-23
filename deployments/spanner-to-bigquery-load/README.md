@@ -44,7 +44,7 @@ This deployment requires the following GCP infrastructure:
 - **Connection**: BigQuery Connection (Cloud Spanner type) to enable federated queries.
 - **Target**: BigQuery dataset `fdp_spanner`.
 
-For infrastructure definitions, see [infrastructure/terraform/systems/spanner/](../../infrastructure/terraform/systems/spanner/).
+For infrastructure definitions, see the infrastructure/terraform/ directory (Spanner-specific Terraform is not yet provisioned).
 
 ### dbt Configuration (`dbt_project.yml`)
 

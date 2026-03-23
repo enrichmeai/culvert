@@ -165,15 +165,15 @@ result = (
 **Purpose:** Parse mainframe-style header and trailer records to extract record counts and metadata.
 
 **Contract:**
-- `parse_header(line)` → `HeaderRecord` or raises `ParseError`
+- `parse_header(line)` → `HeaderRecord` or `None`
 - `parse_trailer(line)` → `TrailerRecord` with `record_count: int`
-- Supports configurable regex patterns via `HDRTRLConfig`
-- Regex patterns MUST be validated on `HDRTRLConfig` construction
+- `parse_file_lines(lines)` → validates structure; raises `ValueError` on malformed input
+- Supports configurable patterns via constructor args (`hdr_pattern`, `trl_pattern`, `hdr_prefix`, `trl_prefix`, `delimiter`)
 
 **Test scenarios:**
 - Standard header line → `HeaderRecord` with correct fields
 - Standard trailer line → `TrailerRecord` with correct `record_count`
-- Malformed line → raises `ParseError`
+- Malformed line → `parse_header` returns `None`; `parse_file_lines` raises `ValueError`
 - Custom regex pattern → correctly parsed
 
 ---
