@@ -10,7 +10,7 @@ models:
 
     config:
       tags: ["fdp", "generic", "join"]
-      materialized: table
+      materialized: incremental
       partition_by:
         field: _extract_date
         data_type: date
@@ -35,7 +35,7 @@ models:
         tests: [not_null]
       - name: _extract_date
         tests: [not_null]
-      - name: _transformed_ts
+      - name: _transformed_at
 
   - name: portfolio_account_excess
     description: |
@@ -45,7 +45,7 @@ models:
 
     config:
       tags: ["fdp", "generic", "map"]
-      materialized: table
+      materialized: incremental
       partition_by:
         field: _extract_date
         data_type: date
@@ -67,7 +67,7 @@ models:
         tests: [not_null]
       - name: _extract_date
         tests: [not_null]
-      - name: _transformed_ts
+      - name: _transformed_at
 
   - name: portfolio_account_facility
     description: |
@@ -77,17 +77,15 @@ models:
 
     config:
       tags: ["fdp", "generic", "map"]
-      materialized: table
+      materialized: incremental
       partition_by:
         field: _extract_date
         data_type: date
       cluster_by: [application_id, customer_id]
 
     columns:
-      - name: facility_key
-        tests: [not_null, unique]
       - name: application_id
-        tests: [not_null]
+        tests: [not_null, unique]
       - name: customer_id
       - name: loan_amount
       - name: interest_rate

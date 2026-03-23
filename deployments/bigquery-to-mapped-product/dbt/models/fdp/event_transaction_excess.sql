@@ -5,7 +5,7 @@
     partition_by={"field": "_extract_date", "data_type": "date"},
     cluster_by=['customer_id', 'account_id'],
     incremental_strategy='merge',
-    on_schema_change='fail',
+    on_schema_change='append_new_columns',
     tags=['fdp', 'generic', 'event']
   )
 }}
@@ -49,15 +49,15 @@ joined as (
 
         -- Audit columns
         c._run_id,
-        cast(substr(c._run_id, 5, 8) as date) as _extract_date,
-        current_timestamp() as _transformed_ts
+        c._extract_date,
+        current_timestamp() as _transformed_at
 
     from customers c
     inner join accounts a on c.customer_id = a.customer_id
 
     {% if is_incremental() %}
-    where c._processed_at > (select max(_transformed_ts) from {{ this }})
-       or a._processed_at > (select max(_transformed_ts) from {{ this }})
+    where c._processed_at > (select max(_transformed_at) from {{ this }})
+       or a._processed_at > (select max(_transformed_at) from {{ this }})
     {% endif %}
 )
 
