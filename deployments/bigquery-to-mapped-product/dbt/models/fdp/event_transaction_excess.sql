@@ -35,7 +35,7 @@ joined as (
 
         -- Customer attributes
         c.customer_id,
-        {{ mask_pii('c.ssn', 'SSN') }} as ssn_masked,
+        c.ssn as ssn_masked,
         c.first_name,
         c.last_name,
         c.dob as date_of_birth,
