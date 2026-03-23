@@ -7,10 +7,10 @@ for testing BigQuery, GCS, Pub/Sub, and Dataflow pipelines.
 Example:
     >>> from gcp_pipeline_tester import BasePipelineTest, BaseBeamTest
     >>> from gcp_pipeline_tester.builders import RecordBuilder
-    >>> from gcp_pipeline_tester.mocks import MockGCS, MockBigQuery
+    >>> from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
 """
 
-__version__ = "1.0.5"
+__version__ = "1.0.28"
 
 from .base import (
     TestResult,

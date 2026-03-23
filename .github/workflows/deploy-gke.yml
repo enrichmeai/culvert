@@ -15,7 +15,7 @@ name: Deploy to GKE (Alternative Orchestration)
 # Primary pattern:  deploy-generic.yml (Cloud Composer)
 # Alternative:      this workflow         (GKE self-hosted Airflow)
 #
-# Library: gcp-pipeline-framework==1.0.7 (from PyPI) — same as primary
+# Library: gcp-pipeline-framework (from PyPI) — same as primary
 # Deployments:
 #   1. original-data-to-bigqueryload  → Dataflow Flex Template
 #   2. bigquery-to-mapped-product     → dbt models
@@ -42,7 +42,7 @@ on:
           - staging
           - prod
       library_version:
-        description: 'Framework version (leave empty for 1.0.7)'
+        description: 'Framework version (leave empty for latest)'
         required: false
         default: ''
         type: string
@@ -62,7 +62,6 @@ env:
   GCP_REGION: 'europe-west2'
   GKE_CLUSTER: 'pipeline-cluster'
   GKE_ZONE: 'europe-west2-a'
-  FRAMEWORK_VERSION: '1.0.7'
 
 permissions:
   contents: read
@@ -95,15 +94,21 @@ jobs:
       version: ${{ steps.get-version.outputs.version }}
 
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: VERSION
+          sparse-checkout-cone-mode: false
+
       - name: Resolve gcp-pipeline-framework version
         id: get-version
         run: |
+          FALLBACK=$(cat VERSION | tr -d '[:space:]')
           if [ -n "${{ github.event.inputs.library_version }}" ]; then
             VERSION="${{ github.event.inputs.library_version }}"
           else
             FETCHED=$(pip index versions gcp-pipeline-framework 2>/dev/null \
               | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "")
-            VERSION="${FETCHED:-${{ env.FRAMEWORK_VERSION }}}"
+            VERSION="${FETCHED:-$FALLBACK}"
           fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Framework version: $VERSION"

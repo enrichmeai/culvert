@@ -69,8 +69,8 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 |-----------|---------|
 | `dbt/models/staging/generic/` | Staging models (clean raw data) |
 | `dbt/models/fdp/` | FDP models (JOIN and MAP logic) |
-| `dbt/models/marts/` | Marts models (aggregated views) |
-| `dbt/models/analytics/` | Analytics models (reporting views) |
+| `dbt/models/marts/` | Marts models - placeholder (empty) |
+| `dbt/models/analytics/` | Analytics models - placeholder (empty) |
 
 ### Key files
 
@@ -180,7 +180,7 @@ Use the library macro to ensure no unmasked PII exists in your models before dep
 ```
 
 ### 5. Cloud Execution
-In production, this unit is triggered by the `generic_odp_load_dag` once ingestion is successful. The transformation is executed via a `BashOperator` running `dbt run`.
+In production, this unit is triggered by the `generic_transformation_dag` once ingestion is successful. The transformation is executed via a `BashOperator` running `dbt run`.
 
 ---
 

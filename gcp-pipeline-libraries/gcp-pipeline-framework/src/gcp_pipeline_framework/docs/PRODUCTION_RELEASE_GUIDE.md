@@ -6,7 +6,7 @@ This guide is for senior developers and DevOps engineers responsible for releasi
 
 ## 1. Library-First Release Model
 
-The framework uses a **5-library model**. Libraries must be released and versioned before they can be consumed by production deployments. All libraries are published to **PyPI** and consumed via `pip install gcp-pipeline-framework`.
+The framework uses a **4-library model**. Libraries must be released and versioned before they can be consumed by production deployments. All libraries are published to **PyPI** and consumed via `pip install gcp-pipeline-framework`.
 
 ### 1.1 Core Libraries
 

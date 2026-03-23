@@ -138,9 +138,9 @@ The following architectural decisions underpin the E2E flow described in this do
 | **Pluggability** | Metadata Contract (`run_id` + `job_control`) | Any tool respecting the contract can replace Beam or dbt without redesigning orchestration |
 | **Infrastructure** | Single unified Terraform module | All GCS, BigQuery datasets, Pub/Sub, IAM provisioned from `infrastructure/terraform/main.tf`; BigQuery tables are application-managed |
 
-### Functional Library Split (5-Library Model)
+### Functional Library Split (4-Library Model)
 
-To ensure clean dependency management and independent scaling, the framework is split into five specialised libraries, all published to PyPI under `gcp-pipeline-framework`:
+To ensure clean dependency management and independent scaling, the framework is split into four specialised libraries (plus tester and umbrella package), all published to PyPI under `gcp-pipeline-framework`:
 
 1. **`gcp-pipeline-core`**: The lightweight foundation containing Audit Trails, Error Handling models, and Job Control interfaces. Zero dependencies on Beam or Airflow.
 2. **`gcp-pipeline-beam`**: The ingestion engine. Contains `BasePipeline`, `HDRTRLParser`, and GCS/BigQuery connectors. Used by Ingestion deployment units.
@@ -2072,7 +2072,7 @@ INSERT INTO reference.code_mappings VALUES
 
 SELECT
     c.customer_id,
-    {{ mask_ssn('c.ssn') }} AS ssn_masked,
+    {{ mask_pii('c.ssn', 'SSN') }} AS ssn_masked,
     UPPER(c.first_name) AS first_name,
     UPPER(c.last_name) AS last_name,
     a.account_id,
@@ -2135,9 +2135,14 @@ FROM {{ ref('stg_generic_decision') }}
     )
 {% endmacro %}
 
--- Macro: Mask SSN (show last 4 digits)
-{% macro mask_ssn(column) %}
-    CONCAT('XXX-XX-', RIGHT(REPLACE({{ column }}, '-', ''), 4))
+-- Macro: Mask PII using mask_with_suffix (show last 4 digits)
+{% macro mask_pii(column, pii_type) %}
+    CASE
+        WHEN '{{ pii_type }}' IN ('SSN', 'ID_SUFFIX') THEN {{ mask_with_suffix(column) }}
+        WHEN '{{ pii_type }}' = 'EMAIL' THEN {{ mask_email(column) }}
+        WHEN '{{ pii_type }}' = 'FULL' THEN {{ mask_full(column) }}
+        ELSE {{ column }}
+    END
 {% endmacro %}
 
 -- Macro: Parse mainframe date (YYYYMMDD to DATE)

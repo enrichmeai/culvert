@@ -59,8 +59,11 @@ deployments/fdp-to-consumable-product/
 │       │   ├── stg_fdp_portfolio_account_excess.sql
 │       │   └── stg_fdp_portfolio_account_facility.sql
 │       └── cdp/                 # CDP output table
-│           ├── _cdp_models.yml
+│           ├── _generic_cdp_models.yml
 │           └── customer_risk_profile.sql
+├── dbt/
+│   └── macros/
+│       └── cdp_quality_checks.sql
 └── tests/
 ```
 
@@ -89,6 +92,6 @@ dbt test
 cd /path/to/gcp-pipeline-reference
 gcloud builds submit \
   --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
-  --substitutions _LIBRARY_VERSION=1.0.7 \
+  --substitutions _LIBRARY_VERSION=1.0.28 \
   .
 ```

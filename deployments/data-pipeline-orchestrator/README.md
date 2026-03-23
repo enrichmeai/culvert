@@ -120,9 +120,10 @@ The DAGs use several Airflow variables and connections:
 | DAG | Purpose |
 |-----|---------|
 | `generic_pubsub_trigger_dag.py` | Triggered by Pub/Sub on .ok file arrival |
-| `generic_odp_load_dag.py` | Runs Dataflow for ODP load and checks entity dependencies |
-| `generic_fdp_transform_dag.py` | Runs dbt for FDP transformation |
+| `generic_ingestion_dag.py` | Runs Dataflow for ODP load and checks entity dependencies |
+| `generic_transformation_dag.py` | Runs dbt for FDP transformation |
 | `generic_error_handling_dag.py` | Error handling and DLQ |
+| `generic_pipeline_status_dag.py` | Pipeline status monitoring |
 
 ---
 
@@ -148,7 +149,7 @@ You can validate DAG syntax locally:
 source deployments/data-pipeline-orchestrator/venv/bin/activate
 
 # Validate syntax
-python dags/data_ingestion_dag.py
+python dags/generic_pubsub_trigger_dag.py
 ```
 
 ### 2. Testing End-to-End Flow

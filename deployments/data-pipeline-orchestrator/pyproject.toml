@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-orchestration"
-version = "1.0.14"
+version = "1.0.28"
 description = "GCP Pipeline Reference: Generic Orchestration - Airflow DAGs for Cloud Composer (JOIN + MAP patterns)"
 readme = "README.md"
 license = {text = "MIT"}

@@ -224,3 +224,111 @@ Cloud Functions, local scripts.
 - `generate_run_id("")` raises `ValueError`
 - `validate_run_id("job_20260101_120000_ab12cd34")` → `True`
 - `validate_run_id("invalid")` → `False`
+
+---
+
+### `monitoring.MetricsCollector`
+
+**Purpose:** Thread-safe metric collection. Stores counters, gauges, histograms, and timers in memory.
+
+**Contract:**
+
+| Method | Precondition | Postcondition |
+|--------|-------------|---------------|
+| `increment(name, value=1)` | `value ≥ 0` | Counter increases by `value`; `MetricValue` appended to history |
+| `set_gauge(name, value)` | — | Gauge set to exact `value` |
+| `record_histogram(name, value)` | — | Value added to distribution; retrievable in `get_statistics()` |
+| `start_timer()` | — | Returns `TimerContext`; on `__exit__`, records duration |
+| `get_statistics()` | — | Returns dict with all counters, gauges, histogram summaries (min/max/avg/count) |
+
+**Test scenarios:**
+- `increment("x", 5)` three times → counter value is 15
+- `get_statistics()` returns histogram with correct min/max/avg
+- Thread-safe: concurrent increments do not lose counts
+
+---
+
+### `monitoring.MigrationMetrics`
+
+**Purpose:** Standardized metric names for pipeline stages. Wraps `MetricsCollector` with convenience methods.
+
+**Contract:**
+
+| Method | Metric Name | Type |
+|--------|------------|------|
+| `record_read(count)` | `records_read` | counter |
+| `record_validated(count)` | `records_validated` | counter |
+| `record_failed(count, error_type)` | `records_failed` | counter |
+| `record_written(count)` | `records_written` | counter |
+| `record_cost(cost_usd)` | `finops_estimated_cost_usd` | gauge |
+| `get_summary()` | — | Returns dict with `counts`, `rates`, `finops`, `duration` |
+| `to_job_record()` | — | Returns dict suitable for `pipeline_jobs` table update |
+
+---
+
+### `monitoring.HealthChecker`
+
+**Purpose:** Assess pipeline health from MetricsCollector data.
+
+**Contract:**
+
+| Check | Threshold | Returns `True` when |
+|-------|-----------|-------------------|
+| `check_record_processing()` | — | `records_processed > 0` |
+| `check_error_rate(threshold=0.1)` | 10% default | `error_count / processed_count ≤ threshold` |
+| `check_queue_depth(max=1000)` | 1000 default | `queue_depth gauge ≤ max` |
+| `check_processing_time(max=3600)` | 1 hour default | `uptime_seconds ≤ max` |
+| `check_memory_usage(max=1024)` | 1GB default | `memory_usage_mb gauge ≤ max` |
+
+- `run_all_checks()` runs all 5; stores results
+- `is_healthy()` returns `True` only if ALL checks passed
+
+---
+
+### `monitoring.AlertManager`
+
+**Purpose:** Create and dispatch alerts to pluggable backends.
+
+**Contract:**
+
+| Method | Postcondition |
+|--------|--------------|
+| `create_alert(level, title, message, source, ...)` | Alert created with unique ID; sent to all backends; appended to history |
+| `get_recent_alerts(minutes=60, level=None)` | Returns alerts from last N minutes; optionally filtered by level |
+
+**Backend contract** (`AlertBackend` ABC):
+- `send_alert(alert) → bool` — returns `True` on success, `False` on failure (MUST NOT raise)
+
+**Implemented backends:**
+
+| Backend | Status | External Service |
+|---------|--------|-----------------|
+| `LoggingAlertBackend` | Production | Python logging |
+| `SlackAlertBackend` | Production | Slack Webhooks (Block Kit) |
+| `DynatraceAlertBackend` | Production | Events API v2 |
+| `ServiceNowAlertBackend` | Production | Table API (incident creation) |
+| `CloudMonitoringBackend` | Partial | Google Cloud Monitoring |
+| `DatadogAlertBackend` | Stub | Datadog API |
+
+---
+
+### `monitoring.otel` — OpenTelemetry Integration
+
+**Purpose:** Distributed tracing and metrics export. Optional — all calls degrade to no-ops when OTEL SDK is not installed.
+
+**Contract:**
+
+| Function/Class | Postcondition |
+|---------------|--------------|
+| `configure_otel(config)` | Initializes global `OTELProvider`; returns `True` on success |
+| `get_tracer(name)` | Returns OTEL Tracer or `_NoOpTracer` if unavailable |
+| `get_meter(name)` | Returns OTEL Meter or `_NoOpMeter` if unavailable |
+| `@trace_function(span_name)` | Creates span per function call; records exception on error |
+| `@trace_beam_dofn` | Wraps DoFn `process()` method; creates span per element |
+| `OTELContext(run_id, system_id)` | Context manager; creates root span; `span()` creates children |
+| `OTELMetricsBridge(collector)` | Forwards all metric ops to BOTH `MetricsCollector` AND OTEL |
+
+**Graceful degradation guarantee:**
+- If `opentelemetry` package is not installed, `is_otel_available()` returns `False`
+- All tracing/metrics calls become zero-cost no-ops
+- No `ImportError` or runtime exception

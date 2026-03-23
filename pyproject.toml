@@ -3,16 +3,11 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gcp-pipeline-framework"
-version = "1.0.1"
-description = "GCP Migration Framework - Monorepo root for IDE context help"
+name = "gcp-pipeline-reference"
+version = "1.0.28"
+description = "GCP Pipeline Reference - Monorepo root for unified IDE context"
 requires-python = ">=3.9"
-# Note: Internal monorepo packages are not listed as PEP 621 dependencies because they are not
-# published to PyPI. They are installed locally via scripts/setup_deployment_venv.sh or by
-# installing each subpackage from gcp-pipeline-libraries/ and deployments/ in editable mode.
-# Keeping this list empty prevents pip from trying to fetch non-existent distributions.
 dependencies = []
-
 
 [tool.setuptools.packages.find]
 where = [
@@ -21,8 +16,10 @@ where = [
     "gcp-pipeline-libraries/gcp-pipeline-orchestration/src",
     "gcp-pipeline-libraries/gcp-pipeline-transform/src",
     "gcp-pipeline-libraries/gcp-pipeline-tester/src",
-    "deployments/em-ingestion/src",
-    "deployments/loa-ingestion/src"
+    "gcp-pipeline-libraries/gcp-pipeline-framework/src",
+    "deployments/original-data-to-bigqueryload/src",
+    "deployments/data-pipeline-orchestrator",
+    "deployments/mainframe-segment-transform/src",
 ]
 
 [project.optional-dependencies]
@@ -38,5 +35,11 @@ dev = [
     "google-cloud-storage>=2.0.0",
     "google-cloud-pubsub>=2.0.0",
     "apache-airflow>=2.8.0",
+    "apache-airflow-providers-google>=10.1.0",
     "dbt-bigquery>=1.7.0",
+    "pydantic>=2.0.0",
+    "PyYAML>=6.0",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "pandas",
 ]

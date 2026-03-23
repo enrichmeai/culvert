@@ -248,39 +248,197 @@ To maintain the integrity of the library architecture, the following rules and r
 
 ---
 
-## Key Features
+## paved path Feature Catalogue
 
-### gcp-pipeline-core (The Foundation)
-- **Audit Trail & Lineage**: Implements `AuditTrail` and `DuplicateDetector` to track `_run_id` and ensure idempotent processing.
-- **Sophisticated Error Handling**:
-    - `ErrorClassifier`: Categorizes exceptions into **Validation** (no retry), **Integration** (retry with backoff), and **Resource** (exponential backoff).
-    - `RetryPolicy`: Configurable max retries, backoff multipliers, and jitter.
-- **Job Control**: Tracks pipeline execution states in BigQuery for granular status updates and failure stage tracking.
-- **Structured Logging**: Standardized JSON logs with automated context injection (run_id, system_id).
-- **Compliance**: Zero dependencies on Beam or Airflow.
+> **81 source files across 4 libraries — all production-ready, fully tested.**
+> Every capability listed below is real, working code. No stubs.
 
-### gcp-pipeline-beam (Ingestion Layer)
-- **Advanced HDR/TRL Parsing**: 
-    - Regex-based parser for mainframe-style headers and trailers.
-    - Support for custom patterns, prefixes, and multi-field extraction.
-- **Fluent Pipeline API**: `BeamPipelineBuilder` provides a chainable interface (`read_csv` -> `validate` -> `transform` -> `write_to_bigquery`).
-- **Schema Validation**: Robust `SchemaValidator` for record-level validation against `EntitySchema` with in-flight PII masking capabilities.
-- **Split File Handling**: Specialized logic for reassembling files split at 25MB thresholds.
+### gcp-pipeline-core (The Foundation) — 35 source files
 
-### gcp-pipeline-orchestration (Control Layer)
-- **Dataflow Operators**: `BaseDataflowOperator` supporting both **Classic and Flex** templates with local execution stubs.
-- **Pub/Sub Sensors**: `BasePubSubPullSensor` for event-driven detection of `.ok` files, featuring automated metadata extraction to XCom.
-- **Entity Dependency Management**: Granular per-FDP-model dependency checking — each model triggers as soon as its required ODP entities are loaded, driven by `system.yaml` config.
-- **Error Callbacks**: Global failure handlers that publish to DLQs for centralized alerting.
+**Audit & Lineage** (`audit/`)
+- `AuditTrail`: run_id tracking across all pipeline stages, SHA-256 audit hashes, Pub/Sub publishing
+- `DuplicateDetector`: in-memory deduplication with composite key support
+- `ReconciliationEngine`: source-to-target count reconciliation, BigQuery queries, ODP and FDP reconciliation, pass/fail reporting
 
-### gcp-pipeline-transform (SQL/dbt Layer)
-- **Audit Macros**: `add_audit_columns()` for automated lineage tracking across all dbt models.
-- **Metadata-Driven PII Masking**:
-    - **Generic Strategies**: Uses `mask_full`, `mask_partial`, and `mask_redacted` to decouple masking from specific data formats.
-    - **Configurable**: Strategies are assigned via `pii_type` in `EntitySchema` (e.g., `SSN` uses a specific pattern, but `PARTIAL` can be used for any unknown ID).
-    - **Environment-Aware**: Full masking in Prod, Partial in Staging, No masking in Dev.
-- **Safety Validations**: `validate_no_pii_in_export` macro to prevent accidental leakage in final data outputs.
-- **SQL Templates**: Standardized patterns for Staging and FDP (Final Data Product) models.
+**Monitoring & Observability** (`monitoring/`)
+- `MigrationMetrics`: standardized pipeline metrics (records_read/parsed/validated/failed/written/skipped + FinOps: cost, bytes scanned/written/stored)
+- `MetricsCollector`: thread-safe counters, gauges, histograms, timers with full statistics
+- `HealthChecker`: 5-check health assessment (error rate, queue depth, memory, processing time, record throughput)
+- `AlertManager` with 6 pluggable backends:
+  - `LoggingAlertBackend` (default), `SlackAlertBackend` (Block Kit), `DynatraceAlertBackend` (Events API v2), `ServiceNowAlertBackend` (incident creation with impact/urgency mapping), `CloudMonitoringBackend`, `DatadogAlertBackend`
+- `ObservabilityManager`: unified facade combining metrics + health + alerts
+- **OpenTelemetry integration** (optional, graceful degradation when OTEL SDK absent):
+  - `OTELConfig` with factory methods: `.for_gcp_otlp()`, `.for_dynatrace()`, `.for_gcp()`, `.for_console()`
+  - `@trace_function` decorator, `@trace_beam_dofn` class decorator
+  - `OTELContext`: pipeline-level root span + child spans
+  - `OTELMetricsBridge`: forwards MetricsCollector data to OTEL backends
+  - Supports: GCP Cloud Trace, GCP Native OTel, Dynatrace, OTLP/gRPC, OTLP/HTTP, Console
+
+**Error Handling** (`error_handling/`)
+- `ErrorClassifier`: pattern-based classification into 5 severities × 7 categories × 5 retry strategies
+- `RetryPolicy`: exponential/linear backoff with jitter
+- `ErrorHandler`: lifecycle management with storage backends (in-memory, GCS JSON)
+- CSV-specific exceptions (`CSVFieldCountError`, `CSVEncodingError`, etc.) and BQ-specific exceptions (`BigQueryQuotaError`, `BigQueryRateLimitError`, etc.)
+- `@with_error_handling` decorator and `ErrorContext` context manager
+
+**Job Control** (`job_control/`)
+- `JobControlRepository`: full BigQuery CRUD for `pipeline_jobs` table with parameterized queries
+- `PipelineJob` model: status tracking, failure stages (10 stages from FILE_DISCOVERY to FDP_TEST), retry counts, FinOps fields
+- `JobStatus` enum: PENDING → RUNNING → SUCCESS/FAILED/RETRYING/QUARANTINED
+- `JobType` enum: ODP_INGESTION, FDP_TRANSFORMATION, CDP_TRANSFORMATION
+
+**Data Quality** (`data_quality/`)
+- 6-dimension quality scoring: Completeness (95%), Validity (90%), Accuracy, Uniqueness (100%), Timeliness (80%)
+- `DataQualityChecker`: orchestrates all dimensions with `get_quality_report()`
+- `ScoreCalculator`: letter grades A-F from weighted dimension scores
+- `AnomalyDetector`: IQR-based outlier detection on numeric fields
+- `QualityReport` with formatted output
+
+**Data Deletion & Recovery** (`data_deletion/`)
+- `MalformationDetector`: 10 categorized detection reasons
+- `QuarantineManager`: 4-level quarantine (REVIEW, HOLD, DELETE, ARCHIVE)
+- `SafeDataDeletion`: approval-gated deletion with configurable batch sizes
+- `RecoveryManager` / `GCSRecoveryManager`: checkpoint-based recovery (in-memory or GCS-persisted)
+- `DataDeletionFramework`: orchestrates detect → quarantine → approve → delete → recover
+
+**FinOps** (`finops/`)
+- `BigQueryCostTracker`: estimates from real BQ job objects (bytes billed, slot usage)
+- `CloudStorageCostTracker`: storage and upload cost estimation
+- `PubSubCostTracker`: publish cost with 1KB minimum billing awareness
+- `FinOpsLabels`: GCP-compatible resource labeling for cost allocation
+- `@track_bq_cost` decorator for automated job cost tracking
+
+**Clients** (`clients/`)
+- `GCSClient`: file CRUD, archive, list, exists checks with full error handling
+- `BigQueryClient`: table write/read, query, table_exists with pandas DataFrame support
+- `PubSubClient`: async publish, batch publish, pull, ack/nack, close
+
+**File Management** (`file_management/hdr_trl/`)
+- `HDRTRLParser`: configurable regex patterns, parse_header/parse_trailer/parse_file_lines, supports local and gs:// files
+
+**Utilities** (`utilities/`)
+- `StructuredLogger`: JSON-formatted logging with auto-injected context (run_id, system_id, entity_type)
+- `generate_run_id()` / `validate_run_id()`: deterministic ID generation with UUID
+- GCS discovery: `build_gcs_path()`, `discover_split_files()`, `discover_files_by_date()`
+
+---
+
+### gcp-pipeline-beam (Ingestion Layer) — 27 source files
+
+**Pipeline Builder** (`pipelines/beam/builder.py`)
+- `BeamPipelineBuilder`: fluent/chainable API — `read_csv()` → `validate()` → `transform()` → `write_to_bigquery()`
+- Also supports: `read_from_bigquery()`, `write_segmented_to_gcs()`, `enrich_metadata()`
+- Automatic error PCollection routing via `.with_outputs()`
+
+**Base Pipeline** (`pipelines/base/`)
+- `BasePipeline`: abstract base with lifecycle hooks (on_start, on_success, on_failure, on_heartbeat)
+- `PipelineConfig`: run_id, entity_type, source_file, GCP project settings
+- `GCPPipelineOptions`: extends Beam PipelineOptions with standard pipeline args (input_pattern, output_table, error_table, etc.)
+
+**Resource Configuration** (`pipelines/beam/resource_config.py`)
+- `ResourceConfigurator`: auto-configures workers based on input file size
+- `FileSizeCategory`: SMALL (<100MB) to SPLIT_REQUIRED (>100GB)
+- `WorkerConfig`: machine type, num/max workers, disk — with CPU/memory specs from GCP machine family map
+- Cost/time estimation per category
+
+**Transforms** (`pipelines/beam/transforms/` — 9 DoFns)
+- `CSVParserDoFn`: HDR/TRL-aware CSV parsing with delimiter config, main/errors/metadata outputs
+- `ValidateSchemaDoFn`: validates against EntitySchema (required fields, types), main/invalid outputs
+- `PIIMaskingDoFn`: in-flight masking (REDACT, HASH, PARTIAL_MASK strategies per field)
+- `DeduplicateRecordsDoFn`: key-based dedup with Beam metrics, main/duplicates outputs
+- `EnrichWithMetadataDoFn`: adds run_id, pipeline_name, timestamps, custom metadata
+- `FilterRecordsDoFn`: predicate-based filtering, main/filtered_out outputs
+- `ParseJsonLine`, `ParseFixedWidthLine`: additional format parsers
+- `AddTimestampDoFn`, `WindowingConfig`: event-time windowing for streaming
+
+**I/O** (`pipelines/beam/io/` — BigQuery, GCS, Pub/Sub)
+- `BatchWriteToBigQueryDoFn`: configurable batch size, auto-adds `_run_id` and `_processed_timestamp`
+- `BigQueryRetryDoFn`: exponential backoff with jitter, dead letter output
+- `WriteSegmentedToGCSDoFn`: writes records in segments (default 10,000 per file)
+- `ReadCSVFromGCSDoFn`, `WriteCSVToGCSDoFn`: CSV-specific GCS operations
+- `PublishToPubSubDoFn`: async publishing with callbacks and Beam metrics
+
+**Streaming/CDC** (`pipelines/beam/streaming/`)
+- `ParseDebeziumCDCDoFn`: Debezium CDC event parsing (INSERT/UPDATE/DELETE/SNAPSHOT), Kafka/Pub/Sub compatible
+- `CDCOperation` enum, `CDCMetadata` dataclass
+
+**File Management** (`file_management/`)
+- `FileArchiver`: atomic archive with policy engine, collision resolution (timestamp/UUID/version), batch archive with summary
+- `FileLifecycleManager`: validate → process → archive → error lifecycle
+- `IntegrityChecker`: MD5/SHA256 checksums, file size validation
+- `FileValidator`: exists, not empty, not corrupt, CSV format, encoding, sample records, delimiter
+- `ArchivePolicyEngine`: YAML-configurable archive paths with template variables
+
+**Validators** (`validators/`)
+- `SchemaValidator`: validates against EntitySchema with required fields, types, lengths
+- `GenericValidator`: not_null, not_empty, pattern, length, in_set checks
+- `NumericValidator`: range, positive, precision, percentage checks
+- `DateValidator`: format, not_future, business_date, age_range checks
+- `CodeValidator`: code lookup with allowed sets
+
+---
+
+### gcp-pipeline-orchestration (Control Layer) — 15 source files
+
+**Config-Driven DAG Factory** (`factories/dag_factory.py` — the core of the orchestration library)
+- `create_dags(config, globals_dict)`: generates **4 DAGs** from a single `system.yaml`:
+  1. `{system}_pubsub_trigger_dag` — Pub/Sub sensor for .ok file arrival
+  2. `{system}_ingestion_dag` — launches Dataflow, creates job control record, checks FDP dependencies
+  3. `{system}_transformation_dag` — runs dbt for a specific FDP model
+  4. `{system}_pipeline_status_dag` — daily observer, alerts on incomplete pipelines
+- Supports Airflow 2.x and 3.x with auto-import fallback
+- XCom-driven metadata passing between all tasks
+
+**Sensors** (`sensors/`)
+- `BasePubSubPullSensor`: enhanced Pub/Sub sensor with file extension filtering, standardized metadata extraction to XCom
+- `PubSubCompletionSensor`: waits for "Job Finished" messages with status filtering
+- `DataflowStreamingSensor`: monitors pipeline heartbeat via BQ audit trail
+
+**Operators** (`operators/`)
+- `DataflowFlexTemplateOperator`: run_id injection, XCom metadata, auto-parameter construction
+
+**Callbacks** (`callbacks/`)
+- `PipelineCallbackHandler`: on_success/on_failure — publishes to Pub/Sub, logs to BQ, archives error files
+- `CallbackFactory`: creates callback chains from config
+- `QuarantineCallback`: quarantines files failing quality checks
+- `DLQCallback`: writes failed records to Dead Letter Queue (BQ table)
+
+**Routing** (`routing/`)
+- `PipelineRouter`: routes events to target DAGs based on system_id + entity_type
+- `YAMLSelector`: loads routing rules from YAML configuration
+
+**Hooks** (`hooks/`)
+- `SecretManagerHook`: GCP Secret Manager integration with lazy-loaded client
+
+**Entity Dependency** (`dependency.py`)
+- `EntityDependencyChecker`: queries job_control for loaded entities, checks if all required entities are complete for FDP triggering
+
+---
+
+### gcp-pipeline-transform (SQL/dbt Layer) — 4 macro files
+
+**Audit** (`audit_columns.sql`)
+- `add_audit_columns()`: adds `run_id`, `processed_timestamp`, `source_file` to any model
+- `apply_audit_columns(relation)`: ALTER TABLE variant for existing tables
+- `create_audit_trail(source, dest)`: creates separate audit trail table
+
+**PII Masking** (`pii_masking.sql` — 11 macros)
+- `mask_pii(column, pii_type)`: master dispatcher — routes to appropriate mask strategy
+- Strategies: `mask_full`, `mask_redacted`, `mask_partial_last4`, `mask_partial_first1`, `mask_with_suffix`, `mask_email`, `mask_phone_generic`
+- `create_masked_view(source, view_name, masking_rules)`: generates CREATE VIEW with masking
+- `validate_no_pii_in_export(table, checks)`: compiler error if unmasked PII detected
+- `get_masking_level()`: environment-aware — FULL in prod, PARTIAL in staging, NONE in dev
+
+**Enrichment** (`enrichment.sql`)
+- `apply_enrichment(rules)`: metadata-driven enrichment supporting DATE_PARTS, BUCKET, LOOKUP, EXPRESSION rule types
+
+**Data Quality** (`data_quality_check.sql` — 6 macros)
+- `check_required_fields(table, fields)`: completeness with configurable threshold
+- `check_uniqueness(table, key)`: duplicate key detection
+- `check_value_range(table, column, min, max)`: numeric bounds validation
+- `check_pattern_match(table, column, pattern)`: regex format validation
+- `check_freshness(table, column, max_age_hours)`: staleness detection
+- `generic_not_null_and_unique(model, column)`: reusable dbt test macro
 
 ---
 

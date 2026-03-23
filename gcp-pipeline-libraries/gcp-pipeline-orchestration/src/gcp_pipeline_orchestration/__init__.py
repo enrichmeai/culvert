@@ -33,6 +33,8 @@ Example:
     ```
 """
 
+__version__ = "1.0.28"
+
 # Non-Airflow modules: safe to import anywhere
 from .factories import (
     DAGFactory,

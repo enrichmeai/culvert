@@ -28,7 +28,7 @@ Control library - Airflow DAGs, sensors, operators.
   │  │                    Operators                             │    │
   │  │  • BatchDataflowOperator (start batch ingestion)         │    │
   │  │  • StreamingDataflowOperator (start streaming)           │    │
-  │  │  • ReconciliationOperator (validate counts)             │    │
+  │  │  • DbtOperator (trigger dbt transformations)             │    │
   │  └─────────────────────────────────────────────────────────┘    │
   │                              │                                   │
   │                              ▼                                   │

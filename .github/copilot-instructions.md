@@ -7,7 +7,7 @@ This is a **standardized legacy-to-GCP data migration framework** (the "Generic 
 The platform is officially supported by multiple teams across the **the enterprise platform** and enforces a strict separation between reusable infrastructure (libraries) and system-specific configuration (deployments).
 
 ### Tech Stack
-- **Runtime**: Python 3.11+
+- **Runtime**: Python 3.9+
 - **Data Processing**: Apache Beam (Dataflow runner)
 - **Orchestration**: Apache Airflow (Cloud Composer)
 - **Cloud Services**: GCP (BigQuery, GCS, Pub/Sub, Dataflow)

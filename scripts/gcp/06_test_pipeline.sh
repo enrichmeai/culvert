@@ -69,7 +69,8 @@ DEC003,CUST003,DECLINED,450,2025-01-13
 TRL|RecordCount=3|Checksum=ghi789
 EOF
 
-    BUCKET="gs://${PROJECT_ID}-generic-landing"
+    ENV="${PIPELINE_ENV:-int}"
+    BUCKET="gs://${PROJECT_ID}-generic-${ENV}-landing"
     TOPIC="generic-file-notifications"
 
     echo ""
@@ -116,7 +117,8 @@ APP003,CUST003,AUTO,25000.00,DECLINED,2025-01-13
 TRL|RecordCount=3|Checksum=loa123
 EOF
 
-    BUCKET_NAME="${PROJECT_ID}-generic-landing"
+    ENV="${PIPELINE_ENV:-int}"
+    BUCKET_NAME="${PROJECT_ID}-generic-${ENV}-landing"
     BUCKET="gs://${BUCKET_NAME}"
     TOPIC="generic-file-notifications"
     FILE="/tmp/generic_applications_${DATE}.csv"
@@ -157,7 +159,7 @@ echo "==============================================${NC}"
 echo ""
 echo "Monitor with:"
 echo "  # Check files in bucket"
-echo "  gsutil ls gs://${PROJECT_ID}-generic-landing/generic/"
+echo "  gsutil ls gs://${PROJECT_ID}-generic-${PIPELINE_ENV:-int}-landing/generic/"
 echo ""
 echo "  # Check Pub/Sub messages"
 echo "  gcloud pubsub subscriptions pull ${DEPLOYMENT}-file-notifications-sub --auto-ack"
