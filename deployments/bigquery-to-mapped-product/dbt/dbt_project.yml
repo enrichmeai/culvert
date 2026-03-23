@@ -34,6 +34,9 @@ vars:
   # GCP project
   gcp_project_id: "{{ env_var('GCP_PROJECT_ID') }}"
 
+  # PII masking: NONE for dev/int, PARTIAL for staging, FULL for prod
+  masking_level: "NONE"
+
   # Consolidated datasets
   source_dataset: "odp_generic"
   staging_dataset: "stg_generic"

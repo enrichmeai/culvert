@@ -58,6 +58,7 @@ cleaned as (
         _run_id,
         _source_file,
         _processed_at,
+        _extract_date,
 
         -- Derived
         current_timestamp() as dbt_updated_at
