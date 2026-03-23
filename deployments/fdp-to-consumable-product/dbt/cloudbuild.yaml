@@ -4,14 +4,14 @@ steps:
   env:
   - 'GCP_PROJECT_ID=$_PROJECT_ID'
   - 'RUN_ID=$BUILD_ID'
-  args: ['run', '--target', 'int', '--profiles-dir', '.']
+  args: ['run', '--target', 'int', '--profiles-dir', '.', '--vars', '{"gcp_project_id": "$_PROJECT_ID"}']
 
 - name: 'gcr.io/$PROJECT_ID/generic-cdp-transformation:latest'
   dir: '/app/deployments/fdp-to-consumable-product/dbt'
   env:
   - 'GCP_PROJECT_ID=$_PROJECT_ID'
   - 'RUN_ID=$BUILD_ID'
-  args: ['test', '--target', 'int', '--profiles-dir', '.']
+  args: ['test', '--target', 'int', '--profiles-dir', '.', '--vars', '{"gcp_project_id": "$_PROJECT_ID"}']
 
 options:
   logging: CLOUD_LOGGING_ONLY
