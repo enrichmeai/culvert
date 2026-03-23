@@ -33,7 +33,7 @@ Example:
     ```
 """
 
-__version__ = "1.0.28"
+__version__ = "1.0.29"
 
 # Non-Airflow modules: safe to import anywhere
 from .factories import (

@@ -25,7 +25,7 @@
 
   Framework integration (gcp-pipeline-transform shared macros):
   - PII masking: ssn_masked arrives pre-masked from FDP layer via mask_pii()
-  - Audit columns: _run_id lineage from ingestion, _cdp_transformed_ts
+  - Audit columns: _run_id lineage from ingestion, _cdp_transformed_at
   - Data quality: validated via cdp_quality_checks macros (segment, completeness, PII)
 */
 
@@ -89,16 +89,16 @@ joined as (
         -- Audit columns
         e._run_id,
         e._extract_date,
-        current_timestamp() as _cdp_transformed_ts
+        current_timestamp() as _cdp_transformed_at
 
     from events e
     left join portfolio p on e.customer_id = p.customer_id
     left join facility  f on e.customer_id = f.customer_id
 
     {% if is_incremental() %}
-    where e._transformed_ts > (select max(_cdp_transformed_ts) from {{ this }})
-       or p._transformed_ts > (select max(_cdp_transformed_ts) from {{ this }})
-       or f._transformed_at > (select max(_cdp_transformed_ts) from {{ this }})
+    where e._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
+       or p._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
+       or f._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
     {% endif %}
 )
 

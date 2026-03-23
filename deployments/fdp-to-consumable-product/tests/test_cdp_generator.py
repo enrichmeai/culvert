@@ -77,7 +77,7 @@ class TestGenerateCdpStagingModel:
         assert "ssn_masked" in sql
         assert "_run_id" in sql
         assert "_extract_date" in sql
-        assert "_transformed_ts" in sql
+        assert "_transformed_at" in sql
 
 
 class TestGenerateFdpSourcesYaml:

@@ -19,7 +19,7 @@ Supplementary packages:
 - `gcp-pipeline-tester` — Testing toolkit (mocks, fixtures, base test classes)
 - `gcp-pipeline-framework` — Umbrella package that installs all libraries
 
-Libraries are versioned at **1.0.28**. Reference packages (`gcp-pipeline-ref-ingestion`, `gcp-pipeline-ref-transform`, `gcp-pipeline-ref-orchestration`) are at **1.0.14**.
+Libraries are versioned at **1.0.29**. Reference packages (`gcp-pipeline-ref-ingestion`, `gcp-pipeline-ref-transform`, `gcp-pipeline-ref-orchestration`) are at **1.0.14**.
 
 ## Data Layer Hierarchy
 

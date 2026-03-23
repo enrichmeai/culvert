@@ -2,7 +2,7 @@
 
 Control library - Airflow DAGs, sensors, operators.
 
-**Depends on:** `gcp-pipeline-core`  
+**Depends on:** `gcp-pipeline-core`
 **NO Apache Beam dependency.**
 
 ---
@@ -28,7 +28,6 @@ Control library - Airflow DAGs, sensors, operators.
   │  │                    Operators                             │    │
   │  │  • BatchDataflowOperator (start batch ingestion)         │    │
   │  │  • StreamingDataflowOperator (start streaming)           │    │
-  │  │  • DbtOperator (trigger dbt transformations)             │    │
   │  └─────────────────────────────────────────────────────────┘    │
   │                              │                                   │
   │                              ▼                                   │
@@ -186,7 +185,7 @@ The DAG factory reads `system.yaml` and generates DAGs with the correct per-mode
 | `operators/` | Custom operators | `BatchDataflowOperator`, `StreamingDataflowOperator` |
 | `factories/` | DAG generation | `DAGFactory` |
 | `callbacks/` | Error handlers | `on_failure_callback`, `publish_to_dlq` |
-| `routing/` | Pipeline routing | `PipelineRouter` |
+| `routing/` | Pipeline routing | `DAGRouter` |
 | `dependency.py` | Entity dependency | `EntityDependencyChecker` |
 
 ---
@@ -214,7 +213,7 @@ The DAG factory reads `system.yaml` and generates DAGs with the correct per-mode
 The framework implements a two-tier error handling strategy: **Immediate Capture** and **Periodic Recovery**.
 
 ### 1. Immediate Capture (Callbacks)
-When a task fails, the `on_failure_callback` from the library is triggered. 
+When a task fails, the `on_failure_callback` from the library is triggered.
 - **DLQ Publishing**: Standardized task metadata (run_id, system_id, exception) is published to a Pub/Sub DLQ.
 - **Audit Logging**: The error is logged to the BigQuery `error_log` table for centralized tracking.
 
@@ -274,6 +273,5 @@ from gcp_pipeline_orchestration.callbacks import on_failure_callback
 
 ```bash
 python3.11 -m pytest tests/ -v
-# 49 passed, 2 skipped (airflow-dependent tests skip cleanly when airflow not installed; all pass in CI)
+# 58 passed, 8 skipped (airflow-dependent tests skip cleanly when airflow not installed; all pass in CI)
 ```
-

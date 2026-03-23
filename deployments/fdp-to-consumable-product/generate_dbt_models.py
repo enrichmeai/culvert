@@ -172,7 +172,7 @@ def generate_cdp_staging_model(
         select_cols.append(f"    {pii['target']}")
 
     # Audit columns from FDP
-    audit_ts = fdp_model_def.get("audit_ts", "_transformed_ts")
+    audit_ts = fdp_model_def.get("audit_ts", "_transformed_at")
     select_cols.extend([
         "    _run_id",
         "    _extract_date",
@@ -196,7 +196,7 @@ def generate_map_model(model_name: str, model_def: Dict[str, Any]) -> str:
     alias = source.get("alias")
     partition = model_def.get("partition_by", "_extract_date")
     inc_filter = model_def.get("incremental_filter")
-    audit_ts = model_def.get("audit_ts", "_transformed_ts")
+    audit_ts = model_def.get("audit_ts", "_transformed_at")
 
     lines = [GENERATED_HEADER]
     lines.extend(_build_config_block(model_def))
@@ -239,7 +239,7 @@ def generate_join_model(model_name: str, model_def: Dict[str, Any]) -> str:
     sources = model_def["sources"]
     partition = model_def.get("partition_by", "_extract_date")
     inc_filter = model_def.get("incremental_filter")
-    audit_ts = model_def.get("audit_ts", "_transformed_ts")
+    audit_ts = model_def.get("audit_ts", "_transformed_at")
 
     # Support both 'join' (single) and 'joins' (list) config
     join_list = model_def.get("joins")
@@ -319,7 +319,7 @@ def generate_fdp_sources_yaml(system_name: str, fdp_models: Dict[str, Any]) -> s
             cols.append({"name": pii["target"]})
 
         # Audit columns
-        audit_ts = model_def.get("audit_ts", "_transformed_ts")
+        audit_ts = model_def.get("audit_ts", "_transformed_at")
         cols.extend([
             {"name": "_run_id"},
             {"name": "_extract_date"},
@@ -381,7 +381,7 @@ def generate_models_yaml(models: Dict[str, Any]) -> str:
         for derived in model_def.get("derived", []):
             cols.append({"name": derived["name"]})
 
-        audit_ts = model_def.get("audit_ts", "_transformed_ts")
+        audit_ts = model_def.get("audit_ts", "_transformed_at")
         cols.extend([
             {"name": "_run_id", "description": "Pipeline run ID", "tests": ["not_null"]},
             {"name": "_extract_date", "description": "Extract date", "tests": ["not_null"]},

@@ -27,7 +27,7 @@ The goal is to enable **self-hosted Airflow on GKE** as a cost-effective alterna
 ### Critical
 1. **No GKE Terraform** — zero `google_container_cluster` resources; all GKE infra is imperative scripts
 2. **No Helm install automation** — workflow/scripts check if Airflow exists but don't install it
-3. **Stale version refs** — `deploy-gke.yml` fallback is `1.0.7` (should be `1.0.28`)
+3. **Stale version refs** — `deploy-gke.yml` fallback is `1.0.7` (should be `1.0.29`)
 4. **No security** — webserver exposed as LoadBalancer with no auth
 
 ### Important
@@ -60,7 +60,7 @@ Key decisions:
 
 **Files to update:**
 - `infrastructure/k8s/airflow/values.yaml` — replace `joseph-antony-aruja` with `${PROJECT_ID}` template markers
-- `infrastructure/k8s/airflow/Dockerfile` — pin library versions to `1.0.28`
+- `infrastructure/k8s/airflow/Dockerfile` — pin library versions to `1.0.29`
 - `infrastructure/k8s/workloads/serviceaccount.yaml` — replace hardcoded project ID
 
 Create a `scripts/gcp/render_k8s_templates.sh` that substitutes `${PROJECT_ID}` and `${LIBRARY_VERSION}` before applying manifests.
@@ -76,7 +76,7 @@ Update the `deploy-k8s-resources` job to:
 4. Wait for pods to be ready
 5. Set Airflow variables via `kubectl exec`
 
-Update the `fetch-version` job to resolve `1.0.28` (not `1.0.7`).
+Update the `fetch-version` job to resolve `1.0.29` (not `1.0.7`).
 
 ### Phase 4: Security Hardening
 

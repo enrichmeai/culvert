@@ -229,7 +229,7 @@ resource "google_bigquery_table" "fdp_event_transaction_excess" {
     { name = "account_open_date", type = "DATE", mode = "NULLABLE" },
     { name = "_run_id", type = "STRING", mode = "REQUIRED" },
     { name = "_extract_date", type = "DATE", mode = "REQUIRED" },
-    { name = "_transformed_ts", type = "TIMESTAMP", mode = "REQUIRED" }
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" }
   ])
 
   labels = local.common_labels
@@ -259,7 +259,7 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
     { name = "decision_reason", type = "STRING", mode = "NULLABLE" },
     { name = "_run_id", type = "STRING", mode = "REQUIRED" },
     { name = "_extract_date", type = "DATE", mode = "REQUIRED" },
-    { name = "_transformed_ts", type = "TIMESTAMP", mode = "REQUIRED" }
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" }
   ])
 
   labels = local.common_labels

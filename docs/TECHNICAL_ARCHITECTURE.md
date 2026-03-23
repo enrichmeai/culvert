@@ -195,7 +195,7 @@ The architecture defines a four-layer data hierarchy. Each layer has its own dat
 | Layer | Dataset Pattern | Description | Created By |
 |-------|----------------|-------------|------------|
 | **ODP** (Original Data Product) | `odp_{system_id}` | 1:1 raw copy of source data. Audit columns `_run_id`, `_source_file`, `_processed_ts`, `_extract_date`. Append-only, partitioned by `_extract_date`. | Ingestion unit (Beam) |
-| **FDP** (Foundation Data Product) | `fdp_{system_id}` | Business-ready, joined/mapped models. Includes `_run_id` and `_transformed_ts` for full lineage. | Transformation unit (dbt) |
+| **FDP** (Foundation Data Product) | `fdp_{system_id}` | Business-ready, joined/mapped models. Includes `_run_id` and `_transformed_at` for full lineage. | Transformation unit (dbt) |
 | **CDP** (Consumable Data Product) | `cdp_{system_id}` | Denormalised views joining multiple FDP tables into consumer-ready products. | CDP unit (dbt) |
 | **Segments** (GCS export) | GCS bucket `*-segments` | Formatted output files (e.g., fixed-width mainframe segment files) for downstream consumption. | Segment export unit (Beam) |
 

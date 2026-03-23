@@ -129,7 +129,7 @@ fdp_models:
     unique_key: portfolio_key
     partition_by: _extract_date
     cluster_by: [customer_id, decision_id]
-    incremental_filter: "_processed_at > (select max(_transformed_ts) from {{ this }})"
+    incremental_filter: "_processed_at > (select max(_transformed_at) from {{ this }})"
 
   # ---- JOIN pattern: multiple sources ----
   event_transaction_excess:
@@ -246,7 +246,7 @@ cdp_models:
               WHEN p.decision_outcome = 'APPROVED' AND e.current_balance > 0 THEN 'ACTIVE_APPROVED'
               ELSE 'PENDING'
           END
-    audit_ts: _cdp_transformed_ts             # override default _transformed_ts
+    audit_ts: _cdp_transformed_at             # override default _transformed_at
 ```
 
 ---
@@ -312,7 +312,7 @@ derived:
 
 ### Custom Audit Timestamp
 ```yaml
-audit_ts: _cdp_transformed_ts  # default: _transformed_ts
+audit_ts: _cdp_transformed_at  # default: _transformed_at
 ```
 
 ---

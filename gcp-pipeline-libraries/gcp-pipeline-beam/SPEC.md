@@ -68,7 +68,7 @@ result = (
 
 ---
 
-### `transforms.csv_parser` — CSVParserDoFn / CSVParserConfig
+### `transforms.csv_parser` — RobustCsvParseDoFn / CSVParserConfig
 
 **Purpose:** Production-grade CSV parsing for mainframe files. Handles encoding issues, field count mismatches, delimiter detection, corruption.
 
@@ -150,7 +150,7 @@ result = (
 
 ### `io.bigquery_retry` — ResilientWriteToBigQueryDoFn
 
-**Purpose:** Extends `WriteToBigQueryDoFn` with explicit retry logic for transient BQ errors.
+**Purpose:** Adds explicit retry logic on top of `beam.DoFn` for transient BQ errors.
 
 **Contract:**
 - Retries on `RATE_LIMIT`, `QUOTA_EXCEEDED`, `SERVER_ERROR` error types

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-cdp"
-version = "1.0.28"
+version = "1.0.29"
 description = "GCP Pipeline Reference: Generic CDP Transformation — dbt models for FDP to CDP (JOIN pattern across all 3 FDP tables)"
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,8 +21,8 @@ classifiers = [
 ]
 dependencies = [
     "dbt-bigquery>=1.5.0",
-    "gcp-pipeline-core==1.0.28",
-    "gcp-pipeline-transform==1.0.28",
+    "gcp-pipeline-core==1.0.29",
+    "gcp-pipeline-transform==1.0.29",
     "pyyaml>=6.0",
 ]
 

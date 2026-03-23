@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-ref-segment-transform"
-version = "1.0.28"
+version = "1.0.29"
 description = "GCP Pipeline Reference: Mainframe Segment Transform — CDP → fixed-width GCS segment files"
 readme = "README.md"
 license = {text = "MIT"}
@@ -21,8 +21,8 @@ classifiers = [
 ]
 dependencies = [
     "apache-beam[gcp]==2.56.0",
-    "gcp-pipeline-core==1.0.28",
-    "gcp-pipeline-beam==1.0.28",
+    "gcp-pipeline-core==1.0.29",
+    "gcp-pipeline-beam==1.0.29",
 ]
 
 [project.urls]

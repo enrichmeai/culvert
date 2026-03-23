@@ -36,17 +36,14 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 | Method | Postcondition |
 |--------|--------------|
-| `upload_blob(bucket, path, content)` | Content retrievable via `download_blob(bucket, path)` |
-| `download_blob(bucket, path)` | Returns content previously uploaded; raises `NotFound` if absent |
-| `list_blobs(bucket, prefix)` | Returns paths matching prefix |
-| `delete_blob(bucket, path)` | Removes blob; subsequent `download_blob` raises `NotFound` |
-| `blob_exists(bucket, path)` | Returns `True` iff blob was uploaded and not deleted |
+| `write_file(path, content)` | Content stored in-memory; path appears in `get_written_files()` |
+| `get_written_files()` | Returns dict of all written files (path → content) |
+| `open(path, mode)` | Returns file-like object for reading/writing |
 
 **Test scenarios:**
-- Upload then download returns same content
-- Download of non-existent blob raises `NotFound`
-- `list_blobs` returns only blobs under given prefix
-- Delete removes blob; subsequent existence check returns `False`
+- Write then retrieve via `get_written_files()` returns same content
+- `get_written_files()` returns only files that were written
+- `open()` provides file-like access to stored content
 
 ---
 
@@ -58,15 +55,16 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 | Method | Postcondition |
 |--------|--------------|
-| `insert_rows(table, rows)` | Rows retrievable via `get_rows(table)` |
-| `get_rows(table)` | Returns all rows inserted for table |
+| `insert_rows_json(table, rows)` | Rows retrievable via `get_inserted_rows()` |
+| `get_inserted_rows()` | Returns all rows inserted across all tables |
 | `query(sql)` | Returns rows from pre-configured result set |
-| `get_insert_count(table)` | Returns number of rows inserted |
+| `get_table(table_ref)` | Returns table metadata |
+| `create_table(table)` | Registers table in mock |
 | `reset()` | Clears all tables and rows |
 
 **Test scenarios:**
-- Insert 5 rows → `get_insert_count` returns 5
-- `get_rows` with unknown table returns empty list
+- Insert 5 rows → `len(get_inserted_rows())` returns 5
+- `get_inserted_rows()` after no inserts returns empty list
 - `reset()` clears all state
 
 ---
@@ -79,10 +77,15 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 
 | Method | Postcondition |
 |--------|--------------|
-| `publish(topic, message)` | Message retrievable via `get_messages(topic)` |
-| `get_messages(topic)` | Returns list of published messages in order |
+| `publish(topic, data, **attrs)` | Message retrievable via `get_published_messages()` |
+| `get_published_messages()` | Returns list of all published messages in order |
+| `pull(subscription, max_messages)` | Returns messages added via `add_message_to_subscription()` |
 | `acknowledge(subscription, ack_ids)` | Messages removed from pending |
-| `get_publish_count(topic)` | Returns number of messages published |
+| `add_message_to_subscription(subscription, message)` | Message available for `pull()` |
+| `subscribe(subscription, callback)` | Registers streaming pull callback |
+| `topic_path(project, topic)` | Returns formatted topic path string |
+| `subscription_path(project, subscription)` | Returns formatted subscription path string |
+| `reset()` | Clears all messages and subscriptions |
 
 ---
 
@@ -103,9 +106,9 @@ Provide a standardised, GCP-free testing toolkit for pipeline developers:
 **Usage:**
 ```python
 def test_my_pipeline(gcs_client_mock, bq_client_mock):
-    gcs_client_mock.upload_blob("my-bucket", "input/data.csv", b"col1,col2\nval1,val2")
+    gcs_client_mock.write_file("gs://my-bucket/input/data.csv", "col1,col2\nval1,val2")
     # ... run pipeline ...
-    assert bq_client_mock.get_insert_count("my_table") == 1
+    assert len(bq_client_mock.get_inserted_rows()) == 1
 ```
 
 ---
@@ -150,10 +153,12 @@ def test_my_pipeline(gcs_client_mock, bq_client_mock):
 
 | Function | Asserts |
 |----------|---------|
-| `assert_records_equal(actual, expected)` | Same records regardless of order |
-| `assert_record_count(pcoll, expected_count)` | PCollection contains exactly N elements |
-| `assert_no_errors(error_pcoll)` | Error PCollection is empty |
-| `assert_bq_contains(bq_mock, table, expected_rows)` | BQ mock contains exactly these rows |
+| `assert_pcollection_equal(actual, expected)` | PCollection matches expected elements |
+| `assert_record_structure(record, expected_fields)` | Record contains all expected fields |
+| `assert_no_errors(error_handler)` | No errors were recorded |
+| `assert_pipeline_success(audit_record)` | Pipeline audit record shows success |
+| `assert_field_exists(record, field)` | Field is present in record |
+| `assert_field_value(record, field, expected)` | Field has expected value |
 
 ---
 

@@ -92,6 +92,6 @@ dbt test
 cd /path/to/gcp-pipeline-reference
 gcloud builds submit \
   --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
-  --substitutions _LIBRARY_VERSION=1.0.28 \
+  --substitutions _LIBRARY_VERSION=1.0.29 \
   .
 ```
