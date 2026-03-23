@@ -29,14 +29,6 @@ models:
       +materialized: incremental
       +schema: fdp
       +tags: ["fdp"]
-    marts:
-      +materialized: table
-      +schema: marts
-      +tags: ["marts"]
-    analytics:
-      +materialized: table
-      +schema: analytics
-      +tags: ["analytics"]
 
 vars:
   # GCP project
@@ -46,8 +38,6 @@ vars:
   source_dataset: "odp_generic"
   staging_dataset: "stg_generic"
   fdp_dataset: "fdp_generic"
-  marts_dataset: "marts_generic"
-  analytics_dataset: "analytics_generic"
 
   # Date parameters
   extract_date: null

@@ -514,14 +514,20 @@ resource "google_bigquery_table" "fdp_event_transaction_excess" {
   clustering = ["customer_id", "account_id"]
 
   schema = jsonencode([
-    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
+    { name = "event_key", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "ssn_masked", type = "STRING", mode = "NULLABLE" },
     { name = "first_name", type = "STRING", mode = "NULLABLE" },
     { name = "last_name", type = "STRING", mode = "NULLABLE" },
-    { name = "account_id", type = "STRING", mode = "REQUIRED" },
+    { name = "date_of_birth", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_status", type = "STRING", mode = "NULLABLE" },
+    { name = "account_id", type = "STRING", mode = "NULLABLE" },
+    { name = "account_type_desc", type = "STRING", mode = "NULLABLE" },
     { name = "current_balance", type = "NUMERIC", mode = "NULLABLE" },
-    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
-    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
-    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+    { name = "account_open_date", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels
@@ -540,13 +546,17 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
   clustering = ["customer_id", "_run_id"]
 
   schema = jsonencode([
-    { name = "decision_id", type = "STRING", mode = "REQUIRED" },
-    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
-    { name = "decision_code", type = "STRING", mode = "REQUIRED" },
+    { name = "portfolio_key", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_id", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_code", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_outcome", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_date", type = "STRING", mode = "NULLABLE" },
     { name = "score", type = "INTEGER", mode = "NULLABLE" },
-    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
-    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
-    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+    { name = "decision_reason", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels
@@ -562,19 +572,21 @@ resource "google_bigquery_table" "fdp_portfolio_account_facility" {
     type  = "DAY"
     field = "_extract_date"
   }
-  clustering = ["customer_id", "account_id"]
+  clustering = ["application_id", "customer_id"]
 
   schema = jsonencode([
-    { name = "application_id", type = "STRING", mode = "REQUIRED" },
-    { name = "customer_id", type = "STRING", mode = "REQUIRED" },
-    { name = "account_id", type = "STRING", mode = "REQUIRED" },
+    { name = "application_id", type = "STRING", mode = "NULLABLE" },
+    { name = "customer_id", type = "STRING", mode = "NULLABLE" },
     { name = "loan_amount", type = "NUMERIC", mode = "NULLABLE" },
     { name = "interest_rate", type = "NUMERIC", mode = "NULLABLE" },
     { name = "term_months", type = "INTEGER", mode = "NULLABLE" },
-    { name = "status", type = "STRING", mode = "NULLABLE" },
-    { name = "_run_id", type = "STRING", mode = "REQUIRED" },
-    { name = "_transformed_at", type = "TIMESTAMP", mode = "REQUIRED" },
-    { name = "_extract_date", type = "DATE", mode = "REQUIRED" }
+    { name = "application_date", type = "STRING", mode = "NULLABLE" },
+    { name = "application_status", type = "STRING", mode = "NULLABLE" },
+    { name = "event_type", type = "STRING", mode = "NULLABLE" },
+    { name = "account_type", type = "STRING", mode = "NULLABLE" },
+    { name = "_run_id", type = "STRING", mode = "NULLABLE" },
+    { name = "_extract_date", type = "DATE", mode = "NULLABLE" },
+    { name = "_transformed_at", type = "TIMESTAMP", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels

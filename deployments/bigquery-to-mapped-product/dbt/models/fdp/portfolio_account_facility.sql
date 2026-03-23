@@ -1,10 +1,11 @@
 {{
   config(
     materialized='incremental',
-    unique_key='facility_key',
+    unique_key='application_id',
     partition_by={"field": "_extract_date", "data_type": "date"},
     cluster_by=['application_id', 'customer_id'],
     incremental_strategy='merge',
+    on_schema_change='append_new_columns',
     tags=['fdp', 'generic', 'facility']
   )
 }}
@@ -25,10 +26,7 @@ WITH applications AS (
 )
 
 SELECT
-    -- Unique key
-    application_id AS facility_key,
-
-    -- Application attributes
+    -- Application attributes (application_id is the natural key)
     application_id,
     customer_id,
     loan_amount,

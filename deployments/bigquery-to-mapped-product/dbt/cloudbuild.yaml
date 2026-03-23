@@ -4,7 +4,7 @@ steps:
   env:
   - 'GCP_PROJECT_ID=$_PROJECT_ID'
   - 'RUN_ID=$BUILD_ID'
-  args: ['run', '--target', 'int', '--profiles-dir', '.', '--vars', '{"gcp_project_id": "$_PROJECT_ID"}']
+  args: ['run', '--target', 'int', '--profiles-dir', '.', '--vars', '{"gcp_project_id": "$_PROJECT_ID"}', '--full-refresh']
 
 - name: 'gcr.io/$PROJECT_ID/generic-transformation:latest'
   dir: '/app/deployments/bigquery-to-mapped-product/dbt'

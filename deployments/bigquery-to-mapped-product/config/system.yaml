@@ -228,7 +228,7 @@ fdp_models:
     unique_key: event_key
     partition_by: _extract_date
     cluster_by: [customer_id, account_id]
-    incremental_filter: "c._processed_at > (select max(_transformed_ts) from {{ this }}) OR a._processed_at > (select max(_transformed_ts) from {{ this }})"
+    incremental_filter: "c._processed_at > (select max(_transformed_at) from {{ this }}) OR a._processed_at > (select max(_transformed_at) from {{ this }})"
 
   portfolio_account_excess:
     type: map
@@ -260,7 +260,7 @@ fdp_models:
     unique_key: portfolio_key
     partition_by: _extract_date
     cluster_by: [customer_id, decision_id]
-    incremental_filter: "_processed_at > (select max(_transformed_ts) from {{ this }})"
+    incremental_filter: "_processed_at > (select max(_transformed_at) from {{ this }})"
 
   portfolio_account_facility:
     type: map
@@ -269,10 +269,8 @@ fdp_models:
     tags: [fdp, generic, facility, map]
     sources:
       - staging: stg_generic_applications
-    unique_key: facility_key
+    unique_key: application_id
     columns:
-      - source: application_id
-        target: facility_key
       - source: application_id
         target: application_id
       - source: customer_id

@@ -5,7 +5,7 @@
     partition_by={"field": "_extract_date", "data_type": "date"},
     cluster_by=['customer_id', 'decision_id'],
     incremental_strategy='merge',
-    on_schema_change='fail',
+    on_schema_change='append_new_columns',
     tags=['fdp', 'generic', 'portfolio']
   )
 }}
@@ -39,13 +39,13 @@ mapped as (
 
         -- Audit columns
         _run_id,
-        cast(substr(_run_id, 5, 8) as date) as _extract_date,
-        current_timestamp() as _transformed_ts
+        _extract_date,
+        current_timestamp() as _transformed_at
 
     from decisions
 
     {% if is_incremental() %}
-    where _processed_at > (select max(_transformed_ts) from {{ this }})
+    where _processed_at > (select max(_transformed_at) from {{ this }})
     {% endif %}
 )
 
