@@ -12,4 +12,5 @@ mapped_product_profile:
       method: oauth
       project: "{{ env_var('GCP_PROJECT_ID') }}"
       dataset: fdp_generic
+      location: europe-west2
       threads: 4
