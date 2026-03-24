@@ -20,6 +20,7 @@
 # 13. Secret Manager secrets
 # 14. Cloud Scheduler jobs
 # 15. Terraform state
+# 16. Cloud Build history and artifacts
 #
 # Last Updated: March 2026
 # =============================================================================
@@ -64,6 +65,7 @@ echo "  - KMS keys (scheduled for deletion)"
 echo "  - Secret Manager secrets"
 echo "  - Cloud Scheduler jobs"
 echo "  - Terraform state"
+echo "  - Cloud Build history and artifacts"
 echo ""
 
 if [[ "$FORCE_DELETE" != "--force" ]]; then
@@ -233,6 +235,21 @@ for repo in $(gcloud artifacts repositories list --project="$PROJECT_ID" --locat
     gcloud artifacts repositories delete "$repo" --project="$PROJECT_ID" --location="$REGION" --quiet 2>/dev/null || true
 done
 echo "  Artifact Registry repositories deleted"
+
+echo ""
+echo -e "${BLUE}=== Step 18: Delete Cloud Build History ===${NC}"
+# Delete the Cloud Build source/logs bucket
+gsutil -m rm -r "gs://${PROJECT_ID}_cloudbuild" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}_cloudbuild" || true
+# Cancel any running builds
+for build_id in $(gcloud builds list --region=global --ongoing --format="value(id)" 2>/dev/null || true); do
+    echo "  Cancelling build: $build_id"
+    gcloud builds cancel "$build_id" --region=global --quiet 2>/dev/null || true
+done
+echo "  Cloud Build cleaned up"
+echo "  Note: Build history is retained by GCP and cannot be deleted via CLI."
+echo "  To remove it, disable and re-enable the Cloud Build API:"
+echo "    gcloud services disable cloudbuild.googleapis.com --force"
+echo "    gcloud services enable cloudbuild.googleapis.com"
 
 echo ""
 echo -e "${GREEN}=============================================="
