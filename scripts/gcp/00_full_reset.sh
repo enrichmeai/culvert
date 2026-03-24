@@ -13,7 +13,7 @@
 # 6. Pub/Sub topics and subscriptions
 # 7. BigQuery datasets
 # 8. GCS buckets
-# 9. Service accounts
+# 9. Service accounts (keeps github-actions-deploy for CI/CD)
 # 10. GCS notifications
 # 11. Container images in GCR
 # 12. KMS keys (schedule for deletion)
@@ -21,6 +21,7 @@
 # 14. Cloud Scheduler jobs
 # 15. Terraform state
 # 16. Cloud Build history and artifacts
+# 17. IAM role bindings for deleted service accounts
 #
 # Last Updated: March 2026
 # =============================================================================
@@ -59,7 +60,8 @@ echo "  - Cloud Run services"
 echo "  - All Pub/Sub topics and subscriptions"
 echo "  - All BigQuery datasets (odp_*, fdp_*, cdp_*, job_control, error_tracking)"
 echo "  - All GCS buckets (landing, archive, error, temp, segments, Composer, Dataflow staging)"
-echo "  - All service accounts (airflow-sa, github-actions-deploy)"
+echo "  - All service accounts EXCEPT github-actions-deploy"
+echo "  - IAM role bindings for deleted service accounts"
 echo "  - Container images in GCR"
 echo "  - KMS keys (scheduled for deletion)"
 echo "  - Secret Manager secrets"
@@ -175,10 +177,68 @@ gsutil -m rm -r "gs://gcp-pipeline-terraform-state" 2>/dev/null && echo "  Delet
 gsutil -m rm -r "gs://gdw-terraform-state" 2>/dev/null && echo "  Deleted: gs://gdw-terraform-state" || true
 
 echo ""
-echo -e "${BLUE}=== Step 10: Delete Service Accounts ===${NC}"
-for sa in airflow-sa github-actions-deploy pipeline-sa generic-int-dataflow generic-int-dbt generic-composer-sa; do
+echo -e "${BLUE}=== Step 10: Delete Service Accounts (keep github-actions-deploy) ===${NC}"
+for sa in airflow-sa pipeline-sa generic-int-dataflow generic-int-dbt generic-composer-sa; do
     gcloud iam service-accounts delete "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sa" || true
 done
+echo "  Kept: github-actions-deploy (required for CI/CD)"
+
+echo ""
+echo -e "${BLUE}=== Step 10b: Remove IAM Role Bindings for Deleted SAs ===${NC}"
+# Remove all IAM bindings for pipeline SAs (deleting SA leaves orphaned bindings)
+# Also removes orphaned bindings (deleted:serviceAccount:...?uid=...) for ALL SAs
+# Keeps only: github-actions-deploy (live, no uid suffix), owner accounts, Google-managed agents
+
+# Fetch current IAM policy once
+IAM_POLICY=$(gcloud projects get-iam-policy "$PROJECT_ID" --format=json 2>/dev/null || echo "{}")
+
+# 1. Remove bindings for explicitly listed pipeline SAs
+PIPELINE_SAS=(
+    "airflow-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+    "pipeline-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+    "generic-int-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
+    "generic-int-dbt@${PROJECT_ID}.iam.gserviceaccount.com"
+    "generic-composer-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+)
+
+for sa_email in "${PIPELINE_SAS[@]}"; do
+    member="serviceAccount:${sa_email}"
+    roles=$(echo "$IAM_POLICY" | python3 -c "
+import sys, json
+policy = json.load(sys.stdin)
+for binding in policy.get('bindings', []):
+    if '$member' in binding.get('members', []):
+        print(binding['role'])
+" 2>/dev/null || true)
+
+    for role in $roles; do
+        gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
+            --member="$member" --role="$role" --quiet 2>/dev/null \
+            && echo "  Removed: $role from $sa_email" || true
+    done
+done
+
+# 2. Remove ALL orphaned/deleted SA bindings (deleted:serviceAccount:...?uid=...)
+echo "  Cleaning orphaned (deleted SA) bindings..."
+ORPHANED_MEMBERS=$(echo "$IAM_POLICY" | python3 -c "
+import sys, json
+policy = json.load(sys.stdin)
+seen = set()
+for binding in policy.get('bindings', []):
+    for member in binding.get('members', []):
+        if member.startswith('deleted:') and member not in seen:
+            seen.add(member)
+            print(member + '|' + binding['role'])
+" 2>/dev/null || true)
+
+while IFS='|' read -r member role; do
+    [ -z "$member" ] && continue
+    gcloud projects remove-iam-policy-binding "$PROJECT_ID" \
+        --member="$member" --role="$role" --quiet 2>/dev/null \
+        && echo "  Removed orphaned: $role from ${member##*:}" || true
+done <<< "$ORPHANED_MEMBERS"
+
+echo "  IAM bindings cleaned"
 
 echo ""
 echo -e "${BLUE}=== Step 11: Delete Container Images in GCR ===${NC}"
