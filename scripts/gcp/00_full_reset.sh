@@ -56,8 +56,8 @@ echo "  - Dataflow jobs (all running/pending)"
 echo "  - Composer environments"
 echo "  - Cloud Run services"
 echo "  - All Pub/Sub topics and subscriptions"
-echo "  - All BigQuery datasets (odp_*, fdp_*, job_control, error_tracking)"
-echo "  - All GCS buckets (landing, archive, error, temp, airflow-dags, etc.)"
+echo "  - All BigQuery datasets (odp_*, fdp_*, cdp_*, job_control, error_tracking)"
+echo "  - All GCS buckets (landing, archive, error, temp, segments, Composer, Dataflow staging)"
 echo "  - All service accounts (airflow-sa, github-actions-deploy)"
 echo "  - Container images in GCR"
 echo "  - KMS keys (scheduled for deletion)"
@@ -142,42 +142,52 @@ done
 
 echo ""
 echo -e "${BLUE}=== Step 7: Delete BigQuery Datasets ===${NC}"
-for ds in odp_generic fdp_generic job_control error_tracking; do
+for ds in odp_generic fdp_generic fdp_generic_fdp fdp_generic_staging cdp_generic job_control error_tracking; do
     bq rm -r -f --project_id="$PROJECT_ID" "$ds" 2>/dev/null && echo "  Deleted: $ds" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 8: Delete GCS Buckets ===${NC}"
-# New bucket naming (PROJECT_ID-name)
-for bucket in landing archive error temp airflow-dags dataflow-templates; do
+# Pipeline buckets (current naming: PROJECT_ID-generic-ENV-purpose)
+for bucket in generic-int-landing generic-int-archive generic-int-error generic-int-temp generic-int-segments; do
     gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
 done
-# Old bucket naming
-for bucket in generic-landing generic-archive generic-error generic-temp; do
+# CI/CD and Dataflow staging buckets
+for bucket in airflow-dags dataflow-templates; do
     gsutil -m rm -r "gs://${PROJECT_ID}-${bucket}" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}-${bucket}" || true
+done
+gsutil -m rm -r "gs://${PROJECT_ID}_cloudbuild" 2>/dev/null && echo "  Deleted: gs://${PROJECT_ID}_cloudbuild" || true
+# Composer-managed buckets (auto-created by Cloud Composer)
+for bucket in $(gsutil ls 2>/dev/null | grep "gs://europe-west2-generic-" || true); do
+    gsutil -m rm -r "$bucket" 2>/dev/null && echo "  Deleted: $bucket" || true
+done
+# Dataflow staging buckets
+for bucket in $(gsutil ls 2>/dev/null | grep "gs://dataflow-staging-" || true); do
+    gsutil -m rm -r "$bucket" 2>/dev/null && echo "  Deleted: $bucket" || true
 done
 echo "  GCS buckets deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 9: Delete Terraform State Bucket ===${NC}"
+gsutil -m rm -r "gs://gcp-pipeline-terraform-state" 2>/dev/null && echo "  Deleted: gs://gcp-pipeline-terraform-state" || true
 gsutil -m rm -r "gs://gdw-terraform-state" 2>/dev/null && echo "  Deleted: gs://gdw-terraform-state" || true
 
 echo ""
 echo -e "${BLUE}=== Step 10: Delete Service Accounts ===${NC}"
-for sa in airflow-sa github-actions-deploy pipeline-sa; do
+for sa in airflow-sa github-actions-deploy pipeline-sa generic-int-dataflow generic-int-dbt generic-composer-sa; do
     gcloud iam service-accounts delete "${sa}@${PROJECT_ID}.iam.gserviceaccount.com" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted: $sa" || true
 done
 
 echo ""
 echo -e "${BLUE}=== Step 11: Delete Container Images in GCR ===${NC}"
-for image in airflow-custom ingestion-pipeline transform-pipeline orchestrator segment-transform; do
+for image in airflow-custom generic-ingestion generic-transformation generic-dag-validator generic-cdp-transformation ingestion-pipeline transform-pipeline orchestrator segment-transform; do
     gcloud container images delete "gcr.io/${PROJECT_ID}/${image}" --force-delete-tags --quiet 2>/dev/null && echo "  Deleted: $image" || true
 done
 echo "  Container images deleted"
 
 echo ""
 echo -e "${BLUE}=== Step 12: Delete Dead Letter Topics ===${NC}"
-for topic in file-notifications-dead-letter pipeline-events-dead-letter; do
+for topic in file-notifications-dead-letter pipeline-events-dead-letter generic-file-notifications-dead-letter; do
     gcloud pubsub topics delete "$topic" --project="$PROJECT_ID" --quiet 2>/dev/null && echo "  Deleted topic: $topic" || true
 done
 
