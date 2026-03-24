@@ -22,8 +22,7 @@ docs-paths: ["docs"]
 models:
   bigquery_mapped_product:
     staging:
-      +materialized: view
-      +schema: staging
+      +materialized: ephemeral
       +tags: ["staging"]
     fdp:
       +materialized: incremental
