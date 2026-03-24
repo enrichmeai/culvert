@@ -519,19 +519,18 @@ resource "google_bigquery_table" "fdp_event_transaction_excess" {
     { name = "ssn_masked", type = "STRING", mode = "NULLABLE" },
     { name = "first_name", type = "STRING", mode = "NULLABLE" },
     { name = "last_name", type = "STRING", mode = "NULLABLE" },
-    { name = "date_of_birth", type = "STRING", mode = "NULLABLE" },
+    { name = "date_of_birth", type = "DATE", mode = "NULLABLE" },
     { name = "customer_status", type = "STRING", mode = "NULLABLE" },
     { name = "account_id", type = "STRING", mode = "NULLABLE" },
     { name = "account_type_desc", type = "STRING", mode = "NULLABLE" },
     { name = "current_balance", type = "NUMERIC", mode = "NULLABLE" },
-    { name = "account_open_date", type = "STRING", mode = "NULLABLE" },
+    { name = "account_open_date", type = "DATE", mode = "NULLABLE" },
     { name = "_run_id", type = "STRING", mode = "NULLABLE" },
     { name = "_extract_date", type = "DATE", mode = "NULLABLE" },
     { name = "_transformed_at", type = "TIMESTAMP", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "fdp_portfolio_account_excess" {
@@ -551,7 +550,7 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
     { name = "customer_id", type = "STRING", mode = "NULLABLE" },
     { name = "decision_code", type = "STRING", mode = "NULLABLE" },
     { name = "decision_outcome", type = "STRING", mode = "NULLABLE" },
-    { name = "decision_date", type = "STRING", mode = "NULLABLE" },
+    { name = "decision_date", type = "TIMESTAMP", mode = "NULLABLE" },
     { name = "score", type = "INTEGER", mode = "NULLABLE" },
     { name = "decision_reason", type = "STRING", mode = "NULLABLE" },
     { name = "_run_id", type = "STRING", mode = "NULLABLE" },
@@ -560,7 +559,6 @@ resource "google_bigquery_table" "fdp_portfolio_account_excess" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "fdp_portfolio_account_facility" {
@@ -580,7 +578,7 @@ resource "google_bigquery_table" "fdp_portfolio_account_facility" {
     { name = "loan_amount", type = "NUMERIC", mode = "NULLABLE" },
     { name = "interest_rate", type = "NUMERIC", mode = "NULLABLE" },
     { name = "term_months", type = "INTEGER", mode = "NULLABLE" },
-    { name = "application_date", type = "STRING", mode = "NULLABLE" },
+    { name = "application_date", type = "DATE", mode = "NULLABLE" },
     { name = "application_status", type = "STRING", mode = "NULLABLE" },
     { name = "event_type", type = "STRING", mode = "NULLABLE" },
     { name = "account_type", type = "STRING", mode = "NULLABLE" },
@@ -590,7 +588,6 @@ resource "google_bigquery_table" "fdp_portfolio_account_facility" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================
