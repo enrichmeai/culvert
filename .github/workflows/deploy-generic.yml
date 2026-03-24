@@ -316,6 +316,12 @@ jobs:
 
         echo "=== Import complete ==="
 
+    - name: Clear stale Terraform lock
+      run: |
+        cd infrastructure/terraform/systems/generic
+        echo "Removing any stale lock file (e.g. from cancelled runs)..."
+        gsutil rm gs://gcp-pipeline-terraform-state/generic/${{ github.event.inputs.environment || 'int' }}/default.tflock 2>/dev/null || true
+
     - name: Terraform Plan
       env:
         TF_VAR_gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
