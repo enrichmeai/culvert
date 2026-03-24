@@ -253,8 +253,15 @@ jobs:
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         ENV="${{ github.event.inputs.environment || 'int' }}"
 
-        # Quick-check: if the landing bucket doesn't exist, this is a fresh deploy — skip all imports
-        if ! gsutil ls -b "gs://${PROJECT_ID}-generic-${ENV}-landing" &>/dev/null; then
+        # Quick-check: if terraform state is empty, this is a fresh deploy — skip all imports
+        STATE_COUNT=$(terraform state list 2>/dev/null | wc -l | tr -d ' ')
+        if [ "$STATE_COUNT" -gt "0" ]; then
+          echo "=== Terraform state has $STATE_COUNT resources — skipping imports (already managed) ==="
+          exit 0
+        fi
+
+        # Check if resources actually exist in GCP before attempting imports
+        if ! gsutil ls -b "gs://${PROJECT_ID}-generic-${ENV}-landing" &>/dev/null 2>&1; then
           echo "=== Fresh deploy detected (no existing resources) — skipping imports ==="
           echo "Terraform apply will create all resources from scratch."
           exit 0
@@ -270,7 +277,7 @@ jobs:
             echo "  Already in state: $addr"
           else
             echo "  Importing: $addr"
-            terraform import "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
+            timeout 60 terraform import "$addr" "$id" || echo "  Warning: import failed for $addr (may not exist yet)"
           fi
         }
 
