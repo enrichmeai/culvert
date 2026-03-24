@@ -46,10 +46,11 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+where = ["src", "."]
+include = ["data_ingestion*", "config*", "tests*"]
 
 [tool.setuptools.package-data]
-"*" = ["*.json", "*.yaml", "*.yml", "*.sql"]
+"*" = ["*.json", "*.yaml", "*.yml", "*.sql", "*.csv"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -39,10 +39,13 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dbt*"]
+include = ["dbt*", "config*", "tests*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.sql", "*.yml", "*.yaml", "*.csv", "*.json"]
+
+[tool.setuptools]
+py-modules = ["generate_dbt_models"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

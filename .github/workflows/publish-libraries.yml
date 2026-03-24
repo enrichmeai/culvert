@@ -385,19 +385,38 @@ jobs:
         for f in .gitignore .dockerignore .gcloudignore; do
           [ -f "$f" ] && cp "$f" "$FW/config/${f#.}"
         done
-        for f in pyproject.toml qodana.yaml README.md PROJECT_CONTEXT.md; do
+        for f in pyproject.toml qodana.yaml README.md PROJECT_CONTEXT.md VERSION; do
           [ -f "$f" ] && cp "$f" "$FW/config/"
         done
         [ -f .github/copilot-instructions.md ] && cp .github/copilot-instructions.md "$FW/config/"
 
-        echo "🐳 Syncing deployment configs (Dockerfiles, cloudbuild)..."
+        echo "📊 Syncing test data..."
+        if [ -d "test_data" ]; then
+          rm -rf "$FW/test_data" && mkdir -p "$FW/test_data"
+          cp test_data/* "$FW/test_data/" 2>/dev/null || true
+        fi
+
+        echo "🐳 Syncing deployment configs and source..."
         rm -rf "$FW/deployments"
         for d in original-data-to-bigqueryload data-pipeline-orchestrator bigquery-to-mapped-product fdp-to-consumable-product mainframe-segment-transform postgres-cdc-streaming spanner-to-bigquery-load; do
           if [ -d "deployments/$d" ]; then
             mkdir -p "$FW/deployments/$d"
-            for f in Dockerfile cloudbuild.yaml README.md pyproject.toml; do
+            # Core deployment files
+            for f in Dockerfile cloudbuild.yaml README.md pyproject.toml metadata.json requirements.txt DEPLOYMENT_GUIDE.md; do
               [ -f "deployments/$d/$f" ] && cp "deployments/$d/$f" "$FW/deployments/$d/"
             done
+            # Generator scripts
+            for f in deployments/$d/generate_*.py; do
+              [ -f "$f" ] && cp "$f" "$FW/deployments/$d/"
+            done
+            # Config directory
+            if [ -d "deployments/$d/config" ]; then
+              cp -r "deployments/$d/config" "$FW/deployments/$d/"
+            fi
+            # Tests directory
+            if [ -d "deployments/$d/tests" ]; then
+              cp -r "deployments/$d/tests" "$FW/deployments/$d/"
+            fi
           fi
         done
 

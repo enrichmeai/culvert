@@ -40,10 +40,13 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["dags*"]
+include = ["dags*", "config*", "tests*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.py", "*.yml", "*.yaml", "*.json"]
+
+[tool.setuptools]
+py-modules = ["generate_dags"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

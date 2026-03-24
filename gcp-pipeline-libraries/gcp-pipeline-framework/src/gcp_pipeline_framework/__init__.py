@@ -29,6 +29,11 @@ def get_config_path() -> Path:
     return _package_root() / "config"
 
 
+def get_test_data_path() -> Path:
+    """Return the path to bundled test data files."""
+    return _package_root() / "test_data"
+
+
 def get_deployments_path() -> Path:
     """Return the path to bundled deployment configs (Dockerfiles, cloudbuild)."""
     return _package_root() / "deployments"
@@ -72,6 +77,9 @@ def export_project(dest: str = "gcp-pipeline-reference") -> Path:
 
     # Deployments → dest/deployments/
     _copy_tree(get_deployments_path(), dest_path / "deployments")
+
+    # Test data → dest/test_data/
+    _copy_tree(get_test_data_path(), dest_path / "test_data")
 
     # Config → dest/ (root-level files, restore dotfile names)
     config_path = get_config_path()
