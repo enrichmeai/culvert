@@ -253,6 +253,15 @@ jobs:
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         ENV="${{ github.event.inputs.environment || 'int' }}"
 
+        # Quick-check: if the landing bucket doesn't exist, this is a fresh deploy — skip all imports
+        if ! gsutil ls -b "gs://${PROJECT_ID}-generic-${ENV}-landing" &>/dev/null; then
+          echo "=== Fresh deploy detected (no existing resources) — skipping imports ==="
+          echo "Terraform apply will create all resources from scratch."
+          exit 0
+        fi
+
+        echo "=== Existing resources detected — importing into Terraform state ==="
+
         # Import existing resources into state (idempotent — skips if already in state)
         import_resource() {
           local addr=$1
@@ -265,24 +274,24 @@ jobs:
           fi
         }
 
-        echo "=== Importing existing GCS buckets ==="
+        echo "--- GCS buckets ---"
         import_resource "google_storage_bucket.landing" "${PROJECT_ID}-generic-${ENV}-landing"
         import_resource "google_storage_bucket.archive" "${PROJECT_ID}-generic-${ENV}-archive"
         import_resource "google_storage_bucket.error" "${PROJECT_ID}-generic-${ENV}-error"
         import_resource "google_storage_bucket.temp" "${PROJECT_ID}-generic-${ENV}-temp"
 
-        echo "=== Importing existing Pub/Sub ==="
+        echo "--- Pub/Sub ---"
         import_resource "google_pubsub_topic.generic_file_notifications" "projects/${PROJECT_ID}/topics/generic-file-notifications"
         import_resource "google_pubsub_topic.generic_dead_letter" "projects/${PROJECT_ID}/topics/generic-file-notifications-dead-letter"
         import_resource "google_pubsub_subscription.generic_file_notifications_sub" "projects/${PROJECT_ID}/subscriptions/generic-file-notifications-sub"
 
-        echo "=== Importing existing BigQuery datasets ==="
+        echo "--- BigQuery datasets ---"
         import_resource "google_bigquery_dataset.odp_generic" "projects/${PROJECT_ID}/datasets/odp_generic"
         import_resource "google_bigquery_dataset.fdp_generic" "projects/${PROJECT_ID}/datasets/fdp_generic"
         import_resource "google_bigquery_dataset.job_control" "projects/${PROJECT_ID}/datasets/job_control"
         import_resource "google_bigquery_dataset.cdp_generic" "projects/${PROJECT_ID}/datasets/cdp_generic"
 
-        echo "=== Importing existing BigQuery tables ==="
+        echo "--- BigQuery tables ---"
         for entity in customers accounts decision applications; do
           import_resource "google_bigquery_table.odp_${entity}" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}"
           import_resource "google_bigquery_table.odp_${entity}_errors" "projects/${PROJECT_ID}/datasets/odp_generic/tables/${entity}_errors"
@@ -293,7 +302,7 @@ jobs:
         import_resource "google_bigquery_table.pipeline_jobs" "projects/${PROJECT_ID}/datasets/job_control/tables/pipeline_jobs"
         import_resource "google_bigquery_table.audit_trail" "projects/${PROJECT_ID}/datasets/job_control/tables/audit_trail"
 
-        echo "=== Importing existing service accounts ==="
+        echo "--- Service accounts ---"
         import_resource "google_service_account.generic_dataflow" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
         import_resource "google_service_account.generic_dbt" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dbt@${PROJECT_ID}.iam.gserviceaccount.com"
         import_resource "google_service_account.generic_composer" "projects/${PROJECT_ID}/serviceAccounts/generic-composer-sa@${PROJECT_ID}.iam.gserviceaccount.com"
