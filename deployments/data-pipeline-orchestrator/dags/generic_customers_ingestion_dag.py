@@ -604,6 +604,7 @@ with generic_customers_ingestion_dag:
         input_path="{{ dag_run.conf.data_file }}",
         output_table=f"{_project_id}:{_odp_dataset}.{ENTITY}",
         template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
+        temp_location=f"gs://{_template_bucket}/dataflow",
         use_template=True,
         additional_params={
             "run_id": '{{ ti.xcom_pull(key="run_id") }}',
