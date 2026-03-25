@@ -1,9 +1,10 @@
 # Auto-generated from system.yaml — DO NOT EDIT MANUALLY
 # To modify, update system.yaml and re-run: python generate_dags.py
 """
-Generic Transformation DAG
+Generic Accounts Ingestion DAG
 
-Transforms ODP to FDP — runs per-model based on granular dependencies.
+Runs Dataflow to load accounts data to BigQuery ODP, reconciles,
+checks FDP dependencies, and triggers ready transformations.
 Generated from system.yaml — all config baked in at build time.
 """
 
@@ -17,18 +18,17 @@ from airflow import DAG
 from airflow.models import Variable
 
 try:
-    from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.providers.standard.operators.bash import BashOperator
+    from airflow.providers.standard.operators.python import PythonOperator
     from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
-    from airflow.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.operators.bash import BashOperator
+    from airflow.operators.python import PythonOperator
     try:
         from airflow.operators.empty import EmptyOperator as DummyOperator
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
@@ -54,14 +54,16 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "GENERIC"
 SYSTEM_NAME = "Generic"
 FILE_PREFIX = "generic"
+ENTITY = "accounts"
 ENTITIES = ['customers', 'accounts', 'decision', 'applications']
 FDP_DEPENDENCIES = {'event_transaction_excess': ['customers', 'accounts'], 'portfolio_account_excess': ['decision'], 'portfolio_account_facility': ['applications']}
-DAG_ID = "generic_transformation_dag"
+DAG_ID = "generic_accounts_ingestion_dag"
+TRANSFORMATION_DAG_MAP = {'event_transaction_excess': 'generic_event_transaction_excess_transformation_dag', 'portfolio_account_excess': 'generic_portfolio_account_excess_transformation_dag', 'portfolio_account_facility': 'generic_portfolio_account_facility_transformation_dag'}
 
 # Infrastructure templates
 ODP_DATASET_TEMPLATE = "odp_{system}"
-FDP_DATASET_TEMPLATE = "fdp_{system}"
 ERROR_BUCKET_TEMPLATE = "{project_id}-{system}-{env}-error"
+TEMP_BUCKET_TEMPLATE = "{project_id}-{system}-{env}-temp"
 
 
 def _resolve(template: str) -> str:
@@ -384,22 +386,22 @@ def _log_observability_status(dag_id):
 # Task callables
 # =============================================================================
 
-def mark_fdp_job_failed(context):
+def mark_job_failed(context):
     project_id = _get_project_id()
-    run_id = context["ti"].xcom_pull(key="fdp_run_id")
+    run_id = context["ti"].xcom_pull(key="run_id")
     task_id = context["task_instance"].task_id
     exception = context.get("exception")
     if run_id:
         repo = JobControlRepository(project_id=project_id)
         stage_map = {
-            "verify_model_dependencies": FailureStage.FDP_DEPENDENCY,
-            "create_fdp_job_record": FailureStage.FDP_DEPENDENCY,
-            "run_dbt_staging": FailureStage.FDP_STAGING,
-            "run_dbt_fdp": FailureStage.FDP_MODEL,
-            "run_dbt_tests": FailureStage.FDP_TEST,
-            "reconcile_fdp_model": FailureStage.RECONCILIATION,
+            "create_job_record": FailureStage.FILE_DISCOVERY,
+            "run_dataflow_pipeline": FailureStage.ODP_LOAD,
+            "update_job_success": FailureStage.ODP_LOAD,
+            "reconcile_odp_load": FailureStage.RECONCILIATION,
+            "check_ready_fdp_models": FailureStage.ODP_LOAD,
+            "trigger_ready_transforms": FailureStage.ODP_LOAD,
         }
-        stage = stage_map.get(task_id, FailureStage.TRANSFORMATION)
+        stage = stage_map.get(task_id, FailureStage.ODP_LOAD)
         error_code = type(exception).__name__ if exception else "UNKNOWN"
         error_message = str(exception)[:1024] if exception else f"Task {task_id} failed"
         repo.mark_failed(run_id=run_id, error_code=error_code, error_message=error_message, failure_stage=stage)
@@ -411,140 +413,151 @@ def mark_fdp_job_failed(context):
                 handler.handle_exception(exception, source_file=task_id)
             except Exception as e:
                 logger.warning(f"Error handler storage failed (non-fatal): {e}")
-        conf = context.get("dag_run").conf or {}
-        fdp_model = conf.get("fdp_model", "unknown")
-        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=fdp_model)
-        audit.record_processing_start(source_file=f"odp_{FILE_PREFIX}.*")
+        entity = context["ti"].xcom_pull(key="entity") or "unknown"
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=entity)
+        audit.record_processing_start(source_file="unknown")
         audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
         audit.record_processing_end(success=False)
-        # Alert on FDP failure
-        _send_failure_alert(DAG_ID, task_id, exception, {"run_id": run_id, "fdp_model": fdp_model, "stage": stage.value})
+        # Alert on failure
+        _send_failure_alert(DAG_ID, task_id, exception, {"run_id": run_id, "entity": entity, "stage": stage.value})
         # Publish failure audit record
-        _publish_audit(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=False, error_count=1,
+        _publish_audit(run_id, DAG_ID, entity, "unknown", success=False, error_count=1,
                        metadata={"error_code": error_code, "failure_stage": stage.value})
-        _push_cloud_monitoring_metric("fdp_transform_failure", 1, {"model": fdp_model, "system": SYSTEM_ID, "stage": stage.value})
-        logger.error(f"FDP job {run_id} marked FAILED at stage {stage.value}: {error_code}")
+        _push_cloud_monitoring_metric("odp_load_failure", 1, {"entity": entity, "system": SYSTEM_ID, "stage": stage.value})
+        logger.error(f"Job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
 
-def verify_model_dependencies(**context) -> str:
+def create_job_record(**context):
     project_id = _get_project_id()
     conf = context.get("dag_run").conf or {}
-    fdp_model = conf.get("fdp_model", "")
-    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
-    if not fdp_model or fdp_model not in FDP_DEPENDENCIES:
-        logger.error(f"Unknown or missing FDP model: '{fdp_model}'. Expected one of: {list(FDP_DEPENDENCIES.keys())}")
-        return "handle_dependency_failure"
-    required_entities = FDP_DEPENDENCIES[fdp_model]
-    checker = EntityDependencyChecker(project_id=project_id, system_id=SYSTEM_ID, required_entities=required_entities)
-    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
-    if checker.all_entities_loaded(date_obj):
-        logger.info(f"Dependencies satisfied for {fdp_model}: {required_entities}. Proceeding.")
-        context["ti"].xcom_push(key="fdp_model", value=fdp_model)
-        context["ti"].xcom_push(key="required_entities", value=required_entities)
-        return "create_fdp_job_record"
-    else:
-        missing = checker.get_missing_entities(date_obj)
-        logger.warning(f"Cannot run {fdp_model}. Missing entities: {missing}")
-        context["ti"].xcom_push(key="missing_entities", value=missing)
-        return "handle_dependency_failure"
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    entity = ENTITY
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    data_file = file_metadata.get("data_file", "")
+    run_id = context.get("run_id", f"{FILE_PREFIX}_{entity}_{extract_date}")
+    extract_date_obj = datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now(tz=timezone.utc).date()
 
-
-def create_fdp_job_record(**context):
-    project_id = _get_project_id()
-    conf = context.get("dag_run").conf or {}
-    fdp_model = conf.get("fdp_model", "")
-    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
-    run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
-    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
     repo = JobControlRepository(project_id=project_id)
-    required_entities = FDP_DEPENDENCIES.get(fdp_model, [])
-    parent_statuses = repo.get_entity_status(SYSTEM_ID, date_obj)
-    parent_run_ids = [
-        s["run_id"] for s in parent_statuses
-        if s["entity_type"] in required_entities and s["status"] == "SUCCESS"
-    ]
+    existing = repo.get_entity_status(SYSTEM_ID, extract_date_obj)
+    for entry in existing:
+        if entry["entity_type"] == entity and entry["status"] == "FAILED":
+            old_run_id = entry["run_id"]
+            odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+            odp_table = f"{project_id}.{odp_dataset}.{entity}"
+            logger.info(f"Found failed job {old_run_id}. Cleaning up partial data from {odp_table}")
+            try:
+                deleted = repo.cleanup_partial_load(old_run_id, odp_table)
+                logger.info(f"Cleaned up {deleted} partial rows from {odp_table} for run {old_run_id}")
+            except Exception as e:
+                logger.warning(f"Cleanup of partial load failed (non-fatal): {e}")
+            repo.mark_retrying(old_run_id, retry_count=1)
+
     job = PipelineJob(
-        run_id=run_id, system_id=SYSTEM_ID, entity_type=fdp_model,
-        extract_date=date_obj, started_at=datetime.now(tz=timezone.utc),
-        job_type="FDP_TRANSFORMATION", dbt_model_name=fdp_model, parent_run_ids=parent_run_ids,
+        run_id=run_id, system_id=SYSTEM_ID, entity_type=entity,
+        extract_date=extract_date_obj, source_files=[data_file],
+        started_at=datetime.now(tz=timezone.utc), job_type="ODP_INGESTION",
     )
     repo.create_job(job)
     repo.update_status(run_id, JobStatus.RUNNING)
-    logger.info(f"Created FDP job record: {run_id} for model: {fdp_model}, parents: {parent_run_ids}")
-    context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+    logger.info(f"Created job record: {run_id} for entity: {entity}")
+    context["ti"].xcom_push(key="run_id", value=run_id)
+    context["ti"].xcom_push(key="entity", value=entity)
 
 
-def handle_dependency_failure(**context):
+def check_ready_fdp_models(**context) -> None:
     project_id = _get_project_id()
     conf = context.get("dag_run").conf or {}
-    fdp_model = conf.get("fdp_model", "unknown")
-    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
-    run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
-    missing = context["ti"].xcom_pull(key="missing_entities") or []
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    checker = EntityDependencyChecker(project_id=project_id, system_id=SYSTEM_ID, required_entities=ENTITIES)
     date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
-    repo = JobControlRepository(project_id=project_id)
-    job = PipelineJob(
-        run_id=run_id, system_id=SYSTEM_ID, entity_type=fdp_model,
-        extract_date=date_obj, started_at=datetime.now(tz=timezone.utc),
-        job_type="FDP_TRANSFORMATION", dbt_model_name=fdp_model,
-    )
-    repo.create_job(job)
-    repo.mark_failed(
-        run_id=run_id, error_code="DEPENDENCY_NOT_MET",
-        error_message=f"Missing ODP entities: {missing}. DAG triggered prematurely.",
-        failure_stage=FailureStage.FDP_DEPENDENCY,
-    )
-    logger.error(f"FDP dependency failure recorded for {fdp_model}: missing {missing}")
-    context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+    loaded = set(checker.get_loaded_entities(date_obj))
+    ready_models = [model for model, deps in FDP_DEPENDENCIES.items() if set(deps).issubset(loaded)]
+    if ready_models:
+        logger.info(f"FDP models ready to run: {ready_models} (loaded entities: {loaded})")
+    else:
+        logger.info(f"No FDP models ready yet. Loaded entities: {loaded}")
+    context["ti"].xcom_push(key="ready_fdp_models", value=ready_models)
 
 
-def update_fdp_job_success(**context):
+def update_job_success(**context):
     project_id = _get_project_id()
-    run_id = context["ti"].xcom_pull(key="fdp_run_id")
-    conf = context.get("dag_run").conf or {}
-    fdp_model = conf.get("fdp_model", "unknown")
+    run_id = context["ti"].xcom_pull(key="run_id")
+    entity = context["ti"].xcom_pull(key="entity")
     if run_id:
         repo = JobControlRepository(project_id=project_id)
         repo.update_status(run_id, JobStatus.SUCCESS)
-        logger.info(f"FDP job {run_id} marked as SUCCESS")
-        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=fdp_model)
-        audit.record_processing_start(
-            source_file=f"odp_{FILE_PREFIX}.*",
-            metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model},
-        )
+        logger.info(f"Job {run_id} marked as SUCCESS")
+        conf = context.get("dag_run").conf or {}
+        file_metadata_raw = conf.get("file_metadata", {})
+        file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+        data_file = file_metadata.get("data_file", "unknown")
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=entity or "unknown")
+        audit.record_processing_start(source_file=data_file, metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
         audit.record_processing_end(success=True)
         # Publish success audit record to Pub/Sub
-        _publish_audit(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=True,
-                       metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model})
+        _publish_audit(run_id, DAG_ID, entity or "unknown", data_file, success=True,
+                       metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
         # Data lineage tracking
-        _publish_lineage(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=True,
-                         metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model})
-        # Track FinOps cost from dbt's BigQuery jobs
+        _publish_lineage(run_id, DAG_ID, entity or "unknown", data_file, success=True,
+                         metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
+        # Track FinOps cost from BigQuery jobs labelled with this run_id
         _track_pipeline_cost(run_id)
         # Push to Cloud Monitoring
-        _push_cloud_monitoring_metric("fdp_transform_success", 1, {"model": fdp_model, "system": SYSTEM_ID})
+        _push_cloud_monitoring_metric("odp_load_success", 1, {"entity": entity or "unknown", "system": SYSTEM_ID})
 
 
-def reconcile_fdp_model_output(**context):
+def reconcile_odp_load(**context):
     project_id = _get_project_id()
-    run_id = context["ti"].xcom_pull(key="fdp_run_id")
+    run_id = context["ti"].xcom_pull(key="run_id")
+    entity = context["ti"].xcom_pull(key="entity")
     conf = context.get("dag_run").conf or {}
-    fdp_model = conf.get("fdp_model", "")
-    fdp_dataset = FDP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
-    fdp_table = f"{project_id}.{fdp_dataset}.{fdp_model}"
-    required_entities = FDP_DEPENDENCIES.get(fdp_model, [])
+    hdr_metadata_raw = conf.get("hdr_metadata", {})
+    hdr_metadata = json.loads(hdr_metadata_raw) if isinstance(hdr_metadata_raw, str) else hdr_metadata_raw
+    expected_count = hdr_metadata.get("record_count") if hdr_metadata else None
+    if not expected_count:
+        logger.warning(f"No expected record count from HDR/TRL for {entity}. Skipping reconciliation.")
+        return
     odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
-    source_tables = [f"{project_id}.{odp_dataset}.{e}" for e in required_entities]
-    model_info = dict(FDP_DEPENDENCIES)  # type info not available here, default to inner
-    join_type = "inner"
-    engine = ReconciliationEngine(entity_type=fdp_model, run_id=run_id, project_id=project_id)
-    result = engine.reconcile_fdp_model(
-        model_name=fdp_model, source_tables=source_tables,
-        destination_table=fdp_table, join_type=join_type,
+    odp_table = f"{project_id}.{odp_dataset}.{entity}"
+    error_table = f"{project_id}.{odp_dataset}.{entity}_errors"
+    engine = ReconciliationEngine(entity_type=entity, run_id=run_id, project_id=project_id)
+    result = engine.reconcile_with_bigquery(
+        expected_count=expected_count, destination_table=odp_table, error_table=error_table,
     )
     if not result.is_reconciled:
-        raise Exception(f"FDP reconciliation MISMATCH for {fdp_model}: {result.message}")
-    logger.info(f"FDP reconciliation passed for {fdp_model}: {result.actual_count} rows")
+        raise Exception(
+            f"ODP reconciliation MISMATCH for {entity}: "
+            f"expected={result.expected_count}, actual={result.actual_count}, "
+            f"errors={result.error_count}, match={result.match_percentage:.1f}%"
+        )
+    logger.info(f"ODP reconciliation passed for {entity}: {result.actual_count}/{result.expected_count} rows")
+
+
+def trigger_ready_transforms(**context):
+    from airflow.api.common.trigger_dag import trigger_dag
+    ready_models = context["ti"].xcom_pull(key="ready_fdp_models", task_ids="check_ready_fdp_models") or []
+    conf = context.get("dag_run").conf or {}
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    if not ready_models:
+        logger.info("No FDP models ready. Skipping transformation trigger.")
+        return
+    for model in ready_models:
+        target_dag = TRANSFORMATION_DAG_MAP.get(model)
+        if not target_dag:
+            logger.warning(f"No transformation DAG for model '{model}' — skipping")
+            continue
+        run_id = f"transform_{model}_{extract_date}"
+        logger.info(f"Triggering {target_dag} for model: {model}")
+        trigger_dag(
+            dag_id=target_dag, run_id=run_id,
+            conf={"extract_date": extract_date, "fdp_model": model, "triggered_by": DAG_ID},
+            replace_microseconds=False,
+        )
 
 
 # =============================================================================
@@ -552,49 +565,57 @@ def reconcile_fdp_model_output(**context):
 # =============================================================================
 
 _init_otel(DAG_ID)
-
-_dbt_project_path = Variable.get("dbt_project_path", default_var="/home/airflow/gcs/dags/dbt")
+_log_observability_status(DAG_ID)
 
 default_args = {
     "owner": "data-engineering",
     "depends_on_past": False,
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 2,
-    "retry_delay": timedelta(minutes=10),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=5),
     "start_date": datetime(2026, 1, 1),
-    "on_failure_callback": mark_fdp_job_failed,
+    "on_failure_callback": mark_job_failed,
 }
 
-generic_transformation_dag = DAG(
+_project_id = _get_project_id()
+_odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+_template_bucket = Variable.get("dataflow_templates_bucket", default_var=_resolve(TEMP_BUCKET_TEMPLATE))
+
+generic_accounts_ingestion_dag = DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description=f"Transform {SYSTEM_NAME} ODP to FDP — runs per-model based on granular dependencies",
+    description=f"Load {SYSTEM_NAME} {ENTITY} data to ODP (BigQuery)",
     schedule=None,
     catchup=False,
-    tags=[FILE_PREFIX, "fdp", "dbt", "transformation"],
+    tags=[FILE_PREFIX, "odp", "dataflow", ENTITY],
 )
 
-with generic_transformation_dag:
-    verify = BranchPythonOperator(task_id="verify_model_dependencies", python_callable=verify_model_dependencies)
-    create_fdp_job = PythonOperator(task_id="create_fdp_job_record", python_callable=create_fdp_job_record)
-    staging = BashOperator(
-        task_id="run_dbt_staging",
-        bash_command=f"cd {_dbt_project_path} && dbt run --select staging --vars '{{\"extract_date\": \"{{{{ ds_nodash }}}}\"}}' --target prod",
+with generic_accounts_ingestion_dag:
+    create_job = PythonOperator(task_id="create_job_record", python_callable=create_job_record)
+    run_dataflow = BaseDataflowOperator(
+        task_id="run_dataflow_pipeline",
+        pipeline_name=f"{FILE_PREFIX}-odp-load",
+        project_id=_project_id,
+        region=Variable.get("gcp_region", default_var="europe-west2"),
+        source_type="gcs",
+        processing_mode="batch",
+        template_type="flex",
+        input_path="{{ dag_run.conf.data_file }}",
+        output_table=f"{_project_id}:{_odp_dataset}.{ENTITY}",
+        template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
+        use_template=True,
+        additional_params={
+            "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+            "source_file": "{{ dag_run.conf.data_file }}",
+            "entity": ENTITY,
+            "extract_date": "{{ dag_run.conf.extract_date }}",
+        },
     )
-    fdp = BashOperator(
-        task_id="run_dbt_fdp",
-        bash_command=f"cd {_dbt_project_path} && dbt run --select '{{{{ dag_run.conf.fdp_model }}}}' --vars '{{\"extract_date\": \"{{{{ ds_nodash }}}}\"}}' --target prod",
-    )
-    tests = BashOperator(
-        task_id="run_dbt_tests",
-        bash_command=f"cd {_dbt_project_path} && dbt test --select '{{{{ dag_run.conf.fdp_model }}}}' --target prod",
-    )
-    reconcile_fdp = PythonOperator(task_id="reconcile_fdp_model", python_callable=reconcile_fdp_model_output)
-    mark_success = PythonOperator(task_id="mark_fdp_success", python_callable=update_fdp_job_success)
-    dep_failure = PythonOperator(task_id="handle_dependency_failure", python_callable=handle_dependency_failure)
-    end = DummyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
+    mark_success = PythonOperator(task_id="update_job_success", python_callable=update_job_success)
+    reconcile = PythonOperator(task_id="reconcile_odp_load", python_callable=reconcile_odp_load)
+    check_deps = PythonOperator(task_id="check_ready_fdp_models", python_callable=check_ready_fdp_models)
+    trigger_transforms = PythonOperator(task_id="trigger_ready_transforms", python_callable=trigger_ready_transforms)
+    end = DummyOperator(task_id="end")
 
-    verify >> [create_fdp_job, dep_failure]
-    create_fdp_job >> staging >> fdp >> tests >> reconcile_fdp >> mark_success >> end
-    dep_failure >> end
+    create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end

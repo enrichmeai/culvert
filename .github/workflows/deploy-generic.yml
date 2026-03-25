@@ -612,6 +612,10 @@ jobs:
           
           echo "Cleanup complete. Now uploading only DAG .py files..."
 
+          # Remove old monolithic DAGs replaced by per-entity/per-model DAGs
+          gsutil rm ${DAGS_BUCKET}/generic/generic_ingestion_dag.py 2>/dev/null || true
+          gsutil rm ${DAGS_BUCKET}/generic/generic_transformation_dag.py 2>/dev/null || true
+
           # DAGs are pre-generated and committed to git (via generate_dags.py)
           # All config is baked in at generation time — no runtime config needed
           # Only upload actual DAG files (not __init__.py - DAGs are standalone scripts)

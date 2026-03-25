@@ -1,20 +1,15 @@
 # Auto-generated from system.yaml — DO NOT EDIT MANUALLY
 # To modify, update system.yaml and re-run: python generate_dags.py
 """
-Generic Error Handling DAG
+Generic Customers Ingestion DAG
 
-Proactive error monitoring and recovery — runs every 30 minutes:
-  1. Scans job_control for FAILED jobs
-  2. Categorises errors (CRITICAL / retryable / manual review)
-  3. Auto-retries eligible ODP and FDP jobs
-  4. Sends Dynatrace/ServiceNow alerts for critical failures
-  5. Cleans up partial ODP loads before retry
-
+Runs Dataflow to load customers data to BigQuery ODP, reconciles,
+checks FDP dependencies, and triggers ready transformations.
 Generated from system.yaml — all config baked in at build time.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 import json
 import logging
 import os
@@ -23,18 +18,20 @@ from airflow import DAG
 from airflow.models import Variable
 
 try:
-    from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.providers.standard.operators.python import PythonOperator
     from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
-    from airflow.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.operators.python import PythonOperator
     try:
         from airflow.operators.empty import EmptyOperator as DummyOperator
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, FailureStage
-from gcp_pipeline_core.error_handling import ErrorSeverity, ErrorCategory
-from gcp_pipeline_core.audit import AuditTrail
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
+from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
+from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
+from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
 from gcp_pipeline_core.monitoring.alerts import (
     AlertManager, DynatraceAlertBackend, ServiceNowAlertBackend,
     LoggingAlertBackend, CloudMonitoringBackend,
@@ -57,33 +54,16 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "GENERIC"
 SYSTEM_NAME = "Generic"
 FILE_PREFIX = "generic"
+ENTITY = "customers"
 ENTITIES = ['customers', 'accounts', 'decision', 'applications']
-FDP_MODELS = ['event_transaction_excess', 'portfolio_account_excess', 'portfolio_account_facility']
-DAG_ID = "generic_error_handling_dag"
-INGESTION_DAG_MAP = {'customers': 'generic_customers_ingestion_dag', 'accounts': 'generic_accounts_ingestion_dag', 'decision': 'generic_decision_ingestion_dag', 'applications': 'generic_applications_ingestion_dag'}
+FDP_DEPENDENCIES = {'event_transaction_excess': ['customers', 'accounts'], 'portfolio_account_excess': ['decision'], 'portfolio_account_facility': ['applications']}
+DAG_ID = "generic_customers_ingestion_dag"
 TRANSFORMATION_DAG_MAP = {'event_transaction_excess': 'generic_event_transaction_excess_transformation_dag', 'portfolio_account_excess': 'generic_portfolio_account_excess_transformation_dag', 'portfolio_account_facility': 'generic_portfolio_account_facility_transformation_dag'}
 
 # Infrastructure templates
 ODP_DATASET_TEMPLATE = "odp_{system}"
 ERROR_BUCKET_TEMPLATE = "{project_id}-{system}-{env}-error"
-
-# Retry config (baked from system.yaml)
-ODP_MAX_RETRIES = 3
-ODP_CLEANUP_ON_RETRY = True
-FDP_MAX_RETRIES = 2
-
-# Error routing
-RETRYABLE_STAGES = [
-    FailureStage.ODP_LOAD.value,
-    FailureStage.RECONCILIATION.value,
-    FailureStage.FDP_MODEL.value,
-    FailureStage.FDP_STAGING.value,
-    FailureStage.FDP_TEST.value,
-]
-CRITICAL_STAGES = [
-    FailureStage.FILE_DISCOVERY.value,
-    FailureStage.FDP_DEPENDENCY.value,
-]
+TEMP_BUCKET_TEMPLATE = "{project_id}-{system}-{env}-temp"
 
 
 def _resolve(template: str) -> str:
@@ -406,173 +386,178 @@ def _log_observability_status(dag_id):
 # Task callables
 # =============================================================================
 
-def scan_failed_jobs(**context) -> str:
-    """
-    Scan job_control for FAILED jobs from today.
-
-    Routes to:
-      - handle_critical: CRITICAL-stage failures (FILE_DISCOVERY, FDP_DEPENDENCY)
-      - handle_retryable: ODP_LOAD, RECONCILIATION, FDP_MODEL failures under max retries
-      - handle_manual_review: failures that exceeded max retries
-      - no_errors: nothing to process
-    """
+def mark_job_failed(context):
     project_id = _get_project_id()
-    today = datetime.now(tz=timezone.utc).date()
-    repo = JobControlRepository(project_id=project_id)
-    failed = repo.get_failed_jobs(SYSTEM_ID, today)
-
-    if not failed:
-        logger.info(f"No failed jobs for {SYSTEM_ID} on {today}")
-        return "no_errors"
-
-    critical = []
-    retryable = []
-    manual_review = []
-
-    for job in failed:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        retry_count = job.get("retry_count", 0)
-
-        # Get full job to check failure_stage
-        full_job = repo.get_job(run_id)
-        stage = full_job.failure_stage.value if full_job and full_job.failure_stage else "UNKNOWN"
-
-        if stage in CRITICAL_STAGES:
-            critical.append(job)
-        elif stage in RETRYABLE_STAGES:
-            # Check if ODP or FDP
-            is_fdp = entity in FDP_MODELS
-            max_retries = FDP_MAX_RETRIES if is_fdp else ODP_MAX_RETRIES
-            if retry_count < max_retries:
-                retryable.append({**job, "stage": stage, "is_fdp": is_fdp})
-            else:
-                manual_review.append({**job, "stage": stage, "exhausted_retries": True})
-        else:
-            manual_review.append({**job, "stage": stage})
-
-    context["ti"].xcom_push(key="critical_jobs", value=critical)
-    context["ti"].xcom_push(key="retryable_jobs", value=retryable)
-    context["ti"].xcom_push(key="manual_review_jobs", value=manual_review)
-
-    logger.info(f"Failed jobs: {len(critical)} critical, {len(retryable)} retryable, {len(manual_review)} manual review")
-
-    if critical:
-        return "handle_critical"
-    elif retryable:
-        return "handle_retryable"
-    elif manual_review:
-        return "handle_manual_review"
-    else:
-        return "no_errors"
+    run_id = context["ti"].xcom_pull(key="run_id")
+    task_id = context["task_instance"].task_id
+    exception = context.get("exception")
+    if run_id:
+        repo = JobControlRepository(project_id=project_id)
+        stage_map = {
+            "create_job_record": FailureStage.FILE_DISCOVERY,
+            "run_dataflow_pipeline": FailureStage.ODP_LOAD,
+            "update_job_success": FailureStage.ODP_LOAD,
+            "reconcile_odp_load": FailureStage.RECONCILIATION,
+            "check_ready_fdp_models": FailureStage.ODP_LOAD,
+            "trigger_ready_transforms": FailureStage.ODP_LOAD,
+        }
+        stage = stage_map.get(task_id, FailureStage.ODP_LOAD)
+        error_code = type(exception).__name__ if exception else "UNKNOWN"
+        error_message = str(exception)[:1024] if exception else f"Task {task_id} failed"
+        repo.mark_failed(run_id=run_id, error_code=error_code, error_message=error_message, failure_stage=stage)
+        if exception:
+            try:
+                error_bucket = _resolve(ERROR_BUCKET_TEMPLATE)
+                error_storage = GCSErrorStorage(bucket_name=error_bucket, prefix=f"error_logs/{run_id}")
+                handler = ErrorHandler(pipeline_name=DAG_ID, run_id=run_id, error_storage=error_storage)
+                handler.handle_exception(exception, source_file=task_id)
+            except Exception as e:
+                logger.warning(f"Error handler storage failed (non-fatal): {e}")
+        entity = context["ti"].xcom_pull(key="entity") or "unknown"
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=entity)
+        audit.record_processing_start(source_file="unknown")
+        audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
+        audit.record_processing_end(success=False)
+        # Alert on failure
+        _send_failure_alert(DAG_ID, task_id, exception, {"run_id": run_id, "entity": entity, "stage": stage.value})
+        # Publish failure audit record
+        _publish_audit(run_id, DAG_ID, entity, "unknown", success=False, error_count=1,
+                       metadata={"error_code": error_code, "failure_stage": stage.value})
+        _push_cloud_monitoring_metric("odp_load_failure", 1, {"entity": entity, "system": SYSTEM_ID, "stage": stage.value})
+        logger.error(f"Job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
 
-def handle_critical(**context):
-    """Alert immediately on critical failures — do NOT auto-retry."""
-    critical_jobs = context["ti"].xcom_pull(key="critical_jobs") or []
-    for job in critical_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        logger.error(f"CRITICAL failure: {run_id} entity={entity}")
-        _send_failure_alert(
-            dag_id=DAG_ID, task_id="handle_critical",
-            exception=Exception(f"Critical pipeline failure for {entity}: {run_id}"),
-            metadata={
-                "run_id": run_id, "entity": entity,
-                "severity": "CRITICAL", "action": "REQUIRES_MANUAL_INTERVENTION",
-            },
-        )
-        # Publish failure audit
-        _publish_audit(run_id, DAG_ID, entity, "error_handling", success=False, error_count=1,
-                       metadata={"severity": "CRITICAL", "action": "alerted"})
-    _push_cloud_monitoring_metric("error_handling_critical", len(critical_jobs), {"system": SYSTEM_ID})
-
-
-def handle_retryable(**context):
-    """Auto-retry eligible failed jobs. Cleanup partial ODP loads first."""
-    from airflow.api.common.trigger_dag import trigger_dag
-
+def create_job_record(**context):
     project_id = _get_project_id()
-    retryable_jobs = context["ti"].xcom_pull(key="retryable_jobs") or []
+    conf = context.get("dag_run").conf or {}
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    entity = ENTITY
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    data_file = file_metadata.get("data_file", "")
+    run_id = context.get("run_id", f"{FILE_PREFIX}_{entity}_{extract_date}")
+    extract_date_obj = datetime.strptime(extract_date, "%Y%m%d").date() if extract_date else datetime.now(tz=timezone.utc).date()
+
     repo = JobControlRepository(project_id=project_id)
-
-    retried = 0
-    for job in retryable_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        retry_count = job.get("retry_count", 0)
-        is_fdp = job.get("is_fdp", False)
-
-        # Cleanup partial ODP data before retry (if configured)
-        if not is_fdp and ODP_CLEANUP_ON_RETRY:
+    existing = repo.get_entity_status(SYSTEM_ID, extract_date_obj)
+    for entry in existing:
+        if entry["entity_type"] == entity and entry["status"] == "FAILED":
+            old_run_id = entry["run_id"]
             odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
             odp_table = f"{project_id}.{odp_dataset}.{entity}"
+            logger.info(f"Found failed job {old_run_id}. Cleaning up partial data from {odp_table}")
             try:
-                deleted = repo.cleanup_partial_load(run_id, odp_table)
-                logger.info(f"Cleaned up {deleted} partial rows from {odp_table} for {run_id}")
+                deleted = repo.cleanup_partial_load(old_run_id, odp_table)
+                logger.info(f"Cleaned up {deleted} partial rows from {odp_table} for run {old_run_id}")
             except Exception as e:
-                logger.warning(f"Cleanup failed for {run_id} (non-fatal): {e}")
+                logger.warning(f"Cleanup of partial load failed (non-fatal): {e}")
+            repo.mark_retrying(old_run_id, retry_count=1)
 
-        # Mark as retrying
-        repo.mark_retrying(run_id, retry_count=retry_count + 1)
-
-        # Trigger the appropriate DAG
-        if is_fdp:
-            target_dag = TRANSFORMATION_DAG_MAP.get(entity)
-            if not target_dag:
-                logger.error(f"No transformation DAG for model '{entity}' — skipping retry")
-                continue
-            conf = {"extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"), "triggered_by": DAG_ID}
-        else:
-            target_dag = INGESTION_DAG_MAP.get(entity)
-            if not target_dag:
-                logger.error(f"No ingestion DAG for entity '{entity}' — skipping retry")
-                continue
-            # Reconstruct file metadata for re-ingestion
-            full_job = repo.get_job(run_id)
-            source_file = full_job.source_files[0] if full_job and full_job.source_files else ""
-            conf = {
-                "file_metadata": json.dumps({
-                    "entity": entity,
-                    "data_file": source_file,
-                    "extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
-                }),
-                "triggered_by": DAG_ID,
-            }
-
-        try:
-            retry_run_id = f"retry_{run_id}_{retry_count + 1}"
-            trigger_dag(dag_id=target_dag, run_id=retry_run_id, conf=conf, replace_microseconds=False)
-            logger.info(f"Triggered retry for {run_id} → {target_dag} (attempt {retry_count + 1})")
-            retried += 1
-        except Exception as e:
-            logger.error(f"Failed to trigger retry for {run_id}: {e}")
-            _send_failure_alert(DAG_ID, "handle_retryable", e, {"run_id": run_id, "entity": entity})
-
-    logger.info(f"Retried {retried}/{len(retryable_jobs)} failed jobs")
-    _push_cloud_monitoring_metric("error_handling_retried", retried, {"system": SYSTEM_ID})
+    job = PipelineJob(
+        run_id=run_id, system_id=SYSTEM_ID, entity_type=entity,
+        extract_date=extract_date_obj, source_files=[data_file],
+        started_at=datetime.now(tz=timezone.utc), job_type="ODP_INGESTION",
+    )
+    repo.create_job(job)
+    repo.update_status(run_id, JobStatus.RUNNING)
+    logger.info(f"Created job record: {run_id} for entity: {entity}")
+    context["ti"].xcom_push(key="run_id", value=run_id)
+    context["ti"].xcom_push(key="entity", value=entity)
 
 
-def handle_manual_review(**context):
-    """Alert on jobs that need manual review (exhausted retries or config errors)."""
-    manual_jobs = context["ti"].xcom_pull(key="manual_review_jobs") or []
-    for job in manual_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        stage = job.get("stage", "UNKNOWN")
-        exhausted = job.get("exhausted_retries", False)
-        reason = "max retries exhausted" if exhausted else f"failure at {stage}"
-        logger.warning(f"Manual review needed: {run_id} entity={entity} reason={reason}")
-        _send_failure_alert(
-            dag_id=DAG_ID, task_id="handle_manual_review",
-            exception=Exception(f"Manual review needed for {entity}: {reason}"),
-            metadata={
-                "run_id": run_id, "entity": entity, "stage": stage,
-                "severity": "WARNING", "action": "REQUIRES_MANUAL_REVIEW",
-                "exhausted_retries": exhausted,
-            },
+def check_ready_fdp_models(**context) -> None:
+    project_id = _get_project_id()
+    conf = context.get("dag_run").conf or {}
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    checker = EntityDependencyChecker(project_id=project_id, system_id=SYSTEM_ID, required_entities=ENTITIES)
+    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
+    loaded = set(checker.get_loaded_entities(date_obj))
+    ready_models = [model for model, deps in FDP_DEPENDENCIES.items() if set(deps).issubset(loaded)]
+    if ready_models:
+        logger.info(f"FDP models ready to run: {ready_models} (loaded entities: {loaded})")
+    else:
+        logger.info(f"No FDP models ready yet. Loaded entities: {loaded}")
+    context["ti"].xcom_push(key="ready_fdp_models", value=ready_models)
+
+
+def update_job_success(**context):
+    project_id = _get_project_id()
+    run_id = context["ti"].xcom_pull(key="run_id")
+    entity = context["ti"].xcom_pull(key="entity")
+    if run_id:
+        repo = JobControlRepository(project_id=project_id)
+        repo.update_status(run_id, JobStatus.SUCCESS)
+        logger.info(f"Job {run_id} marked as SUCCESS")
+        conf = context.get("dag_run").conf or {}
+        file_metadata_raw = conf.get("file_metadata", {})
+        file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+        data_file = file_metadata.get("data_file", "unknown")
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=entity or "unknown")
+        audit.record_processing_start(source_file=data_file, metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
+        audit.record_processing_end(success=True)
+        # Publish success audit record to Pub/Sub
+        _publish_audit(run_id, DAG_ID, entity or "unknown", data_file, success=True,
+                       metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
+        # Data lineage tracking
+        _publish_lineage(run_id, DAG_ID, entity or "unknown", data_file, success=True,
+                         metadata={"job_type": "ODP_INGESTION", "system_id": SYSTEM_ID})
+        # Track FinOps cost from BigQuery jobs labelled with this run_id
+        _track_pipeline_cost(run_id)
+        # Push to Cloud Monitoring
+        _push_cloud_monitoring_metric("odp_load_success", 1, {"entity": entity or "unknown", "system": SYSTEM_ID})
+
+
+def reconcile_odp_load(**context):
+    project_id = _get_project_id()
+    run_id = context["ti"].xcom_pull(key="run_id")
+    entity = context["ti"].xcom_pull(key="entity")
+    conf = context.get("dag_run").conf or {}
+    hdr_metadata_raw = conf.get("hdr_metadata", {})
+    hdr_metadata = json.loads(hdr_metadata_raw) if isinstance(hdr_metadata_raw, str) else hdr_metadata_raw
+    expected_count = hdr_metadata.get("record_count") if hdr_metadata else None
+    if not expected_count:
+        logger.warning(f"No expected record count from HDR/TRL for {entity}. Skipping reconciliation.")
+        return
+    odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+    odp_table = f"{project_id}.{odp_dataset}.{entity}"
+    error_table = f"{project_id}.{odp_dataset}.{entity}_errors"
+    engine = ReconciliationEngine(entity_type=entity, run_id=run_id, project_id=project_id)
+    result = engine.reconcile_with_bigquery(
+        expected_count=expected_count, destination_table=odp_table, error_table=error_table,
+    )
+    if not result.is_reconciled:
+        raise Exception(
+            f"ODP reconciliation MISMATCH for {entity}: "
+            f"expected={result.expected_count}, actual={result.actual_count}, "
+            f"errors={result.error_count}, match={result.match_percentage:.1f}%"
         )
-    _push_cloud_monitoring_metric("error_handling_manual_review", len(manual_jobs), {"system": SYSTEM_ID})
+    logger.info(f"ODP reconciliation passed for {entity}: {result.actual_count}/{result.expected_count} rows")
+
+
+def trigger_ready_transforms(**context):
+    from airflow.api.common.trigger_dag import trigger_dag
+    ready_models = context["ti"].xcom_pull(key="ready_fdp_models", task_ids="check_ready_fdp_models") or []
+    conf = context.get("dag_run").conf or {}
+    file_metadata_raw = conf.get("file_metadata", {})
+    file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
+    extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    if not ready_models:
+        logger.info("No FDP models ready. Skipping transformation trigger.")
+        return
+    for model in ready_models:
+        target_dag = TRANSFORMATION_DAG_MAP.get(model)
+        if not target_dag:
+            logger.warning(f"No transformation DAG for model '{model}' — skipping")
+            continue
+        run_id = f"transform_{model}_{extract_date}"
+        logger.info(f"Triggering {target_dag} for model: {model}")
+        trigger_dag(
+            dag_id=target_dag, run_id=run_id,
+            conf={"extract_date": extract_date, "fdp_model": model, "triggered_by": DAG_ID},
+            replace_microseconds=False,
+        )
 
 
 # =============================================================================
@@ -585,31 +570,52 @@ _log_observability_status(DAG_ID)
 default_args = {
     "owner": "data-engineering",
     "depends_on_past": False,
-    "start_date": datetime(2026, 1, 1),
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 1,
-    "retry_delay": timedelta(minutes=10),
-    "execution_timeout": timedelta(hours=1),
+    "retries": 3,
+    "retry_delay": timedelta(minutes=5),
+    "start_date": datetime(2026, 1, 1),
+    "on_failure_callback": mark_job_failed,
 }
 
-generic_error_handling_dag = DAG(
+_project_id = _get_project_id()
+_odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+_template_bucket = Variable.get("dataflow_templates_bucket", default_var=_resolve(TEMP_BUCKET_TEMPLATE))
+
+generic_customers_ingestion_dag = DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description=f"Monitor and recover failed {SYSTEM_NAME} pipeline jobs — runs every 30 min",
-    schedule="*/30 * * * *",
+    description=f"Load {SYSTEM_NAME} {ENTITY} data to ODP (BigQuery)",
+    schedule=None,
     catchup=False,
-    max_active_runs=1,
-    tags=[FILE_PREFIX, "error", "recovery", "monitoring"],
+    tags=[FILE_PREFIX, "odp", "dataflow", ENTITY],
 )
 
-with generic_error_handling_dag:
-    scan = BranchPythonOperator(task_id="scan_failed_jobs", python_callable=scan_failed_jobs)
-    critical = PythonOperator(task_id="handle_critical", python_callable=handle_critical)
-    retryable = PythonOperator(task_id="handle_retryable", python_callable=handle_retryable)
-    manual = PythonOperator(task_id="handle_manual_review", python_callable=handle_manual_review)
-    no_errors = DummyOperator(task_id="no_errors")
-    end = DummyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
+with generic_customers_ingestion_dag:
+    create_job = PythonOperator(task_id="create_job_record", python_callable=create_job_record)
+    run_dataflow = BaseDataflowOperator(
+        task_id="run_dataflow_pipeline",
+        pipeline_name=f"{FILE_PREFIX}-odp-load",
+        project_id=_project_id,
+        region=Variable.get("gcp_region", default_var="europe-west2"),
+        source_type="gcs",
+        processing_mode="batch",
+        template_type="flex",
+        input_path="{{ dag_run.conf.data_file }}",
+        output_table=f"{_project_id}:{_odp_dataset}.{ENTITY}",
+        template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
+        use_template=True,
+        additional_params={
+            "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+            "source_file": "{{ dag_run.conf.data_file }}",
+            "entity": ENTITY,
+            "extract_date": "{{ dag_run.conf.extract_date }}",
+        },
+    )
+    mark_success = PythonOperator(task_id="update_job_success", python_callable=update_job_success)
+    reconcile = PythonOperator(task_id="reconcile_odp_load", python_callable=reconcile_odp_load)
+    check_deps = PythonOperator(task_id="check_ready_fdp_models", python_callable=check_ready_fdp_models)
+    trigger_transforms = PythonOperator(task_id="trigger_ready_transforms", python_callable=trigger_ready_transforms)
+    end = DummyOperator(task_id="end")
 
-    scan >> [critical, retryable, manual, no_errors]
-    [critical, retryable, manual, no_errors] >> end
+    create_job >> run_dataflow >> mark_success >> reconcile >> check_deps >> trigger_transforms >> end

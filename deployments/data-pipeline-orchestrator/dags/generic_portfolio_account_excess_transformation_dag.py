@@ -1,20 +1,14 @@
 # Auto-generated from system.yaml — DO NOT EDIT MANUALLY
 # To modify, update system.yaml and re-run: python generate_dags.py
 """
-Generic Error Handling DAG
+Generic portfolio_account_excess Transformation DAG
 
-Proactive error monitoring and recovery — runs every 30 minutes:
-  1. Scans job_control for FAILED jobs
-  2. Categorises errors (CRITICAL / retryable / manual review)
-  3. Auto-retries eligible ODP and FDP jobs
-  4. Sends Dynatrace/ServiceNow alerts for critical failures
-  5. Cleans up partial ODP loads before retry
-
+Transforms ODP to FDP for portfolio_account_excess — runs per-model based on granular dependencies.
 Generated from system.yaml — all config baked in at build time.
 """
 
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict
 import json
 import logging
 import os
@@ -24,17 +18,20 @@ from airflow.models import Variable
 
 try:
     from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.providers.standard.operators.bash import BashOperator
     from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
     from airflow.operators.python import PythonOperator, BranchPythonOperator
+    from airflow.operators.bash import BashOperator
     try:
         from airflow.operators.empty import EmptyOperator as DummyOperator
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, FailureStage
-from gcp_pipeline_core.error_handling import ErrorSeverity, ErrorCategory
-from gcp_pipeline_core.audit import AuditTrail
+from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
+from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
+from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
 from gcp_pipeline_core.monitoring.alerts import (
     AlertManager, DynatraceAlertBackend, ServiceNowAlertBackend,
     LoggingAlertBackend, CloudMonitoringBackend,
@@ -57,33 +54,16 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "GENERIC"
 SYSTEM_NAME = "Generic"
 FILE_PREFIX = "generic"
+FDP_MODEL = "portfolio_account_excess"
+REQUIRED_ENTITIES = ['decision']
 ENTITIES = ['customers', 'accounts', 'decision', 'applications']
-FDP_MODELS = ['event_transaction_excess', 'portfolio_account_excess', 'portfolio_account_facility']
-DAG_ID = "generic_error_handling_dag"
-INGESTION_DAG_MAP = {'customers': 'generic_customers_ingestion_dag', 'accounts': 'generic_accounts_ingestion_dag', 'decision': 'generic_decision_ingestion_dag', 'applications': 'generic_applications_ingestion_dag'}
-TRANSFORMATION_DAG_MAP = {'event_transaction_excess': 'generic_event_transaction_excess_transformation_dag', 'portfolio_account_excess': 'generic_portfolio_account_excess_transformation_dag', 'portfolio_account_facility': 'generic_portfolio_account_facility_transformation_dag'}
+FDP_DEPENDENCIES = {'event_transaction_excess': ['customers', 'accounts'], 'portfolio_account_excess': ['decision'], 'portfolio_account_facility': ['applications']}
+DAG_ID = "generic_portfolio_account_excess_transformation_dag"
 
 # Infrastructure templates
 ODP_DATASET_TEMPLATE = "odp_{system}"
+FDP_DATASET_TEMPLATE = "fdp_{system}"
 ERROR_BUCKET_TEMPLATE = "{project_id}-{system}-{env}-error"
-
-# Retry config (baked from system.yaml)
-ODP_MAX_RETRIES = 3
-ODP_CLEANUP_ON_RETRY = True
-FDP_MAX_RETRIES = 2
-
-# Error routing
-RETRYABLE_STAGES = [
-    FailureStage.ODP_LOAD.value,
-    FailureStage.RECONCILIATION.value,
-    FailureStage.FDP_MODEL.value,
-    FailureStage.FDP_STAGING.value,
-    FailureStage.FDP_TEST.value,
-]
-CRITICAL_STAGES = [
-    FailureStage.FILE_DISCOVERY.value,
-    FailureStage.FDP_DEPENDENCY.value,
-]
 
 
 def _resolve(template: str) -> str:
@@ -406,173 +386,167 @@ def _log_observability_status(dag_id):
 # Task callables
 # =============================================================================
 
-def scan_failed_jobs(**context) -> str:
-    """
-    Scan job_control for FAILED jobs from today.
-
-    Routes to:
-      - handle_critical: CRITICAL-stage failures (FILE_DISCOVERY, FDP_DEPENDENCY)
-      - handle_retryable: ODP_LOAD, RECONCILIATION, FDP_MODEL failures under max retries
-      - handle_manual_review: failures that exceeded max retries
-      - no_errors: nothing to process
-    """
+def mark_fdp_job_failed(context):
     project_id = _get_project_id()
-    today = datetime.now(tz=timezone.utc).date()
-    repo = JobControlRepository(project_id=project_id)
-    failed = repo.get_failed_jobs(SYSTEM_ID, today)
-
-    if not failed:
-        logger.info(f"No failed jobs for {SYSTEM_ID} on {today}")
-        return "no_errors"
-
-    critical = []
-    retryable = []
-    manual_review = []
-
-    for job in failed:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        retry_count = job.get("retry_count", 0)
-
-        # Get full job to check failure_stage
-        full_job = repo.get_job(run_id)
-        stage = full_job.failure_stage.value if full_job and full_job.failure_stage else "UNKNOWN"
-
-        if stage in CRITICAL_STAGES:
-            critical.append(job)
-        elif stage in RETRYABLE_STAGES:
-            # Check if ODP or FDP
-            is_fdp = entity in FDP_MODELS
-            max_retries = FDP_MAX_RETRIES if is_fdp else ODP_MAX_RETRIES
-            if retry_count < max_retries:
-                retryable.append({**job, "stage": stage, "is_fdp": is_fdp})
-            else:
-                manual_review.append({**job, "stage": stage, "exhausted_retries": True})
-        else:
-            manual_review.append({**job, "stage": stage})
-
-    context["ti"].xcom_push(key="critical_jobs", value=critical)
-    context["ti"].xcom_push(key="retryable_jobs", value=retryable)
-    context["ti"].xcom_push(key="manual_review_jobs", value=manual_review)
-
-    logger.info(f"Failed jobs: {len(critical)} critical, {len(retryable)} retryable, {len(manual_review)} manual review")
-
-    if critical:
-        return "handle_critical"
-    elif retryable:
-        return "handle_retryable"
-    elif manual_review:
-        return "handle_manual_review"
-    else:
-        return "no_errors"
-
-
-def handle_critical(**context):
-    """Alert immediately on critical failures — do NOT auto-retry."""
-    critical_jobs = context["ti"].xcom_pull(key="critical_jobs") or []
-    for job in critical_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        logger.error(f"CRITICAL failure: {run_id} entity={entity}")
-        _send_failure_alert(
-            dag_id=DAG_ID, task_id="handle_critical",
-            exception=Exception(f"Critical pipeline failure for {entity}: {run_id}"),
-            metadata={
-                "run_id": run_id, "entity": entity,
-                "severity": "CRITICAL", "action": "REQUIRES_MANUAL_INTERVENTION",
-            },
-        )
-        # Publish failure audit
-        _publish_audit(run_id, DAG_ID, entity, "error_handling", success=False, error_count=1,
-                       metadata={"severity": "CRITICAL", "action": "alerted"})
-    _push_cloud_monitoring_metric("error_handling_critical", len(critical_jobs), {"system": SYSTEM_ID})
-
-
-def handle_retryable(**context):
-    """Auto-retry eligible failed jobs. Cleanup partial ODP loads first."""
-    from airflow.api.common.trigger_dag import trigger_dag
-
-    project_id = _get_project_id()
-    retryable_jobs = context["ti"].xcom_pull(key="retryable_jobs") or []
-    repo = JobControlRepository(project_id=project_id)
-
-    retried = 0
-    for job in retryable_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        retry_count = job.get("retry_count", 0)
-        is_fdp = job.get("is_fdp", False)
-
-        # Cleanup partial ODP data before retry (if configured)
-        if not is_fdp and ODP_CLEANUP_ON_RETRY:
-            odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
-            odp_table = f"{project_id}.{odp_dataset}.{entity}"
+    run_id = context["ti"].xcom_pull(key="fdp_run_id")
+    task_id = context["task_instance"].task_id
+    exception = context.get("exception")
+    if run_id:
+        repo = JobControlRepository(project_id=project_id)
+        stage_map = {
+            "verify_model_dependencies": FailureStage.FDP_DEPENDENCY,
+            "create_fdp_job_record": FailureStage.FDP_DEPENDENCY,
+            "run_dbt_staging": FailureStage.FDP_STAGING,
+            "run_dbt_fdp": FailureStage.FDP_MODEL,
+            "run_dbt_tests": FailureStage.FDP_TEST,
+            "reconcile_fdp_model": FailureStage.RECONCILIATION,
+        }
+        stage = stage_map.get(task_id, FailureStage.TRANSFORMATION)
+        error_code = type(exception).__name__ if exception else "UNKNOWN"
+        error_message = str(exception)[:1024] if exception else f"Task {task_id} failed"
+        repo.mark_failed(run_id=run_id, error_code=error_code, error_message=error_message, failure_stage=stage)
+        if exception:
             try:
-                deleted = repo.cleanup_partial_load(run_id, odp_table)
-                logger.info(f"Cleaned up {deleted} partial rows from {odp_table} for {run_id}")
+                error_bucket = _resolve(ERROR_BUCKET_TEMPLATE)
+                error_storage = GCSErrorStorage(bucket_name=error_bucket, prefix=f"error_logs/{run_id}")
+                handler = ErrorHandler(pipeline_name=DAG_ID, run_id=run_id, error_storage=error_storage)
+                handler.handle_exception(exception, source_file=task_id)
             except Exception as e:
-                logger.warning(f"Cleanup failed for {run_id} (non-fatal): {e}")
-
-        # Mark as retrying
-        repo.mark_retrying(run_id, retry_count=retry_count + 1)
-
-        # Trigger the appropriate DAG
-        if is_fdp:
-            target_dag = TRANSFORMATION_DAG_MAP.get(entity)
-            if not target_dag:
-                logger.error(f"No transformation DAG for model '{entity}' — skipping retry")
-                continue
-            conf = {"extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"), "triggered_by": DAG_ID}
-        else:
-            target_dag = INGESTION_DAG_MAP.get(entity)
-            if not target_dag:
-                logger.error(f"No ingestion DAG for entity '{entity}' — skipping retry")
-                continue
-            # Reconstruct file metadata for re-ingestion
-            full_job = repo.get_job(run_id)
-            source_file = full_job.source_files[0] if full_job and full_job.source_files else ""
-            conf = {
-                "file_metadata": json.dumps({
-                    "entity": entity,
-                    "data_file": source_file,
-                    "extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"),
-                }),
-                "triggered_by": DAG_ID,
-            }
-
-        try:
-            retry_run_id = f"retry_{run_id}_{retry_count + 1}"
-            trigger_dag(dag_id=target_dag, run_id=retry_run_id, conf=conf, replace_microseconds=False)
-            logger.info(f"Triggered retry for {run_id} → {target_dag} (attempt {retry_count + 1})")
-            retried += 1
-        except Exception as e:
-            logger.error(f"Failed to trigger retry for {run_id}: {e}")
-            _send_failure_alert(DAG_ID, "handle_retryable", e, {"run_id": run_id, "entity": entity})
-
-    logger.info(f"Retried {retried}/{len(retryable_jobs)} failed jobs")
-    _push_cloud_monitoring_metric("error_handling_retried", retried, {"system": SYSTEM_ID})
+                logger.warning(f"Error handler storage failed (non-fatal): {e}")
+        conf = context.get("dag_run").conf or {}
+        fdp_model = FDP_MODEL
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=fdp_model)
+        audit.record_processing_start(source_file=f"odp_{FILE_PREFIX}.*")
+        audit.log_entry("FAILURE", f"Task {task_id} failed: {error_message}")
+        audit.record_processing_end(success=False)
+        # Alert on FDP failure
+        _send_failure_alert(DAG_ID, task_id, exception, {"run_id": run_id, "fdp_model": fdp_model, "stage": stage.value})
+        # Publish failure audit record
+        _publish_audit(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=False, error_count=1,
+                       metadata={"error_code": error_code, "failure_stage": stage.value})
+        _push_cloud_monitoring_metric("fdp_transform_failure", 1, {"model": fdp_model, "system": SYSTEM_ID, "stage": stage.value})
+        logger.error(f"FDP job {run_id} marked FAILED at stage {stage.value}: {error_code}")
 
 
-def handle_manual_review(**context):
-    """Alert on jobs that need manual review (exhausted retries or config errors)."""
-    manual_jobs = context["ti"].xcom_pull(key="manual_review_jobs") or []
-    for job in manual_jobs:
-        run_id = job["run_id"]
-        entity = job["entity_type"]
-        stage = job.get("stage", "UNKNOWN")
-        exhausted = job.get("exhausted_retries", False)
-        reason = "max retries exhausted" if exhausted else f"failure at {stage}"
-        logger.warning(f"Manual review needed: {run_id} entity={entity} reason={reason}")
-        _send_failure_alert(
-            dag_id=DAG_ID, task_id="handle_manual_review",
-            exception=Exception(f"Manual review needed for {entity}: {reason}"),
-            metadata={
-                "run_id": run_id, "entity": entity, "stage": stage,
-                "severity": "WARNING", "action": "REQUIRES_MANUAL_REVIEW",
-                "exhausted_retries": exhausted,
-            },
+def verify_model_dependencies(**context) -> str:
+    project_id = _get_project_id()
+    conf = context.get("dag_run").conf or {}
+    fdp_model = FDP_MODEL
+    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    if not fdp_model or fdp_model not in FDP_DEPENDENCIES:
+        logger.error(f"Unknown or missing FDP model: '{fdp_model}'. Expected one of: {list(FDP_DEPENDENCIES.keys())}")
+        return "handle_dependency_failure"
+    required_entities = FDP_DEPENDENCIES[fdp_model]
+    checker = EntityDependencyChecker(project_id=project_id, system_id=SYSTEM_ID, required_entities=required_entities)
+    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
+    if checker.all_entities_loaded(date_obj):
+        logger.info(f"Dependencies satisfied for {fdp_model}: {required_entities}. Proceeding.")
+        context["ti"].xcom_push(key="fdp_model", value=fdp_model)
+        context["ti"].xcom_push(key="required_entities", value=required_entities)
+        return "create_fdp_job_record"
+    else:
+        missing = checker.get_missing_entities(date_obj)
+        logger.warning(f"Cannot run {fdp_model}. Missing entities: {missing}")
+        context["ti"].xcom_push(key="missing_entities", value=missing)
+        return "handle_dependency_failure"
+
+
+def create_fdp_job_record(**context):
+    project_id = _get_project_id()
+    conf = context.get("dag_run").conf or {}
+    fdp_model = FDP_MODEL
+    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
+    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
+    repo = JobControlRepository(project_id=project_id)
+    required_entities = FDP_DEPENDENCIES.get(fdp_model, [])
+    parent_statuses = repo.get_entity_status(SYSTEM_ID, date_obj)
+    parent_run_ids = [
+        s["run_id"] for s in parent_statuses
+        if s["entity_type"] in required_entities and s["status"] == "SUCCESS"
+    ]
+    job = PipelineJob(
+        run_id=run_id, system_id=SYSTEM_ID, entity_type=fdp_model,
+        extract_date=date_obj, started_at=datetime.now(tz=timezone.utc),
+        job_type="FDP_TRANSFORMATION", dbt_model_name=fdp_model, parent_run_ids=parent_run_ids,
+    )
+    repo.create_job(job)
+    repo.update_status(run_id, JobStatus.RUNNING)
+    logger.info(f"Created FDP job record: {run_id} for model: {fdp_model}, parents: {parent_run_ids}")
+    context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+
+
+def handle_dependency_failure(**context):
+    project_id = _get_project_id()
+    conf = context.get("dag_run").conf or {}
+    fdp_model = FDP_MODEL
+    extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
+    run_id = context.get("run_id", f"transform_{fdp_model}_{extract_date}")
+    missing = context["ti"].xcom_pull(key="missing_entities") or []
+    date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
+    repo = JobControlRepository(project_id=project_id)
+    job = PipelineJob(
+        run_id=run_id, system_id=SYSTEM_ID, entity_type=fdp_model,
+        extract_date=date_obj, started_at=datetime.now(tz=timezone.utc),
+        job_type="FDP_TRANSFORMATION", dbt_model_name=fdp_model,
+    )
+    repo.create_job(job)
+    repo.mark_failed(
+        run_id=run_id, error_code="DEPENDENCY_NOT_MET",
+        error_message=f"Missing ODP entities: {missing}. DAG triggered prematurely.",
+        failure_stage=FailureStage.FDP_DEPENDENCY,
+    )
+    logger.error(f"FDP dependency failure recorded for {fdp_model}: missing {missing}")
+    context["ti"].xcom_push(key="fdp_run_id", value=run_id)
+
+
+def update_fdp_job_success(**context):
+    project_id = _get_project_id()
+    run_id = context["ti"].xcom_pull(key="fdp_run_id")
+    conf = context.get("dag_run").conf or {}
+    fdp_model = FDP_MODEL
+    if run_id:
+        repo = JobControlRepository(project_id=project_id)
+        repo.update_status(run_id, JobStatus.SUCCESS)
+        logger.info(f"FDP job {run_id} marked as SUCCESS")
+        audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=fdp_model)
+        audit.record_processing_start(
+            source_file=f"odp_{FILE_PREFIX}.*",
+            metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model},
         )
-    _push_cloud_monitoring_metric("error_handling_manual_review", len(manual_jobs), {"system": SYSTEM_ID})
+        audit.record_processing_end(success=True)
+        # Publish success audit record to Pub/Sub
+        _publish_audit(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=True,
+                       metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model})
+        # Data lineage tracking
+        _publish_lineage(run_id, DAG_ID, fdp_model, f"odp_{FILE_PREFIX}.*", success=True,
+                         metadata={"job_type": "FDP_TRANSFORMATION", "system_id": SYSTEM_ID, "dbt_model": fdp_model})
+        # Track FinOps cost from dbt's BigQuery jobs
+        _track_pipeline_cost(run_id)
+        # Push to Cloud Monitoring
+        _push_cloud_monitoring_metric("fdp_transform_success", 1, {"model": fdp_model, "system": SYSTEM_ID})
+
+
+def reconcile_fdp_model_output(**context):
+    project_id = _get_project_id()
+    run_id = context["ti"].xcom_pull(key="fdp_run_id")
+    conf = context.get("dag_run").conf or {}
+    fdp_model = FDP_MODEL
+    fdp_dataset = FDP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+    fdp_table = f"{project_id}.{fdp_dataset}.{fdp_model}"
+    required_entities = FDP_DEPENDENCIES.get(fdp_model, [])
+    odp_dataset = ODP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
+    source_tables = [f"{project_id}.{odp_dataset}.{e}" for e in required_entities]
+    model_info = dict(FDP_DEPENDENCIES)  # type info not available here, default to inner
+    join_type = "inner"
+    engine = ReconciliationEngine(entity_type=fdp_model, run_id=run_id, project_id=project_id)
+    result = engine.reconcile_fdp_model(
+        model_name=fdp_model, source_tables=source_tables,
+        destination_table=fdp_table, join_type=join_type,
+    )
+    if not result.is_reconciled:
+        raise Exception(f"FDP reconciliation MISMATCH for {fdp_model}: {result.message}")
+    logger.info(f"FDP reconciliation passed for {fdp_model}: {result.actual_count} rows")
 
 
 # =============================================================================
@@ -580,36 +554,49 @@ def handle_manual_review(**context):
 # =============================================================================
 
 _init_otel(DAG_ID)
-_log_observability_status(DAG_ID)
+
+_dbt_project_path = Variable.get("dbt_project_path", default_var="/home/airflow/gcs/dags/dbt")
 
 default_args = {
     "owner": "data-engineering",
     "depends_on_past": False,
-    "start_date": datetime(2026, 1, 1),
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 1,
+    "retries": 2,
     "retry_delay": timedelta(minutes=10),
-    "execution_timeout": timedelta(hours=1),
+    "start_date": datetime(2026, 1, 1),
+    "on_failure_callback": mark_fdp_job_failed,
 }
 
-generic_error_handling_dag = DAG(
+generic_portfolio_account_excess_transformation_dag = DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description=f"Monitor and recover failed {SYSTEM_NAME} pipeline jobs — runs every 30 min",
-    schedule="*/30 * * * *",
+    description=f"Transform {SYSTEM_NAME} ODP to FDP — {FDP_MODEL}",
+    schedule=None,
     catchup=False,
-    max_active_runs=1,
-    tags=[FILE_PREFIX, "error", "recovery", "monitoring"],
+    tags=[FILE_PREFIX, "fdp", "dbt", "transformation", FDP_MODEL],
 )
 
-with generic_error_handling_dag:
-    scan = BranchPythonOperator(task_id="scan_failed_jobs", python_callable=scan_failed_jobs)
-    critical = PythonOperator(task_id="handle_critical", python_callable=handle_critical)
-    retryable = PythonOperator(task_id="handle_retryable", python_callable=handle_retryable)
-    manual = PythonOperator(task_id="handle_manual_review", python_callable=handle_manual_review)
-    no_errors = DummyOperator(task_id="no_errors")
+with generic_portfolio_account_excess_transformation_dag:
+    verify = BranchPythonOperator(task_id="verify_model_dependencies", python_callable=verify_model_dependencies)
+    create_fdp_job = PythonOperator(task_id="create_fdp_job_record", python_callable=create_fdp_job_record)
+    staging = BashOperator(
+        task_id="run_dbt_staging",
+        bash_command=f"cd {_dbt_project_path} && dbt run --select staging --vars '{{\"extract_date\": \"{{{{ ds_nodash }}}}\"}}' --target prod",
+    )
+    fdp = BashOperator(
+        task_id="run_dbt_fdp",
+        bash_command=f"cd {_dbt_project_path} && dbt run --select '{FDP_MODEL}' --vars '{{\"extract_date\": \"{{{{ ds_nodash }}}}\"}}' --target prod",
+    )
+    tests = BashOperator(
+        task_id="run_dbt_tests",
+        bash_command=f"cd {_dbt_project_path} && dbt test --select '{FDP_MODEL}' --target prod",
+    )
+    reconcile_fdp = PythonOperator(task_id="reconcile_fdp_model", python_callable=reconcile_fdp_model_output)
+    mark_success = PythonOperator(task_id="mark_fdp_success", python_callable=update_fdp_job_success)
+    dep_failure = PythonOperator(task_id="handle_dependency_failure", python_callable=handle_dependency_failure)
     end = DummyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
 
-    scan >> [critical, retryable, manual, no_errors]
-    [critical, retryable, manual, no_errors] >> end
+    verify >> [create_fdp_job, dep_failure]
+    create_fdp_job >> staging >> fdp >> tests >> reconcile_fdp >> mark_success >> end
+    dep_failure >> end

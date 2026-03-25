@@ -18,11 +18,9 @@ from airflow.models import Variable
 
 try:
     from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
     from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
     from airflow.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.operators.trigger_dagrun import TriggerDagRunOperator
     try:
         from airflow.operators.empty import EmptyOperator as DummyOperator
     except ImportError:
@@ -56,7 +54,7 @@ FILE_PREFIX = "generic"
 OK_FILE_SUFFIX = ".ok"
 ENTITIES = ['customers', 'accounts', 'decision', 'applications']
 DAG_ID = "generic_pubsub_trigger_dag"
-INGESTION_DAG_ID = "generic_ingestion_dag"
+INGESTION_DAG_MAP = {'customers': 'generic_customers_ingestion_dag', 'accounts': 'generic_accounts_ingestion_dag', 'decision': 'generic_decision_ingestion_dag', 'applications': 'generic_applications_ingestion_dag'}
 TRIGGER_SCHEDULE = "*/1 * * * *"
 
 # Infrastructure templates (resolved at runtime with project_id/env)
@@ -541,6 +539,33 @@ def move_to_error_bucket(**context):
                 logger.info(f"Moved {blob_path} to error bucket")
 
 
+def trigger_entity_ingestion(**context):
+    from airflow.api.common.trigger_dag import trigger_dag
+    file_metadata = context["ti"].xcom_pull(task_ids="parse_message")
+    if not file_metadata or file_metadata.get("status") != "success":
+        logger.warning("No valid file metadata — skipping trigger")
+        return
+    entity = file_metadata.get("entity", "")
+    target_dag_id = INGESTION_DAG_MAP.get(entity)
+    if not target_dag_id:
+        raise ValueError(f"Unknown entity '{entity}'. Expected one of: {list(INGESTION_DAG_MAP.keys())}")
+    hdr_metadata = context["ti"].xcom_pull(task_ids="validate_file", key="hdr_metadata")
+    extract_date = file_metadata.get("extract_date", "")
+    run_id = f"{FILE_PREFIX}_{entity}_{extract_date}"
+    trigger_dag(
+        dag_id=target_dag_id, run_id=run_id,
+        conf={
+            "file_metadata": json.dumps(file_metadata),
+            "hdr_metadata": json.dumps(hdr_metadata) if hdr_metadata else "{}",
+            "data_file": file_metadata.get("data_file", ""),
+            "entity": entity,
+            "extract_date": extract_date,
+        },
+        replace_microseconds=False,
+    )
+    logger.info(f"Triggered {target_dag_id} for entity={entity}, file={file_metadata.get('data_file')}")
+
+
 # =============================================================================
 # OTEL + DAG definition
 # =============================================================================
@@ -588,18 +613,7 @@ with generic_pubsub_trigger_dag:
     )
     parse_message = PythonOperator(task_id="parse_message", python_callable=parse_pubsub_message)
     validate = BranchPythonOperator(task_id="validate_file", python_callable=validate_file)
-    trigger_odp = TriggerDagRunOperator(
-        task_id="trigger_odp_load",
-        trigger_dag_id=INGESTION_DAG_ID,
-        conf={
-            "file_metadata": "{{ ti.xcom_pull(task_ids='parse_message') | tojson }}",
-            "hdr_metadata": "{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}",
-            "data_file": "{{ ti.xcom_pull(task_ids='parse_message')['data_file'] }}",
-            "entity": "{{ ti.xcom_pull(task_ids='parse_message')['entity'] }}",
-            "extract_date": "{{ ti.xcom_pull(task_ids='parse_message')['extract_date'] }}",
-        },
-        wait_for_completion=False,
-    )
+    trigger_odp = PythonOperator(task_id="trigger_odp_load", python_callable=trigger_entity_ingestion)
     handle_error = PythonOperator(task_id="handle_validation_error", python_callable=move_to_error_bucket)
     skip = DummyOperator(task_id="skip_processing")
     end = DummyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
