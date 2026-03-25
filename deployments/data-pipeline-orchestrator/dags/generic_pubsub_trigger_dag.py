@@ -438,9 +438,12 @@ def parse_pubsub_message(**context) -> Dict[str, Any]:
     extract_date = None
     entity = None
     # Strip .ok suffix to get the data file path
-    # Convention: data file = generic_customers_20260319.csv
-    #             ok file   = generic_customers_20260319.csv.ok
+    # Convention: ok file = generic_customers_20260319.ok  → data = generic_customers_20260319.csv
+    #         or: ok file = generic_customers_20260319.csv.ok → data = generic_customers_20260319.csv
     data_file_name = file_name[:-len(OK_FILE_SUFFIX)] if file_name.endswith(OK_FILE_SUFFIX) else file_name
+    # If stripping .ok leaves no extension, append .csv (convention: .ok triggers .csv)
+    if "." not in data_file_name.rsplit("/", 1)[-1]:
+        data_file_name = data_file_name + ".csv"
     # Strip path prefix (e.g., "generic/") to parse just the filename
     bare_name = data_file_name.rsplit("/", 1)[-1]
     # Remove .csv extension for parsing entity and date
@@ -603,7 +606,7 @@ with generic_pubsub_trigger_dag:
         task_id="wait_for_file_notification",
         project_id=Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", "")),
         subscription=pubsub_subscription,
-        max_messages=1,
+        max_messages=10,
         filter_extension=OK_FILE_SUFFIX,
         metadata_xcom_key="file_metadata",
         poke_interval=10,

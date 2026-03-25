@@ -4,8 +4,8 @@ import pytest
 pytest.importorskip("airflow", reason="apache-airflow required for sensor tests")
 
 import pytest
-from unittest.mock import MagicMock, patch
-from gcp_pipeline_orchestration.sensors.pubsub import PubSubCompletionSensor
+from unittest.mock import MagicMock, patch, call
+from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor, PubSubCompletionSensor
 from gcp_pipeline_orchestration.sensors.dataflow import DataflowStreamingSensor
 from gcp_pipeline_orchestration.hooks.secrets import SecretManagerHook
 
@@ -77,3 +77,122 @@ class TestOrchestrationSensors:
             
             assert val == "secret-value"
             mock_client.access_secret_version.assert_called_once()
+
+
+def _make_ok_message():
+    """Helper: Pub/Sub message for a .ok file."""
+    return {
+        'message': {
+            'attributes': {
+                'objectId': 'generic/customers/generic_customers_20260325.ok',
+                'bucketId': 'my-bucket',
+                'eventType': 'OBJECT_FINALIZE',
+            },
+            'data': '',
+        }
+    }
+
+
+def _make_csv_message():
+    """Helper: Pub/Sub message for a .csv file."""
+    return {
+        'message': {
+            'attributes': {
+                'objectId': 'generic/customers/generic_customers_20260325.csv',
+                'bucketId': 'my-bucket',
+                'eventType': 'OBJECT_FINALIZE',
+            },
+            'data': '',
+        }
+    }
+
+
+class TestBasePubSubPullSensorPoke:
+    """Tests for the filter-before-ack poke() override."""
+
+    def _make_sensor(self, filter_extension='.ok', max_messages=10):
+        return BasePubSubPullSensor(
+            task_id='test_sensor',
+            project_id='test-project',
+            subscription='test-sub',
+            filter_extension=filter_extension,
+            max_messages=max_messages,
+        )
+
+    @patch('gcp_pipeline_orchestration.sensors.pubsub.PubSubHook')
+    def test_poke_csv_only_returns_false(self, mock_hook_cls):
+        """When only .csv messages are pulled, poke returns False (keep looking)."""
+        mock_hook = mock_hook_cls.return_value
+        # Simulate raw ReceivedMessage objects from hook.pull
+        raw_msg = MagicMock()
+        mock_hook.pull.return_value = [raw_msg]
+
+        sensor = self._make_sensor()
+        # _default_message_callback converts raw messages to dicts
+        sensor._default_message_callback = MagicMock(return_value=[_make_csv_message()])
+
+        result = sensor.poke({})
+
+        assert result is False
+        # Non-matching messages should still be acked to clear them
+        mock_hook.acknowledge.assert_called_once()
+
+    @patch('gcp_pipeline_orchestration.sensors.pubsub.PubSubHook')
+    def test_poke_ok_message_returns_true(self, mock_hook_cls):
+        """When a .ok message is pulled, poke returns True."""
+        mock_hook = mock_hook_cls.return_value
+        raw_msg = MagicMock()
+        mock_hook.pull.return_value = [raw_msg]
+
+        sensor = self._make_sensor()
+        sensor._default_message_callback = MagicMock(return_value=[_make_ok_message()])
+
+        result = sensor.poke({})
+
+        assert result is True
+        assert sensor._return_value == [_make_ok_message()]
+        mock_hook.acknowledge.assert_called_once()
+
+    @patch('gcp_pipeline_orchestration.sensors.pubsub.PubSubHook')
+    def test_poke_mixed_messages_returns_only_ok(self, mock_hook_cls):
+        """When both .csv and .ok messages are pulled, only .ok is in _return_value."""
+        mock_hook = mock_hook_cls.return_value
+        raw_msgs = [MagicMock(), MagicMock()]
+        mock_hook.pull.return_value = raw_msgs
+
+        sensor = self._make_sensor()
+        sensor._default_message_callback = MagicMock(
+            return_value=[_make_csv_message(), _make_ok_message()]
+        )
+
+        result = sensor.poke({})
+
+        assert result is True
+        assert len(sensor._return_value) == 1
+        assert sensor._return_value[0]['message']['attributes']['objectId'].endswith('.ok')
+        # All raw messages acked (both .csv and .ok)
+        mock_hook.acknowledge.assert_called_once_with(
+            project_id='test-project',
+            subscription='test-sub',
+            messages=raw_msgs,
+        )
+
+    @patch('gcp_pipeline_orchestration.sensors.pubsub.PubSubHook')
+    def test_poke_no_messages_returns_false(self, mock_hook_cls):
+        """When no messages are available, poke returns False."""
+        mock_hook = mock_hook_cls.return_value
+        mock_hook.pull.return_value = []
+
+        sensor = self._make_sensor()
+        result = sensor.poke({})
+
+        assert result is False
+        mock_hook.acknowledge.assert_not_called()
+
+    def test_poke_no_filter_delegates_to_parent(self):
+        """When filter_extension is None, poke delegates to parent."""
+        sensor = self._make_sensor(filter_extension=None)
+        with patch.object(type(sensor).__bases__[0], 'poke', return_value=True) as mock_parent:
+            result = sensor.poke({})
+            assert result is True
+            mock_parent.assert_called_once()

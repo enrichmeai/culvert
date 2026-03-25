@@ -26,10 +26,12 @@ logger = logging.getLogger(__name__)
 # Try to import Airflow - if not available, create a stub class
 try:
     from airflow.providers.google.cloud.sensors.pubsub import PubSubPullSensor
+    from airflow.providers.google.cloud.hooks.pubsub import PubSubHook
     AIRFLOW_AVAILABLE = True
 except ImportError:
     AIRFLOW_AVAILABLE = False
     PubSubPullSensor = object  # Stub for type hints
+    PubSubHook = None
 
 
 class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
@@ -78,12 +80,61 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
         self.metadata_xcom_key = metadata_xcom_key
         self.extract_metadata = extract_metadata
 
+    def poke(self, context) -> bool:
+        """
+        Pull messages, filter by extension BEFORE acking.
+
+        Without this override, the parent's poke() acks all pulled messages
+        immediately. If a non-matching message (e.g. .csv notification) is
+        pulled, it gets acked and discarded, and poke returns True — ending
+        the sensor prematurely. This override filters first: non-matching
+        messages are acked (to clear them) but poke returns False so the
+        sensor keeps looking for a matching message.
+        """
+        if not self.filter_extension:
+            return super().poke(context)
+
+        hook = PubSubHook(
+            gcp_conn_id=self.gcp_conn_id,
+            impersonation_chain=self.impersonation_chain,
+        )
+
+        pulled_messages = hook.pull(
+            project_id=self.project_id,
+            subscription=self.subscription,
+            max_messages=self.max_messages,
+            return_immediately=self.return_immediately,
+        )
+
+        if not pulled_messages:
+            return False
+
+        # Convert raw messages to serializable dicts for filtering
+        handle_messages = self.messages_callback or self._default_message_callback
+        all_converted = handle_messages(pulled_messages, context)
+        filtered = self._filter_by_extension(all_converted) if all_converted else []
+
+        # Always ack pulled messages to clear them from the subscription
+        if self.ack_messages:
+            hook.acknowledge(
+                project_id=self.project_id,
+                subscription=self.subscription,
+                messages=pulled_messages,
+            )
+
+        if filtered:
+            self._return_value = filtered
+            return True
+
+        # No matching messages — keep poking
+        return False
+
     def execute(self, context: Dict[str, Any]) -> Optional[List[Dict]]:
         """
         Execute sensor and optionally push metadata to XCom.
 
-        Returns messages after filtering by extension if configured.
-        Extracts metadata from the first message and pushes to XCom.
+        When filter_extension is set, poke() handles filtering before acking.
+        This method receives already-filtered messages via _return_value.
 
         Args:
             context: Airflow task context
@@ -97,12 +148,13 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
             logger.info("No messages received")
             return None
 
-        # Filter by extension if configured
+        # When filter_extension is set, poke() already filtered — skip re-filtering.
+        # When filter_extension is not set, messages come from parent poke() unfiltered.
         if self.filter_extension:
-            messages = self._filter_by_extension(messages)
-            if not messages:
-                logger.info(f"No {self.filter_extension} files in received messages")
-                return None
+            # poke() already filtered; messages is self._return_value
+            pass
+        else:
+            pass  # No filtering needed
 
         # Extract and push metadata if enabled
         if self.extract_metadata and messages:
