@@ -2,7 +2,8 @@
 Unit tests for Generic Orchestration DAGs.
 
 Tests DAG structure and configuration. The deployment uses a build-time
-generator (generate_dags.py) that produces 5 static DAG files from system.yaml.
+generator (generate_dags.py) that produces 10 static DAG files from system.yaml
+(per-entity ingestion + per-model transformation).
 The library dag_factory.py still exists as the runtime alternative.
 """
 
@@ -28,11 +29,16 @@ LIBRARY_FACTORY_PATH = (
     / "dag_factory.py"
 )
 
-# Expected generated DAG files
+# Expected generated DAG files (per-entity ingestion + per-model transformation)
 EXPECTED_DAGS = [
     "generic_pubsub_trigger_dag.py",
-    "generic_ingestion_dag.py",
-    "generic_transformation_dag.py",
+    "generic_customers_ingestion_dag.py",
+    "generic_accounts_ingestion_dag.py",
+    "generic_decision_ingestion_dag.py",
+    "generic_applications_ingestion_dag.py",
+    "generic_event_transaction_excess_transformation_dag.py",
+    "generic_portfolio_account_excess_transformation_dag.py",
+    "generic_portfolio_account_facility_transformation_dag.py",
     "generic_pipeline_status_dag.py",
     "generic_error_handling_dag.py",
 ]
@@ -88,6 +94,18 @@ class TestEntrypoints:
         assert not old_entrypoint.exists(), \
             "generic_pipeline.py still exists — remove it, this deployment uses build-time generated DAGs"
 
+    def test_no_monolithic_ingestion_dag(self):
+        """Old monolithic generic_ingestion_dag.py must not exist — replaced by per-entity DAGs."""
+        old_dag = DAGS_PATH / "generic_ingestion_dag.py"
+        assert not old_dag.exists(), \
+            "generic_ingestion_dag.py still exists — replaced by per-entity ingestion DAGs"
+
+    def test_no_monolithic_transformation_dag(self):
+        """Old monolithic generic_transformation_dag.py must not exist — replaced by per-model DAGs."""
+        old_dag = DAGS_PATH / "generic_transformation_dag.py"
+        assert not old_dag.exists(), \
+            "generic_transformation_dag.py still exists — replaced by per-model transformation DAGs"
+
     def test_generator_exists(self):
         """Build-time DAG generator must exist."""
         assert GENERATOR_PATH.exists(), "generate_dags.py missing"
@@ -97,7 +115,7 @@ class TestEntrypoints:
         sys.path.insert(0, str(ORCHESTRATOR_ROOT))
         try:
             import generate_dags
-            assert hasattr(generate_dags, "DAG_GENERATORS")
+            assert hasattr(generate_dags, "get_dag_generators")
             assert hasattr(generate_dags, "generate_all")
         finally:
             sys.path.pop(0)

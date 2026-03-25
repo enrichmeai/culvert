@@ -441,7 +441,7 @@ def generate_pubsub_trigger_dag(config: Dict[str, Any]) -> str:
 
     pubsub_subscription_template = pubsub.get("subscription", "")
 
-    ingestion_dag_id = f"{system_id_lower}_ingestion_dag"
+    ingestion_dag_map = {entity: f"{system_id_lower}_{entity}_ingestion_dag" for entity in entities}
     dag_id = f"{system_id_lower}_pubsub_trigger_dag"
 
     imports_section = textwrap.dedent('''\
@@ -463,11 +463,9 @@ from airflow.models import Variable
 
 try:
     from airflow.providers.standard.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.providers.standard.operators.trigger_dagrun import TriggerDagRunOperator
     from airflow.providers.standard.operators.empty import EmptyOperator as DummyOperator
 except ImportError:
     from airflow.operators.python import PythonOperator, BranchPythonOperator
-    from airflow.operators.trigger_dagrun import TriggerDagRunOperator
     try:
         from airflow.operators.empty import EmptyOperator as DummyOperator
     except ImportError:
@@ -490,7 +488,7 @@ FILE_PREFIX = "{file_prefix}"
 OK_FILE_SUFFIX = "{ok_file_suffix}"
 ENTITIES = {entities!r}
 DAG_ID = "{dag_id}"
-INGESTION_DAG_ID = "{ingestion_dag_id}"
+INGESTION_DAG_MAP = {ingestion_dag_map!r}
 TRIGGER_SCHEDULE = "{trigger_schedule}"
 
 # Infrastructure templates (resolved at runtime with project_id/env)
@@ -673,6 +671,33 @@ def move_to_error_bucket(**context):
                 logger.info(f"Moved {{blob_path}} to error bucket")
 
 
+def trigger_entity_ingestion(**context):
+    from airflow.api.common.trigger_dag import trigger_dag
+    file_metadata = context["ti"].xcom_pull(task_ids="parse_message")
+    if not file_metadata or file_metadata.get("status") != "success":
+        logger.warning("No valid file metadata — skipping trigger")
+        return
+    entity = file_metadata.get("entity", "")
+    target_dag_id = INGESTION_DAG_MAP.get(entity)
+    if not target_dag_id:
+        raise ValueError(f"Unknown entity '{{entity}}'. Expected one of: {{list(INGESTION_DAG_MAP.keys())}}")
+    hdr_metadata = context["ti"].xcom_pull(task_ids="validate_file", key="hdr_metadata")
+    extract_date = file_metadata.get("extract_date", "")
+    run_id = f"{{FILE_PREFIX}}_{{entity}}_{{extract_date}}"
+    trigger_dag(
+        dag_id=target_dag_id, run_id=run_id,
+        conf={{
+            "file_metadata": json.dumps(file_metadata),
+            "hdr_metadata": json.dumps(hdr_metadata) if hdr_metadata else "{{}}",
+            "data_file": file_metadata.get("data_file", ""),
+            "entity": entity,
+            "extract_date": extract_date,
+        }},
+        replace_microseconds=False,
+    )
+    logger.info(f"Triggered {{target_dag_id}} for entity={{entity}}, file={{file_metadata.get('data_file')}}")
+
+
 # =============================================================================
 # OTEL + DAG definition
 # =============================================================================
@@ -720,18 +745,7 @@ with {dag_id}:
     )
     parse_message = PythonOperator(task_id="parse_message", python_callable=parse_pubsub_message)
     validate = BranchPythonOperator(task_id="validate_file", python_callable=validate_file)
-    trigger_odp = TriggerDagRunOperator(
-        task_id="trigger_odp_load",
-        trigger_dag_id=INGESTION_DAG_ID,
-        conf={{
-            "file_metadata": "{{{{ ti.xcom_pull(task_ids='parse_message') | tojson }}}}",
-            "hdr_metadata": "{{{{ ti.xcom_pull(task_ids='validate_file', key='hdr_metadata') | tojson }}}}",
-            "data_file": "{{{{ ti.xcom_pull(task_ids='parse_message')['data_file'] }}}}",
-            "entity": "{{{{ ti.xcom_pull(task_ids='parse_message')['entity'] }}}}",
-            "extract_date": "{{{{ ti.xcom_pull(task_ids='parse_message')['extract_date'] }}}}",
-        }},
-        wait_for_completion=False,
-    )
+    trigger_odp = PythonOperator(task_id="trigger_odp_load", python_callable=trigger_entity_ingestion)
     handle_error = PythonOperator(task_id="handle_validation_error", python_callable=move_to_error_bucket)
     skip = DummyOperator(task_id="skip_processing")
     end = DummyOperator(task_id="end", trigger_rule="none_failed_min_one_success")
@@ -748,8 +762,8 @@ with {dag_id}:
 # DAG 2: Ingestion DAG
 # =============================================================================
 
-def generate_ingestion_dag(config: Dict[str, Any]) -> str:
-    """Generate the ingestion DAG as a concrete Python file."""
+def generate_entity_ingestion_dag(config: Dict[str, Any], entity: str) -> str:
+    """Generate a per-entity ingestion DAG as a concrete Python file."""
     system_id = config["system_id"]
     system_id_lower = system_id.lower()
     system_name = config.get("system_name", system_id)
@@ -764,14 +778,14 @@ def generate_ingestion_dag(config: Dict[str, Any]) -> str:
     error_bucket_template = buckets.get("error", "")
     temp_bucket_template = buckets.get("temp", "")
 
-    dag_id = f"{system_id_lower}_ingestion_dag"
-    transformation_dag_id = f"{system_id_lower}_transformation_dag"
+    dag_id = f"{system_id_lower}_{entity}_ingestion_dag"
+    transformation_dag_map = {model: f"{system_id_lower}_{model}_transformation_dag" for model in fdp_deps}
 
     imports_section = textwrap.dedent('''\
 """
-''' + f'{system_name}' + ''' Ingestion DAG
+''' + f'{system_name}' + ' ' + f'{entity.title()}' + ''' Ingestion DAG
 
-Runs Dataflow to load entity data to BigQuery ODP, reconciles,
+Runs Dataflow to load ''' + f'{entity}' + ''' data to BigQuery ODP, reconciles,
 checks FDP dependencies, and triggers ready transformations.
 Generated from system.yaml — all config baked in at build time.
 """
@@ -811,10 +825,11 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "{system_id}"
 SYSTEM_NAME = "{system_name}"
 FILE_PREFIX = "{file_prefix}"
+ENTITY = "{entity}"
 ENTITIES = {entities!r}
 FDP_DEPENDENCIES = {fdp_deps!r}
 DAG_ID = "{dag_id}"
-TRANSFORMATION_DAG_ID = "{transformation_dag_id}"
+TRANSFORMATION_DAG_MAP = {transformation_dag_map!r}
 
 # Infrastructure templates
 ODP_DATASET_TEMPLATE = "{odp_dataset_template}"
@@ -886,7 +901,7 @@ def create_job_record(**context):
     conf = context.get("dag_run").conf or {{}}
     file_metadata_raw = conf.get("file_metadata", {{}})
     file_metadata = json.loads(file_metadata_raw) if isinstance(file_metadata_raw, str) else file_metadata_raw
-    entity = file_metadata.get("entity", "unknown")
+    entity = ENTITY
     extract_date = file_metadata.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
     data_file = file_metadata.get("data_file", "")
     run_id = context.get("run_id", f"{{FILE_PREFIX}}_{{entity}}_{{extract_date}}")
@@ -1001,10 +1016,14 @@ def trigger_ready_transforms(**context):
         logger.info("No FDP models ready. Skipping transformation trigger.")
         return
     for model in ready_models:
+        target_dag = TRANSFORMATION_DAG_MAP.get(model)
+        if not target_dag:
+            logger.warning(f"No transformation DAG for model '{{model}}' — skipping")
+            continue
         run_id = f"transform_{{model}}_{{extract_date}}"
-        logger.info(f"Triggering {{TRANSFORMATION_DAG_ID}} for model: {{model}}")
+        logger.info(f"Triggering {{target_dag}} for model: {{model}}")
         trigger_dag(
-            dag_id=TRANSFORMATION_DAG_ID, run_id=run_id,
+            dag_id=target_dag, run_id=run_id,
             conf={{"extract_date": extract_date, "fdp_model": model, "triggered_by": DAG_ID}},
             replace_microseconds=False,
         )
@@ -1035,10 +1054,10 @@ _template_bucket = Variable.get("dataflow_templates_bucket", default_var=_resolv
 {dag_id} = DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description=f"Load {{SYSTEM_NAME}} entity data to ODP (BigQuery)",
+    description=f"Load {{SYSTEM_NAME}} {{ENTITY}} data to ODP (BigQuery)",
     schedule=None,
     catchup=False,
-    tags=[FILE_PREFIX, "odp", "dataflow"],
+    tags=[FILE_PREFIX, "odp", "dataflow", ENTITY],
 )
 
 with {dag_id}:
@@ -1052,13 +1071,13 @@ with {dag_id}:
         processing_mode="batch",
         template_type="flex",
         input_path="{{{{ dag_run.conf.data_file }}}}",
-        output_table=f"{{_project_id}}:{{_odp_dataset}}." + "{{{{ dag_run.conf.entity }}}}",
+        output_table=f"{{_project_id}}:{{_odp_dataset}}.{{ENTITY}}",
         template_path=f"gs://{{_template_bucket}}/templates/{{FILE_PREFIX}}_pipeline.json",
         use_template=True,
         additional_params={{
             "run_id": '{{{{ ti.xcom_pull(key="run_id") }}}}',
             "source_file": "{{{{ dag_run.conf.data_file }}}}",
-            "entity": "{{{{ dag_run.conf.entity }}}}",
+            "entity": ENTITY,
             "extract_date": "{{{{ dag_run.conf.extract_date }}}}",
         }},
     )
@@ -1078,8 +1097,8 @@ with {dag_id}:
 # DAG 3: Transformation DAG
 # =============================================================================
 
-def generate_transformation_dag(config: Dict[str, Any]) -> str:
-    """Generate the transformation DAG as a concrete Python file."""
+def generate_model_transformation_dag(config: Dict[str, Any], model_name: str) -> str:
+    """Generate a per-model transformation DAG as a concrete Python file."""
     system_id = config["system_id"]
     system_id_lower = system_id.lower()
     system_name = config.get("system_name", system_id)
@@ -1094,13 +1113,14 @@ def generate_transformation_dag(config: Dict[str, Any]) -> str:
     buckets = infra.get("buckets", {})
     error_bucket_template = buckets.get("error", "")
 
-    dag_id = f"{system_id_lower}_transformation_dag"
+    dag_id = f"{system_id_lower}_{model_name}_transformation_dag"
+    required_entities = fdp_deps.get(model_name, [])
 
     imports_section = textwrap.dedent('''\
 """
-''' + f'{system_name}' + ''' Transformation DAG
+''' + f'{system_name}' + ' ' + f'{model_name}' + ''' Transformation DAG
 
-Transforms ODP to FDP — runs per-model based on granular dependencies.
+Transforms ODP to FDP for ''' + f'{model_name}' + ''' — runs per-model based on granular dependencies.
 Generated from system.yaml — all config baked in at build time.
 """
 
@@ -1140,6 +1160,8 @@ logger = logging.getLogger(__name__)
 SYSTEM_ID = "{system_id}"
 SYSTEM_NAME = "{system_name}"
 FILE_PREFIX = "{file_prefix}"
+FDP_MODEL = "{model_name}"
+REQUIRED_ENTITIES = {required_entities!r}
 ENTITIES = {entities!r}
 FDP_DEPENDENCIES = {fdp_deps!r}
 DAG_ID = "{dag_id}"
@@ -1196,7 +1218,7 @@ def mark_fdp_job_failed(context):
             except Exception as e:
                 logger.warning(f"Error handler storage failed (non-fatal): {{e}}")
         conf = context.get("dag_run").conf or {{}}
-        fdp_model = conf.get("fdp_model", "unknown")
+        fdp_model = FDP_MODEL
         audit = AuditTrail(run_id=run_id, pipeline_name=DAG_ID, entity_type=fdp_model)
         audit.record_processing_start(source_file=f"odp_{{FILE_PREFIX}}.*")
         audit.log_entry("FAILURE", f"Task {{task_id}} failed: {{error_message}}")
@@ -1213,7 +1235,7 @@ def mark_fdp_job_failed(context):
 def verify_model_dependencies(**context) -> str:
     project_id = _get_project_id()
     conf = context.get("dag_run").conf or {{}}
-    fdp_model = conf.get("fdp_model", "")
+    fdp_model = FDP_MODEL
     extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
     if not fdp_model or fdp_model not in FDP_DEPENDENCIES:
         logger.error(f"Unknown or missing FDP model: '{{fdp_model}}'. Expected one of: {{list(FDP_DEPENDENCIES.keys())}}")
@@ -1236,7 +1258,7 @@ def verify_model_dependencies(**context) -> str:
 def create_fdp_job_record(**context):
     project_id = _get_project_id()
     conf = context.get("dag_run").conf or {{}}
-    fdp_model = conf.get("fdp_model", "")
+    fdp_model = FDP_MODEL
     extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
     run_id = context.get("run_id", f"transform_{{fdp_model}}_{{extract_date}}")
     date_obj = datetime.strptime(extract_date, "%Y%m%d").date()
@@ -1261,7 +1283,7 @@ def create_fdp_job_record(**context):
 def handle_dependency_failure(**context):
     project_id = _get_project_id()
     conf = context.get("dag_run").conf or {{}}
-    fdp_model = conf.get("fdp_model", "unknown")
+    fdp_model = FDP_MODEL
     extract_date = conf.get("extract_date", datetime.now(tz=timezone.utc).strftime("%Y%m%d"))
     run_id = context.get("run_id", f"transform_{{fdp_model}}_{{extract_date}}")
     missing = context["ti"].xcom_pull(key="missing_entities") or []
@@ -1286,7 +1308,7 @@ def update_fdp_job_success(**context):
     project_id = _get_project_id()
     run_id = context["ti"].xcom_pull(key="fdp_run_id")
     conf = context.get("dag_run").conf or {{}}
-    fdp_model = conf.get("fdp_model", "unknown")
+    fdp_model = FDP_MODEL
     if run_id:
         repo = JobControlRepository(project_id=project_id)
         repo.update_status(run_id, JobStatus.SUCCESS)
@@ -1313,7 +1335,7 @@ def reconcile_fdp_model_output(**context):
     project_id = _get_project_id()
     run_id = context["ti"].xcom_pull(key="fdp_run_id")
     conf = context.get("dag_run").conf or {{}}
-    fdp_model = conf.get("fdp_model", "")
+    fdp_model = FDP_MODEL
     fdp_dataset = FDP_DATASET_TEMPLATE.format(system=FILE_PREFIX)
     fdp_table = f"{{project_id}}.{{fdp_dataset}}.{{fdp_model}}"
     required_entities = FDP_DEPENDENCIES.get(fdp_model, [])
@@ -1353,10 +1375,10 @@ default_args = {{
 {dag_id} = DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description=f"Transform {{SYSTEM_NAME}} ODP to FDP — runs per-model based on granular dependencies",
+    description=f"Transform {{SYSTEM_NAME}} ODP to FDP — {{FDP_MODEL}}",
     schedule=None,
     catchup=False,
-    tags=[FILE_PREFIX, "fdp", "dbt", "transformation"],
+    tags=[FILE_PREFIX, "fdp", "dbt", "transformation", FDP_MODEL],
 )
 
 with {dag_id}:
@@ -1368,11 +1390,11 @@ with {dag_id}:
     )
     fdp = BashOperator(
         task_id="run_dbt_fdp",
-        bash_command=f"cd {{_dbt_project_path}} && dbt run --select '{{{{{{{{ dag_run.conf.fdp_model }}}}}}}}' --vars '{{{{\\\"extract_date\\\": \\\"{{{{{{{{ ds_nodash }}}}}}}}\\\"}}}}' --target prod",
+        bash_command=f"cd {{_dbt_project_path}} && dbt run --select '{{FDP_MODEL}}' --vars '{{{{\\\"extract_date\\\": \\\"{{{{{{{{ ds_nodash }}}}}}}}\\\"}}}}' --target prod",
     )
     tests = BashOperator(
         task_id="run_dbt_tests",
-        bash_command=f"cd {{_dbt_project_path}} && dbt test --select '{{{{{{{{ dag_run.conf.fdp_model }}}}}}}}' --target prod",
+        bash_command=f"cd {{_dbt_project_path}} && dbt test --select '{{FDP_MODEL}}' --target prod",
     )
     reconcile_fdp = PythonOperator(task_id="reconcile_fdp_model", python_callable=reconcile_fdp_model_output)
     mark_success = PythonOperator(task_id="mark_fdp_success", python_callable=update_fdp_job_success)
@@ -1591,8 +1613,8 @@ def generate_error_handling_dag(config: Dict[str, Any]) -> str:
     fdp_max_retries = retry_config.get("fdp", {}).get("max_retries", 2)
 
     dag_id = f"{system_id_lower}_error_handling_dag"
-    ingestion_dag_id = f"{system_id_lower}_ingestion_dag"
-    transformation_dag_id = f"{system_id_lower}_transformation_dag"
+    ingestion_dag_map = {entity: f"{system_id_lower}_{entity}_ingestion_dag" for entity in entities}
+    transformation_dag_map = {model: f"{system_id_lower}_{model}_transformation_dag" for model in fdp_deps}
 
     imports_section = textwrap.dedent('''\
 """
@@ -1644,8 +1666,8 @@ FILE_PREFIX = "{file_prefix}"
 ENTITIES = {entities!r}
 FDP_MODELS = {list(fdp_deps.keys())!r}
 DAG_ID = "{dag_id}"
-INGESTION_DAG_ID = "{ingestion_dag_id}"
-TRANSFORMATION_DAG_ID = "{transformation_dag_id}"
+INGESTION_DAG_MAP = {ingestion_dag_map!r}
+TRANSFORMATION_DAG_MAP = {transformation_dag_map!r}
 
 # Infrastructure templates
 ODP_DATASET_TEMPLATE = "{odp_dataset_template}"
@@ -1800,10 +1822,16 @@ def handle_retryable(**context):
 
         # Trigger the appropriate DAG
         if is_fdp:
-            target_dag = TRANSFORMATION_DAG_ID
-            conf = {{"fdp_model": entity, "extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"), "triggered_by": DAG_ID}}
+            target_dag = TRANSFORMATION_DAG_MAP.get(entity)
+            if not target_dag:
+                logger.error(f"No transformation DAG for model '{{entity}}' — skipping retry")
+                continue
+            conf = {{"extract_date": datetime.now(tz=timezone.utc).strftime("%Y%m%d"), "triggered_by": DAG_ID}}
         else:
-            target_dag = INGESTION_DAG_ID
+            target_dag = INGESTION_DAG_MAP.get(entity)
+            if not target_dag:
+                logger.error(f"No ingestion DAG for entity '{{entity}}' — skipping retry")
+                continue
             # Reconstruct file metadata for re-ingestion
             full_job = repo.get_job(run_id)
             source_file = full_job.source_files[0] if full_job and full_job.source_files else ""
@@ -1898,28 +1926,64 @@ with {dag_id}:
 # MAIN
 # =============================================================================
 
-DAG_GENERATORS = {
-    "pubsub_trigger_dag": generate_pubsub_trigger_dag,
-    "ingestion_dag": generate_ingestion_dag,
-    "transformation_dag": generate_transformation_dag,
-    "pipeline_status_dag": generate_pipeline_status_dag,
-    "error_handling_dag": generate_error_handling_dag,
-}
+def get_dag_generators(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Return a dict mapping DAG suffix to a no-arg callable that generates the code.
+
+    Each callable has config (and entity/model where applicable) already bound.
+    This replaces the old DAG_GENERATORS module-level dict to support per-entity
+    and per-model DAG generation.
+    """
+    system_id_lower = config["system_id"].lower()
+    entities = _entity_names(config)
+    fdp_deps = _fdp_dependencies(config)
+
+    generators: Dict[str, Any] = {}
+
+    generators["pubsub_trigger_dag"] = lambda c=config: generate_pubsub_trigger_dag(c)
+
+    for entity in entities:
+        suffix = f"{entity}_ingestion_dag"
+        generators[suffix] = lambda c=config, e=entity: generate_entity_ingestion_dag(c, e)
+
+    for model_name in fdp_deps:
+        suffix = f"{model_name}_transformation_dag"
+        generators[suffix] = lambda c=config, m=model_name: generate_model_transformation_dag(c, m)
+
+    generators["pipeline_status_dag"] = lambda c=config: generate_pipeline_status_dag(c)
+    generators["error_handling_dag"] = lambda c=config: generate_error_handling_dag(c)
+
+    return generators
+
+
+# Backward-compatible alias — tests may import this
+DAG_GENERATORS: Dict[str, Any] = {}
 
 
 def generate_all(config: Dict[str, Any], output_dir: Path, dry_run: bool = False) -> List[str]:
-    """Generate all five DAG files from config."""
+    """Generate all DAG files from config."""
     system_id_lower = config["system_id"].lower()
+    generators = get_dag_generators(config)
 
     if not dry_run:
         output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Clean up old monolithic DAGs that are now replaced by per-entity/per-model DAGs
+    old_dags = [
+        f"{system_id_lower}_ingestion_dag.py",
+        f"{system_id_lower}_transformation_dag.py",
+    ]
+    for old_file in old_dags:
+        old_path = output_dir / old_file
+        if old_path.exists() and not dry_run:
+            old_path.unlink()
+            logger.info(f"  Removed stale DAG: {old_file}")
+
     generated = []
 
-    for dag_suffix, generator_fn in DAG_GENERATORS.items():
+    for dag_suffix, generator_fn in generators.items():
         filename = f"{system_id_lower}_{dag_suffix}.py"
         filepath = output_dir / filename
-        code = generator_fn(config)
+        code = generator_fn()
 
         if _should_write(filepath):
             if not dry_run:
@@ -1967,8 +2031,8 @@ def main():
     logger.info(f"Output:  {output_dir}")
     logger.info(f"Dry run: {args.dry_run}\n")
     logger.info(f"System:    {system_id}")
-    logger.info(f"Entities:  {entities}")
-    logger.info(f"FDP models: {fdp_models}\n")
+    logger.info(f"Entities:  {entities} ({len(entities)} per-entity ingestion DAGs)")
+    logger.info(f"FDP models: {fdp_models} ({len(fdp_models)} per-model transformation DAGs)\n")
 
     generated = generate_all(config, output_dir, dry_run=args.dry_run)
 
