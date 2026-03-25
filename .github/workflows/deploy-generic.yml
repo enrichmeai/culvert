@@ -662,6 +662,10 @@ jobs:
           --location=$REGION \
           variables set -- generic_pubsub_subscription generic-file-notifications-sub || true
 
+        gcloud composer environments run $COMPOSER_ENV \
+          --location=$REGION \
+          variables set -- gcp_temp_location gs://${PROJECT_ID}-generic-${ENV}-temp/dataflow || true
+
         echo "Airflow Variables configured"
 
   # ==========================================================================
