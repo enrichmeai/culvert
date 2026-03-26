@@ -28,7 +28,7 @@ except ImportError:
         from airflow.operators.dummy import DummyOperator
 
 from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
-from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
+from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexTemplateOperator
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
@@ -593,24 +593,29 @@ generic_customers_ingestion_dag = DAG(
 
 with generic_customers_ingestion_dag:
     create_job = PythonOperator(task_id="create_job_record", python_callable=create_job_record)
-    run_dataflow = BaseDataflowOperator(
+    _region = Variable.get("gcp_region", default_var="europe-west2")
+    run_dataflow = DataflowStartFlexTemplateOperator(
         task_id="run_dataflow_pipeline",
-        pipeline_name=f"{FILE_PREFIX}-odp-load",
         project_id=_project_id,
-        region=Variable.get("gcp_region", default_var="europe-west2"),
-        source_type="gcs",
-        processing_mode="batch",
-        template_type="flex",
-        input_path="{{ dag_run.conf.data_file }}",
-        output_table=f"{_project_id}:{_odp_dataset}.{ENTITY}",
-        template_path=f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
-        temp_location=f"gs://{_template_bucket}/dataflow",
-        use_template=True,
-        additional_params={
-            "run_id": '{{ ti.xcom_pull(key="run_id") }}',
-            "source_file": "{{ dag_run.conf.data_file }}",
-            "entity": ENTITY,
-            "extract_date": "{{ dag_run.conf.extract_date }}",
+        location=_region,
+        body={
+            "launchParameter": {
+                "jobName": f"{FILE_PREFIX}-odp-load-{ENTITY}-{{{ dag_run.conf.extract_date }}}",
+                "containerSpecGcsPath": f"gs://{_template_bucket}/templates/{FILE_PREFIX}_pipeline.json",
+                "parameters": {
+                    "input_path": "{{ dag_run.conf.data_file }}",
+                    "output_table": f"{_project_id}:{_odp_dataset}.{ENTITY}",
+                    "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+                    "source_file": "{{ dag_run.conf.data_file }}",
+                    "entity": ENTITY,
+                    "extract_date": "{{ dag_run.conf.extract_date }}",
+                },
+                "environment": {
+                    "tempLocation": f"gs://{_template_bucket}/dataflow",
+                    "maxWorkers": 3,
+                    "machineType": "n1-standard-2",
+                },
+            }
         },
     )
     mark_success = PythonOperator(task_id="update_job_success", python_callable=update_job_success)
