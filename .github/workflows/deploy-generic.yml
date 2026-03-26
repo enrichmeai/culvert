@@ -564,15 +564,16 @@ jobs:
         echo "Installing packages on $COMPOSER_ENV"
         echo "  - gcp-pipeline-core==${VERSION}"
         echo "  - gcp-pipeline-orchestration==${VERSION}"
-        echo "  - apache-airflow-providers-google>=10.0.0 (for Dataflow operators)"
+        echo "  (apache-airflow-providers-google is pre-installed in Composer — do NOT override)"
 
         # Use || true to handle "no change" error when packages are already installed via Terraform
+        # NOTE: Do NOT install apache-airflow-providers-google — Composer ships it built-in.
+        # Installing it via PyPI conflicts with the built-in version and breaks imports.
         gcloud composer environments update $COMPOSER_ENV \
           --location=${{ env.GCP_REGION }} \
           --project=$PROJECT_ID \
           --update-pypi-package "gcp-pipeline-core==${VERSION}" \
           --update-pypi-package "gcp-pipeline-orchestration==${VERSION}" \
-          --update-pypi-package "apache-airflow-providers-google>=10.0.0" \
           || echo "Packages already installed or no changes needed"
 
         echo "Composer environment updated with orchestration packages"
@@ -742,6 +743,36 @@ jobs:
         echo "=============================================="
         echo "  Validation Complete (framework v$VERSION)"
         echo "=============================================="
+
+    - name: Cleanup stale Cloud Build artifacts
+      run: |
+        PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
+        ENV="${{ github.event.inputs.environment || 'int' }}"
+        COMPOSER_ENV="generic-${ENV}-composer"
+        REGION="${{ env.GCP_REGION }}"
+
+        # Get Composer bucket
+        COMPOSER_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
+          --location=$REGION --project=$PROJECT_ID \
+          --format='value(config.dagGcsPrefix)' 2>/dev/null | sed 's|/dags$||') || true
+
+        if [ -n "$COMPOSER_BUCKET" ]; then
+          echo "Cleaning stale build directories from Composer bucket..."
+          BUILD_DIRS=$(gsutil ls "$COMPOSER_BUCKET/" 2>/dev/null | grep "\-build/$" || true)
+          if [ -n "$BUILD_DIRS" ]; then
+            COUNT=$(echo "$BUILD_DIRS" | wc -l | tr -d ' ')
+            echo "  Found $COUNT stale build directories — removing..."
+            echo "$BUILD_DIRS" | xargs -I{} gsutil -m rm -r {} 2>/dev/null || true
+            echo "  Removed $COUNT build directories"
+          else
+            echo "  No stale build directories found"
+          fi
+        fi
+
+        # Clean up Cloud Build source staging
+        echo "Cleaning Cloud Build source staging..."
+        gsutil -m rm -r "gs://${PROJECT_ID}_cloudbuild/source/**" 2>/dev/null || true
+        echo "Cloud Build cleanup complete"
 
   # ==========================================================================
   # E2E Tests — run locally, not in CI
