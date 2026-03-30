@@ -88,10 +88,10 @@ steps:
     }
     EOF
 
-    # Upload the template spec to GCS
-    gsutil cp /tmp/segment_transform.json gs://$PROJECT_ID-generic-int-temp/templates/segment_transform.json
+    # Upload the template spec to GCS (uses segments bucket — no temp bucket needed)
+    gsutil cp /tmp/segment_transform.json gs://$PROJECT_ID-generic-int-segments/templates/segment_transform.json
 
-    echo "Flex Template uploaded to gs://$PROJECT_ID-generic-int-temp/templates/segment_transform.json"
+    echo "Flex Template uploaded to gs://$PROJECT_ID-generic-int-segments/templates/segment_transform.json"
   waitFor: ['push-image']
 
 images:
