@@ -1,0 +1,129 @@
+# =============================================================================
+# Check and Debit Card Segment Template
+# =============================================================================
+# CDP table: card_accounts (shared table — filtered by card_type)
+# Output: Fixed-width 200-char records for mainframe check/debit card segment
+# =============================================================================
+segment_id: check_debit_card
+segment_name: CheckDebitCard
+description: "Check and debit card accounts from shared card_accounts CDP table"
+record_length: 200
+
+# 1. CDP source table
+source:
+  dataset: cdp_generic
+  table: card_accounts
+  partition_column: updated_at
+
+# 2. SQL query Dataflow executes (filters for CHECK and DEBIT types only)
+#    Placeholders: {project}, {period_start}, {period_end}
+query: |
+  SELECT
+    customer_id,
+    account_id,
+    card_number,
+    card_type,
+    daily_limit,
+    current_balance,
+    transaction_count,
+    last_transaction_date,
+    account_status
+  FROM `{project}.cdp_generic.card_accounts`
+  WHERE card_type IN ('CHECK', 'DEBIT')
+    AND account_status != 'CLOSED'
+    AND updated_at BETWEEN '{period_start}' AND '{period_end}'
+
+# 3. Output template — fixed-width mainframe file layout
+output:
+  file_prefix: "CDCK"
+  file_suffix: ".dat"
+  shard_template: "-SSSSS-of-NNNNN"
+  max_records_per_shard: 1000000
+
+  fields:
+    - name: segment_type
+      source: _literal
+      literal_value: "CDCK"
+      width: 4
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: customer_id
+      source: customer_id
+      width: 20
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: account_id
+      source: account_id
+      width: 20
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: card_number
+      source: card_number
+      width: 16
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: card_type
+      source: card_type
+      width: 6
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: daily_limit
+      source: daily_limit
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: current_balance
+      source: current_balance
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: transaction_count
+      source: transaction_count
+      width: 8
+      type: integer
+      align: right
+      pad_char: "0"
+
+    - name: last_transaction_date
+      source: last_transaction_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: account_status
+      source: account_status
+      width: 1
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: extract_date
+      source: _extract_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: filler
+      source: _literal
+      literal_value: ""
+      width: 79
+      type: filler
+      pad_char: " "

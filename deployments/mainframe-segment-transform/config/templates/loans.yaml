@@ -1,0 +1,146 @@
+# =============================================================================
+# Loans Segment Template
+# =============================================================================
+# CDP table: loan_accounts
+# Output: Fixed-width 200-char records for mainframe loans segment
+# =============================================================================
+segment_id: loans
+segment_name: Loans
+description: "Loan account segment for mainframe"
+record_length: 200
+
+# 1. CDP source table
+source:
+  dataset: cdp_generic
+  table: loan_accounts
+  partition_column: updated_at
+
+# 2. SQL query Dataflow executes
+#    Placeholders: {project}, {period_start}, {period_end}
+query: |
+  SELECT
+    customer_id,
+    loan_id,
+    loan_type,
+    loan_amount,
+    outstanding_balance,
+    interest_rate,
+    term_months,
+    monthly_payment,
+    origination_date,
+    maturity_date,
+    loan_status
+  FROM `{project}.cdp_generic.loan_accounts`
+  WHERE loan_status IN ('ACTIVE', 'DELINQUENT', 'GRACE')
+    AND updated_at BETWEEN '{period_start}' AND '{period_end}'
+
+# 3. Output template — fixed-width mainframe file layout
+output:
+  file_prefix: "LOAN"
+  file_suffix: ".dat"
+  shard_template: "-SSSSS-of-NNNNN"
+  max_records_per_shard: 1000000
+
+  fields:
+    - name: segment_type
+      source: _literal
+      literal_value: "LOAN"
+      width: 4
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: customer_id
+      source: customer_id
+      width: 20
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: loan_id
+      source: loan_id
+      width: 20
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: loan_type
+      source: loan_type
+      width: 10
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: loan_amount
+      source: loan_amount
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: outstanding_balance
+      source: outstanding_balance
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: interest_rate
+      source: interest_rate
+      width: 8
+      type: rate
+      decimal_places: 4
+      align: right
+      pad_char: " "
+
+    - name: term_months
+      source: term_months
+      width: 4
+      type: integer
+      align: right
+      pad_char: "0"
+
+    - name: monthly_payment
+      source: monthly_payment
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: origination_date
+      source: origination_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: maturity_date
+      source: maturity_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: loan_status
+      source: loan_status
+      width: 1
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: extract_date
+      source: _extract_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: filler
+      source: _literal
+      literal_value: ""
+      width: 64
+      type: filler
+      pad_char: " "

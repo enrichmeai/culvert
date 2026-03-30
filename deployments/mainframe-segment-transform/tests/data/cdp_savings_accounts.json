@@ -1,0 +1,7 @@
+[
+  {"customer_id": "CUST001", "account_id": "SV001", "account_type": "REGULAR", "current_balance": 15430.50, "interest_rate": 4.2500, "interest_accrued": 125.30, "last_deposit_date": "2026-03-15", "withdrawal_count": 2, "account_status": "A", "updated_at": "2026-03-15T10:30:00Z"},
+  {"customer_id": "CUST002", "account_id": "SV002", "account_type": "HIGH_YIELD", "current_balance": 8500.00, "interest_rate": 5.1000, "interest_accrued": 86.25, "last_deposit_date": "2026-03-20", "withdrawal_count": 0, "account_status": "A", "updated_at": "2026-03-20T15:00:00Z"},
+  {"customer_id": "CUST003", "account_id": "SV003", "account_type": "REGULAR", "current_balance": 250.75, "interest_rate": 3.5000, "interest_accrued": 1.46, "last_deposit_date": "2025-12-01", "withdrawal_count": 5, "account_status": "A", "updated_at": "2026-03-02T09:00:00Z"},
+  {"customer_id": "CUST004", "account_id": "SV004", "account_type": "HIGH_YIELD", "current_balance": 75000.00, "interest_rate": 5.2500, "interest_accrued": 656.25, "last_deposit_date": "2026-03-28", "withdrawal_count": 1, "account_status": "A", "updated_at": "2026-03-28T16:45:00Z"},
+  {"customer_id": "CUST005", "account_id": "SV005", "account_type": "REGULAR", "current_balance": 3200.00, "interest_rate": 4.0000, "interest_accrued": 21.33, "last_deposit_date": "2026-02-28", "withdrawal_count": 3, "account_status": "A", "updated_at": "2026-03-10T11:30:00Z"}
+]
