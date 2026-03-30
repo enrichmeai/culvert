@@ -1,0 +1,41 @@
+{
+  "name": "Mainframe Segment Transform Pipeline",
+  "description": "Reads CDP BigQuery tables via SQL query and produces fixed-width mainframe segment files in GCS. Template-driven: each segment (Customer, CreditCard, CheckDebitCard, Loans, Savings) is defined by a YAML template specifying the SQL query and output field layout.",
+  "parameters": [
+    {
+      "name": "segment",
+      "label": "Segment ID",
+      "helpText": "Segment to process (currently: customer only).",
+      "regexes": ["^(customer)$"]
+    },
+    {
+      "name": "extract_date",
+      "label": "Extract date",
+      "helpText": "Extract date in YYYYMMDD format.",
+      "regexes": ["^[0-9]{8}$"]
+    },
+    {
+      "name": "extract_month",
+      "label": "Extract month",
+      "helpText": "Extract month in YYYYMM format. Resolves {period_start} and {period_end} in SQL. Defaults to month of extract_date if omitted.",
+      "regexes": ["^[0-9]{6}$"],
+      "isOptional": true
+    },
+    {
+      "name": "output_bucket",
+      "label": "Output GCS bucket",
+      "helpText": "GCS bucket name for fixed-width segment output files."
+    },
+    {
+      "name": "run_id",
+      "label": "Pipeline run ID",
+      "helpText": "Unique identifier for this pipeline run."
+    },
+    {
+      "name": "gcp_project",
+      "label": "GCP Project ID",
+      "helpText": "GCP project ID for BigQuery source tables and job control.",
+      "isOptional": true
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+[
+  {"customer_id": "CUST001", "account_id": "CC001", "card_number": "4111111111111111", "credit_limit": 15000.00, "current_balance": 3250.50, "available_credit": 11749.50, "interest_rate": 18.9900, "minimum_payment": 97.52, "payment_due_date": "2026-04-15", "account_status": "A", "updated_at": "2026-03-10T09:00:00Z"},
+  {"customer_id": "CUST001", "account_id": "CC002", "card_number": "4222222222222222", "credit_limit": 5000.00, "current_balance": 1200.00, "available_credit": 3800.00, "interest_rate": 21.4900, "minimum_payment": 36.00, "payment_due_date": "2026-04-20", "account_status": "A", "updated_at": "2026-03-12T13:30:00Z"},
+  {"customer_id": "CUST002", "account_id": "CC003", "card_number": "5333333333333333", "credit_limit": 10000.00, "current_balance": 8500.75, "available_credit": 1499.25, "interest_rate": 19.9900, "minimum_payment": 255.02, "payment_due_date": "2026-04-10", "account_status": "A", "updated_at": "2026-03-20T15:45:00Z"},
+  {"customer_id": "CUST004", "account_id": "CC004", "card_number": "5444444444444444", "credit_limit": 25000.00, "current_balance": 500.00, "available_credit": 24500.00, "interest_rate": 15.9900, "minimum_payment": 25.00, "payment_due_date": "2026-04-25", "account_status": "A", "updated_at": "2026-03-25T10:15:00Z"}
+]
