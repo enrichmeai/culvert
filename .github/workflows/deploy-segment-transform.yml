@@ -84,7 +84,7 @@ jobs:
 
       - name: Verify Flex Template exists
         run: |
-          gsutil stat "gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-temp/templates/segment_transform.json"
+          gsutil stat "gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-segments/templates/segment_transform.json"
           echo "Flex Template deployed successfully."
 
       - name: Print deployment summary
@@ -93,7 +93,7 @@ jobs:
           echo "  Segment Transform Deployed"
           echo "============================================"
           echo "Image:    gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-segment-transform:${{ env.LIBRARY_VERSION }}"
-          echo "Template: gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-temp/templates/segment_transform.json"
+          echo "Template: gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-segments/templates/segment_transform.json"
           echo ""
           echo "Run E2E test:"
           echo "  deployments/mainframe-segment-transform/scripts/e2e_segment_test.sh --extract-month $(date +%Y%m)"

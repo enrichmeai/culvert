@@ -52,7 +52,7 @@ echo ""
 # ─── 3. BigQuery datasets ────────────────────────────────────────────────────
 echo "=== 3. Creating datasets ==="
 for DS in cdp_generic job_control; do
-    bq --project_id="${PROJECT_ID}" mk --dataset --if_not_exists \
+    bq --project_id="${PROJECT_ID}" mk --dataset --force \
         --location="${REGION}" "${PROJECT_ID}:${DS}"
     echo "  ${DS}"
 done
@@ -60,7 +60,7 @@ echo ""
 
 # ─── 4. CDP table: customer_risk_profile ──────────────────────────────────────
 echo "=== 4. Creating cdp_generic.customer_risk_profile ==="
-bq --project_id="${PROJECT_ID}" mk --table --if_not_exists \
+bq --project_id="${PROJECT_ID}" mk --table --force \
     --time_partitioning_field=updated_at \
     --time_partitioning_type=DAY \
     --clustering_fields=customer_id \
@@ -93,7 +93,7 @@ cat > /tmp/pipeline_jobs_schema.json <<'SCHEMA'
 ]
 SCHEMA
 
-bq --project_id="${PROJECT_ID}" mk --table --if_not_exists \
+bq --project_id="${PROJECT_ID}" mk --table --force \
     --time_partitioning_field=created_at \
     --time_partitioning_type=DAY \
     --clustering_fields=system_id,entity_type,status \
@@ -101,7 +101,7 @@ bq --project_id="${PROJECT_ID}" mk --table --if_not_exists \
     /tmp/pipeline_jobs_schema.json
 echo "  pipeline_jobs"
 
-bq --project_id="${PROJECT_ID}" mk --table --if_not_exists \
+bq --project_id="${PROJECT_ID}" mk --table --force \
     --time_partitioning_field=processed_timestamp \
     --time_partitioning_type=DAY \
     --clustering_fields=pipeline_name,entity_type \

@@ -48,7 +48,7 @@ RUN_ID="segment_e2e_$(date +%Y%m%d_%H%M%S)"
 EXTRACT_DATE=$(date +%Y%m%d)
 EXTRACT_MONTH=""
 OUTPUT_BUCKET="${PROJECT_ID}-generic-${ENV}-segments"
-TEMPLATE_PATH="gs://${PROJECT_ID}-generic-${ENV}-temp/templates/segment_transform.json"
+TEMPLATE_PATH="gs://${PROJECT_ID}-generic-${ENV}-segments/templates/segment_transform.json"
 REPORT_FILE="/tmp/segment_e2e_report_$(date +%Y%m%d_%H%M%S).txt"
 
 # Parse arguments
