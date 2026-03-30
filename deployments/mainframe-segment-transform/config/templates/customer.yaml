@@ -1,0 +1,130 @@
+# =============================================================================
+# Customer Segment Template
+# =============================================================================
+# CDP table: customer_risk_profile
+# Output: Fixed-width 200-char records for mainframe customer segment
+# =============================================================================
+segment_id: customer
+segment_name: Customer
+description: "Customer demographic and risk segment for mainframe"
+record_length: 200
+
+# 1. CDP source table
+source:
+  dataset: cdp_generic
+  table: customer_risk_profile
+  partition_column: updated_at
+
+# 2. SQL query Dataflow executes
+#    Placeholders resolved at runtime:
+#      {project}      — GCP project ID
+#      {period_start} — First day of extract month (YYYY-MM-DD)
+#      {period_end}   — Last day of extract month (YYYY-MM-DD)
+query: |
+  SELECT
+    customer_id,
+    first_name,
+    last_name,
+    date_of_birth,
+    status,
+    account_count,
+    total_balance,
+    risk_score,
+    risk_category
+  FROM `{project}.cdp_generic.customer_risk_profile`
+  WHERE status IN ('ACTIVE', 'DORMANT')
+    AND updated_at BETWEEN '{period_start}' AND '{period_end}'
+
+# 3. Output template — fixed-width mainframe file layout
+output:
+  file_prefix: "CUST"
+  file_suffix: ".dat"
+  shard_template: "-SSSSS-of-NNNNN"
+  max_records_per_shard: 1000000
+
+  fields:
+    - name: segment_type
+      source: _literal
+      literal_value: "CUST"
+      width: 4
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: customer_id
+      source: customer_id
+      width: 20
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: first_name
+      source: first_name
+      width: 25
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: last_name
+      source: last_name
+      width: 25
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: date_of_birth
+      source: date_of_birth
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: status
+      source: status
+      width: 8
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: account_count
+      source: account_count
+      width: 6
+      type: integer
+      align: right
+      pad_char: "0"
+
+    - name: total_balance
+      source: total_balance
+      width: 15
+      type: amount
+      decimal_places: 2
+      align: right
+      pad_char: " "
+
+    - name: risk_score
+      source: risk_score
+      width: 6
+      type: integer
+      align: right
+      pad_char: " "
+
+    - name: risk_category
+      source: risk_category
+      width: 10
+      type: string
+      align: left
+      pad_char: " "
+
+    - name: extract_date
+      source: _extract_date
+      width: 8
+      type: date
+      date_format: "%Y%m%d"
+      null_value: "00000000"
+
+    - name: filler
+      source: _literal
+      literal_value: ""
+      width: 65
+      type: filler
+      pad_char: " "
