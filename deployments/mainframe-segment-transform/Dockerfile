@@ -40,6 +40,7 @@ RUN pip install -e /template/deployments/mainframe-segment-transform
 # Set environment variables for Flex Template launcher
 ENV PYTHONPATH="/template/deployments/mainframe-segment-transform/src:/template"
 ENV FLEX_TEMPLATE_PYTHON_PY_FILE="/template/deployments/mainframe-segment-transform/src/launch.py"
+ENV FLEX_TEMPLATE_PYTHON_SETUP_FILE="/template/deployments/mainframe-segment-transform/setup.py"
 
 # Version marker
 RUN echo "library_version=${LIBRARY_VERSION}" > /template/VERSION
