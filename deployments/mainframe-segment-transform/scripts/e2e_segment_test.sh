@@ -168,7 +168,7 @@ if [ -n "${JOB_ID}" ]; then
     fi
 fi
 
-# --- Step 5: Verify output files ---
+# --- Step 5: Verify output and generate report ---
 echo "" | tee -a "${REPORT_FILE}"
 echo "=== Step 5: Verifying output ===" | tee -a "${REPORT_FILE}"
 echo "  Job Status: ${JOB_FINAL_STATUS}" | tee -a "${REPORT_FILE}"
@@ -176,44 +176,95 @@ echo "  Job Status: ${JOB_FINAL_STATUS}" | tee -a "${REPORT_FILE}"
 OUTPUT_PATH="gs://${OUTPUT_BUCKET}/segments/${PERIOD_LABEL}/${SEG_RUN_ID}/${SEG}/"
 FILES=$(gsutil ls "${OUTPUT_PATH}" 2>/dev/null | grep '\.dat$' | wc -l | tr -d ' ')
 
+# Local directory for downloaded artifacts
+LOCAL_DIR="/tmp/segment_e2e_${RUN_ID}"
+mkdir -p "${LOCAL_DIR}"
+
 if [ "${FILES}" -gt 0 ]; then
     echo "  Output files: ${FILES} .dat shards" | tee -a "${REPORT_FILE}"
 
-    # Verify record length
-    FIRST_FILE=$(gsutil ls "${OUTPUT_PATH}" 2>/dev/null | grep '\.dat$' | head -1)
-    if [ -n "${FIRST_FILE}" ]; then
-        echo "  Checking record length in: ${FIRST_FILE}" | tee -a "${REPORT_FILE}"
-        gsutil cat "${FIRST_FILE}" 2>/dev/null | head -5 | while read -r LINE; do
-            LEN=${#LINE}
-            if [ "${LEN}" -eq 200 ]; then
-                echo "    Record length: ${LEN} chars - OK" | tee -a "${REPORT_FILE}"
-            else
-                echo "    Record length: ${LEN} chars - FAIL (expected 200)" | tee -a "${REPORT_FILE}"
-            fi
-        done
-    fi
+    # Download all segment files and manifest locally
+    echo "  Downloading segment files to ${LOCAL_DIR}/" | tee -a "${REPORT_FILE}"
+    gsutil -m cp "${OUTPUT_PATH}*" "${LOCAL_DIR}/" 2>/dev/null || true
 
     # Count total records
-    TOTAL_RECORDS=$(gsutil cat "${OUTPUT_PATH}*.dat" 2>/dev/null | wc -l | tr -d ' ')
+    TOTAL_RECORDS=$(cat "${LOCAL_DIR}"/*.dat 2>/dev/null | wc -l | tr -d ' ')
     echo "  Total records: ${TOTAL_RECORDS}" | tee -a "${REPORT_FILE}"
 
-    # Check manifest
-    MANIFEST_FILE=$(gsutil ls "${OUTPUT_PATH}" 2>/dev/null | grep '\.manifest' | head -1 || true)
-    if [ -n "${MANIFEST_FILE}" ]; then
-        echo "  Manifest: found" | tee -a "${REPORT_FILE}"
-        gsutil cat "${MANIFEST_FILE}" 2>/dev/null | tee -a "${REPORT_FILE}"
-    else
-        echo "  Manifest: MISSING" | tee -a "${REPORT_FILE}"
+    # Verify record lengths
+    echo "" | tee -a "${REPORT_FILE}"
+    echo "--- Record Length Check ---" | tee -a "${REPORT_FILE}"
+    RECORD_LEN_OK=0
+    RECORD_LEN_FAIL=0
+    while IFS= read -r LINE; do
+        LEN=${#LINE}
+        if [ "${LEN}" -eq 200 ]; then
+            RECORD_LEN_OK=$((RECORD_LEN_OK + 1))
+        else
+            RECORD_LEN_FAIL=$((RECORD_LEN_FAIL + 1))
+            if [ "${RECORD_LEN_FAIL}" -le 3 ]; then
+                echo "  FAIL: record length=${LEN} (expected 200)" | tee -a "${REPORT_FILE}"
+            fi
+        fi
+    done < <(cat "${LOCAL_DIR}"/*.dat 2>/dev/null)
+    echo "  Records with length=200: ${RECORD_LEN_OK}/${TOTAL_RECORDS}" | tee -a "${REPORT_FILE}"
+    if [ "${RECORD_LEN_FAIL}" -gt 0 ]; then
+        echo "  Records with wrong length: ${RECORD_LEN_FAIL}" | tee -a "${REPORT_FILE}"
     fi
 
+    # --- Manifest ---
+    echo "" | tee -a "${REPORT_FILE}"
+    echo "--- Manifest ---" | tee -a "${REPORT_FILE}"
+    if ls "${LOCAL_DIR}"/*.manifest 1>/dev/null 2>&1; then
+        cat "${LOCAL_DIR}"/*.manifest | tee -a "${REPORT_FILE}"
+    else
+        echo "  MISSING" | tee -a "${REPORT_FILE}"
+    fi
+
+    # --- Sample Records (first 10, for manual verification) ---
+    echo "" | tee -a "${REPORT_FILE}"
+    echo "--- Sample Records (first 10) ---" | tee -a "${REPORT_FILE}"
+    echo "  Template: customer.yaml (200-char fixed-width)" | tee -a "${REPORT_FILE}"
+    echo "  Fields: CUST(4) | customer_id(20) | first_name(25) | last_name(25) | dob(8) | status(8) | acct_count(6) | balance(15) | score(6) | risk_cat(10) | extract_dt(8) | filler(65)" | tee -a "${REPORT_FILE}"
+    echo "" | tee -a "${REPORT_FILE}"
+    head -10 "${LOCAL_DIR}"/*.dat 2>/dev/null | while IFS= read -r LINE; do
+        echo "  |${LINE}|" | tee -a "${REPORT_FILE}"
+    done
+
+    # --- File listing ---
+    echo "" | tee -a "${REPORT_FILE}"
+    echo "--- Output Files ---" | tee -a "${REPORT_FILE}"
+    ls -lh "${LOCAL_DIR}"/ 2>/dev/null | tee -a "${REPORT_FILE}"
+
+    # --- Summary ---
+    echo "" | tee -a "${REPORT_FILE}"
+    echo "============================================" | tee -a "${REPORT_FILE}"
+    echo "  E2E Test Report" | tee -a "${REPORT_FILE}"
+    echo "============================================" | tee -a "${REPORT_FILE}"
+    echo "  Segment:       ${SEG}" | tee -a "${REPORT_FILE}"
+    echo "  Period:         ${PERIOD_LABEL}" | tee -a "${REPORT_FILE}"
+    echo "  Extract Date:   ${EXTRACT_DATE}" | tee -a "${REPORT_FILE}"
+    echo "  Run ID:         ${SEG_RUN_ID}" | tee -a "${REPORT_FILE}"
+    echo "  Job ID:         ${JOB_ID}" | tee -a "${REPORT_FILE}"
+    echo "  Job Status:     ${JOB_FINAL_STATUS}" | tee -a "${REPORT_FILE}"
+    echo "  Total Records:  ${TOTAL_RECORDS}" | tee -a "${REPORT_FILE}"
+    echo "  Shards:         ${FILES}" | tee -a "${REPORT_FILE}"
+    echo "  Record Len OK:  ${RECORD_LEN_OK}/${TOTAL_RECORDS}" | tee -a "${REPORT_FILE}"
+    echo "  GCS Path:       ${OUTPUT_PATH}" | tee -a "${REPORT_FILE}"
+    echo "  Local Copy:     ${LOCAL_DIR}/" | tee -a "${REPORT_FILE}"
+    echo "  Report:         ${REPORT_FILE}" | tee -a "${REPORT_FILE}"
+    echo "============================================" | tee -a "${REPORT_FILE}"
     echo "" | tee -a "${REPORT_FILE}"
     echo "E2E TEST PASSED" | tee -a "${REPORT_FILE}"
+    echo ""
     echo "Report: ${REPORT_FILE}"
+    echo "Files:  ${LOCAL_DIR}/"
     exit 0
 else
     echo "  Output files: NONE — FAIL" | tee -a "${REPORT_FILE}"
     echo "" | tee -a "${REPORT_FILE}"
     echo "E2E TEST FAILED" | tee -a "${REPORT_FILE}"
+    echo ""
     echo "Report: ${REPORT_FILE}"
     exit 1
 fi
