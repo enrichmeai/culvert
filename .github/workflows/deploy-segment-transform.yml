@@ -1,60 +1,36 @@
-name: Deploy Segment Transform
+name: Build Segment Transform
 
 # =============================================================================
-# Deploys the mainframe-segment-transform Dataflow Flex Template.
+# Builds the Dataflow Flex Template ONLY (Docker image + template spec).
+# Infrastructure is managed by Terraform — not this workflow.
 #
-# This is a standalone workflow — does NOT deploy ODP ingestion, FDP/dbt,
-# or Airflow orchestration. Only builds and pushes the segment transform
-# Docker image + Flex Template spec to GCS.
+# Flow:
+#   1. terraform apply  (local — creates BQ tables + GCS bucket)
+#   2. This workflow     (GitHub Actions — builds Dataflow image only)
+#   3. E2E test          (local — launches Dataflow job + generates report)
+#   4. terraform destroy (local — tears down)
 #
-# Prerequisites:
-#   - CDP infrastructure created via: scripts/gcp/setup_cdp_segment_infra.sh
-#   - CDP test data loaded via: deployments/mainframe-segment-transform/scripts/load_cdp_test_data.sh
-#
-# Trigger modes:
-#   - Automatic: Push to main with changes in mainframe-segment-transform
-#   - Manual: workflow_dispatch with optional library version override
+# Trigger: manual only (workflow_dispatch) to save Actions minutes.
 # =============================================================================
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'deployments/mainframe-segment-transform/**'
-      - '.github/workflows/deploy-segment-transform.yml'
   workflow_dispatch:
     inputs:
-      environment:
-        description: 'Target environment'
-        required: true
-        default: 'int'
-        type: choice
-        options:
-          - int
       library_version:
         description: 'Library version (default: 1.0.29)'
         required: false
         default: '1.0.29'
         type: string
 
-concurrency:
-  group: deploy-segment-transform-${{ github.event.inputs.environment || 'int' }}
-  cancel-in-progress: false
-
 env:
-  PYTHON_VERSION: '3.11'
-  GCP_REGION: 'europe-west2'
-  ENVIRONMENT: ${{ github.event.inputs.environment || 'int' }}
   LIBRARY_VERSION: ${{ github.event.inputs.library_version || '1.0.29' }}
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  # ─── Build + Deploy Flex Template ──────────────────────────────────────────
-  deploy-segment-transform:
-    name: Build & Deploy Segment Transform
+  build-flex-template:
+    name: Build Dataflow Flex Template
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -70,57 +46,16 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Configure Docker for GCR
-        run: gcloud auth configure-docker --quiet
-
-      - name: Build & push Docker image via Cloud Build
+      - name: Build & push via Cloud Build
         run: |
           gcloud builds submit \
             --project=${{ secrets.GCP_PROJECT_ID }} \
             --config=deployments/mainframe-segment-transform/cloudbuild.yaml \
             --substitutions="_LIBRARY_VERSION=${{ env.LIBRARY_VERSION }}" \
-            . 2>&1
+            .
         timeout-minutes: 20
 
-      - name: Verify Flex Template exists
+      - name: Summary
         run: |
-          gsutil stat "gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-segments/templates/segment_transform.json"
-          echo "Flex Template deployed successfully."
-
-      - name: Print deployment summary
-        run: |
-          echo "============================================"
-          echo "  Segment Transform Deployed"
-          echo "============================================"
           echo "Image:    gcr.io/${{ secrets.GCP_PROJECT_ID }}/generic-segment-transform:${{ env.LIBRARY_VERSION }}"
-          echo "Template: gs://${{ secrets.GCP_PROJECT_ID }}-generic-${{ env.ENVIRONMENT }}-segments/templates/segment_transform.json"
-          echo ""
-          echo "Run E2E test:"
-          echo "  deployments/mainframe-segment-transform/scripts/e2e_segment_test.sh --extract-month $(date +%Y%m)"
-          echo "============================================"
-
-  # ─── Cleanup old Cloud Build artifacts ─────────────────────────────────────
-  cleanup:
-    name: Cleanup Build Artifacts
-    runs-on: ubuntu-latest
-    needs: deploy-segment-transform
-    if: success()
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Cleanup stale builds
-        run: |
-          if [ -f scripts/gcp/cleanup_builds.sh ]; then
-            bash scripts/gcp/cleanup_builds.sh ${{ secrets.GCP_PROJECT_ID }} 2>/dev/null || true
-          fi
+          echo "Template: gs://${{ secrets.GCP_PROJECT_ID }}-generic-int-segments/templates/segment_transform.json"
