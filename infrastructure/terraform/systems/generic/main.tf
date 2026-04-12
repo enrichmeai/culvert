@@ -679,8 +679,9 @@ resource "google_service_account" "generic_dbt" {
   description  = "Service account for Generic dbt transformations"
 }
 
-# Cloud Composer service account
+# Cloud Composer service account (only when Composer is enabled)
 resource "google_service_account" "generic_composer" {
+  count        = var.enable_composer ? 1 : 0
   account_id   = "generic-composer-sa"
   display_name = "Generic Cloud Composer Service Account"
 }
@@ -759,36 +760,41 @@ resource "google_bigquery_dataset_iam_member" "generic_dbt_job_control" {
   member     = "serviceAccount:${google_service_account.generic_dbt.email}"
 }
 
-# --- Composer IAM ---
+# --- Composer IAM (only when Composer is enabled) ---
 
 resource "google_project_iam_member" "generic_composer_worker" {
+  count   = var.enable_composer ? 1 : 0
   project = var.gcp_project_id
   role    = "roles/composer.worker"
-  member  = "serviceAccount:${google_service_account.generic_composer.email}"
+  member  = "serviceAccount:${google_service_account.generic_composer[0].email}"
 }
 
 resource "google_project_iam_member" "generic_composer_dataflow" {
+  count   = var.enable_composer ? 1 : 0
   project = var.gcp_project_id
   role    = "roles/dataflow.admin"
-  member  = "serviceAccount:${google_service_account.generic_composer.email}"
+  member  = "serviceAccount:${google_service_account.generic_composer[0].email}"
 }
 
 resource "google_project_iam_member" "generic_composer_bigquery" {
+  count   = var.enable_composer ? 1 : 0
   project = var.gcp_project_id
   role    = "roles/bigquery.admin"
-  member  = "serviceAccount:${google_service_account.generic_composer.email}"
+  member  = "serviceAccount:${google_service_account.generic_composer[0].email}"
 }
 
 resource "google_project_iam_member" "generic_composer_storage" {
+  count   = var.enable_composer ? 1 : 0
   project = var.gcp_project_id
   role    = "roles/storage.admin"
-  member  = "serviceAccount:${google_service_account.generic_composer.email}"
+  member  = "serviceAccount:${google_service_account.generic_composer[0].email}"
 }
 
 resource "google_pubsub_subscription_iam_member" "generic_composer_subscriber" {
+  count        = var.enable_composer ? 1 : 0
   subscription = google_pubsub_subscription.generic_file_notifications_sub.name
   role         = "roles/pubsub.subscriber"
-  member       = "serviceAccount:${google_service_account.generic_composer.email}"
+  member       = "serviceAccount:${google_service_account.generic_composer[0].email}"
 }
 
 # ============================================================================
@@ -796,6 +802,7 @@ resource "google_pubsub_subscription_iam_member" "generic_composer_subscriber" {
 # ============================================================================
 
 resource "google_composer_environment" "generic_composer" {
+  count  = var.enable_composer ? 1 : 0
   name   = "${local.prefix}-composer"
   region = var.gcp_region
 
@@ -845,7 +852,7 @@ resource "google_composer_environment" "generic_composer" {
     environment_size = "ENVIRONMENT_SIZE_SMALL"
 
     node_config {
-      service_account = google_service_account.generic_composer.email
+      service_account = google_service_account.generic_composer[0].email
     }
   }
 
@@ -854,4 +861,318 @@ resource "google_composer_environment" "generic_composer" {
   depends_on = [
     google_project_iam_member.generic_composer_worker,
   ]
+}
+
+# ============================================================================
+# FDP TRIGGER (Cloud Run + Cloud Scheduler)
+# ============================================================================
+# Replaces Composer/Airflow as the trigger for mainframe-segment-transform.
+# Polls the producing team's FDP partitions via INFORMATION_SCHEMA.
+# See docs/FDP_CONSUMER_ARCHITECTURE.md for the full design.
+# ============================================================================
+
+# Service account for the Cloud Run trigger service
+resource "google_service_account" "fdp_trigger" {
+  count        = var.enable_fdp_trigger ? 1 : 0
+  account_id   = "fdp-trigger-sa"
+  display_name = "FDP Trigger Cloud Run Service Account"
+  description  = "Polls FDP readiness and launches mainframe-segment-transform Dataflow"
+}
+
+# IAM: read FDP metadata in the producing team's project
+# (granted via the producing team's project; this Terraform asserts the binding
+# exists in our state but the actual grant must be approved by them)
+resource "google_project_iam_member" "fdp_trigger_metadata_viewer" {
+  count   = var.enable_fdp_trigger && var.fdp_project_id != "" ? 1 : 0
+  project = var.fdp_project_id
+  role    = "roles/bigquery.metadataViewer"
+  member  = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+resource "google_project_iam_member" "fdp_trigger_data_viewer" {
+  count   = var.enable_fdp_trigger && var.fdp_project_id != "" ? 1 : 0
+  project = var.fdp_project_id
+  role    = "roles/bigquery.dataViewer"
+  member  = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# IAM: write to job_control in our project
+resource "google_bigquery_dataset_iam_member" "fdp_trigger_job_control_editor" {
+  count      = var.enable_fdp_trigger ? 1 : 0
+  dataset_id = google_bigquery_dataset.job_control.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# IAM: read job_control (for dedup query)
+resource "google_bigquery_dataset_iam_member" "fdp_trigger_job_control_viewer" {
+  count      = var.enable_fdp_trigger ? 1 : 0
+  dataset_id = google_bigquery_dataset.job_control.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# IAM: BigQuery job user (run queries)
+resource "google_project_iam_member" "fdp_trigger_bq_job_user" {
+  count   = var.enable_fdp_trigger ? 1 : 0
+  project = var.gcp_project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# IAM: launch Dataflow Flex Templates
+resource "google_project_iam_member" "fdp_trigger_dataflow_developer" {
+  count   = var.enable_fdp_trigger ? 1 : 0
+  project = var.gcp_project_id
+  role    = "roles/dataflow.developer"
+  member  = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# IAM: act as the Dataflow worker SA (required to launch Dataflow as another SA)
+resource "google_service_account_iam_member" "fdp_trigger_act_as_dataflow" {
+  count              = var.enable_fdp_trigger ? 1 : 0
+  service_account_id = google_service_account.generic_dataflow.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.fdp_trigger[0].email}"
+}
+
+# Cloud Run service
+resource "google_cloud_run_v2_service" "fdp_trigger" {
+  count    = var.enable_fdp_trigger ? 1 : 0
+  name     = "fdp-trigger"
+  location = var.gcp_region
+  # INTERNAL_ONLY: only Cloud Scheduler (via OIDC) and other GCP services
+  # in the same project can invoke. Public internet is blocked.
+  ingress = "INGRESS_TRAFFIC_INTERNAL_ONLY"
+
+  template {
+    service_account = google_service_account.fdp_trigger[0].email
+
+    scaling {
+      min_instance_count = 0
+      max_instance_count = 2
+    }
+
+    timeout = "300s"
+
+    containers {
+      image = "gcr.io/${var.gcp_project_id}/fdp-trigger:latest"
+
+      resources {
+        limits = {
+          cpu    = "1"
+          memory = "512Mi"
+        }
+      }
+
+      env {
+        name  = "GCP_PROJECT"
+        value = var.gcp_project_id
+      }
+      env {
+        name  = "GCP_REGION"
+        value = var.gcp_region
+      }
+      env {
+        name  = "FDP_PROJECT"
+        value = var.fdp_project_id
+      }
+      env {
+        name  = "FDP_DATASET"
+        value = var.fdp_dataset
+      }
+      env {
+        name  = "FDP_TABLES"
+        value = join(",", var.fdp_tables)
+      }
+      env {
+        name  = "STABILITY_MINUTES"
+        value = tostring(var.fdp_stability_minutes)
+      }
+      env {
+        name  = "TEMPLATE_GCS_PATH"
+        value = "gs://${var.gcp_project_id}-generic-${var.environment}-segments/templates/segment_transform.json"
+      }
+      env {
+        name  = "OUTPUT_BUCKET"
+        value = "${var.gcp_project_id}-generic-${var.environment}-segments"
+      }
+      env {
+        name  = "JOB_CONTROL_TABLE"
+        value = "${var.gcp_project_id}.${google_bigquery_dataset.job_control.dataset_id}.pipeline_jobs"
+      }
+      env {
+        name  = "DATAFLOW_SERVICE_ACCOUNT"
+        value = google_service_account.generic_dataflow.email
+      }
+      env {
+        name  = "TEMP_LOCATION"
+        value = "gs://${google_storage_bucket.temp.name}/dataflow"
+      }
+      env {
+        name  = "DEFAULT_SEGMENT"
+        value = var.fdp_trigger_default_segment
+      }
+    }
+  }
+
+  labels = local.common_labels
+
+  depends_on = [
+    google_project_iam_member.fdp_trigger_bq_job_user,
+    google_project_iam_member.fdp_trigger_dataflow_developer,
+  ]
+}
+
+# Service account for Cloud Scheduler to invoke Cloud Run
+resource "google_service_account" "fdp_trigger_scheduler" {
+  count        = var.enable_fdp_trigger ? 1 : 0
+  account_id   = "fdp-trigger-scheduler-sa"
+  display_name = "Cloud Scheduler invoker for fdp-trigger"
+}
+
+# Allow scheduler SA to invoke the Cloud Run service
+resource "google_cloud_run_v2_service_iam_member" "fdp_trigger_invoker" {
+  count    = var.enable_fdp_trigger ? 1 : 0
+  project  = var.gcp_project_id
+  location = var.gcp_region
+  name     = google_cloud_run_v2_service.fdp_trigger[0].name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.fdp_trigger_scheduler[0].email}"
+}
+
+# Cloud Scheduler job that polls every 10 minutes during the expected window
+resource "google_cloud_scheduler_job" "fdp_trigger_poller" {
+  count       = var.enable_fdp_trigger ? 1 : 0
+  name        = "fdp-trigger-poller"
+  region      = var.gcp_region
+  description = "Poll FDP readiness and launch mainframe-segment-transform if ready"
+  schedule    = var.fdp_trigger_schedule
+  time_zone   = "Etc/UTC"
+
+  attempt_deadline = "300s"
+
+  retry_config {
+    retry_count          = 1
+    max_retry_duration   = "0s"
+    min_backoff_duration = "5s"
+    max_backoff_duration = "60s"
+    max_doublings        = 1
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.fdp_trigger[0].uri}/trigger"
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    # Empty body -- service defaults extract_date to today
+    body = base64encode("{}")
+
+    oidc_token {
+      service_account_email = google_service_account.fdp_trigger_scheduler[0].email
+      audience              = google_cloud_run_v2_service.fdp_trigger[0].uri
+    }
+  }
+}
+
+# =============================================================================
+# MONTHLY SEGMENT EXTRACT
+# Cloud Build trigger (dbt CDP → Dataflow) + Cloud Scheduler (3rd of month)
+#
+# Prerequisites:
+#   - GitHub App connected to Cloud Build for var.github_repo
+#     (one-time setup: GCP Console → Cloud Build → Repositories → Connect)
+#   - generic-cdp-transformation Docker image exists in GCR
+#     (built by: gcloud builds submit --config deployments/fdp-to-consumable-product/cloudbuild.yaml)
+#   - generic-segment-transform Flex Template uploaded to GCS
+#     (built by: gcloud builds submit --config deployments/mainframe-segment-transform/cloudbuild.yaml)
+# =============================================================================
+
+# Service account for Cloud Scheduler to invoke Cloud Build
+resource "google_service_account" "segment_monthly_scheduler" {
+  count        = var.enable_monthly_segment ? 1 : 0
+  project      = var.gcp_project_id
+  account_id   = "segment-monthly-sa"
+  display_name = "Monthly segment extract — Cloud Scheduler invoker"
+}
+
+# Allow the scheduler SA to trigger Cloud Build builds
+resource "google_project_iam_member" "segment_monthly_cloudbuild" {
+  count   = var.enable_monthly_segment ? 1 : 0
+  project = var.gcp_project_id
+  role    = "roles/cloudbuild.builds.editor"
+  member  = "serviceAccount:${google_service_account.segment_monthly_scheduler[0].email}"
+}
+
+# Cloud Build trigger (manual — no push/PR listener, called by Cloud Scheduler)
+# NOTE: requires GitHub App to be connected in Cloud Build before terraform apply.
+resource "google_cloudbuild_trigger" "monthly_segment" {
+  count       = var.enable_monthly_segment ? 1 : 0
+  project     = var.gcp_project_id
+  name        = "monthly-segment-transform"
+  description = "Monthly CDP refresh + mainframe segment extract (triggered by Cloud Scheduler)"
+
+  source_to_build {
+    uri       = "https://github.com/${var.github_repo}"
+    ref       = "refs/heads/main"
+    repo_type = "GITHUB"
+  }
+
+  git_file_source {
+    path      = "deployments/mainframe-segment-transform/cloudbuild-monthly.yaml"
+    uri       = "https://github.com/${var.github_repo}"
+    revision  = "refs/heads/main"
+    repo_type = "GITHUB"
+  }
+
+  substitutions = {
+    _ENVIRONMENT   = var.environment
+    _FDP_PROJECT   = var.fdp_project_id
+    _OUTPUT_BUCKET = "${var.gcp_project_id}-generic-${var.environment}-segments"
+    _SEGMENT       = var.monthly_segment_segments
+    _EXTRACT_MONTH = ""
+    _REGION        = var.gcp_region
+  }
+}
+
+# Cloud Scheduler: fires on 3rd of each month at 06:00 UTC
+resource "google_cloud_scheduler_job" "monthly_segment" {
+  count       = var.enable_monthly_segment ? 1 : 0
+  name        = "monthly-segment-transform"
+  region      = var.gcp_region
+  description = "Trigger monthly CDP refresh + segment extract on 3rd of each month"
+  schedule    = var.monthly_segment_schedule
+  time_zone   = "Etc/UTC"
+
+  attempt_deadline = "30s"
+
+  retry_config {
+    retry_count          = 0
+    max_retry_duration   = "0s"
+    min_backoff_duration = "5s"
+    max_backoff_duration = "3600s"
+    max_doublings        = 5
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://cloudbuild.googleapis.com/v1/projects/${var.gcp_project_id}/triggers/${google_cloudbuild_trigger.monthly_segment[0].trigger_id}:run"
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    body = base64encode(jsonencode({
+      branchName = "main"
+    }))
+
+    oauth_token {
+      service_account_email = google_service_account.segment_monthly_scheduler[0].email
+    }
+  }
+
+  depends_on = [google_project_iam_member.segment_monthly_cloudbuild]
 }

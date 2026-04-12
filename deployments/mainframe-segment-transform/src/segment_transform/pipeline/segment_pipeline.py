@@ -1,8 +1,9 @@
 """
 Mainframe Segment Pipeline.
 
-Template-driven Apache Beam pipeline that reads CDP data from BigQuery
-via a SQL query and produces fixed-width segment files in GCS.
+Template-driven Apache Beam pipeline that reads BigQuery data (typically
+the CDP snapshot layer) via a SQL query and produces fixed-width segment
+files in GCS.
 
 Designed for 25 GB+ monthly extracts:
   - DIRECT_READ method avoids temporary GCS export
@@ -36,7 +37,7 @@ class MainframeSegmentPipeline(BasePipeline):
     def __init__(self, options, config, template: SegmentTemplate,
                  output_bucket: str, extract_date: str,
                  period_start: str = '', period_end: str = '',
-                 extract_month: str = ''):
+                 extract_month: str = '', fdp_project: str = ''):
         super().__init__(options, config)
         self.template = template
         self.output_bucket = output_bucket
@@ -44,15 +45,20 @@ class MainframeSegmentPipeline(BasePipeline):
         self.period_start = period_start
         self.period_end = period_end
         self.extract_month = extract_month
+        # FDP source project (defaults to gcp_project_id for same-project reads)
+        self.fdp_project = fdp_project or config.gcp_project_id
 
     def build(self, pipeline: beam.Pipeline):
         """Define the segment export pipeline DAG."""
         project = self.config.gcp_project_id
         run_id = self.config.run_id
 
-        # Resolve placeholders in the SQL query
+        # Resolve placeholders in the SQL query.
+        # {project} refers to the FDP source project (cross-project for FDP reads,
+        # same-project for legacy CDP reads). Defaults to the Dataflow-running
+        # project if --fdp_project is not specified.
         query = self.template.query.format(
-            project=project,
+            project=self.fdp_project,
             period_start=self.period_start,
             period_end=self.period_end,
         )
@@ -147,12 +153,29 @@ class MainframeSegmentPipeline(BasePipeline):
         )
 
 
+MANIFEST_REQUIRED_KEYS = frozenset({
+    'segment', 'period', 'run_id', 'extract_date',
+    'total_records', 'record_length', 'num_shards',
+    'max_records_per_shard', 'file_pattern',
+})
+
+
 def _build_manifest(total_records: int, segment_id: str, period: str,
                     run_id: str, extract_date: str, file_prefix: str,
                     file_suffix: str, record_length: int,
                     max_records_per_shard: int) -> str:
-    """Build a JSON manifest string from the record count."""
+    """Build a JSON manifest string from the record count.
+
+    Validates that all required keys are present and total_records is
+    non-negative before serialising.
+    """
     import math
+
+    if total_records < 0:
+        raise ValueError(
+            f"Manifest total_records must be non-negative, got {total_records}"
+        )
+
     num_shards = (
         math.ceil(total_records / max_records_per_shard)
         if max_records_per_shard > 0 else 1
@@ -168,4 +191,9 @@ def _build_manifest(total_records: int, segment_id: str, period: str,
         'max_records_per_shard': max_records_per_shard,
         'file_pattern': f"{file_prefix}-*-of-*{file_suffix}",
     }
+
+    missing = MANIFEST_REQUIRED_KEYS - set(manifest.keys())
+    if missing:
+        raise ValueError(f"Manifest missing required keys: {sorted(missing)}")
+
     return json.dumps(manifest, indent=2)

@@ -3,10 +3,13 @@ name: Deploy Generic
 # =============================================================================
 # Deployment Workflow
 #
-# Deploys 3 pipelines using gcp-pipeline-framework from PyPI:
+# Deploys pipelines using gcp-pipeline-framework from PyPI:
 #   1. original-data-to-bigqueryload  → Dataflow Flex Template (ingestion)
 #   2. bigquery-to-mapped-product     → dbt models (transformation)
-#   3. data-pipeline-orchestrator     → Airflow DAGs (orchestration)
+#   3. data-pipeline-orchestrator     → Airflow DAGs (orchestration, opt-in only)
+#
+# Cloud Composer (~$300-500/month) is NOT deployed by default.
+# To deploy Composer, use workflow_dispatch with deploy_composer=true.
 #
 # Trigger modes:
 #   - Automatic: Push to main branch (path-filtered deploy)
@@ -24,7 +27,7 @@ on:
       - 'deployments/original-data-to-bigqueryload/**'
       - 'deployments/bigquery-to-mapped-product/**'
       - 'deployments/fdp-to-consumable-product/**'
-      - 'deployments/data-pipeline-orchestrator/**'
+      # NOTE: data-pipeline-orchestrator is excluded — Composer is opt-in only
       - 'infrastructure/**'
       - '.github/workflows/deploy-generic.yml'
   # NOTE: No workflow_run trigger from publish. Publish and deploy are
@@ -44,6 +47,11 @@ on:
         required: false
         default: ''
         type: string
+      deploy_composer:
+        description: 'Deploy Cloud Composer (~$300-500/month). Only enable when orchestration testing is needed.'
+        required: false
+        default: false
+        type: boolean
 
 # Prevent concurrent deployments to the same environment
 concurrency:
@@ -81,17 +89,20 @@ jobs:
     - name: Detect changed paths
       id: changes
       run: |
+        # Composer/orchestration is opt-in only (deploy_composer input)
+        DEPLOY_COMPOSER="${{ github.event.inputs.deploy_composer || 'false' }}"
+
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          # Manual trigger: deploy everything
+          # Manual trigger: deploy everything (except Composer unless opted in)
           echo "ingestion=true" >> $GITHUB_OUTPUT
           echo "transformation=true" >> $GITHUB_OUTPUT
           echo "cdp=true" >> $GITHUB_OUTPUT
-          echo "orchestration=true" >> $GITHUB_OUTPUT
+          echo "orchestration=${DEPLOY_COMPOSER}" >> $GITHUB_OUTPUT
           echo "infrastructure=true" >> $GITHUB_OUTPUT
           echo "workflow=true" >> $GITHUB_OUTPUT
-          echo "Manual trigger — all deployments enabled"
+          echo "Manual trigger — Composer: ${DEPLOY_COMPOSER}"
         else
-          # Push trigger: only deploy what changed
+          # Push trigger: only deploy what changed (never orchestration)
           CHANGED=$(git diff --name-only HEAD~1 HEAD)
           echo "Changed files:"
           echo "$CHANGED"
@@ -99,7 +110,7 @@ jobs:
           echo "ingestion=$(echo "$CHANGED" | grep -q '^deployments/original-data-to-bigqueryload/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "transformation=$(echo "$CHANGED" | grep -q '^deployments/bigquery-to-mapped-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "cdp=$(echo "$CHANGED" | grep -q '^deployments/fdp-to-consumable-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
-          echo "orchestration=$(echo "$CHANGED" | grep -q '^deployments/data-pipeline-orchestrator/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "orchestration=false" >> $GITHUB_OUTPUT
           echo "infrastructure=$(echo "$CHANGED" | grep -q '^infrastructure/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "workflow=$(echo "$CHANGED" | grep -q '^.github/workflows/deploy-generic.yml' && echo true || echo false)" >> $GITHUB_OUTPUT
         fi
@@ -233,6 +244,7 @@ jobs:
         TF_VAR_bq_location: europe-west2
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
+        TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -248,6 +260,7 @@ jobs:
         TF_VAR_bq_location: europe-west2
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
+        TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
       run: |
         cd infrastructure/terraform/systems/generic
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
@@ -312,7 +325,9 @@ jobs:
         echo "--- Service accounts ---"
         import_resource "google_service_account.generic_dataflow" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dataflow@${PROJECT_ID}.iam.gserviceaccount.com"
         import_resource "google_service_account.generic_dbt" "projects/${PROJECT_ID}/serviceAccounts/generic-${ENV}-dbt@${PROJECT_ID}.iam.gserviceaccount.com"
-        import_resource "google_service_account.generic_composer" "projects/${PROJECT_ID}/serviceAccounts/generic-composer-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+        if [ "${{ github.event.inputs.deploy_composer }}" = "true" ]; then
+          import_resource "google_service_account.generic_composer[0]" "projects/${PROJECT_ID}/serviceAccounts/generic-composer-sa@${PROJECT_ID}.iam.gserviceaccount.com"
+        fi
 
         echo "=== Import complete ==="
 
@@ -330,6 +345,7 @@ jobs:
         TF_VAR_bq_location: europe-west2
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
+        TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -345,6 +361,7 @@ jobs:
         TF_VAR_bq_location: europe-west2
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
+        TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -370,9 +387,13 @@ jobs:
         gcloud pubsub topics list --project=$PROJECT_ID 2>/dev/null | grep "generic" || echo "  MISSING"
 
         echo "Cloud Composer:"
-        gcloud composer environments describe "generic-${ENV}-composer" \
-          --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
-          --format='value(state)' 2>/dev/null || echo "  NOT PROVISIONED"
+        if [ "${{ github.event.inputs.deploy_composer }}" = "true" ]; then
+          gcloud composer environments describe "generic-${ENV}-composer" \
+            --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
+            --format='value(state)' 2>/dev/null || echo "  NOT PROVISIONED"
+        else
+          echo "  Skipped (deploy_composer=false)"
+        fi
 
         echo "=== Validation complete ==="
 
@@ -524,7 +545,7 @@ jobs:
     name: Deploy Airflow DAGs (orchestration)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure, detect-changes]
-    if: needs.detect-changes.outputs.orchestration == 'true' || needs.detect-changes.outputs.workflow == 'true'
+    if: needs.detect-changes.outputs.orchestration == 'true'
     timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -735,9 +756,13 @@ jobs:
 
         echo ""
         echo "Composer Environment:"
-        gcloud composer environments describe generic-${ENV}-composer \
-          --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
-          --format='value(state)' 2>/dev/null || echo "  Not found"
+        if [ "${{ github.event.inputs.deploy_composer }}" = "true" ]; then
+          gcloud composer environments describe generic-${ENV}-composer \
+            --location=${{ env.GCP_REGION }} --project=$PROJECT_ID \
+            --format='value(state)' 2>/dev/null || echo "  Not found"
+        else
+          echo "  Skipped (deploy_composer=false)"
+        fi
 
         echo ""
         echo "=============================================="
@@ -748,30 +773,55 @@ jobs:
       run: |
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
         ENV="${{ github.event.inputs.environment || 'int' }}"
-        COMPOSER_ENV="generic-${ENV}-composer"
         REGION="${{ env.GCP_REGION }}"
 
-        # Get Composer bucket
-        COMPOSER_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
-          --location=$REGION --project=$PROJECT_ID \
-          --format='value(config.dagGcsPrefix)' 2>/dev/null | sed 's|/dags$||') || true
+        # Clean Composer bucket only if Composer was deployed
+        if [ "${{ github.event.inputs.deploy_composer }}" = "true" ]; then
+          COMPOSER_ENV="generic-${ENV}-composer"
+          COMPOSER_BUCKET=$(gcloud composer environments describe $COMPOSER_ENV \
+            --location=$REGION --project=$PROJECT_ID \
+            --format='value(config.dagGcsPrefix)' 2>/dev/null | sed 's|/dags$||') || true
 
-        if [ -n "$COMPOSER_BUCKET" ]; then
-          echo "Cleaning stale build directories from Composer bucket..."
-          BUILD_DIRS=$(gsutil ls "$COMPOSER_BUCKET/" 2>/dev/null | grep "\-build/$" || true)
-          if [ -n "$BUILD_DIRS" ]; then
-            COUNT=$(echo "$BUILD_DIRS" | wc -l | tr -d ' ')
-            echo "  Found $COUNT stale build directories — removing..."
-            echo "$BUILD_DIRS" | xargs -I{} gsutil -m rm -r {} 2>/dev/null || true
-            echo "  Removed $COUNT build directories"
-          else
-            echo "  No stale build directories found"
+          if [ -n "$COMPOSER_BUCKET" ]; then
+            echo "Cleaning stale build directories from Composer bucket..."
+            BUILD_DIRS=$(gsutil ls "$COMPOSER_BUCKET/" 2>/dev/null | grep "\-build/$" || true)
+            if [ -n "$BUILD_DIRS" ]; then
+              COUNT=$(echo "$BUILD_DIRS" | wc -l | tr -d ' ')
+              echo "  Found $COUNT stale build directories — removing..."
+              echo "$BUILD_DIRS" | xargs -I{} gsutil -m rm -r {} 2>/dev/null || true
+              echo "  Removed $COUNT build directories"
+            else
+              echo "  No stale build directories found"
+            fi
           fi
         fi
 
         # Clean up Cloud Build source staging
         echo "Cleaning Cloud Build source staging..."
         gsutil -m rm -r "gs://${PROJECT_ID}_cloudbuild/source/**" 2>/dev/null || true
+
+        # Clean old container images — keep only latest per repo
+        echo "Cleaning old container images (keeping latest only)..."
+        REGISTRY="gcr.io/${PROJECT_ID}"
+        for REPO in generic-ingestion generic-transformation generic-dag-validator; do
+          DIGESTS=$(gcloud container images list-tags "${REGISTRY}/${REPO}" \
+            --format="get(digest)" --sort-by="~timestamp" 2>/dev/null || true)
+          if [ -n "$DIGESTS" ]; then
+            # Skip first (newest), delete the rest
+            OLD_DIGESTS=$(echo "$DIGESTS" | tail -n +2)
+            OLD_COUNT=$(echo "$OLD_DIGESTS" | grep -c "sha256:" || true)
+            if [ "$OLD_COUNT" -gt 0 ]; then
+              echo "  ${REPO}: deleting ${OLD_COUNT} old images..."
+              echo "$OLD_DIGESTS" | while read -r d; do
+                [ -z "$d" ] && continue
+                gcloud container images delete "${REGISTRY}/${REPO}@${d}" \
+                  --quiet --force-delete-tags 2>/dev/null || true
+              done
+            else
+              echo "  ${REPO}: only 1 image, nothing to clean"
+            fi
+          fi
+        done
         echo "Cloud Build cleanup complete"
 
   # ==========================================================================
@@ -815,7 +865,7 @@ jobs:
         echo "| original-data-to-bigqueryload | Dataflow Template | ${{ needs.deploy-dataflow.result == 'success' && '✅' || needs.deploy-dataflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| bigquery-to-mapped-product | dbt Models (MAP) | ${{ needs.deploy-dbt.result == 'success' && '✅' || needs.deploy-dbt.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| fdp-to-consumable-product | dbt Models (CDP) | ${{ needs.deploy-cdp.result == 'success' && '✅' || needs.deploy-cdp.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| data-pipeline-orchestrator | Airflow DAGs | ${{ needs.deploy-airflow.result == 'success' && '✅' || needs.deploy-airflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-orchestrator | Airflow DAGs (opt-in) | ${{ needs.deploy-airflow.result == 'success' && '✅' || needs.deploy-airflow.result == 'skipped' && '⏭️ (Composer disabled)' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
         echo "## Pipeline" >> $GITHUB_STEP_SUMMARY
@@ -835,4 +885,8 @@ jobs:
         echo "- Transformation (MAP) image: \`gcr.io/*/generic-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "- Transformation (CDP) image: \`gcr.io/*/generic-cdp-transformation:$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "- Flex Template: \`gs://*/templates/generic_ingestion_v$VERSION.json\`" >> $GITHUB_STEP_SUMMARY
-        echo "- DAGs: Cloud Composer \`generic-${ENV}-composer\`" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ github.event.inputs.deploy_composer }}" = "true" ]; then
+          echo "- DAGs: Cloud Composer \`generic-${ENV}-composer\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- DAGs: Cloud Composer disabled (use deploy_composer=true to enable)" >> $GITHUB_STEP_SUMMARY
+        fi

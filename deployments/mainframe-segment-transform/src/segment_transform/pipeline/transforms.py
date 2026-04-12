@@ -44,7 +44,7 @@ class FormatFixedWidthDoFn(beam.DoFn):
             yield line
         except Exception as e:
             self._format_errors.inc()
-            logger.warning(
-                "Format error for row %s: %s",
-                row.get('customer_id', '?'), e
+            segment_id = self._template.segment_id if self._template else 'unknown'
+            logger.error(
+                "Format error in segment '%s': %s", segment_id, e
             )

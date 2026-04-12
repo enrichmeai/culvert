@@ -49,3 +49,12 @@ class SegmentTransformOptions(PipelineOptions):
             default='',
             help='Override path to config directory (default: bundled config/)'
         )
+        parser.add_argument(
+            '--fdp_project',
+            type=str,
+            default='',
+            help='Producing teams GCP project containing the FDP source tables. '
+                 'Used to resolve the {project} placeholder in segment template '
+                 'queries. Defaults to --gcp_project if not specified (same-project '
+                 'reads).'
+        )
