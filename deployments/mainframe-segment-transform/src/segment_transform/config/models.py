@@ -7,6 +7,10 @@ Dataclass models for segment template definitions loaded from YAML.
 from dataclasses import dataclass, field, asdict
 from typing import List, Optional
 
+VALID_FIELD_TYPES = frozenset({
+    'string', 'integer', 'amount', 'rate', 'date', 'filler',
+})
+
 
 @dataclass
 class FieldDefinition:
@@ -22,6 +26,22 @@ class FieldDefinition:
     date_format: str = '%Y%m%d'
     null_value: str = ''
     literal_value: str = ''
+
+    def __post_init__(self):
+        if self.width <= 0:
+            raise ValueError(
+                f"Field '{self.name}': width must be positive, got {self.width}"
+            )
+        if len(self.pad_char) != 1:
+            raise ValueError(
+                f"Field '{self.name}': pad_char must be a single character, "
+                f"got {self.pad_char!r}"
+            )
+        if self.type not in VALID_FIELD_TYPES:
+            raise ValueError(
+                f"Field '{self.name}': unknown type '{self.type}', "
+                f"must be one of {sorted(VALID_FIELD_TYPES)}"
+            )
 
     @classmethod
     def from_dict(cls, data: dict) -> 'FieldDefinition':
@@ -85,7 +105,16 @@ class SegmentTemplate:
     output: OutputConfig
 
     def validate(self):
-        """Verify field widths sum to record_length."""
+        """Verify template integrity: record_length, fields, and query."""
+        if self.record_length <= 0:
+            raise ValueError(
+                f"Segment '{self.segment_id}': record_length must be positive, "
+                f"got {self.record_length}"
+            )
+        if not self.output.fields:
+            raise ValueError(
+                f"Segment '{self.segment_id}': output must have at least one field"
+            )
         total = sum(f.width for f in self.output.fields)
         if total != self.record_length:
             raise ValueError(

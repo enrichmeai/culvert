@@ -1,0 +1,38 @@
+steps:
+# Step 1: Build the Cloud Run image
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'build-image'
+  args:
+  - build
+  - --tag
+  - gcr.io/$PROJECT_ID/fdp-trigger:$_VERSION
+  - --tag
+  - gcr.io/$PROJECT_ID/fdp-trigger:latest
+  - -f
+  - deployments/fdp-trigger/Dockerfile
+  - .
+
+# Step 2: Push the image
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image'
+  args:
+  - push
+  - gcr.io/$PROJECT_ID/fdp-trigger:$_VERSION
+  waitFor: ['build-image']
+
+- name: 'gcr.io/cloud-builders/docker'
+  id: 'push-image-latest'
+  args:
+  - push
+  - gcr.io/$PROJECT_ID/fdp-trigger:latest
+  waitFor: ['build-image']
+
+images:
+- gcr.io/$PROJECT_ID/fdp-trigger:$_VERSION
+- gcr.io/$PROJECT_ID/fdp-trigger:latest
+
+substitutions:
+  _VERSION: latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

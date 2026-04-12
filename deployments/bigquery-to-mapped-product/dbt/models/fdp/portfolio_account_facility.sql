@@ -6,6 +6,7 @@
     cluster_by=['application_id', 'customer_id'],
     incremental_strategy='merge',
     on_schema_change='append_new_columns',
+    require_partition_filter=true,
     tags=['fdp', 'generic', 'facility']
   )
 }}
@@ -45,5 +46,9 @@ SELECT
 FROM applications
 
 {% if is_incremental() %}
-WHERE _extract_date > (SELECT MAX(_extract_date) FROM {{ this }})
+WHERE _extract_date > (
+  SELECT COALESCE(MAX(_extract_date), DATE('1970-01-01'))
+  FROM {{ this }}
+  WHERE _extract_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 3 DAY)
+)
 {% endif %}

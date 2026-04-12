@@ -69,6 +69,14 @@ By separating **Ingestion**, **Transformation**, and **Orchestration**, we achie
 ### 4.2 Multi-DAG Pattern
 Separate DAGs for Trigger, Load, and Transform ensure that resources (Composer workers) are only active when there is actual work to perform, avoiding "idle wait" costs.
 
+### 4.3 Composer Opt-In Policy
+Cloud Composer is the single most expensive resource (~$300-500/month for ENVIRONMENT_SIZE_SMALL). To prevent unnecessary charges:
+*   Composer is **disabled by default** in both Terraform (`enable_composer = false`) and the deploy workflow (`deploy_composer = false`).
+*   Pushing code to `main` never provisions or updates Composer, even if `data-pipeline-orchestrator/` files change.
+*   Composer is only deployed via explicit manual `workflow_dispatch` with `deploy_composer=true`.
+*   After E2E testing, Composer should be torn down immediately (`00_full_reset.sh --force` or `terraform apply -var="enable_composer=false"`).
+*   Ingestion (Dataflow), transformation (dbt), and CDP pipelines all deploy and run independently without Composer.
+
 ---
 
 ## 5. Governance & Audit

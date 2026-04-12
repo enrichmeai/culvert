@@ -6,6 +6,7 @@ from segment_transform.config.models import (
     SourceConfig,
     OutputConfig,
     SegmentTemplate,
+    VALID_FIELD_TYPES,
 )
 
 
@@ -42,6 +43,31 @@ class TestFieldDefinition:
         field = FieldDefinition.from_dict(data)
         assert field.name == 'test'
 
+    def test_negative_width_raises(self):
+        with pytest.raises(ValueError, match="width must be positive"):
+            FieldDefinition(name='bad', source='bad', width=-1, type='string')
+
+    def test_zero_width_raises(self):
+        with pytest.raises(ValueError, match="width must be positive"):
+            FieldDefinition(name='bad', source='bad', width=0, type='string')
+
+    def test_empty_pad_char_raises(self):
+        with pytest.raises(ValueError, match="pad_char must be a single character"):
+            FieldDefinition(name='bad', source='bad', width=10, type='string', pad_char='')
+
+    def test_multi_char_pad_raises(self):
+        with pytest.raises(ValueError, match="pad_char must be a single character"):
+            FieldDefinition(name='bad', source='bad', width=10, type='string', pad_char='ab')
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(ValueError, match="unknown type 'bogus'"):
+            FieldDefinition(name='bad', source='bad', width=10, type='bogus')
+
+    def test_all_valid_types_accepted(self):
+        for ftype in VALID_FIELD_TYPES:
+            field = FieldDefinition(name='ok', source='ok', width=5, type=ftype)
+            assert field.type == ftype
+
 
 class TestSourceConfig:
 
@@ -72,10 +98,22 @@ class TestOutputConfig:
         output = OutputConfig.from_dict(data)
         assert output.max_records_per_shard == 0
 
+    def test_from_dict_with_fields(self):
+        data = {
+            'file_prefix': 'TEST',
+            'fields': [
+                {'name': 'f1', 'source': '_literal', 'literal_value': '',
+                 'width': 10, 'type': 'filler'},
+            ],
+        }
+        output = OutputConfig.from_dict(data)
+        assert len(output.fields) == 1
+        assert output.fields[0].name == 'f1'
+
 
 class TestSegmentTemplate:
 
-    def _make_template(self, field_widths=None):
+    def _make_template(self, field_widths=None, record_length=200):
         """Helper to build a template with given field widths."""
         if field_widths is None:
             field_widths = [4, 20, 176]  # total = 200
@@ -88,7 +126,7 @@ class TestSegmentTemplate:
             'segment_id': 'test',
             'segment_name': 'Test',
             'description': 'Test segment',
-            'record_length': 200,
+            'record_length': record_length,
             'source': {'dataset': 'cdp_generic', 'table': 'test_table'},
             'query': 'SELECT * FROM `{project}.cdp_generic.test_table`',
             'output': {
@@ -111,6 +149,24 @@ class TestSegmentTemplate:
         template = self._make_template()
         template.query = '   '
         with pytest.raises(ValueError, match="query must not be empty"):
+            template.validate()
+
+    def test_validate_zero_record_length(self):
+        template = self._make_template([4, 20, 176])
+        template.record_length = 0
+        with pytest.raises(ValueError, match="record_length must be positive"):
+            template.validate()
+
+    def test_validate_negative_record_length(self):
+        template = self._make_template([4, 20, 176])
+        template.record_length = -10
+        with pytest.raises(ValueError, match="record_length must be positive"):
+            template.validate()
+
+    def test_validate_empty_fields_list(self):
+        template = self._make_template()
+        template.output.fields = []
+        with pytest.raises(ValueError, match="must have at least one field"):
             template.validate()
 
     def test_to_dict_and_from_dict_roundtrip(self):
