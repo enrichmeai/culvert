@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcp-pipeline-ref-fdp-trigger"
+version = "1.0.0"
+description = "GCP Pipeline Reference: FDP readiness poller and Dataflow trigger (Cloud Run)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "flask>=3.0.0",
+    "gunicorn>=22.0.0",
+    "google-cloud-bigquery>=3.25.0",
+    "google-api-python-client>=2.137.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"

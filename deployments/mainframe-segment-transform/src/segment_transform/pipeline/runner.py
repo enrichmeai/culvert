@@ -41,7 +41,7 @@ from gcp_pipeline_core.monitoring.metrics import MetricsCollector
 
 from .options import SegmentTransformOptions
 from .segment_pipeline import MainframeSegmentPipeline
-from ..config.template_loader import load_segment_template
+from ..config.template_loader import load_segment_template, load_system_config
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +52,17 @@ def _resolve(val):
 
 
 def _parse_extract_date(extract_date_str: str) -> date:
-    """Parse YYYYMMDD string to date object."""
-    try:
-        return datetime.strptime(str(extract_date_str), '%Y%m%d').date()
-    except (ValueError, TypeError):
-        return date.today()
+    """Parse YYYYMMDD string to date object.
+
+    Raises:
+        ValueError: If the string is not a valid 8-digit YYYYMMDD date.
+    """
+    raw = str(extract_date_str) if extract_date_str is not None else ''
+    if not raw.isdigit() or len(raw) != 8:
+        raise ValueError(
+            f"extract_date must be 8-digit YYYYMMDD, got: {extract_date_str!r}"
+        )
+    return datetime.strptime(raw, '%Y%m%d').date()
 
 
 def _resolve_period(extract_month: str, extract_date: str):
@@ -101,6 +107,24 @@ def run_pipeline(argv=None):
     run_id = _resolve(gcp_options.run_id)
     gcp_project = _resolve(gcp_options.gcp_project) if hasattr(gcp_options, 'gcp_project') else None
 
+    # FDP source project (defaults to gcp_project for same-project reads)
+    fdp_project = segment_options.fdp_project or gcp_project
+
+    # Validate required inputs
+    if not gcp_project:
+        raise ValueError("gcp_project must not be None or empty")
+    _parse_extract_date(extract_date)  # validates format (raises on invalid)
+
+    # Load system configuration for pipeline-wide constants
+    system_config = load_system_config(config_dir)
+    pipeline_name = system_config.get('pipeline_name', 'mainframe-segment-transform')
+    system_id = system_config.get('system_id', 'GENERIC')
+    audit_topic = (
+        system_config.get('infrastructure', {})
+        .get('pubsub', {})
+        .get('audit_topic', 'generic-pipeline-events')
+    )
+
     # Resolve extraction period
     period_start, period_end, extract_month = _resolve_period(
         extract_month_raw, extract_date,
@@ -118,7 +142,7 @@ def run_pipeline(argv=None):
     source_ref = f"{gcp_project}:{template.source.dataset}.{template.source.table}"
     config = PipelineConfig(
         run_id=run_id,
-        pipeline_name='mainframe-segment-transform',
+        pipeline_name=pipeline_name,
         entity_type=segment_id,
         source_file=source_ref,
         gcp_project_id=gcp_project,
@@ -127,31 +151,30 @@ def run_pipeline(argv=None):
 
     # Job control
     job_repo = None
-    if gcp_project:
-        try:
-            job_repo = JobControlRepository(project_id=gcp_project)
-            job = PipelineJob(
-                run_id=run_id,
-                system_id='GENERIC',
-                entity_type=segment_id,
-                extract_date=_parse_extract_date(extract_date),
-                source_files=[source_ref],
-                started_at=datetime.now(tz=timezone.utc),
-            )
-            job_repo.create_job(job)
-            job_repo.update_status(run_id, JobStatus.RUNNING)
-            logger.info("Job control record created: %s", run_id)
-        except Exception as e:
-            logger.warning("Failed to create job control record: %s", e)
-            job_repo = None
+    try:
+        job_repo = JobControlRepository(project_id=gcp_project)
+        job = PipelineJob(
+            run_id=run_id,
+            system_id=system_id,
+            entity_type=segment_id,
+            extract_date=_parse_extract_date(extract_date),
+            source_files=[source_ref],
+            started_at=datetime.now(tz=timezone.utc),
+        )
+        job_repo.create_job(job)
+        job_repo.update_status(run_id, JobStatus.RUNNING)
+        logger.info("Job control record created: %s", run_id)
+    except Exception as e:
+        logger.warning("Failed to create job control record: %s", e)
+        job_repo = None
 
     # Error handler + metrics
     error_handler = ErrorHandler(
-        pipeline_name='mainframe-segment-transform',
+        pipeline_name=pipeline_name,
         run_id=run_id,
     )
     metrics = MetricsCollector(
-        pipeline_name='mainframe-segment-transform',
+        pipeline_name=pipeline_name,
         run_id=run_id,
     )
 
@@ -165,6 +188,7 @@ def run_pipeline(argv=None):
             period_start=period_start,
             period_end=period_end,
             extract_month=extract_month,
+            fdp_project=fdp_project,
         )
         pipeline.run()
 
@@ -182,11 +206,11 @@ def run_pipeline(argv=None):
         try:
             audit_publisher = AuditPublisher(
                 project_id=gcp_project,
-                topic_name='generic-pipeline-events',
+                topic_name=audit_topic,
             )
             audit_trail = AuditTrail(
                 run_id=run_id,
-                pipeline_name='mainframe-segment-transform',
+                pipeline_name=pipeline_name,
                 entity_type=segment_id,
                 publisher=audit_publisher,
             )

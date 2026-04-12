@@ -6,6 +6,7 @@
     cluster_by=['customer_id'],
     incremental_strategy='merge',
     on_schema_change='fail',
+    require_partition_filter=true,
     tags=['cdp', 'generic', 'risk']
   )
 }}
@@ -22,6 +23,12 @@
   their transaction exposure, risk decision outcome, and facility details.
   This is the CDP table consumed by the mainframe-segment-transform pipeline
   to produce outbound segment files.
+
+  Performance notes (25 GB+ optimisation):
+  - Incremental watermark uses partition-pruned subquery (last 3 days only)
+  - Single CTE for the watermark avoids repeating the subquery 3 times
+  - JOINs are aligned on _extract_date to enable partition pruning on sources
+  - require_partition_filter prevents accidental full table scans by consumers
 
   Framework integration (gcp-pipeline-transform shared macros):
   - PII masking: ssn_masked arrives pre-masked from FDP layer via mask_pii()
@@ -40,6 +47,14 @@ portfolio as (
 facility as (
     select * from {{ ref('stg_fdp_portfolio_account_facility') }}
 ),
+
+{% if is_incremental() %}
+max_watermark as (
+    select coalesce(max(_cdp_transformed_at), timestamp('1970-01-01')) as wm
+    from {{ this }}
+    where _extract_date >= date_sub(current_date(), interval 3 day)
+),
+{% endif %}
 
 joined as (
     select
@@ -92,13 +107,17 @@ joined as (
         current_timestamp() as _cdp_transformed_at
 
     from events e
-    left join portfolio p on e.customer_id = p.customer_id
-    left join facility  f on e.customer_id = f.customer_id
+    left join portfolio p
+      on e.customer_id = p.customer_id
+      and e._extract_date = p._extract_date
+    left join facility f
+      on e.customer_id = f.customer_id
+      and e._extract_date = f._extract_date
 
     {% if is_incremental() %}
-    where e._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
-       or p._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
-       or f._transformed_at > (select max(_cdp_transformed_at) from {{ this }})
+    where e._transformed_at > (select wm from max_watermark)
+       or p._transformed_at > (select wm from max_watermark)
+       or f._transformed_at > (select wm from max_watermark)
     {% endif %}
 )
 

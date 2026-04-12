@@ -51,7 +51,7 @@ This document provides a complete reference for all GCP infrastructure required 
 |------------|---------|---------|--------------|
 | **original-data-to-bigqueryload** | Beam ingestion — GCS → ODP | Cloud Dataflow (Flex Template) | `generic-ingestion` |
 | **bigquery-to-mapped-product** | dbt transformations — ODP → FDP | BigQuery (native SQL) | `generic-transformation` |
-| **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) | `generic-dag-validator` |
+| **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) -- **opt-in only, ~$300-500/month** | `generic-dag-validator` |
 
 ### Extended Golden Path (full mainframe round-trip)
 

@@ -1,23 +1,32 @@
 # =============================================================================
 # Customer Segment Template
 # =============================================================================
-# CDP table: customer_risk_profile
+# Source: CDP customer_risk_profile (partitioned, stable snapshot per extract)
 # Output: Fixed-width 200-char records for mainframe customer segment
+#
+# Why CDP (not FDP directly):
+#   CDP is written once per extract date by dbt and never mutated. Reading from
+#   CDP gives segment-transform a stable snapshot: if the job fails and is
+#   retried, it reads the exact same rows. Reading FDP directly risks
+#   inconsistency if FDP is refreshed between a failed run and its retry.
+#
+# Flow: FDP ready → fdp-trigger → dbt CDP refresh → segment-transform reads CDP
 # =============================================================================
 segment_id: customer
 segment_name: Customer
 description: "Customer demographic and risk segment for mainframe"
 record_length: 200
 
-# 1. CDP source table
+# 1. CDP source table (written once per _extract_date by dbt, stable for retries)
 source:
   dataset: cdp_generic
   table: customer_risk_profile
-  partition_column: updated_at
+  partition_column: _extract_date
 
 # 2. SQL query Dataflow executes
 #    Placeholders resolved at runtime:
-#      {project}      — GCP project ID
+#      {project}      — GCP project containing cdp_generic dataset
+#                       (--gcp_project by default; --fdp_project if overriding)
 #      {period_start} — First day of extract month (YYYY-MM-DD)
 #      {period_end}   — Last day of extract month (YYYY-MM-DD)
 query: |
@@ -26,14 +35,19 @@ query: |
     first_name,
     last_name,
     date_of_birth,
-    status,
-    account_count,
-    total_balance,
+    customer_status AS status,
+    1 AS account_count,
+    current_balance AS total_balance,
     risk_score,
-    risk_category
+    CASE
+      WHEN risk_score >= 80 THEN 'HIGH'
+      WHEN risk_score >= 50 THEN 'MEDIUM'
+      ELSE 'LOW'
+    END AS risk_category,
+    _extract_date
   FROM `{project}.cdp_generic.customer_risk_profile`
-  WHERE status IN ('ACTIVE', 'DORMANT')
-    AND updated_at BETWEEN '{period_start}' AND '{period_end}'
+  WHERE customer_status IN ('ACTIVE', 'DORMANT')
+    AND _extract_date BETWEEN DATE('{period_start}') AND DATE('{period_end}')
 
 # 3. Output template — fixed-width mainframe file layout
 output:

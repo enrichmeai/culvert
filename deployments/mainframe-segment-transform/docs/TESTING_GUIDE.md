@@ -46,7 +46,7 @@ terraform destroy -var-file=env/int.tfvars -var="gcp_project_id=joseph-antony-ar
 | Resource | Name | Purpose |
 |----------|------|---------|
 | BigQuery dataset | `cdp_generic` | CDP source data |
-| BigQuery table | `cdp_generic.customer_risk_profile` | Customer segment source (partitioned on `updated_at`) |
+| BigQuery table | `cdp_generic.customer_risk_profile` | Customer segment source (partitioned on `_extract_date`) |
 | BigQuery dataset | `job_control` | Pipeline tracking |
 | BigQuery table | `job_control.pipeline_jobs` | Job status records |
 | BigQuery table | `job_control.audit_trail` | Audit events |
@@ -84,19 +84,19 @@ BigQuery. Each record has an `updated_at` timestamp in March 2026.
 
 ### Sample data
 
-| customer_id | name | status | balance | risk_score | risk_category | updated_at |
-|-------------|------|--------|---------|------------|---------------|------------|
-| CUST001 | John Smith | ACTIVE | 45230.50 | 720 | LOW | 2026-03-15 |
-| CUST002 | Jane Doe | ACTIVE | 12500.00 | 680 | MEDIUM | 2026-03-18 |
-| CUST003 | Robert Johnson | DORMANT | 890.25 | 550 | HIGH | 2026-03-05 |
-| CUST004 | Maria Garcia | ACTIVE | 98750.75 | 810 | LOW | 2026-03-28 |
-| CUST005 | David Williams | ACTIVE | 23100.00 | 695 | MEDIUM | 2026-03-22 |
+| customer_id | name | status | balance | risk_score | risk_category | _extract_date |
+|-------------|------|--------|---------|------------|---------------|---------------|
+| CUST001 | John Smith | ACTIVE | 45230.50 | 720 | LOW | 2026-03-31 |
+| CUST002 | Jane Doe | ACTIVE | 12500.00 | 680 | MEDIUM | 2026-03-31 |
+| CUST003 | Robert Johnson | DORMANT | 890.25 | 550 | HIGH | 2026-03-31 |
+| CUST004 | Maria Garcia | ACTIVE | 98750.75 | 810 | LOW | 2026-03-31 |
+| CUST005 | David Williams | ACTIVE | 23100.00 | 695 | MEDIUM | 2026-03-31 |
 
 ### Verify data loaded
 
 ```bash
 bq query --nouse_legacy_sql \
-  "SELECT customer_id, status, risk_score FROM joseph-antony-aruja.cdp_generic.customer_risk_profile"
+  "SELECT customer_id, customer_status, risk_score, _extract_date FROM joseph-antony-aruja.cdp_generic.customer_risk_profile WHERE _extract_date = '2026-03-31'"
 ```
 
 ---
@@ -198,7 +198,7 @@ Position  Width  Field            Type      Padding     Example
 - [ ] Filler (positions 136-200) is all spaces
 - [ ] Manifest `total_records` matches actual line count in .dat file
 - [ ] Manifest `period` matches `--extract-month` parameter
-- [ ] Only March 2026 records returned (period filter: `updated_at BETWEEN`)
+- [ ] Only March 2026 records returned (period filter: `_extract_date BETWEEN '2026-03-01' AND '2026-03-31'`)
 
 ### Check BigQuery job_control
 
@@ -315,5 +315,6 @@ gs://{project}-generic-int-segments/
 - Run: `python3 -c "from segment_transform.config.template_loader import load_segment_template; t=load_segment_template('customer'); print(sum(f.width for f in t.output.fields))"`
 
 ### No records returned (empty .dat file)
-- Check the period filter: `--extract-month 202603` means the query filters `updated_at BETWEEN '2026-03-01' AND '2026-03-31'`
-- Verify test data has `updated_at` in the right month: `bq query "SELECT updated_at FROM cdp_generic.customer_risk_profile"`
+- Check the period filter: `--extract-month 202603` means the query filters `_extract_date BETWEEN '2026-03-01' AND '2026-03-31'`
+- Verify test data has `_extract_date` in the right month: `bq query "SELECT _extract_date, COUNT(*) FROM cdp_generic.customer_risk_profile WHERE _extract_date = '2026-03-31' GROUP BY 1"`
+- Note: `require_partition_filter=true` on the CDP table — always include a date predicate or BigQuery will reject the query

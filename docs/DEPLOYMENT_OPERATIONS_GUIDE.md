@@ -47,11 +47,14 @@ Mainframe CSV files → GCS landing bucket
 
 **Three active deployments:**
 
-| # | Deployment | Runtime | Docker Image | Terraform |
-|---|-----------|---------|--------------|-----------|
-| 1 | `original-data-to-bigqueryload` | Cloud Dataflow (Flex Template) | `generic-ingestion` | Unified root module |
-| 2 | `bigquery-to-mapped-product` | BigQuery (dbt) | `generic-transformation` | Unified root module |
-| 3 | `data-pipeline-orchestrator` | Cloud Composer (Airflow) | `generic-dag-validator` | Unified root module |
+| # | Deployment | Runtime | Docker Image | Terraform | Auto-deploy |
+|---|-----------|---------|--------------|-----------|-------------|
+| 1 | `original-data-to-bigqueryload` | Cloud Dataflow (Flex Template) | `generic-ingestion` | Unified root module | Yes (on push) |
+| 2 | `bigquery-to-mapped-product` | BigQuery (dbt) | `generic-transformation` | Unified root module | Yes (on push) |
+| 3 | `data-pipeline-orchestrator` | Cloud Composer (Airflow) | `generic-dag-validator` | Unified root module | **No (opt-in only)** |
+
+> **Cost control:** Cloud Composer is **not deployed by default**. It costs ~$300-500/month
+> and is only needed for full E2E orchestration testing. See [Section 4](#4-deployment-3-data-pipeline-orchestrator-orchestration) for how to enable it.
 
 ---
 
@@ -345,6 +348,66 @@ dbt test --profiles-dir . --target dev
 ## 4. Deployment 3: data-pipeline-orchestrator (Orchestration)
 
 **Purpose:** Airflow DAGs that coordinate the full pipeline: listen for files, trigger Dataflow, run dbt.
+
+> **OPT-IN ONLY:** Cloud Composer is not deployed by default. It costs ~$300-500/month
+> and should only be provisioned when full E2E orchestration testing is needed. All other
+> deployments (Dataflow, dbt, CDP) work independently without Composer.
+
+### 4.0 Enabling Composer
+
+Composer is controlled by two mechanisms:
+
+**Terraform variable** (`infrastructure/terraform/systems/generic/variables.tf`):
+```hcl
+variable "enable_composer" {
+  description = "Deploy Cloud Composer. Costs ~$300-500/month."
+  type        = bool
+  default     = false    # <-- disabled by default
+}
+```
+
+**Workflow input** (`.github/workflows/deploy-generic.yml`):
+```yaml
+deploy_composer:
+  description: 'Deploy Cloud Composer'
+  default: false
+  type: boolean
+```
+
+**To deploy Composer via GitHub Actions:**
+```bash
+gh workflow run deploy-generic.yml \
+  -f environment=int \
+  -f deploy_composer=true
+```
+
+**To deploy Composer via Terraform directly:**
+```bash
+cd infrastructure/terraform/systems/generic
+terraform apply -var="enable_composer=true"
+```
+
+**What happens when `enable_composer=false` (default):**
+- Composer environment is not created
+- Composer service account and IAM bindings are not created
+- The `deploy-airflow` workflow job is skipped
+- Push triggers to `deployments/data-pipeline-orchestrator/**` do not trigger a deploy
+- All other infrastructure (GCS, BigQuery, Pub/Sub, Dataflow, dbt) deploys normally
+
+**When to enable Composer:**
+- Full E2E pipeline testing (GCS upload -> Pub/Sub -> Airflow -> Dataflow -> dbt)
+- Testing DAG changes in `data-pipeline-orchestrator/`
+- Verifying orchestration after library version upgrades
+
+**After testing, tear down Composer to stop charges:**
+```bash
+# Full teardown (all resources)
+./scripts/gcp/00_full_reset.sh --force
+
+# Or just remove Composer via Terraform
+cd infrastructure/terraform/systems/generic
+terraform apply -var="enable_composer=false"
+```
 
 ### 4.1 GCP Resources Required
 
