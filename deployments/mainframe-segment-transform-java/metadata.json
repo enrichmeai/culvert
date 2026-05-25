@@ -1,0 +1,46 @@
+{
+  "name": "Mainframe Segment Transform Pipeline (Java)",
+  "description": "Java implementation of the Mainframe Segment Transform Pipeline for heavy loads. Reads CDP BigQuery tables via SQL query and produces fixed-width mainframe segment files in GCS.",
+  "parameters": [
+    {
+      "name": "templatePath",
+      "label": "Template Path",
+      "helpText": "Local path (or GCS path if implemented) to the segment template YAML file."
+    },
+    {
+      "name": "extractDate",
+      "label": "Extract date",
+      "helpText": "Extract date in YYYYMMDD format.",
+      "regexes": ["^[0-9]{8}$"]
+    },
+    {
+      "name": "periodStart",
+      "label": "Period Start",
+      "helpText": "Period start date in YYYY-MM-DD format.",
+      "regexes": ["^[0-9]{4}-[0-9]{2}-[0-9]{2}$"]
+    },
+    {
+      "name": "periodEnd",
+      "label": "Period End",
+      "helpText": "Period end date in YYYY-MM-DD format.",
+      "regexes": ["^[0-9]{4}-[0-9]{2}-[0-9]{2}$"]
+    },
+    {
+      "name": "outputBucket",
+      "label": "Output GCS bucket",
+      "helpText": "GCS bucket name for fixed-width segment output files."
+    },
+    {
+      "name": "runId",
+      "label": "Pipeline run ID",
+      "helpText": "Unique identifier for this pipeline run.",
+      "isOptional": true
+    },
+    {
+      "name": "gcpProjectId",
+      "label": "GCP Project ID",
+      "helpText": "GCP project ID for BigQuery source tables.",
+      "isOptional": true
+    }
+  ]
+}
