@@ -1,16 +1,24 @@
 # GCP Pipeline Reference Implementation
 
+> The simplest production-ready GCP data pipeline framework. Composer + BigQuery + Beam + dbt, opinionated and ready to ship.
+
 A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
 
 > **Last Updated:** March 2026 | **Version:** 1.0.29 (libraries), 1.0.14 (reference packages)
 
 ---
 
-## Quick Start
+## Quickstart
 
-### Deploy via Push to Main
+New here? Start with **[QUICKSTART.md](./QUICKSTART.md)**. It walks through the standard Composer-based deployment end-to-end in under 30 minutes. Everything you need is there. Come back to this README for the broader reference once you are up and running.
 
-The primary deployment path is automated via GitHub Actions on push to `main`:
+---
+
+## Standard deployment (Composer optional)
+
+The standard path runs three independently deployed units — ingestion, transformation, and orchestration. Cloud Composer is optional; the framework's default does not provision it. Adopt Composer only if you need Apache Airflow's full feature set; otherwise the orchestration unit runs as Cloud Functions + Cloud Run Jobs at a fraction of the cost. Terraform provisions all infrastructure; GitHub Actions deploys on push to `main`.
+
+### One-time infrastructure setup
 
 ```bash
 # 1. Set GCP project and authenticate
@@ -25,18 +33,29 @@ gcloud auth login
 # 3. Add required GitHub secrets
 gh secret set GCP_SA_KEY < /tmp/gcp-sa-key.json
 gh secret set GCP_PROJECT_ID --body 'YOUR_PROJECT_ID'
+```
 
-# 4. Push to main — CI/CD deploys all three units automatically
+### Deploy
+
+```bash
+# Push to main — CI/CD deploys all three units automatically
 git push origin main
 
-# 5. Verify deployment
+# Verify deployment
 gh run list --workflow=deploy-generic.yml --limit 3
 
-# 6. Run end-to-end test
+# Run end-to-end test
 ./scripts/gcp/06_test_pipeline.sh generic
 ```
 
-### Key Scripts
+Changes in each deployment unit are detected automatically:
+
+- `deployments/original-data-to-bigqueryload/**` → rebuilds and deploys the Dataflow Flex Template
+- `deployments/bigquery-to-mapped-product/**` → deploys dbt models to BigQuery
+- `deployments/data-pipeline-orchestrator/**` → uploads DAGs to Cloud Composer
+- `infrastructure/terraform/**` → applies Terraform changes
+
+### Key scripts
 
 | Script | Purpose |
 |--------|---------|
@@ -46,6 +65,41 @@ gh run list --workflow=deploy-generic.yml --limit 3
 | `./scripts/gcp/05_verify_setup.sh` | Verify infrastructure is ready |
 | `./scripts/gcp/06_test_pipeline.sh` | Run single-entity pipeline test |
 | `./scripts/gcp/e2e_pipeline_test.sh` | Full E2E test (all entities, ODP + FDP verification) |
+
+### Manual trigger
+
+```bash
+# Trigger full Generic deployment manually
+gh workflow run deploy-generic.yml
+
+# Check workflow status
+gh run list --workflow=deploy-generic.yml --limit 3
+```
+
+### Library publishing
+
+```bash
+# Publish libraries to PyPI AND deploy in one step (canonical trigger per CLAUDE.md)
+git commit -m "chore: update version [publish:deploy]"
+git push
+
+# Alternatively, publish libraries to PyPI only (no deploy), then deploy separately
+git commit -m "chore: update version [publish:pypi]"
+gh workflow run deploy-generic.yml
+```
+
+> **Note:** The canonical CI trigger for publishing libraries then deploying is `[publish:deploy]` (see CLAUDE.md). Use `[publish:pypi]` only when you want to publish libraries to PyPI without triggering a deployment.
+
+---
+
+## Alternative deployments (advanced)
+
+These escape hatches exist for teams with specific constraints. They are not the default path.
+
+- **Self-managed Airflow on GKE (Helm)** — for teams that cannot use Composer due to regulatory, hybrid-estate, or extreme-scale requirements. See [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) and Chapter 14 of the book.
+- **Cloud Run / Workflows** — for teams running lightweight, event-driven workloads without a standing orchestrator. Not covered inline here; raise it as a discussion if you think you need it.
+
+If you are not sure which path applies, use Composer. The operational overhead of self-managing Kubernetes or Workflows is significant; Composer pays for itself quickly.
 
 ---
 
@@ -74,11 +128,11 @@ python reconstruct.py --dest /path/to/my-pipeline-project
 This produces a ready-to-use project directory:
 ```
 gcp-pipeline-reference/
-├── docs/                      # 24 documentation guides
+├── docs/                      # 34 documentation guides
 ├── infrastructure/
 │   ├── terraform/             # All Terraform modules and tfvars
-│   └── k8s/                   # Airflow Helm values, workload configs
-├── .github/workflows/         # 7 CI/CD workflow definitions
+│   └── k8s/                   # Helm charts for alternative self-managed deployment (advanced)
+├── .github/workflows/         # 11 CI/CD workflow definitions
 ├── deployments/               # Dockerfiles, cloudbuild.yaml, pyproject.toml per deployment
 │   ├── original-data-to-bigqueryload/
 │   ├── bigquery-to-mapped-product/
@@ -136,7 +190,7 @@ export_project("my-project")
 
 | Package | Contents |
 |---------|----------|
-| `gcp-pipeline-framework` | Umbrella + all docs, Terraform, K8s, workflows, deployment configs |
+| `gcp-pipeline-framework` | Umbrella + all docs, Terraform, Helm charts, workflows, deployment configs |
 | `gcp-pipeline-core` | Foundation library (audit, monitoring, error handling, job control) |
 | `gcp-pipeline-beam` | Apache Beam ingestion library |
 | `gcp-pipeline-orchestration` | Airflow operators and DAG utilities |
@@ -212,39 +266,6 @@ By consolidating Application A and Application B into three unified deployment u
 | **Ingestion** (`original-data-to-bigqueryload`) | Customers, Accounts, Decision, Applications | Single Dataflow Flex Template image |
 | **Transformation** (`bigquery-to-mapped-product`) | All FDP models | Unified dbt project |
 | **Orchestration** (`data-pipeline-orchestrator`) | Full pipeline coordination | Single DAG set via Cloud Composer |
-
----
-
-## Deployment Workflow
-
-### Automatic Deployment (Recommended)
-
-Push to `main` triggers `deploy-generic.yml` automatically for changes in:
-- `deployments/original-data-to-bigqueryload/**` → Rebuilds and deploys Dataflow Flex Template
-- `deployments/bigquery-to-mapped-product/**` → Deploys dbt models
-- `deployments/data-pipeline-orchestrator/**` → Uploads DAGs to Cloud Composer
-- `infrastructure/terraform/**` → Updates GCP infrastructure
-
-### Manual Trigger
-
-```bash
-# Trigger full Generic deployment
-gh workflow run deploy-generic.yml
-
-# Check workflow status
-gh run list --workflow=deploy-generic.yml --limit 3
-```
-
-### Library Publishing
-
-```bash
-# Publish libraries to PyPI (publish and deploy are separate steps)
-git commit -m "chore: update version [publish:pypi]"
-
-# Deploy is triggered separately — either by pushing deployment changes
-# or via manual workflow_dispatch
-gh workflow run deploy-generic.yml
-```
 
 ---
 
@@ -342,7 +363,7 @@ Pipeline events (status, errors) are published to the `generic-pipeline-events` 
 
 ## Architecture
 
-### 4-Library Model (Published as `gcp-pipeline-framework`)
+### Library Stack (6 packages) (Published as `gcp-pipeline-framework`)
 
 Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.29`) and are **not embedded** in this repository.
 
@@ -556,13 +577,15 @@ cd ../data-pipeline-orchestrator && python -m pytest tests/unit/ -q
 | [paved path Proposal](./docs/PAVED_PATH_PROPOSAL.md) | Enterprise paved path proposal for the the enterprise platform |
 | [GCP Deployment Guide](./docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
 | [Production Release Guide](./docs/PRODUCTION_RELEASE_GUIDE.md) | Senior developer handover and release checklist |
-| [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) | Alternative: self-hosted Airflow on GKE |
+| [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) | Advanced escape hatch: self-hosted Airflow on GKE (see "Alternative deployments" above) |
 | [Audit Integration](./docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
 | [Pub/Sub & KMS](./docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
 | [Error Handling](./docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
 | [Data Quality](./docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
 | [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add a new system migration |
 | [Standard Migration Tasks](./docs/STANDARD_MIGRATION_TASKS.md) | Ticket templates for new systems |
+
+**Wire contract:** See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral specification of `audit_events`, `finops_usage`, `reconciliation_record`, and `EntitySchema`. Any team writing a non-Python emitter should implement to this spec.
 
 ---
 
