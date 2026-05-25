@@ -56,6 +56,16 @@ on:
         required: false
         default: false
         type: boolean
+      create_cluster:
+        description: 'Create ephemeral GKE cluster (spot e2-small, ~£0.006/hr)'
+        required: false
+        default: true
+        type: boolean
+      teardown_after:
+        description: 'Delete GKE cluster after E2E tests to stop costs'
+        required: false
+        default: true
+        type: boolean
 
 env:
   PYTHON_VERSION: '3.11'
