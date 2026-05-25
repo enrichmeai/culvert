@@ -37,6 +37,7 @@ Example:
 """
 
 from .base_dag_factory import DAGFactory
+from .dag_factory_alias import DagFactory  # Book-facing alias + from_config loader
 from .config import (
     DAGConfig,
     TaskConfig,
@@ -49,6 +50,7 @@ from .validators import DAGValidator, ValidationError
 
 __all__ = [
     'DAGFactory',
+    'DagFactory',
     'DAGConfig',
     'TaskConfig',
     'DefaultArgs',
