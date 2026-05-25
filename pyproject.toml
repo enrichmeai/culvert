@@ -7,6 +7,8 @@ name = "gcp-pipeline-reference"
 version = "1.0.29"
 description = "GCP Pipeline Reference - Monorepo root for unified IDE context"
 requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Good Shepherd Software Consultancy Limited" }]
 dependencies = []
 
 [tool.setuptools.packages.find]

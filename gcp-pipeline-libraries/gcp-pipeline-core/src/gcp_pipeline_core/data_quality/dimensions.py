@@ -202,7 +202,7 @@ class TimelinessChecker:
                     record_date = datetime.fromisoformat(str(record[date_field]))
                     if record_date < cutoff_date:
                         stale_records += 1
-                except:
+                except (ValueError, TypeError):
                     stale_records += 1  # Can't parse date = stale
 
         fresh_records = total_records - stale_records

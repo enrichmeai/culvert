@@ -8,6 +8,8 @@ version = "1.0.29"
 description = "Umbrella package for GCP Data Migration Pipeline Libraries"
 readme = "README.md"
 requires-python = ">=3.9"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Good Shepherd Software Consultancy Limited" }]
 dependencies = [
     "gcp-pipeline-core==1.0.29",
     "gcp-pipeline-beam==1.0.29",
