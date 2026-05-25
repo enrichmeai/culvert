@@ -89,11 +89,12 @@ if [ "$SKIP_CLUSTER" = false ]; then
         gcloud container clusters create "$CLUSTER_NAME" \
             --zone "$ZONE" \
             --project "$PROJECT_ID" \
-            --num-nodes 2 \
-            --machine-type e2-standard-2 \
+            --num-nodes 1 \
+            --machine-type e2-small \
+            --spot \
             --enable-autoscaling \
-            --min-nodes 1 \
-            --max-nodes 5 \
+            --min-nodes 0 \
+            --max-nodes 2 \
             --workload-pool="${PROJECT_ID}.svc.id.goog" \
             --enable-ip-alias \
             --quiet
