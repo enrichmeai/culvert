@@ -1,0 +1,119 @@
+# flinksessionjob-ingestion.yaml
+#
+# Example FlinkSessionJob resource that submits the framework's reference
+# ingestion pipeline (customers entity) to the Flink cluster created by the
+# pipeline-beam-runner Helm chart.
+#
+# API: flink.apache.org/v1beta1  (Flink Kubernetes Operator >= 1.6)
+#
+# This file uses envsubst-style placeholders so that bin/submit-beam-job.sh
+# can populate them at submission time:
+#
+#   ${ENTITY}        - entity name, e.g. "customers"  (used in the job name)
+#   ${EXTRACT_DATE}  - run date in YYYYMMDD format, e.g. "20260512"
+#   ${JAR_URI}       - GCS URI for the Beam FAT-JAR, e.g.
+#                      gs://pipeline-artifacts/beam-pipelines/customers-ingestion.jar
+#
+# For a one-off manual apply without substitution, replace the placeholders
+# with literal values before running `kubectl apply -f`.
+#
+# Framework reference: deployments/original-data-to-bigqueryload/ (Dataflow).
+# The same Beam pipeline can target Flink by switching --runner=FlinkRunner.
+# See the chart README section "Submitting a Beam pipeline" and book Chapter 14
+# for trade-offs between Dataflow and self-managed Flink.
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+
+metadata:
+  # Job name encodes both the entity and the extract date so multiple runs
+  # for different dates can coexist in the cluster without name collisions.
+  name: pipeline-ingestion-${ENTITY}-${EXTRACT_DATE}
+
+  # Must match the namespace used when the Helm chart was installed.
+  namespace: pipeline
+
+  labels:
+    app.kubernetes.io/part-of: pipeline-beam-runner
+    pipeline/entity: ${ENTITY}
+    pipeline/extract-date: "${EXTRACT_DATE}"
+    # Additional labels are injected by the Helm chart; these are example-only.
+
+spec:
+  # ---------------------------------------------------------------------------
+  # deploymentName - references the FlinkDeployment (session cluster) that was
+  # created by this Helm chart.  When Helm installs the chart with release name
+  # "pipeline-beam-runner" (the default), the FlinkDeployment name is also
+  # "pipeline-beam-runner" (see templates/_helpers.tpl: fullname helper).
+  # Adjust this value if you installed the chart under a different release name.
+  # ---------------------------------------------------------------------------
+  deploymentName: pipeline-beam-runner   # <-- adjust if release name differs
+
+  job:
+    # -------------------------------------------------------------------------
+    # jarURI - GCS path to the Beam FAT-JAR.
+    # Build instructions: see the chart README section "Submitting a Beam pipeline".
+    # The Flink Operator fetches this URI before submission; the GCS bucket must
+    # be readable by the TaskManager's Workload Identity service account.
+    # -------------------------------------------------------------------------
+    jarURI: ${JAR_URI}
+
+    # -------------------------------------------------------------------------
+    # entryClass - fully qualified Java main class.
+    # For the framework's customers ingestion pipeline:
+    # -------------------------------------------------------------------------
+    entryClass: com.example.pipeline.CustomersIngestion
+
+    # -------------------------------------------------------------------------
+    # parallelism - how many parallel instances Flink will run.
+    # Set this to a multiple of taskManager.numberOfTaskSlots * taskManager.replicas
+    # (default chart config: 2 slots x 4 TMs = 8 max parallelism).
+    # -------------------------------------------------------------------------
+    parallelism: 8
+
+    # -------------------------------------------------------------------------
+    # upgradeMode - "stateless" means no savepoint is taken when the job is
+    # updated.  Use "savepoint" for stateful streaming pipelines.  The
+    # customers ingestion job is a bounded batch-style pipeline so stateless
+    # is appropriate here.
+    # -------------------------------------------------------------------------
+    upgradeMode: stateless
+
+    # -------------------------------------------------------------------------
+    # args - Apache Beam pipeline options, passed verbatim to the main class.
+    #
+    # Standard Beam runner args:
+    #   --runner            must be FlinkRunner for Flink execution
+    #   --flinkMaster       auto-detect uses the session cluster's REST endpoint
+    #
+    # Framework-specific args (mirror Dataflow template parameters in
+    # deployments/original-data-to-bigqueryload/config/):
+    #   --inputFile         GCS path to the raw source CSV/JSON
+    #   --outputTable       BigQuery destination in project:dataset.table notation
+    #   --errorBucket       GCS bucket for DLQ / poison-pill records
+    #   --runId             correlation ID for this extract run (= extract date)
+    # -------------------------------------------------------------------------
+    args:
+      - "--runner=FlinkRunner"
+      # "auto" tells the portable runner to connect to the already-running
+      # session cluster rather than spin up an embedded mini-cluster.
+      - "--flinkMaster=auto"
+      # Parallelism must match spec.job.parallelism above.
+      - "--parallelism=8"
+      # Framework pipeline args - populated from envsubst placeholders or
+      # supplied literally when applying manually.
+      - "--inputFile=gs://pipeline-source-data/${ENTITY}/${EXTRACT_DATE}/${ENTITY}.csv"
+      - "--outputTable=my-gcp-project:pipeline_dataset.${ENTITY}"
+      - "--errorBucket=gs://pipeline-errors/${ENTITY}/${EXTRACT_DATE}/"
+      - "--runId=${EXTRACT_DATE}"
+      # Beam checkpoint / temp location (reuses the GCS bucket from values.yaml)
+      - "--tempLocation=gs://pipeline-artifacts/beam-temp/${ENTITY}/${EXTRACT_DATE}/"
+
+# =============================================================================
+# ALTERNATIVE: Python portable-runner job
+# =============================================================================
+# For a Python Beam pipeline, use flinksessionjob-python-portable.yaml instead.
+# Python requires an expansion service sidecar and the portable runner protocol.
+# The Java approach above is simpler and preferred for new pipelines on this
+# framework when a choice exists.
+# =============================================================================

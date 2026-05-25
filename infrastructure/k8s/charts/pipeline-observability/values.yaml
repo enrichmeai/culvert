@@ -1,0 +1,46 @@
+# pipeline-observability Helm Values
+
+otelCollector:
+  enabled: true
+  image:
+    repository: otel/opentelemetry-collector-contrib
+    tag: "0.95.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  exporters:
+    - gcp-monitoring
+    - jaeger
+
+prometheus:
+  enabled: true
+  retention: "15d"
+  replicas: 1
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+grafana:
+  enabled: true
+  adminPasswordSecret: grafana-admin
+  dashboardsConfigMap: pipeline-dashboards
+  image:
+    repository: grafana/grafana
+    tag: "10.0.0"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi

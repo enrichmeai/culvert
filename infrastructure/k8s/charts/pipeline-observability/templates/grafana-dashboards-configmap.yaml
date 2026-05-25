@@ -1,0 +1,2021 @@
+{{- if .Values.grafana.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.grafana.dashboardsConfigMap }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pipeline-observability.labels" . | nindent 4 }}
+    app: grafana
+data:
+  pipeline-overview.json: |
+    {
+      "annotations": {
+        "list": []
+      },
+      "description": "Pipeline overview dashboard",
+      "editable": true,
+      "gnetId": null,
+      "graphTooltip": 0,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "id": 1,
+          "options": {},
+          "targets": [
+            {
+              "expr": "up",
+              "refId": "A"
+            }
+          ],
+          "title": "Pipeline Status",
+          "type": "stat"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "style": "dark",
+      "tags": ["pipeline"],
+      "templating": {
+        "list": [
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "custom",
+            "label": "Entity",
+            "query": "All",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "hide": 0
+          }
+        ]
+      },
+      "time": {
+        "from": "now-24h",
+        "to": "now"
+      },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Pipeline overview",
+      "uid": "pipeline-overview",
+      "version": 2
+    }
+
+  per-entity-throughput.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "Rows ingested per entity per hour — throughput trends, totals, and top-10 ranking.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 10,
+          "title": "Summary",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["sum"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(increase(pipeline_records_processed_total{environment=\"$environment\"}[24h]))",
+              "legendFormat": "Total records",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Records Ingested (last 24h)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["mean"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(rate(pipeline_records_processed_total{environment=\"$environment\"}[1h])) * 3600",
+              "legendFormat": "Records/hour",
+              "refId": "A"
+            }
+          ],
+          "title": "Current Ingest Rate (records/hour)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "count(count by (entity) (pipeline_records_processed_total{environment=\"$environment\"}))",
+              "legendFormat": "Active entities",
+              "refId": "A"
+            }
+          ],
+          "title": "Active Entities",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 11,
+          "title": "Throughput Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Records / hour",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum by (entity) (rate(pipeline_records_processed_total{environment=\"$environment\", entity=~\"$entity\"}[1h])) * 3600",
+              "legendFormat": "{{ entity }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Records Ingested per Entity (per hour)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 12,
+          "title": "Top Entities (7d)",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Total records",
+                "fillOpacity": 80
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 5,
+          "options": {
+            "barRadius": 0.05,
+            "groupWidth": 0.7,
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "orientation": "horizontal",
+            "tooltip": { "mode": "single" },
+            "xTickLabelRotation": 0,
+            "xTickLabelSpacing": 200
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "topk(10, sum by (entity) (increase(pipeline_records_processed_total{environment=\"$environment\"}[7d])))",
+              "legendFormat": "{{ entity }}",
+              "refId": "A",
+              "instant": true
+            }
+          ],
+          "title": "Top 10 Entities by Volume (last 7d)",
+          "type": "barchart"
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "throughput", "entity"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Prometheus",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "query",
+            "label": "Entity",
+            "datasource": "${DS_PROMETHEUS}",
+            "query": "label_values(pipeline_records_processed_total, entity)",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2,
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Per-Entity Throughput",
+      "uid": "per-entity-throughput",
+      "version": 1
+    }
+
+  per-entity-error-rate.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "Error and rejection rates per entity — time-series, current rate stat, and latest audit events.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 20,
+          "title": "Summary",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "mappings": [],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 0.01 },
+                  { "color": "red", "value": 0.05 }
+                ]
+              },
+              "unit": "percentunit",
+              "max": 1,
+              "min": 0
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(rate(pipeline_records_rejected_total{environment=\"$environment\"}[5m])) / sum(rate(pipeline_records_processed_total{environment=\"$environment\"}[5m]))",
+              "legendFormat": "Error rate",
+              "refId": "A"
+            }
+          ],
+          "title": "Current Overall Error Rate",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["sum"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum(increase(pipeline_records_rejected_total{environment=\"$environment\"}[24h]))",
+              "legendFormat": "Rejected records",
+              "refId": "A"
+            }
+          ],
+          "title": "Total Rejected Records (last 24h)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 1 },
+                  { "color": "red", "value": 5 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "count(sum by (entity) (rate(pipeline_records_rejected_total{environment=\"$environment\"}[5m])) > 0)",
+              "legendFormat": "Entities with errors",
+              "refId": "A"
+            }
+          ],
+          "title": "Entities with Active Errors",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 21,
+          "title": "Error Rate Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Error rate",
+                "axisPlacement": "auto",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "percentunit",
+              "max": 1,
+              "min": 0
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "sum by (entity) (rate(pipeline_records_rejected_total{environment=\"$environment\", entity=~\"$entity\"}[5m])) / sum by (entity) (rate(pipeline_records_processed_total{environment=\"$environment\", entity=~\"$entity\"}[5m]))",
+              "legendFormat": "{{ entity }}",
+              "refId": "A"
+            }
+          ],
+          "title": "Error Rate by Entity",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 22,
+          "title": "Latest Audit Events",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "align": "auto",
+                "displayMode": "auto"
+              }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "event_ts" },
+                "properties": [
+                  { "id": "custom.width", "value": 180 },
+                  { "id": "unit", "value": "time: YYYY-MM-DD HH:mm:ss" }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "error_message" },
+                "properties": [{ "id": "custom.width", "value": 400 }]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 5,
+          "options": {
+            "footer": { "show": false },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": [{ "desc": true, "displayName": "event_ts" }]
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT event_ts, entity, error_code, error_message, records_rejected, records_processed FROM `${project}.job_control.audit_events` WHERE event_type = 'REJECTION' AND environment = '${environment}' ORDER BY event_ts DESC LIMIT 25",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Latest 25 Error / Rejection Events",
+          "type": "table"
+        }
+      ],
+      "refresh": "1m",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "errors", "quality", "entity"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Prometheus",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "DS_BIGQUERY",
+            "type": "datasource",
+            "pluginId": "grafana-bigquery-datasource",
+            "label": "BigQuery",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "query",
+            "label": "Entity",
+            "datasource": "${DS_PROMETHEUS}",
+            "query": "label_values(pipeline_records_processed_total, entity)",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "refresh": 2,
+            "hide": 0
+          },
+          {
+            "name": "project",
+            "type": "constant",
+            "label": "GCP Project",
+            "query": "my-gcp-project",
+            "current": { "value": "my-gcp-project", "text": "my-gcp-project" },
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Per-Entity Error Rate",
+      "uid": "per-entity-error-rate",
+      "version": 1
+    }
+
+  per-run-cost.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "FinOps per-run cost breakdown — by service, total monthly spend, top entities, and hourly heatmap.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 30,
+          "title": "Monthly Summary",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 500 },
+                  { "color": "red", "value": 2000 }
+                ]
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["sum"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT SUM(cost_usd) as total_cost FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) >= DATE_TRUNC(CURRENT_DATE(), MONTH) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Total Monthly Spend (MTD)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT SUM(cost_usd) as daily_cost FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) = CURRENT_DATE() AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Today's Spend",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT SUM(cost_usd) / NULLIF(COUNT(DISTINCT run_id), 0) as cost_per_run FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Avg Cost per Run (7d)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+          "id": 4,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNT(DISTINCT run_id) as run_count FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) >= DATE_TRUNC(CURRENT_DATE(), MONTH) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Total Runs This Month",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 31,
+          "title": "Cost by Service Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Cost (USD)",
+                "drawStyle": "line",
+                "fillOpacity": 20,
+                "gradientMode": "none",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" }
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 5,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "right" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT TIMESTAMP_TRUNC(usage_ts, HOUR) as time, service, SUM(cost_usd) as cost FROM `${project}.job_control.finops_usage` WHERE usage_ts >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY) AND environment = '${environment}' AND service IN ('BigQuery', 'GCS', 'Pub/Sub', 'Dataflow') GROUP BY 1, 2 ORDER BY 1",
+              "refId": "A",
+              "format": "time_series"
+            }
+          ],
+          "title": "Cost by Service (stacked, last 30d)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 32,
+          "title": "Top Entity Costs",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Cost (USD)",
+                "fillOpacity": 80
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+          "id": 6,
+          "options": {
+            "barRadius": 0.05,
+            "groupWidth": 0.7,
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "orientation": "horizontal",
+            "tooltip": { "mode": "single" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT entity, SUM(cost_usd) as total_cost FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND environment = '${environment}' GROUP BY entity ORDER BY total_cost DESC LIMIT 10",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Top 10 Entity Costs (last 30d)",
+          "type": "barchart"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "scheme",
+                "scheme": "Oranges"
+              },
+              "custom": {
+                "hideFrom": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": false
+                }
+              },
+              "unit": "currencyUSD"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 15 },
+          "id": 7,
+          "options": {
+            "calculate": false,
+            "cellGap": 2,
+            "color": { "exponent": 0.5, "fill": "dark-orange", "mode": "scheme", "scale": "exponential", "scheme": "Oranges", "steps": 64 },
+            "exemplars": { "color": "rgba(255,0,255,0.7)" },
+            "filterValues": { "le": 1e-9 },
+            "legend": { "show": true },
+            "rowsFrame": { "layout": "auto" },
+            "tooltip": { "show": true, "yHistogram": false },
+            "yAxis": { "axisPlacement": "left", "decimals": 0, "unit": "short" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT EXTRACT(HOUR FROM usage_ts) as hour_of_day, EXTRACT(DAYOFWEEK FROM usage_ts) as day_of_week, SUM(cost_usd) as cost FROM `${project}.job_control.finops_usage` WHERE DATE(usage_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND environment = '${environment}' GROUP BY 1, 2 ORDER BY 2, 1",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Cost Heatmap by Hour of Day",
+          "type": "heatmap"
+        }
+      ],
+      "refresh": "5m",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "finops", "cost"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_BIGQUERY",
+            "type": "datasource",
+            "pluginId": "grafana-bigquery-datasource",
+            "label": "BigQuery",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "custom",
+            "label": "Entity",
+            "query": "All",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "hide": 0
+          },
+          {
+            "name": "project",
+            "type": "constant",
+            "label": "GCP Project",
+            "query": "my-gcp-project",
+            "current": { "value": "my-gcp-project", "text": "my-gcp-project" },
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Per-Run Cost (FinOps)",
+      "uid": "per-run-cost",
+      "version": 1
+    }
+
+  reconciliation-health.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "Reconciliation health — green/yellow/red status counts, RED trend, and recent failures.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 40,
+          "title": "Status Summary",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNT(*) as green_count FROM `${project}.job_control.reconciliation_record` WHERE status = 'GREEN' AND environment = '${environment}' AND DATE(extract_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "GREEN (last 7d)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "yellow" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "yellow", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNT(*) as yellow_count FROM `${project}.job_control.reconciliation_record` WHERE status = 'YELLOW' AND environment = '${environment}' AND DATE(extract_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "YELLOW (last 7d)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "red" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "red", "value": 1 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNT(*) as red_count FROM `${project}.job_control.reconciliation_record` WHERE status = 'RED' AND environment = '${environment}' AND DATE(extract_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "RED (last 7d)",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 41,
+          "title": "RED Trend (30 days)",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "fixed", "fixedColor": "red" },
+              "custom": {
+                "axisLabel": "RED count",
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "gradientMode": "none",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "tooltip": { "mode": "single" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT DATE(extract_date) as time, COUNT(*) as red_count FROM `${project}.job_control.reconciliation_record` WHERE status = 'RED' AND environment = '${environment}' AND DATE(extract_date) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) GROUP BY 1 ORDER BY 1",
+              "refId": "A",
+              "format": "time_series"
+            }
+          ],
+          "title": "RED Reconciliation Records by Day (last 30d)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 42,
+          "title": "Recent Failures",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "auto", "displayMode": "auto" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "status" },
+                "properties": [
+                  {
+                    "id": "custom.displayMode",
+                    "value": "color-background"
+                  },
+                  {
+                    "id": "mappings",
+                    "value": [
+                      { "type": "value", "options": { "RED": { "color": "red", "index": 0 }, "YELLOW": { "color": "yellow", "index": 1 }, "GREEN": { "color": "green", "index": 2 } } }
+                    ]
+                  }
+                ]
+              },
+              {
+                "matcher": { "id": "byName", "options": "extract_date" },
+                "properties": [{ "id": "custom.width", "value": 120 }]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 5,
+          "options": {
+            "footer": { "show": false },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": [{ "desc": true, "displayName": "extract_date" }]
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT entity, extract_date, expected_count, valid_count, (expected_count - valid_count) as missing_count, status, updated_ts FROM `${project}.job_control.reconciliation_record` WHERE status IN ('RED', 'YELLOW') AND environment = '${environment}' ORDER BY updated_ts DESC LIMIT 10",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Most Recent 10 Failures (entity, extract_date, expected vs valid counts, status)",
+          "type": "table"
+        }
+      ],
+      "refresh": "5m",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "reconciliation", "health"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_BIGQUERY",
+            "type": "datasource",
+            "pluginId": "grafana-bigquery-datasource",
+            "label": "BigQuery",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "custom",
+            "label": "Entity",
+            "query": "All",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "hide": 0
+          },
+          {
+            "name": "project",
+            "type": "constant",
+            "label": "GCP Project",
+            "query": "my-gcp-project",
+            "current": { "value": "my-gcp-project", "text": "my-gcp-project" },
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Reconciliation Health",
+      "uid": "reconciliation-health",
+      "version": 1
+    }
+
+  data-quality-grades.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "Data quality grade trends — A–F distribution by day, A/B pass rate, and per-entity averages.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 50,
+          "title": "Summary",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.6 },
+                  { "color": "green", "value": 0.8 }
+                ]
+              },
+              "unit": "percentunit",
+              "max": 1,
+              "min": 0
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNTIF(grade IN ('A','B')) / COUNT(*) as ab_rate FROM `${project}.job_control.data_quality_runs` WHERE DATE(run_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "A/B Pass Rate (this week)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "red", "value": null },
+                  { "color": "yellow", "value": 0.02 },
+                  { "color": "green", "value": 0.0 }
+                ]
+              },
+              "unit": "percentunit",
+              "max": 1,
+              "min": 0
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 8, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNTIF(grade = 'F') / COUNT(*) as f_rate FROM `${project}.job_control.data_quality_runs` WHERE DATE(run_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "F-Grade Rate (this week)",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 8, "x": 16, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "none",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT COUNT(DISTINCT entity) as entity_count FROM `${project}.job_control.data_quality_runs` WHERE DATE(run_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY) AND environment = '${environment}'",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Entities Evaluated (7d)",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 51,
+          "title": "Grade Distribution Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Run count",
+                "drawStyle": "bars",
+                "fillOpacity": 80,
+                "gradientMode": "none",
+                "lineWidth": 1,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false,
+                "stacking": { "group": "A", "mode": "normal" }
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              { "matcher": { "id": "byName", "options": "A" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "B" }, "properties": [{ "id": "color", "value": { "fixedColor": "light-green", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "C" }, "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "D" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+              { "matcher": { "id": "byName", "options": "F" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 4,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "right" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT DATE(run_ts) as time, grade, COUNT(*) as run_count FROM `${project}.job_control.data_quality_runs` WHERE DATE(run_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND environment = '${environment}' GROUP BY 1, 2 ORDER BY 1, 2",
+              "refId": "A",
+              "format": "time_series"
+            }
+          ],
+          "title": "Grade Distribution by Day (stacked, last 30d)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 52,
+          "title": "Per-Entity Average Grade",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_BIGQUERY}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Avg grade score",
+                "fillOpacity": 80
+              },
+              "unit": "short",
+              "min": 0,
+              "max": 4
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 5,
+          "options": {
+            "barRadius": 0.05,
+            "groupWidth": 0.7,
+            "legend": { "displayMode": "list", "placement": "bottom" },
+            "orientation": "horizontal",
+            "tooltip": { "mode": "single" },
+            "xTickLabelRotation": 0
+          },
+          "targets": [
+            {
+              "datasource": "${DS_BIGQUERY}",
+              "rawQuery": true,
+              "rawSql": "SELECT entity, AVG(CASE grade WHEN 'A' THEN 4 WHEN 'B' THEN 3 WHEN 'C' THEN 2 WHEN 'D' THEN 1 ELSE 0 END) as avg_grade_score FROM `${project}.job_control.data_quality_runs` WHERE DATE(run_ts) >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY) AND environment = '${environment}' AND entity LIKE '%${entity}%' GROUP BY entity ORDER BY avg_grade_score DESC",
+              "refId": "A",
+              "format": "table"
+            }
+          ],
+          "title": "Per-Entity Average Grade Score (0=F, 4=A, last 30d)",
+          "type": "barchart"
+        }
+      ],
+      "refresh": "5m",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "quality", "grades"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_BIGQUERY",
+            "type": "datasource",
+            "pluginId": "grafana-bigquery-datasource",
+            "label": "BigQuery",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "custom",
+            "label": "Entity",
+            "query": "All",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "hide": 0
+          },
+          {
+            "name": "project",
+            "type": "constant",
+            "label": "GCP Project",
+            "query": "my-gcp-project",
+            "current": { "value": "my-gcp-project", "text": "my-gcp-project" },
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Data Quality Grades",
+      "uid": "data-quality-grades",
+      "version": 1
+    }
+
+  airflow-scheduler-health.json: |
+    {
+      "annotations": { "list": [] },
+      "description": "Airflow operational health — scheduler heartbeat, task queues, DAG parse times, and longest-running tasks.",
+      "editable": true,
+      "graphTooltip": 1,
+      "id": null,
+      "links": [],
+      "panels": [
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+          "id": 60,
+          "title": "Scheduler Health",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 30 },
+                  { "color": "red", "value": 60 }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+          "id": 1,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "time() - airflow_scheduler_heartbeat_timestamp{environment=\"$environment\"}",
+              "legendFormat": "Heartbeat lag",
+              "refId": "A"
+            }
+          ],
+          "title": "Scheduler Heartbeat Lag",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 100 },
+                  { "color": "red", "value": 500 }
+                ]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+          "id": 2,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "airflow_executor_queued_tasks{environment=\"$environment\"}",
+              "legendFormat": "Queued tasks",
+              "refId": "A"
+            }
+          ],
+          "title": "Queued Tasks",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [{ "color": "green", "value": null }]
+              },
+              "unit": "short"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+          "id": 3,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "airflow_executor_running_tasks{environment=\"$environment\"}",
+              "legendFormat": "Running tasks",
+              "refId": "A"
+            }
+          ],
+          "title": "Running Tasks",
+          "type": "stat"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "thresholds" },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  { "color": "green", "value": null },
+                  { "color": "yellow", "value": 30 },
+                  { "color": "red", "value": 60 }
+                ]
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+          "id": 4,
+          "options": {
+            "colorMode": "background",
+            "graphMode": "area",
+            "justifyMode": "auto",
+            "orientation": "auto",
+            "reduceOptions": {
+              "calcs": ["lastNotNull"],
+              "fields": "",
+              "values": false
+            },
+            "textMode": "auto"
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "histogram_quantile(0.95, rate(airflow_dag_processing_total_parse_elapsed_seconds_bucket{environment=\"$environment\"}[5m]))",
+              "legendFormat": "DAG parse P95",
+              "refId": "A"
+            }
+          ],
+          "title": "DAG Parse P95 (last 5m)",
+          "type": "stat"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+          "id": 61,
+          "title": "Task Queue Depth Over Time",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Task count",
+                "drawStyle": "line",
+                "fillOpacity": 15,
+                "gradientMode": "none",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "short"
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "Queued" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } }]
+              },
+              {
+                "matcher": { "id": "byName", "options": "Running" },
+                "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 6 },
+          "id": 5,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "airflow_executor_queued_tasks{environment=\"$environment\"}",
+              "legendFormat": "Queued",
+              "refId": "A"
+            },
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "airflow_executor_running_tasks{environment=\"$environment\"}",
+              "legendFormat": "Running",
+              "refId": "B"
+            }
+          ],
+          "title": "Queued vs Running Tasks",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+          "id": 62,
+          "title": "DAG Parse Duration",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "color": { "mode": "palette-classic" },
+              "custom": {
+                "axisLabel": "Parse duration (s)",
+                "drawStyle": "line",
+                "fillOpacity": 10,
+                "gradientMode": "none",
+                "lineInterpolation": "smooth",
+                "lineWidth": 2,
+                "pointSize": 5,
+                "showPoints": "never",
+                "spanNulls": false
+              },
+              "unit": "s"
+            },
+            "overrides": []
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 15 },
+          "id": 6,
+          "options": {
+            "legend": { "displayMode": "table", "placement": "bottom" },
+            "tooltip": { "mode": "multi" }
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "histogram_quantile(0.50, rate(airflow_dag_processing_total_parse_elapsed_seconds_bucket{environment=\"$environment\"}[5m]))",
+              "legendFormat": "Parse P50",
+              "refId": "A"
+            },
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "histogram_quantile(0.95, rate(airflow_dag_processing_total_parse_elapsed_seconds_bucket{environment=\"$environment\"}[5m]))",
+              "legendFormat": "Parse P95",
+              "refId": "B"
+            }
+          ],
+          "title": "DAG Parse Duration (P50 and P95)",
+          "type": "timeseries"
+        },
+        {
+          "collapsed": false,
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+          "id": 63,
+          "title": "Longest Running Tasks",
+          "type": "row"
+        },
+        {
+          "datasource": "${DS_PROMETHEUS}",
+          "fieldConfig": {
+            "defaults": {
+              "custom": { "align": "auto", "displayMode": "auto" }
+            },
+            "overrides": [
+              {
+                "matcher": { "id": "byName", "options": "duration_seconds" },
+                "properties": [
+                  { "id": "unit", "value": "s" },
+                  { "id": "custom.width", "value": 140 },
+                  {
+                    "id": "thresholds",
+                    "value": {
+                      "mode": "absolute",
+                      "steps": [
+                        { "color": "green", "value": null },
+                        { "color": "yellow", "value": 1800 },
+                        { "color": "red", "value": 3600 }
+                      ]
+                    }
+                  },
+                  { "id": "custom.displayMode", "value": "color-background" }
+                ]
+              }
+            ]
+          },
+          "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+          "id": 7,
+          "options": {
+            "footer": { "show": false },
+            "frameIndex": 0,
+            "showHeader": true,
+            "sortBy": [{ "desc": true, "displayName": "duration_seconds" }]
+          },
+          "targets": [
+            {
+              "datasource": "${DS_PROMETHEUS}",
+              "expr": "topk(5, airflow_task_duration_seconds{environment=\"$environment\", status=\"running\"})",
+              "legendFormat": "{{ dag_id }} / {{ task_id }}",
+              "refId": "A",
+              "instant": true,
+              "format": "table"
+            }
+          ],
+          "title": "Top 5 Longest-Running Tasks (last 24h)",
+          "type": "table"
+        }
+      ],
+      "refresh": "30s",
+      "schemaVersion": 38,
+      "tags": ["pipeline", "airflow", "scheduler", "health"],
+      "templating": {
+        "list": [
+          {
+            "name": "DS_PROMETHEUS",
+            "type": "datasource",
+            "pluginId": "prometheus",
+            "label": "Prometheus",
+            "hide": 0,
+            "current": {}
+          },
+          {
+            "name": "system_id",
+            "type": "constant",
+            "label": "System ID",
+            "query": "default",
+            "current": { "value": "default", "text": "default" },
+            "hide": 0
+          },
+          {
+            "name": "environment",
+            "type": "custom",
+            "label": "Environment",
+            "query": "dev,staging,prod",
+            "current": { "value": "prod", "text": "prod" },
+            "hide": 0
+          },
+          {
+            "name": "entity",
+            "type": "custom",
+            "label": "Entity",
+            "query": "All",
+            "current": { "value": "$__all", "text": "All" },
+            "includeAll": true,
+            "multi": true,
+            "hide": 0
+          }
+        ]
+      },
+      "time": { "from": "now-24h", "to": "now" },
+      "timepicker": {},
+      "timezone": "browser",
+      "title": "Airflow Scheduler Health",
+      "uid": "airflow-scheduler-health",
+      "version": 1
+    }
+{{- end }}

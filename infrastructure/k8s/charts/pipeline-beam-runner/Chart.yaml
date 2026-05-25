@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pipeline-beam-runner
+description: A Helm chart for Apache Flink deployment via Flink Kubernetes Operator for beam pipelines
+type: application
+version: 1.0.0
+appVersion: "1.19.0"

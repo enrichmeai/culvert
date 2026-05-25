@@ -1,0 +1,50 @@
+# pipeline-dbt-runner Helm Values
+
+image:
+  repository: my-registry/pipeline-dbt-runner
+  tag: "1.7.14-1.0.29"
+  pullPolicy: IfNotPresent
+
+schedule:
+  transformation: "0 3 * * *"
+  concurrencyPolicy: "Forbid"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 1Gi
+  limits:
+    cpu: 2000m
+    memory: 4Gi
+
+serviceAccount:
+  create: true
+  name: pipeline-dbt-runner
+  # Set gcpSaEmail to enable Workload Identity annotation
+  # Example: "pipeline-dbt@my-project.iam.gserviceaccount.com"
+  gcpSaEmail: ""
+
+gcs:
+  # Required: set to your GCP project ID
+  targetProject: ""
+
+dbt:
+  project: bigquery-to-mapped-product
+  target: prod
+
+# Additional environment variables
+env: []
+# Example:
+# - name: DBT_PROFILES_DIR
+#   value: /app/profiles
+
+# Secret environment variables (references to existing Secrets)
+secretEnv: []
+# Example:
+# - name: DBT_DATABASE_PASSWORD
+#   valueFrom:
+#     secretKeyRef:
+#       name: dbt-secrets
+#       key: password

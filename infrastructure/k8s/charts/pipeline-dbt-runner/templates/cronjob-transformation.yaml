@@ -1,0 +1,50 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "pipeline-dbt-runner.fullname" . }}-transformation
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pipeline-dbt-runner.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.schedule.transformation | quote }}
+  concurrencyPolicy: {{ .Values.schedule.concurrencyPolicy }}
+  successfulJobsHistoryLimit: {{ .Values.schedule.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ .Values.schedule.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "pipeline-dbt-runner.selectorLabels" . | nindent 12 }}
+        spec:
+          serviceAccountName: {{ .Values.serviceAccount.name }}
+          restartPolicy: OnFailure
+          containers:
+          - name: dbt-runner
+            image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+            imagePullPolicy: {{ .Values.image.pullPolicy }}
+            command:
+            - /bin/bash
+            - -c
+            - |
+              dbt run \
+                --project-dir /app/{{ .Values.dbt.project }} \
+                --target {{ .Values.dbt.target }}
+            resources:
+              requests:
+                cpu: {{ .Values.resources.requests.cpu | quote }}
+                memory: {{ .Values.resources.requests.memory | quote }}
+              limits:
+                cpu: {{ .Values.resources.limits.cpu | quote }}
+                memory: {{ .Values.resources.limits.memory | quote }}
+            env:
+            {{- if .Values.gcs.targetProject }}
+            - name: GCP_PROJECT_ID
+              value: {{ .Values.gcs.targetProject | quote }}
+            {{- end }}
+            {{- if .Values.env }}
+            {{- toYaml .Values.env | nindent 12 }}
+            {{- end }}
+            {{- if .Values.secretEnv }}
+            {{- toYaml .Values.secretEnv | nindent 12 }}
+            {{- end }}

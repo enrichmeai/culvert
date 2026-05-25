@@ -1,0 +1,45 @@
+{{- if .Values.otelCollector.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "pipeline-observability.fullname" . }}-otel-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pipeline-observability.labels" . | nindent 4 }}
+data:
+  otel-collector-config.yaml: |
+    receivers:
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+
+    processors:
+      batch:
+        send_batch_size: 1024
+        timeout: 10s
+      memory_limiter:
+        check_interval: 1s
+        limit_mib: 512
+
+    exporters:
+      googlecloud:
+        project: ""
+        metric:
+          prefix: pipeline/
+      jaeger:
+        endpoint: "jaeger-collector:14250"
+
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [memory_limiter, batch]
+          exporters: [googlecloud]
+{{- end }}

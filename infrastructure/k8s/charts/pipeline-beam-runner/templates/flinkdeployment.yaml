@@ -1,0 +1,43 @@
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkDeployment
+metadata:
+  name: {{ include "pipeline-beam-runner.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pipeline-beam-runner.labels" . | nindent 4 }}
+spec:
+  image:
+    repository: {{ .Values.image.repository }}
+    tag: {{ .Values.image.tag }}
+    pullPolicy: {{ .Values.image.pullPolicy }}
+
+  serviceAccount: {{ .Values.serviceAccount.name }}
+
+  jobManager:
+    replicas: 1
+    resource:
+      memory: {{ .Values.jobManager.resources.memory | quote }}
+      cpu: {{ .Values.jobManager.resources.cpu | quote }}
+
+  taskManager:
+    replicas: {{ .Values.taskManager.replicas }}
+    resource:
+      memory: {{ .Values.taskManager.resources.memory | quote }}
+      cpu: {{ .Values.taskManager.resources.cpu | quote }}
+    numberOfTaskSlots: {{ .Values.taskManager.numberOfTaskSlots }}
+
+  flinkConfiguration:
+    taskmanager.numberOfTaskSlots: {{ .Values.taskManager.numberOfTaskSlots | quote }}
+    parallelism.default: {{ .Values.parallelism.default | quote }}
+{{- if .Values.checkpointing.enabled }}
+    state.checkpoints.dir: {{ .Values.gcs.bucket }}/checkpoints
+    state.backend: filesystem
+    state.backend.fs.checkpointdir: {{ .Values.gcs.bucket }}/checkpoints
+{{- end }}
+
+  restartNonce: 0
+  mode: native
+  bootstrapFrom:
+    - args:
+      - classpath
+      - "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
