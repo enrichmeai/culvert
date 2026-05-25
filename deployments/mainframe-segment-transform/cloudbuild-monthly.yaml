@@ -1,41 +1,40 @@
 # =============================================================================
 # Monthly Segment Extract Pipeline
 # =============================================================================
-# Triggered by Cloud Scheduler on the 3rd of each month at 06:00 UTC.
-# Gives the producing team's FDP pipeline 2 days after month-end to complete.
+# Triggered by the CDP refresh pipeline (cdp-monthly-refresh) on success.
+# Can also be triggered manually to re-run segment without re-running dbt.
 #
 # Steps:
-#   1. Check FDP partition readiness for last month (fail fast if missing)
-#   2. Run dbt to refresh cdp_generic.customer_risk_profile for last month
-#   3. Run dbt tests on the CDP output
-#   4. Launch Dataflow segment-transform (reads CDP → fixed-width files)
+#   1. Check CDP readiness — verify last month's partition exists (sensor)
+#   2. Launch Dataflow segment-transform (async — job runs independently)
 #
-# Dataflow runs async — this build exits after launching it.
-# Monitor the Dataflow job in the GCP console.
+# Manual retry after CDP is already built:
+#   gcloud builds triggers run monthly-segment-transform \
+#     --project=$PROJECT_ID --branch=main \
+#     --substitutions=_EXTRACT_MONTH=202603
 #
-# Substitutions (all overridable when triggering manually):
-#   _FDP_PROJECT     GCP project containing FDP tables (default: same project)
+# Substitutions:
 #   _OUTPUT_BUCKET   GCS bucket for segment output files (required)
 #   _SEGMENT         Segment to process (default: customer)
-#   _EXTRACT_MONTH   YYYYMM override — leave empty to auto-derive last month
-#   _ENVIRONMENT     dbt target environment (default: int)
+#   _EXTRACT_MONTH   YYYYMM override — empty = auto-derive last month
 #   _REGION          GCP region for Dataflow (default: europe-west2)
 # =============================================================================
 
 steps:
 
   # ---------------------------------------------------------------------------
-  # Step 1: Check FDP readiness — fail fast if last month's partition is missing
+  # Step 1: CDP readiness check (replaces Airflow BigQuery sensor)
+  # Verifies the CDP snapshot for last month exists before launching Dataflow.
+  # This is the safety net — segment never runs against missing/stale data.
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
-    id: 'check-fdp-ready'
+    id: 'check-cdp-ready'
     entrypoint: bash
     args:
       - '-euo'
       - 'pipefail'
       - '-c'
       - |
-        # Resolve extract month: explicit override or last calendar month
         if [ -n "${_EXTRACT_MONTH}" ]; then
           EXTRACT_MONTH="${_EXTRACT_MONTH}"
         else
@@ -44,88 +43,37 @@ steps:
 
         YEAR="${EXTRACT_MONTH:0:4}"
         MONTH_NUM="${EXTRACT_MONTH:4:2}"
-
-        # Last day of the extract month (e.g. 2026-03-31)
         LAST_DAY=$(date -d "${YEAR}-${MONTH_NUM}-01 +1 month -1 day" +%Y-%m-%d)
 
-        echo "Extract month: ${EXTRACT_MONTH}"
-        echo "FDP partition to check: ${LAST_DAY}"
-
-        # Use the FDP project override or fall back to this project
-        FDP_PROJECT="${_FDP_PROJECT:-${PROJECT_ID}}"
+        echo "Checking CDP readiness: ${PROJECT_ID}.cdp_generic.customer_risk_profile"
+        echo "Partition: ${LAST_DAY}"
 
         ROW_COUNT=$(bq --project_id="${PROJECT_ID}" query \
-          --nouse_legacy_sql \
-          --format=csv \
-          --quiet \
-          "SELECT COUNT(*) FROM \`${FDP_PROJECT}.fdp_dataset.event_transaction_excess\`
-           WHERE _extract_date = '${LAST_DAY}'" \
+          --nouse_legacy_sql --format=csv --quiet \
+          "SELECT COUNT(*) FROM \`${PROJECT_ID}.cdp_generic.customer_risk_profile\`
+           WHERE _extract_date = '${LAST_DAY}'
+             AND customer_status IN ('ACTIVE', 'DORMANT')" \
           2>/dev/null | tail -1 | tr -d ' \r')
 
         if [ -z "${ROW_COUNT}" ] || [ "${ROW_COUNT}" = "0" ]; then
           echo ""
-          echo "ERROR: FDP partition ${LAST_DAY} is empty or missing in ${FDP_PROJECT}."
-          echo "The producing team's pipeline may not have completed for this month."
-          echo ""
-          echo "To retry manually once FDP is ready:"
-          echo "  gcloud builds triggers run monthly-segment-transform \\"
+          echo "ERROR: CDP partition ${LAST_DAY} is empty or missing."
+          echo "Run the CDP refresh first:"
+          echo "  gcloud builds triggers run cdp-monthly-refresh \\"
           echo "    --project=${PROJECT_ID} --branch=main \\"
           echo "    --substitutions=_EXTRACT_MONTH=${EXTRACT_MONTH}"
           exit 1
         fi
 
-        echo "FDP ready: ${ROW_COUNT} rows for ${LAST_DAY} in ${FDP_PROJECT}"
+        echo "CDP ready: ${ROW_COUNT} eligible records for ${LAST_DAY}"
 
-        # Write resolved values to /workspace for downstream steps
-        echo "${EXTRACT_MONTH}"        > /workspace/extract_month.txt
-        echo "${LAST_DAY//-/}"         > /workspace/extract_date.txt
-
-  # ---------------------------------------------------------------------------
-  # Step 2: Run dbt CDP refresh — builds customer_risk_profile for last month
-  # Prerequisite: generic-cdp-transformation image must exist in GCR.
-  #   Build it with: gcloud builds submit --config deployments/fdp-to-consumable-product/cloudbuild.yaml
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/$PROJECT_ID/generic-cdp-transformation:latest'
-    id: 'run-dbt-cdp'
-    dir: '/app/deployments/fdp-to-consumable-product/dbt'
-    env:
-      - 'GCP_PROJECT_ID=$PROJECT_ID'
-      - 'RUN_ID=$BUILD_ID'
-    args:
-      - 'run'
-      - '--target'
-      - '$_ENVIRONMENT'
-      - '--profiles-dir'
-      - '.'
-      - '--vars'
-      - '{"gcp_project_id": "$PROJECT_ID"}'
-      - '--select'
-      - 'customer_risk_profile'
-    waitFor: ['check-fdp-ready']
+        # Write resolved values for Dataflow step
+        echo "${EXTRACT_MONTH}"   > /workspace/extract_month.txt
+        echo "${LAST_DAY//-/}"    > /workspace/extract_date.txt
 
   # ---------------------------------------------------------------------------
-  # Step 3: dbt tests — verify CDP output before launching segment export
-  # ---------------------------------------------------------------------------
-  - name: 'gcr.io/$PROJECT_ID/generic-cdp-transformation:latest'
-    id: 'test-dbt-cdp'
-    dir: '/app/deployments/fdp-to-consumable-product/dbt'
-    env:
-      - 'GCP_PROJECT_ID=$PROJECT_ID'
-      - 'RUN_ID=$BUILD_ID'
-    args:
-      - 'test'
-      - '--target'
-      - '$_ENVIRONMENT'
-      - '--profiles-dir'
-      - '.'
-      - '--vars'
-      - '{"gcp_project_id": "$PROJECT_ID"}'
-      - '--select'
-      - 'customer_risk_profile'
-    waitFor: ['run-dbt-cdp']
-
-  # ---------------------------------------------------------------------------
-  # Step 4: Launch Dataflow segment-transform (async — job runs independently)
+  # Step 2: Launch Dataflow segment-transform (async)
+  # Dataflow job runs independently — this build exits after launch.
   # ---------------------------------------------------------------------------
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     id: 'launch-dataflow'
@@ -158,19 +106,13 @@ steps:
           --parameters gcp_project="${PROJECT_ID}"
 
         echo ""
-        echo "Dataflow job launched. Monitor at:"
-        echo "  https://console.cloud.google.com/dataflow/jobs?project=${PROJECT_ID}"
+        echo "Dataflow job launched: segment-${_SEGMENT}-${EXTRACT_MONTH}"
+        echo "Monitor: https://console.cloud.google.com/dataflow/jobs?project=${PROJECT_ID}"
         echo ""
-        echo "Output will appear at:"
-        echo "  gs://${_OUTPUT_BUCKET}/segments/${EXTRACT_MONTH}/${RUN_ID}/${_SEGMENT}/"
-    waitFor: ['test-dbt-cdp']
+        echo "Output: gs://${_OUTPUT_BUCKET}/segments/${EXTRACT_MONTH}/${RUN_ID}/${_SEGMENT}/"
+    waitFor: ['check-cdp-ready']
 
-# ---------------------------------------------------------------------------
-# Defaults — all can be overridden by Cloud Scheduler body or manual trigger
-# ---------------------------------------------------------------------------
 substitutions:
-  _ENVIRONMENT:   'int'
-  _FDP_PROJECT:   ''              # empty = use $PROJECT_ID (same-project FDP)
   _OUTPUT_BUCKET: ''              # set by Terraform (required)
   _SEGMENT:       'customer'
   _EXTRACT_MONTH: ''              # empty = auto-derive last calendar month
@@ -178,5 +120,3 @@ substitutions:
 
 options:
   logging: CLOUD_LOGGING_ONLY
-  # Build timeout: check + dbt + test + Dataflow launch ≈ 5–15 min
-  # Dataflow job itself is async and not counted here

@@ -1,0 +1,31 @@
+steps:
+  # 1. Build the Java jar and Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', '$_IMAGE_NAME',
+      '.'
+    ]
+    dir: 'deployments/mainframe-segment-transform-java'
+
+  # 2. Push the image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', '$_IMAGE_NAME']
+
+  # 3. Build the Flex Template spec file
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        gcloud dataflow flex-template build "$_TEMPLATE_GCS_PATH" \
+          --image "$_IMAGE_NAME" \
+          --sdk-language "JAVA" \
+          --metadata-file "metadata.json"
+
+substitutions:
+  _IMAGE_NAME: 'gcr.io/$PROJECT_ID/mainframe-segment-transform-java:latest'
+  _TEMPLATE_GCS_PATH: 'gs://$PROJECT_ID-dataflow-templates/mainframe-segment-transform-java.json'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

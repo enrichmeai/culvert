@@ -1,0 +1,157 @@
+# =============================================================================
+# Monthly CDP Refresh Pipeline
+# =============================================================================
+# Triggered by Cloud Scheduler on the 2nd of each month at 06:00 UTC.
+# On success, automatically triggers the segment-extract pipeline.
+#
+# Steps:
+#   1. Check FDP partition readiness for last month (fail fast if missing)
+#   2. Run dbt to refresh cdp_generic.customer_risk_profile
+#   3. Run dbt tests to verify CDP output
+#   4. Trigger the monthly-segment-transform Cloud Build (chained)
+#
+# Retry: if this build fails, re-trigger manually:
+#   gcloud builds triggers run cdp-monthly-refresh \
+#     --project=$PROJECT_ID --branch=main \
+#     --substitutions=_EXTRACT_MONTH=202603
+#
+# Substitutions:
+#   _FDP_PROJECT     GCP project containing FDP tables (default: same project)
+#   _FDP_DATASET     FDP dataset name (default: fdp_dataset)
+#   _EXTRACT_MONTH   YYYYMM override — empty = auto-derive last month
+#   _ENVIRONMENT     dbt target (default: int)
+# =============================================================================
+
+steps:
+
+  # ---------------------------------------------------------------------------
+  # Step 1: FDP readiness check — fail fast if last month's partition is missing
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'check-fdp-ready'
+    entrypoint: bash
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        if [ -n "${_EXTRACT_MONTH}" ]; then
+          EXTRACT_MONTH="${_EXTRACT_MONTH}"
+        else
+          EXTRACT_MONTH=$(date -d "$(date +%Y-%m-01) -1 day" +%Y%m)
+        fi
+
+        YEAR="${EXTRACT_MONTH:0:4}"
+        MONTH_NUM="${EXTRACT_MONTH:4:2}"
+        LAST_DAY=$(date -d "${YEAR}-${MONTH_NUM}-01 +1 month -1 day" +%Y-%m-%d)
+
+        FDP_PROJECT="${_FDP_PROJECT:-${PROJECT_ID}}"
+        FDP_DATASET="${_FDP_DATASET:-fdp_dataset}"
+
+        echo "Checking FDP readiness: ${FDP_PROJECT}.${FDP_DATASET}.event_transaction_excess"
+        echo "Partition: ${LAST_DAY}"
+
+        ROW_COUNT=$(bq --project_id="${PROJECT_ID}" query \
+          --nouse_legacy_sql --format=csv --quiet \
+          "SELECT COUNT(*) FROM \`${FDP_PROJECT}.${FDP_DATASET}.event_transaction_excess\`
+           WHERE _extract_date = '${LAST_DAY}'" \
+          2>/dev/null | tail -1 | tr -d ' \r')
+
+        if [ -z "${ROW_COUNT}" ] || [ "${ROW_COUNT}" = "0" ]; then
+          echo ""
+          echo "ERROR: FDP partition ${LAST_DAY} is empty or missing in ${FDP_PROJECT}."
+          echo "The producing team's pipeline has not completed for this month."
+          echo ""
+          echo "Retry once FDP is ready:"
+          echo "  gcloud builds triggers run cdp-monthly-refresh \\"
+          echo "    --project=${PROJECT_ID} --branch=main \\"
+          echo "    --substitutions=_EXTRACT_MONTH=${EXTRACT_MONTH}"
+          exit 1
+        fi
+
+        echo "FDP ready: ${ROW_COUNT} rows for ${LAST_DAY}"
+
+        # Write for downstream steps
+        echo "${EXTRACT_MONTH}" > /workspace/extract_month.txt
+        echo "${LAST_DAY}"      > /workspace/extract_date.txt
+
+  # ---------------------------------------------------------------------------
+  # Step 2: dbt CDP refresh
+  # Prerequisite: generic-cdp-transformation image must exist in GCR.
+  #   Build with: gcloud builds submit --config deployments/fdp-to-consumable-product/cloudbuild.yaml
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/$PROJECT_ID/generic-cdp-transformation:latest'
+    id: 'run-dbt-cdp'
+    dir: '/app/deployments/fdp-to-consumable-product/dbt'
+    env:
+      - 'GCP_PROJECT_ID=$PROJECT_ID'
+      - 'RUN_ID=$BUILD_ID'
+    args:
+      - 'run'
+      - '--target'
+      - '$_ENVIRONMENT'
+      - '--profiles-dir'
+      - '.'
+      - '--vars'
+      - '{"gcp_project_id": "$PROJECT_ID"}'
+      - '--select'
+      - 'customer_risk_profile'
+    waitFor: ['check-fdp-ready']
+
+  # ---------------------------------------------------------------------------
+  # Step 3: dbt tests — verify CDP before triggering segment
+  # Segment will not start if any dbt test fails
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/$PROJECT_ID/generic-cdp-transformation:latest'
+    id: 'test-dbt-cdp'
+    dir: '/app/deployments/fdp-to-consumable-product/dbt'
+    env:
+      - 'GCP_PROJECT_ID=$PROJECT_ID'
+      - 'RUN_ID=$BUILD_ID'
+    args:
+      - 'test'
+      - '--target'
+      - '$_ENVIRONMENT'
+      - '--profiles-dir'
+      - '.'
+      - '--vars'
+      - '{"gcp_project_id": "$PROJECT_ID"}'
+      - '--select'
+      - 'customer_risk_profile'
+    waitFor: ['run-dbt-cdp']
+
+  # ---------------------------------------------------------------------------
+  # Step 4: Chain — trigger segment-extract pipeline
+  # Only reached if dbt run + test both passed.
+  # Segment build has its own CDP readiness check as a safety net.
+  # ---------------------------------------------------------------------------
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'trigger-segment-extract'
+    entrypoint: bash
+    args:
+      - '-euo'
+      - 'pipefail'
+      - '-c'
+      - |
+        EXTRACT_MONTH=$(cat /workspace/extract_month.txt)
+
+        echo "CDP tests passed. Triggering segment-extract for ${EXTRACT_MONTH}..."
+
+        gcloud builds triggers run monthly-segment-transform \
+          --project="${PROJECT_ID}" \
+          --branch=main \
+          --substitutions="_EXTRACT_MONTH=${EXTRACT_MONTH}"
+
+        echo ""
+        echo "Segment-extract triggered for ${EXTRACT_MONTH}."
+        echo "Monitor: https://console.cloud.google.com/cloud-build/builds?project=${PROJECT_ID}"
+    waitFor: ['test-dbt-cdp']
+
+substitutions:
+  _ENVIRONMENT:   'int'
+  _FDP_PROJECT:   ''              # empty = use $PROJECT_ID
+  _FDP_DATASET:   'fdp_dataset'
+  _EXTRACT_MONTH: ''              # empty = auto-derive last calendar month
+
+options:
+  logging: CLOUD_LOGGING_ONLY
