@@ -19,6 +19,13 @@ from .integrity import IntegrityChecker, HashValidator, compute_checksum, valida
 from .lifecycle import FileLifecycleManager
 from .types import ArchiveResult, ArchiveStatus, BatchArchiveResult
 from .policy import ArchivePolicyEngine, ArchivePolicy, CollisionStrategy
+from .split_file_handler import (
+    SplitFileHandler,
+    SplitFilePart,
+    SplitFileSet,
+    SplitFileTimeoutError,
+    DEFAULT_PART_PATTERN,
+)
 from gcp_pipeline_core.file_management import (
     HeaderRecord,
     TrailerRecord,
@@ -65,5 +72,11 @@ __all__ = [
     'DEFAULT_HDR_PREFIX',
     'DEFAULT_TRL_PREFIX',
     'DEFAULT_PARSER_CONFIG',
+    # Split-file
+    'SplitFileHandler',
+    'SplitFilePart',
+    'SplitFileSet',
+    'SplitFileTimeoutError',
+    'DEFAULT_PART_PATTERN',
 ]
 
