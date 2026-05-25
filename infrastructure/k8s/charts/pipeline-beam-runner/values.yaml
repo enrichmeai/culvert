@@ -1,0 +1,44 @@
+# pipeline-beam-runner Helm Values
+
+flinkOperator:
+  version: "1.19.0"
+  enabled: true
+
+image:
+  repository: flink
+  tag: "1.19"
+  pullPolicy: IfNotPresent
+
+jobManager:
+  resources:
+    memory: 2048m
+    cpu: 1
+
+taskManager:
+  replicas: 4
+  resources:
+    memory: 4096m
+    cpu: 2
+  numberOfTaskSlots: 2
+
+checkpointing:
+  enabled: true
+  # storageDir must be set to a GCS bucket path
+  storageDir: ""
+
+gcs:
+  # Required: GCS bucket for checkpoints and state
+  bucket: ""
+
+parallelism:
+  default: 8
+
+serviceAccount:
+  create: true
+  name: pipeline-beam-runner
+  # Set gcpSaEmail to enable Workload Identity annotation
+  # Example: "pipeline-beam@my-project.iam.gserviceaccount.com"
+  gcpSaEmail: ""
+
+rbac:
+  create: true

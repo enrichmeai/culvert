@@ -1,0 +1,47 @@
+{{- if .Values.otelCollector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "pipeline-observability.fullname" . }}-otel-collector
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "pipeline-observability.labels" . | nindent 4 }}
+    app: otel-collector
+spec:
+  replicas: {{ .Values.otelCollector.replicas }}
+  selector:
+    matchLabels:
+      {{- include "pipeline-observability.selectorLabels" . | nindent 6 }}
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        {{- include "pipeline-observability.selectorLabels" . | nindent 8 }}
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: "{{ .Values.otelCollector.image.repository }}:{{ .Values.otelCollector.image.tag }}"
+        imagePullPolicy: {{ .Values.otelCollector.image.pullPolicy }}
+        ports:
+        - name: grpc
+          containerPort: 4317
+          protocol: TCP
+        - name: http
+          containerPort: 4318
+          protocol: TCP
+        resources:
+          requests:
+            cpu: {{ .Values.otelCollector.resources.requests.cpu | quote }}
+            memory: {{ .Values.otelCollector.resources.requests.memory | quote }}
+          limits:
+            cpu: {{ .Values.otelCollector.resources.limits.cpu | quote }}
+            memory: {{ .Values.otelCollector.resources.limits.memory | quote }}
+        volumeMounts:
+        - name: otel-config
+          mountPath: /etc/otel
+      volumes:
+      - name: otel-config
+        configMap:
+          name: {{ include "pipeline-observability.fullname" . }}-otel-config
+{{- end }}

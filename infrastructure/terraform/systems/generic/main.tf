@@ -1079,8 +1079,17 @@ resource "google_cloud_scheduler_job" "fdp_trigger_poller" {
 }
 
 # =============================================================================
-# MONTHLY SEGMENT EXTRACT
-# Cloud Build trigger (dbt CDP → Dataflow) + Cloud Scheduler (3rd of month)
+# MONTHLY CDP + SEGMENT PIPELINE
+#
+# Flow:
+#   Cloud Scheduler (2nd of month) → cdp-monthly-refresh Cloud Build
+#     → FDP readiness check → dbt CDP run → dbt test
+#     → triggers monthly-segment-transform Cloud Build
+#       → CDP readiness check → Dataflow launch
+#
+# Manual re-runs:
+#   Re-run full chain:  gcloud builds triggers run cdp-monthly-refresh --branch=main
+#   Re-run segment only: gcloud builds triggers run monthly-segment-transform --branch=main
 #
 # Prerequisites:
 #   - GitHub App connected to Cloud Build for var.github_repo
@@ -1091,29 +1100,119 @@ resource "google_cloud_scheduler_job" "fdp_trigger_poller" {
 #     (built by: gcloud builds submit --config deployments/mainframe-segment-transform/cloudbuild.yaml)
 # =============================================================================
 
-# Service account for Cloud Scheduler to invoke Cloud Build
-resource "google_service_account" "segment_monthly_scheduler" {
-  count        = var.enable_monthly_segment ? 1 : 0
-  project      = var.gcp_project_id
-  account_id   = "segment-monthly-sa"
-  display_name = "Monthly segment extract — Cloud Scheduler invoker"
+# Project number — needed to reference the default Cloud Build SA
+data "google_project" "project" {
+  project_id = var.gcp_project_id
 }
 
-# Allow the scheduler SA to trigger Cloud Build builds
-resource "google_project_iam_member" "segment_monthly_cloudbuild" {
+# Allow the default Cloud Build SA to trigger other Cloud Build builds
+# (needed for the CDP build to chain into the segment-transform build)
+resource "google_project_iam_member" "cloudbuild_sa_trigger_builds" {
   count   = var.enable_monthly_segment ? 1 : 0
   project = var.gcp_project_id
   role    = "roles/cloudbuild.builds.editor"
-  member  = "serviceAccount:${google_service_account.segment_monthly_scheduler[0].email}"
+  member  = "serviceAccount:${data.google_project.project.number}@cloudbuild.gserviceaccount.com"
 }
 
-# Cloud Build trigger (manual — no push/PR listener, called by Cloud Scheduler)
+# ---------------------------------------------------------------------------
+# CDP refresh: Cloud Build trigger + Cloud Scheduler (2nd of month)
+# ---------------------------------------------------------------------------
+
+# Service account for Cloud Scheduler → CDP Cloud Build
+resource "google_service_account" "cdp_monthly_scheduler" {
+  count        = var.enable_monthly_segment ? 1 : 0
+  project      = var.gcp_project_id
+  account_id   = "cdp-monthly-sa"
+  display_name = "Monthly CDP refresh — Cloud Scheduler invoker"
+}
+
+resource "google_project_iam_member" "cdp_monthly_cloudbuild" {
+  count   = var.enable_monthly_segment ? 1 : 0
+  project = var.gcp_project_id
+  role    = "roles/cloudbuild.builds.editor"
+  member  = "serviceAccount:${google_service_account.cdp_monthly_scheduler[0].email}"
+}
+
+# Cloud Build trigger for CDP refresh
+resource "google_cloudbuild_trigger" "cdp_refresh" {
+  count       = var.enable_monthly_segment ? 1 : 0
+  project     = var.gcp_project_id
+  name        = "cdp-monthly-refresh"
+  description = "Monthly CDP refresh: FDP readiness check → dbt run → dbt test → trigger segment"
+
+  source_to_build {
+    uri       = "https://github.com/${var.github_repo}"
+    ref       = "refs/heads/main"
+    repo_type = "GITHUB"
+  }
+
+  git_file_source {
+    path      = "deployments/fdp-to-consumable-product/cloudbuild-monthly.yaml"
+    uri       = "https://github.com/${var.github_repo}"
+    revision  = "refs/heads/main"
+    repo_type = "GITHUB"
+  }
+
+  substitutions = {
+    _ENVIRONMENT   = var.environment
+    _FDP_PROJECT   = var.fdp_project_id
+    _FDP_DATASET   = var.fdp_dataset != "" ? var.fdp_dataset : "fdp_dataset"
+    _EXTRACT_MONTH = ""
+  }
+}
+
+# Cloud Scheduler: fires on 2nd of each month at 06:00 UTC
+resource "google_cloud_scheduler_job" "cdp_refresh" {
+  count       = var.enable_monthly_segment ? 1 : 0
+  name        = "cdp-monthly-refresh"
+  region      = var.gcp_region
+  description = "Trigger monthly CDP refresh on 2nd of each month (chains to segment-extract on success)"
+  schedule    = var.cdp_refresh_schedule
+  time_zone   = "Etc/UTC"
+
+  attempt_deadline = "30s"
+
+  retry_config {
+    retry_count          = 0
+    max_retry_duration   = "0s"
+    min_backoff_duration = "5s"
+    max_backoff_duration = "3600s"
+    max_doublings        = 5
+  }
+
+  http_target {
+    http_method = "POST"
+    uri         = "https://cloudbuild.googleapis.com/v1/projects/${var.gcp_project_id}/triggers/${google_cloudbuild_trigger.cdp_refresh[0].trigger_id}:run"
+
+    headers = {
+      "Content-Type" = "application/json"
+    }
+
+    body = base64encode(jsonencode({
+      branchName = "main"
+    }))
+
+    oauth_token {
+      service_account_email = google_service_account.cdp_monthly_scheduler[0].email
+    }
+  }
+
+  depends_on = [google_project_iam_member.cdp_monthly_cloudbuild]
+}
+
+# ---------------------------------------------------------------------------
+# Segment extract: Cloud Build trigger (called by CDP build, or manually)
+# Cloud Scheduler removed — segment is chained from CDP, not time-triggered
+# ---------------------------------------------------------------------------
+
+# Cloud Build trigger for segment-extract (chained from CDP, or triggered manually)
+# NOTE: no Cloud Scheduler — segment is triggered by the CDP build on success.
 # NOTE: requires GitHub App to be connected in Cloud Build before terraform apply.
 resource "google_cloudbuild_trigger" "monthly_segment" {
   count       = var.enable_monthly_segment ? 1 : 0
   project     = var.gcp_project_id
   name        = "monthly-segment-transform"
-  description = "Monthly CDP refresh + mainframe segment extract (triggered by Cloud Scheduler)"
+  description = "Mainframe segment extract: CDP readiness check → Dataflow launch (chained from cdp-monthly-refresh)"
 
   source_to_build {
     uri       = "https://github.com/${var.github_repo}"
@@ -1129,50 +1228,9 @@ resource "google_cloudbuild_trigger" "monthly_segment" {
   }
 
   substitutions = {
-    _ENVIRONMENT   = var.environment
-    _FDP_PROJECT   = var.fdp_project_id
     _OUTPUT_BUCKET = "${var.gcp_project_id}-generic-${var.environment}-segments"
     _SEGMENT       = var.monthly_segment_segments
     _EXTRACT_MONTH = ""
     _REGION        = var.gcp_region
   }
-}
-
-# Cloud Scheduler: fires on 3rd of each month at 06:00 UTC
-resource "google_cloud_scheduler_job" "monthly_segment" {
-  count       = var.enable_monthly_segment ? 1 : 0
-  name        = "monthly-segment-transform"
-  region      = var.gcp_region
-  description = "Trigger monthly CDP refresh + segment extract on 3rd of each month"
-  schedule    = var.monthly_segment_schedule
-  time_zone   = "Etc/UTC"
-
-  attempt_deadline = "30s"
-
-  retry_config {
-    retry_count          = 0
-    max_retry_duration   = "0s"
-    min_backoff_duration = "5s"
-    max_backoff_duration = "3600s"
-    max_doublings        = 5
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://cloudbuild.googleapis.com/v1/projects/${var.gcp_project_id}/triggers/${google_cloudbuild_trigger.monthly_segment[0].trigger_id}:run"
-
-    headers = {
-      "Content-Type" = "application/json"
-    }
-
-    body = base64encode(jsonencode({
-      branchName = "main"
-    }))
-
-    oauth_token {
-      service_account_email = google_service_account.segment_monthly_scheduler[0].email
-    }
-  }
-
-  depends_on = [google_project_iam_member.segment_monthly_cloudbuild]
 }

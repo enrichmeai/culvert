@@ -1,0 +1,22 @@
+apiVersion: v2
+name: pipeline-system
+description: Umbrella Helm chart for the complete GCP data pipeline system
+type: application
+version: 1.0.0
+dependencies:
+  - name: pipeline-airflow
+    version: 1.0.0
+    repository: file://../../airflow
+    condition: pipeline-airflow.enabled
+  - name: pipeline-dbt-runner
+    version: 1.0.0
+    repository: file://../pipeline-dbt-runner
+    condition: pipeline-dbt-runner.enabled
+  - name: pipeline-beam-runner
+    version: 1.0.0
+    repository: file://../pipeline-beam-runner
+    condition: pipeline-beam-runner.enabled
+  - name: pipeline-observability
+    version: 1.0.0
+    repository: file://../pipeline-observability
+    condition: pipeline-observability.enabled

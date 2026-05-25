@@ -135,14 +135,14 @@ variable "github_repo" {
   default     = "enrichmeai/gcp-pipeline-reference"
 }
 
-variable "monthly_segment_schedule" {
-  description = "Cron schedule for the monthly segment extract. Default: 06:00 UTC on 3rd of each month (2 days after month-end)."
-  type        = string
-  default     = "0 6 3 * *"
-}
-
 variable "monthly_segment_segments" {
   description = "Comma-separated list of segments to process in the monthly extract. Currently only 'customer' is implemented."
   type        = string
   default     = "customer"
+}
+
+variable "cdp_refresh_schedule" {
+  description = "Cron schedule for the monthly CDP refresh. Default: 06:00 UTC on 2nd of each month (1 day after month-end). On success, chains to segment-extract automatically."
+  type        = string
+  default     = "0 6 2 * *"
 }

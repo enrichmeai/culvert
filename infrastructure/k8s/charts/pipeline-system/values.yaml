@@ -1,0 +1,82 @@
+# pipeline-system Umbrella Chart Values
+# Global configuration for the entire GCP data pipeline system
+
+# Global settings shared across all subcharts
+global:
+  system_id: "gcp-pipeline"
+  environment: "dev"
+  image_pull_secrets: []
+  cloud_sql_proxy:
+    enabled: false
+
+# Airflow subchart configuration
+# Deploy Airflow for orchestration
+pipeline-airflow:
+  enabled: true
+  # Defaults from apache-airflow/airflow Helm chart
+  # Override here as needed
+  executor: KubernetesExecutor
+  images:
+    airflow:
+      repository: apache/airflow
+      tag: 2.8.1-python3.11
+  postgresql:
+    enabled: true
+  redis:
+    enabled: false
+  webserver:
+    replicas: 1
+    service:
+      type: ClusterIP
+  scheduler:
+    replicas: 1
+  workers:
+    replicas: 0
+
+# dbt runner subchart configuration
+# Deploy scheduled dbt transformations
+pipeline-dbt-runner:
+  enabled: true
+  image:
+    repository: my-registry/pipeline-dbt-runner
+    tag: "1.7.14-1.0.29"
+  schedule:
+    transformation: "0 3 * * *"
+  gcs:
+    targetProject: ""
+  dbt:
+    project: bigquery-to-mapped-product
+    target: prod
+
+# Beam/Flink runner subchart configuration
+# Deploy Flink for beam pipelines (optional)
+pipeline-beam-runner:
+  enabled: false
+  flinkOperator:
+    enabled: true
+    version: "1.19.0"
+  gcs:
+    bucket: ""
+  jobManager:
+    resources:
+      memory: 2048m
+      cpu: 1
+  taskManager:
+    replicas: 4
+    resources:
+      memory: 4096m
+      cpu: 2
+
+# Observability subchart configuration
+# Deploy OTEL, Prometheus, Grafana
+pipeline-observability:
+  enabled: true
+  otelCollector:
+    enabled: true
+    image:
+      tag: "0.95.0"
+  prometheus:
+    enabled: true
+    retention: "15d"
+  grafana:
+    enabled: true

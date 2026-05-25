@@ -1,0 +1,121 @@
+# flinksessionjob-python-portable.yaml
+#
+# Example FlinkSessionJob resource for a Beam Python pipeline running via the
+# Apache Beam Portable Runner on this chart's Flink session cluster.
+#
+# WHY PYTHON ON FLINK IS MORE INVOLVED THAN JAVA
+# -----------------------------------------------
+# Java Beam pipelines compile to a single FAT-JAR that the Flink Operator can
+# fetch directly from GCS and submit via the standard Flink job-submission API.
+#
+# Python pipelines work differently: the Beam portable runner splits execution
+# across two processes -
+#
+#   1. The "driver" process (Python) translates the Beam pipeline graph into
+#      a Flink-compatible portable pipeline proto and submits it to Flink.
+#   2. One or more "SDK worker" processes (also Python) execute the user's DoFn
+#      code inside each Flink TaskManager slot.
+#
+# This means:
+#   * A Python-capable Docker image must be available as the job image.
+#   * An expansion service may be needed for cross-language transforms (e.g.
+#     BigQuery I/O when called from Python).
+#   * The --environment_type and --environment_config args must point to a
+#     Docker image that contains your pipeline wheel.
+#   * Dependency management is more complex: the wheel must be pre-installed in
+#     the image or supplied via --sdk_worker_parallelism / requirements file.
+#
+# For teams starting fresh, prefer the Java runner example
+# (flinksessionjob-ingestion.yaml) where possible.
+# Reference: https://beam.apache.org/documentation/runners/flink/
+
+apiVersion: flink.apache.org/v1beta1
+kind: FlinkSessionJob
+
+metadata:
+  # Naming convention matches the Java example; adjust for your entity/date.
+  name: pipeline-ingestion-customers-python-20260512
+  namespace: pipeline
+
+  labels:
+    app.kubernetes.io/part-of: pipeline-beam-runner
+    pipeline/runner-type: python-portable
+    pipeline/entity: customers
+
+spec:
+  # ---------------------------------------------------------------------------
+  # deploymentName - must match the FlinkDeployment created by this chart.
+  # Default release name produces "pipeline-beam-runner".
+  # ---------------------------------------------------------------------------
+  deploymentName: pipeline-beam-runner   # <-- adjust if release name differs
+
+  job:
+    # -------------------------------------------------------------------------
+    # jarURI - for the Python portable runner, use the Beam portable runner
+    # launcher JAR provided by the flink image.  This JAR acts as a bridge
+    # between Flink and the Python SDK worker processes.
+    # The correct JAR ships inside the official Beam Flink runner release:
+    #   https://repo1.maven.org/maven2/org/apache/beam/
+    #     beam-runners-flink-1.19-job-server/
+    # Upload it to your GCS bucket and reference it here.
+    # -------------------------------------------------------------------------
+    jarURI: gs://pipeline-artifacts/beam-pipelines/beam-runners-flink-job-server-2.56.0.jar
+
+    # -------------------------------------------------------------------------
+    # entryClass - the portable runner job server entry point.
+    # -------------------------------------------------------------------------
+    entryClass: org.apache.beam.runners.flink.FlinkJobServerDriver
+
+    parallelism: 8
+    upgradeMode: stateless
+
+    args:
+      # -----------------------------------------------------------------------
+      # Job server args - tell the job server where to listen and where to find
+      # the session cluster.
+      # -----------------------------------------------------------------------
+      - "--job-host=localhost"
+      - "--job-port=8099"
+      - "--artifact-port=8098"
+      - "--expansion-port=8097"
+      - "--flink-master=auto"
+      - "--flink-conf-dir=/opt/flink/conf"
+
+      # -----------------------------------------------------------------------
+      # Python pipeline submission is handled by launching the pipeline via
+      # `python -m apache_beam` from a separate init container or operator job.
+      # The pipeline options below are passed when you invoke the Python script:
+      #
+      #   python customers_ingestion.py \
+      #     --runner=FlinkRunner \
+      #     --flink_master=<REST_ENDPOINT>:8081 \
+      #     --environment_type=DOCKER \
+      #     --environment_config=gcr.io/my-project/beam-python-pipeline:latest \
+      #     --parallelism=8 \
+      #     --inputFile=gs://pipeline-source-data/customers/20260512/customers.csv \
+      #     --outputTable=my-gcp-project:pipeline_dataset.customers \
+      #     --errorBucket=gs://pipeline-errors/customers/20260512/ \
+      #     --runId=20260512 \
+      #     --tempLocation=gs://pipeline-artifacts/beam-temp/customers/20260512/
+      #
+      # NOTE: --environment_config must reference a Docker image that has your
+      # Python pipeline wheel installed.  Build it from deployments/
+      # original-data-to-bigqueryload/ Dockerfile, swap the runner import, and
+      # push to GCR/Artifact Registry.
+      # -----------------------------------------------------------------------
+
+# =============================================================================
+# EXPANSION SERVICE (cross-language transforms)
+# =============================================================================
+# If your Python pipeline uses Beam's built-in BigQuery or Kafka I/O, you need
+# an expansion service.  Deploy it as a separate Kubernetes Deployment:
+#
+#   kubectl run beam-expansion-service \
+#     --image=apache/beam_java11_sdk:2.56.0 \
+#     --port=8097 \
+#     --command -- java -jar /opt/apache/beam/jars/beam-sdks-java-io-expansion-service.jar \
+#       --expansionServicePort=8097
+#
+# Then pass --expansion_service_addr=beam-expansion-service:8097 to your
+# Python pipeline invocation.
+# =============================================================================
