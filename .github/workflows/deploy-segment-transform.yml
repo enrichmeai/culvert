@@ -29,9 +29,38 @@ permissions:
   contents: read
 
 jobs:
+  test:
+    name: Test mainframe-segment-transform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest pytest-mock pytest-cov
+          # Libraries (core first — required by transitive deps)
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-core
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
+          pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+          # Deployment package
+          pip install -e deployments/mainframe-segment-transform
+
+      - name: Run tests
+        run: |
+          pytest deployments/mainframe-segment-transform/tests -v --tb=short
+
   build-flex-template:
     name: Build Dataflow Flex Template
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -9,6 +9,9 @@ on:
 env:
   PYTHON_VERSION: '3.11'
 
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint & Format
@@ -27,30 +30,37 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8 black isort
 
-    - name: Lint gcp-pipeline-core
+    # Strict pass: real errors (syntax, undefined names) fail the build.
+    # Config for line length / complexity lives in .flake8 at repo root.
+    - name: Flake8 (blocking — syntax/undefined)
       run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src \
+               gcp-pipeline-libraries/gcp-pipeline-beam/src \
+               gcp-pipeline-libraries/gcp-pipeline-orchestration/src \
+               gcp-pipeline-libraries/gcp-pipeline-transform/src \
+               gcp-pipeline-libraries/gcp-pipeline-tester/src \
+          --count --select=E9,F63,F7,F82 --show-source --statistics
 
-    - name: Lint gcp-pipeline-beam
+    # Advisory pass: style / complexity. Non-blocking until the codebase is clean.
+    # TODO: drop --exit-zero once `pre-commit run --all-files` is clean locally.
+    - name: Flake8 (advisory — style/complexity)
       run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-beam/src --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 gcp-pipeline-libraries/gcp-pipeline-beam/src --count --exit-zero --max-complexity=10 --max-line-length=100 --statistics
+        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src \
+               gcp-pipeline-libraries/gcp-pipeline-beam/src \
+               gcp-pipeline-libraries/gcp-pipeline-orchestration/src \
+               gcp-pipeline-libraries/gcp-pipeline-transform/src \
+               gcp-pipeline-libraries/gcp-pipeline-tester/src \
+          --count --exit-zero --statistics
 
-    - name: Lint gcp-pipeline-orchestration
+    - name: Check formatting (black) — advisory
       run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-orchestration/src --count --select=E9,F63,F7,F82 --show-source --statistics
-
-    - name: Lint gcp-pipeline-tester
-      run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-tester/src --count --select=E9,F63,F7,F82 --show-source --statistics
-
-    - name: Check formatting (black)
-      run: |
-        black --check gcp-pipeline-libraries/gcp-pipeline-core/src || true
-        black --check gcp-pipeline-libraries/gcp-pipeline-beam/src || true
-        black --check gcp-pipeline-libraries/gcp-pipeline-orchestration/src || true
-        black --check gcp-pipeline-libraries/gcp-pipeline-tester/src || true
+        # TODO: drop `|| true` once `pre-commit run black --all-files` is clean locally.
+        black --check --line-length=100 \
+          gcp-pipeline-libraries/gcp-pipeline-core/src \
+          gcp-pipeline-libraries/gcp-pipeline-beam/src \
+          gcp-pipeline-libraries/gcp-pipeline-orchestration/src \
+          gcp-pipeline-libraries/gcp-pipeline-transform/src \
+          gcp-pipeline-libraries/gcp-pipeline-tester/src || true
 
   test-core:
     name: Test gcp-pipeline-core
