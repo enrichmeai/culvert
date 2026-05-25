@@ -100,9 +100,18 @@ shared_macros/
 *.pyc
 *.pyo
 
-# Local prompts
+# Local prompts and session scratchpads
 NEXT_PROMPT.md
 ANALYSIS_AND_PROMPT.md
+docs/COPILOT_NEXT_SESSION_PROMPT.md
+
+# Claude Code local settings (per-user, not shared)
+.claude/
+
+# Scratch CLI output and test logs that should never be committed
+/1pip
+/transform_log.txt
+**/tester_tests.log
 
 
 # Additional venv directories
