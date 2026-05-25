@@ -27,6 +27,8 @@ on:
       - 'deployments/original-data-to-bigqueryload/**'
       - 'deployments/bigquery-to-mapped-product/**'
       - 'deployments/fdp-to-consumable-product/**'
+      - 'deployments/mainframe-segment-transform/**'
+      - 'deployments/fdp-trigger/**'
       # NOTE: data-pipeline-orchestrator is excluded — Composer is opt-in only
       - 'infrastructure/**'
       - '.github/workflows/deploy-generic.yml'
@@ -74,10 +76,19 @@ jobs:
   detect-changes:
     name: Detect Changed Deployments
     runs-on: ubuntu-latest
+    # Gate: push triggers only run when commit message contains [deploy]
+    # or [publish:deploy]. workflow_dispatch always runs.
+    # Prevents accidental deploys on every push.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(github.event.head_commit.message, '[deploy]') ||
+      contains(github.event.head_commit.message, '[publish:deploy]')
     outputs:
       ingestion: ${{ steps.changes.outputs.ingestion }}
       transformation: ${{ steps.changes.outputs.transformation }}
       cdp: ${{ steps.changes.outputs.cdp }}
+      segment: ${{ steps.changes.outputs.segment }}
+      fdp_trigger: ${{ steps.changes.outputs.fdp_trigger }}
       orchestration: ${{ steps.changes.outputs.orchestration }}
       infrastructure: ${{ steps.changes.outputs.infrastructure }}
       workflow: ${{ steps.changes.outputs.workflow }}
@@ -97,6 +108,8 @@ jobs:
           echo "ingestion=true" >> $GITHUB_OUTPUT
           echo "transformation=true" >> $GITHUB_OUTPUT
           echo "cdp=true" >> $GITHUB_OUTPUT
+          echo "segment=true" >> $GITHUB_OUTPUT
+          echo "fdp_trigger=true" >> $GITHUB_OUTPUT
           echo "orchestration=${DEPLOY_COMPOSER}" >> $GITHUB_OUTPUT
           echo "infrastructure=true" >> $GITHUB_OUTPUT
           echo "workflow=true" >> $GITHUB_OUTPUT
@@ -110,6 +123,8 @@ jobs:
           echo "ingestion=$(echo "$CHANGED" | grep -q '^deployments/original-data-to-bigqueryload/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "transformation=$(echo "$CHANGED" | grep -q '^deployments/bigquery-to-mapped-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "cdp=$(echo "$CHANGED" | grep -q '^deployments/fdp-to-consumable-product/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "segment=$(echo "$CHANGED" | grep -q '^deployments/mainframe-segment-transform/' && echo true || echo false)" >> $GITHUB_OUTPUT
+          echo "fdp_trigger=$(echo "$CHANGED" | grep -q '^deployments/fdp-trigger/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "orchestration=false" >> $GITHUB_OUTPUT
           echo "infrastructure=$(echo "$CHANGED" | grep -q '^infrastructure/' && echo true || echo false)" >> $GITHUB_OUTPUT
           echo "workflow=$(echo "$CHANGED" | grep -q '^.github/workflows/deploy-generic.yml' && echo true || echo false)" >> $GITHUB_OUTPUT
@@ -123,7 +138,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'push'
+      (github.event_name == 'push' && (contains(github.event.head_commit.message, '[deploy]') || contains(github.event.head_commit.message, '[publish:deploy]')))
     outputs:
       version: ${{ steps.get-version.outputs.version }}
 
@@ -197,6 +212,25 @@ jobs:
         pip install -e ".[dev]"
         pytest tests/ -v --tb=short
 
+    - name: Test mainframe-segment-transform
+      run: |
+        cd deployments/mainframe-segment-transform
+        pip install -e ".[dev]" || pip install -e .
+        pytest tests/ -v --tb=short
+
+    - name: Test data-pipeline-orchestrator
+      run: |
+        cd deployments/data-pipeline-orchestrator
+        pip install -e ".[dev]" || pip install -e . || true
+        pytest tests/ -v --tb=short
+
+    - name: Test fdp-trigger
+      run: |
+        cd deployments/fdp-trigger
+        pip install -r requirements.txt || true
+        pip install pytest pytest-mock
+        pytest tests/ -v --tb=short
+
   # ==========================================================================
   # Deploy Infrastructure
   # ==========================================================================
@@ -245,6 +279,8 @@ jobs:
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
         TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
+        TF_VAR_enable_monthly_segment: "true"
+        TF_VAR_cdp_refresh_schedule: "0 6 2 * *"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -261,6 +297,8 @@ jobs:
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
         TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
+        TF_VAR_enable_monthly_segment: "true"
+        TF_VAR_cdp_refresh_schedule: "0 6 2 * *"
       run: |
         cd infrastructure/terraform/systems/generic
         PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}"
@@ -346,6 +384,8 @@ jobs:
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
         TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
+        TF_VAR_enable_monthly_segment: "true"
+        TF_VAR_cdp_refresh_schedule: "0 6 2 * *"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -362,6 +402,8 @@ jobs:
         TF_VAR_force_destroy: "true"
         TF_VAR_enable_versioning: "true"
         TF_VAR_enable_composer: ${{ github.event.inputs.deploy_composer || 'false' }}
+        TF_VAR_enable_monthly_segment: "true"
+        TF_VAR_cdp_refresh_schedule: "0 6 2 * *"
       run: |
         cd infrastructure/terraform/systems/generic
         ENV="${{ github.event.inputs.environment || 'int' }}"
@@ -502,7 +544,7 @@ jobs:
     name: Deploy CDP Models (consumable product)
     runs-on: ubuntu-latest
     needs: [fetch-version, deploy-infrastructure, deploy-dbt, detect-changes]
-    if: false  # CDP disabled until image is rebuilt with dbt deps fix
+    if: needs.detect-changes.outputs.cdp == 'true' || needs.detect-changes.outputs.workflow == 'true'
     timeout-minutes: 45
     environment: ${{ github.event.inputs.environment || 'int' }}
     continue-on-error: true
@@ -537,6 +579,76 @@ jobs:
           --substitutions _PROJECT_ID=${{ secrets.GCP_PROJECT_ID }} \
           --project ${{ secrets.GCP_PROJECT_ID }} \
           deployments/fdp-to-consumable-product/dbt
+
+  # ==========================================================================
+  # Deploy Segment Transform (mainframe-segment-transform)
+  # ==========================================================================
+  deploy-segment:
+    name: Deploy Segment Transform
+    runs-on: ubuntu-latest
+    needs: [fetch-version, deploy-infrastructure, detect-changes]
+    if: needs.detect-changes.outputs.segment == 'true' || needs.detect-changes.outputs.workflow == 'true'
+    timeout-minutes: 60
+    environment: ${{ github.event.inputs.environment || 'int' }}
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build and Push Segment Transform Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building segment-transform image with gcp-pipeline-framework==$VERSION"
+        gcloud builds submit . \
+          --config deployments/mainframe-segment-transform/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=3300s
+
+  # ==========================================================================
+  # Deploy FDP Trigger (fdp-trigger Cloud Run service)
+  # ==========================================================================
+  deploy-fdp-trigger:
+    name: Deploy FDP Trigger (Cloud Run)
+    runs-on: ubuntu-latest
+    needs: [fetch-version, deploy-infrastructure, detect-changes]
+    if: needs.detect-changes.outputs.fdp_trigger == 'true' || needs.detect-changes.outputs.workflow == 'true'
+    timeout-minutes: 60
+    environment: ${{ github.event.inputs.environment || 'int' }}
+    continue-on-error: true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+    - name: Setup Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+
+    - name: Build and Push FDP Trigger Image
+      env:
+        LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
+      run: |
+        VERSION="${LIBRARY_VERSION}"
+        echo "Building fdp-trigger image with gcp-pipeline-framework==$VERSION"
+        gcloud builds submit . \
+          --config deployments/fdp-trigger/cloudbuild.yaml \
+          --substitutions _LIBRARY_VERSION=$VERSION \
+          --project ${{ secrets.GCP_PROJECT_ID }} \
+          --timeout=2400s
 
   # ==========================================================================
   # Deploy Airflow DAGs (data-pipeline-orchestrator)
@@ -696,7 +808,7 @@ jobs:
   validate:
     name: Validate Deployment
     runs-on: ubuntu-latest
-    needs: [fetch-version, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-airflow]
+    needs: [fetch-version, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-segment, deploy-airflow]
     if: needs.deploy-infrastructure.result == 'success'
     timeout-minutes: 10
     environment: ${{ github.event.inputs.environment || 'int' }}
@@ -841,7 +953,7 @@ jobs:
   summary:
     name: Deployment Summary
     runs-on: ubuntu-latest
-    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-airflow, validate]
+    needs: [fetch-version, test, deploy-infrastructure, deploy-dataflow, deploy-dbt, deploy-cdp, deploy-segment, deploy-airflow, validate]
     if: always()
 
     steps:
@@ -865,6 +977,7 @@ jobs:
         echo "| original-data-to-bigqueryload | Dataflow Template | ${{ needs.deploy-dataflow.result == 'success' && '✅' || needs.deploy-dataflow.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| bigquery-to-mapped-product | dbt Models (MAP) | ${{ needs.deploy-dbt.result == 'success' && '✅' || needs.deploy-dbt.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| fdp-to-consumable-product | dbt Models (CDP) | ${{ needs.deploy-cdp.result == 'success' && '✅' || needs.deploy-cdp.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| mainframe-segment-transform | Segment Transform | ${{ needs.deploy-segment.result == 'success' && '✅' || needs.deploy-segment.result == 'skipped' && '⏭️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| data-pipeline-orchestrator | Airflow DAGs (opt-in) | ${{ needs.deploy-airflow.result == 'success' && '✅' || needs.deploy-airflow.result == 'skipped' && '⏭️ (Composer disabled)' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
 
