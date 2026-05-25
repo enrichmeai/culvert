@@ -1,0 +1,82 @@
+# =============================================================================
+# .dockerignore — pipeline-dbt-runner
+# =============================================================================
+
+# Python artefacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.whl
+pip-wheel-metadata/
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+
+# dbt artefacts (generated at runtime, not baked in)
+target/
+dbt_packages/
+logs/
+.dbt/
+
+# Tests
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+*.coveragerc
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# IDE / editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Helm / Kubernetes files (not needed in image)
+templates/
+Chart.yaml
+values*.yaml
+*.tpl
+*.helmignore
+
+# Docs
+README.md
+CHANGELOG.md
+*.rst
+
+# Makefile
+Makefile
+
+# CI
+.pre-commit-config.yaml
+.flake8
+.mypy.ini
+pyproject.toml
+setup.cfg
+
+# Secrets / credentials (never bake these in)
+*.json
+*.pem
+*.key
+*.crt
+service-account*.json
+credentials*.json

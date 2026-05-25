@@ -1,0 +1,6 @@
+apiVersion: v2
+name: pipeline-dbt-runner
+description: A Helm chart for dbt runner as Kubernetes CronJob with Job template for Airflow KubernetesPodOperator
+type: application
+version: 1.0.0
+appVersion: "1.7.14"

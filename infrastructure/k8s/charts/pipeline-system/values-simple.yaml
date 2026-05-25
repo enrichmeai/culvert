@@ -1,0 +1,46 @@
+# Simple values for first deployment - minimal resources, dev setup
+
+global:
+  system_id: "gcp-pipeline"
+  environment: "dev"
+
+pipeline-airflow:
+  enabled: true
+  images:
+    airflow:
+      repository: apache/airflow
+      tag: 2.8.1-python3.11
+  webserver:
+    replicas: 1
+  scheduler:
+    replicas: 1
+  workers:
+    replicas: 0
+
+pipeline-dbt-runner:
+  enabled: true
+  image:
+    repository: my-registry/pipeline-dbt-runner
+    tag: "1.7.14-1.0.29"
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  gcs:
+    targetProject: my-project
+
+pipeline-beam-runner:
+  enabled: false
+
+pipeline-observability:
+  enabled: true
+  otelCollector:
+    enabled: true
+  prometheus:
+    enabled: true
+    retention: "7d"
+  grafana:
+    enabled: true

@@ -22,29 +22,31 @@ postgresql:
 redis:
   enabled: false
 
-# Web server
+# Web server (minimised for e2-small spot node)
 webserver:
   replicas: 1
   resources:
     requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
       memory: "512Mi"
       cpu: "250m"
-    limits:
-      memory: "1Gi"
-      cpu: "500m"
   service:
-    type: LoadBalancer
+    # ClusterIP instead of LoadBalancer — saves ~£18/mo
+    # Access via: kubectl port-forward svc/airflow-webserver 8080:8080 -n airflow
+    type: ClusterIP
 
-# Scheduler
+# Scheduler (minimised for e2-small spot node)
 scheduler:
   replicas: 1
   resources:
     requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
       memory: "512Mi"
       cpu: "250m"
-    limits:
-      memory: "1Gi"
-      cpu: "500m"
 
 # Workers (KubernetesExecutor creates pods dynamically)
 workers:
@@ -96,11 +98,11 @@ extraContainers:
         mountPath: /opt/airflow/dags
     resources:
       requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
         memory: "128Mi"
         cpu: "100m"
-      limits:
-        memory: "256Mi"
-        cpu: "200m"
 
 # Service account with Workload Identity
 serviceAccount:

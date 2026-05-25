@@ -65,12 +65,17 @@ output "fdp_trigger_scheduler_job" {
   value = var.enable_fdp_trigger ? google_cloud_scheduler_job.fdp_trigger_poller[0].name : "disabled"
 }
 
-output "monthly_segment_trigger_id" {
-  value       = var.enable_monthly_segment ? google_cloudbuild_trigger.monthly_segment[0].trigger_id : "disabled"
-  description = "Cloud Build trigger ID for the monthly segment extract"
+output "cdp_refresh_trigger_id" {
+  value       = var.enable_monthly_segment ? google_cloudbuild_trigger.cdp_refresh[0].trigger_id : "disabled"
+  description = "Cloud Build trigger ID for the monthly CDP refresh (entry point for the monthly pipeline)"
 }
 
-output "monthly_segment_scheduler_job" {
-  value       = var.enable_monthly_segment ? google_cloud_scheduler_job.monthly_segment[0].name : "disabled"
-  description = "Cloud Scheduler job name for the monthly segment extract (cron: 3rd of each month)"
+output "cdp_refresh_scheduler_job" {
+  value       = var.enable_monthly_segment ? google_cloud_scheduler_job.cdp_refresh[0].name : "disabled"
+  description = "Cloud Scheduler job name for the CDP refresh (cron: 2nd of each month, chains to segment on success)"
+}
+
+output "monthly_segment_trigger_id" {
+  value       = var.enable_monthly_segment ? google_cloudbuild_trigger.monthly_segment[0].trigger_id : "disabled"
+  description = "Cloud Build trigger ID for segment-extract (triggered by CDP build, or manually)"
 }

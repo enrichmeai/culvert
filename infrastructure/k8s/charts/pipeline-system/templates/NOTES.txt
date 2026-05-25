@@ -1,0 +1,28 @@
+================================================================
+  gcp-pipeline-framework — installed
+================================================================
+
+System ID:   {{ .Values.global.system_id | default "generic" }}
+Environment: {{ .Values.global.environment | default "dev" }}
+
+Component sub-charts that were enabled:
+{{- if (index .Values "pipeline-airflow" "enabled") }}
+  ✓ pipeline-airflow            (assets under infrastructure/k8s/airflow/)
+{{- end }}
+{{- if (index .Values "pipeline-dbt-runner" "enabled") }}
+  ✓ pipeline-dbt-runner
+{{- end }}
+{{- if (index .Values "pipeline-beam-runner" "enabled") }}
+  ✓ pipeline-beam-runner
+{{- end }}
+{{- if (index .Values "pipeline-observability" "enabled") }}
+  ✓ pipeline-observability
+{{- end }}
+
+Next steps:
+  • View status:        helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+  • Tail Airflow logs:  kubectl logs -n {{ .Release.Namespace }} -l app=airflow-scheduler -f
+  • Verify dbt CronJob: kubectl get cronjobs -n {{ .Release.Namespace }}
+
+See the book's Chapter 14 for the full operational story.
+================================================================

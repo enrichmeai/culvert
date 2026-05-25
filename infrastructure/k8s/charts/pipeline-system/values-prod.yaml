@@ -1,0 +1,97 @@
+# Production values - high availability, monitoring, security
+
+global:
+  system_id: "gcp-pipeline"
+  environment: "prod"
+  image_pull_secrets: []
+
+pipeline-airflow:
+  enabled: true
+  images:
+    airflow:
+      repository: gcr.io/my-project/airflow-custom
+      tag: "2.8.1-latest"
+  webserver:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  scheduler:
+    replicas: 2
+    resources:
+      requests:
+        cpu: 500m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  postgresql:
+    enabled: true
+    primary:
+      resources:
+        requests:
+          cpu: 250m
+          memory: 256Mi
+        limits:
+          cpu: 1000m
+          memory: 1Gi
+
+pipeline-dbt-runner:
+  enabled: true
+  image:
+    repository: gcr.io/my-project/pipeline-dbt-runner
+    tag: "1.7.14-1.0.29"
+  schedule:
+    transformation: "0 3 * * *"
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+  gcs:
+    targetProject: my-project
+  serviceAccount:
+    gcpSaEmail: pipeline-dbt@my-project.iam.gserviceaccount.com
+
+pipeline-beam-runner:
+  enabled: true
+  flinkOperator:
+    enabled: true
+  gcs:
+    bucket: gs://my-project-flink-checkpoints
+  jobManager:
+    resources:
+      memory: 4096m
+      cpu: 2
+  taskManager:
+    replicas: 8
+    resources:
+      memory: 8192m
+      cpu: 4
+    numberOfTaskSlots: 4
+
+pipeline-observability:
+  enabled: true
+  otelCollector:
+    enabled: true
+    replicas: 2
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+  prometheus:
+    enabled: true
+    retention: "30d"
+    replicas: 2
+  grafana:
+    enabled: true
+    replicas: 2
