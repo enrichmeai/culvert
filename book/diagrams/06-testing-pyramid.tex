@@ -1,0 +1,67 @@
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage{tikz}
+\usepackage{fontspec}
+\setmainfont{DejaVu Sans}
+\setsansfont{DejaVu Sans}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc, fit, backgrounds}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  every node/.style={font=\sffamily\small},
+  box/.style={draw=black!50, line width=0.6pt, rounded corners=4pt, minimum width=2.4cm, minimum height=1cm, align=center, inner sep=4pt},
+  src/.style={box, fill=blue!10},
+  storage/.style={box, fill=green!10},
+  compute/.style={box, fill=yellow!15},
+  output/.style={box, fill=purple!15},
+  control/.style={box, fill=gray!15, font=\sffamily\footnotesize\itshape},
+  err/.style={box, fill=red!10},
+  arrow/.style={-{Stealth[length=4pt]}, line width=0.6pt, draw=black!70},
+  dashed-arrow/.style={arrow, dashed, draw=black!50},
+  caption/.style={font=\sffamily\footnotesize, text=black!60}
+]
+
+% Pyramid dimensions
+% Base at y=0, apex at y=6
+% Each level is a trapezoid
+
+% BASE LEVEL: Mode A (green fill)
+\fill[green!40, draw=black!40, line width=0.6pt]
+  (-5.0, 0) -- (5.0, 0) -- (3.2, 2.0) -- (-3.2, 2.0) -- cycle;
+\node[font=\sffamily\small\bfseries, align=center] at (0, 0.8)
+  {Mode A --- single-task Python invocation};
+\node[caption, align=center] at (0, 0.28)
+  {every save $\cdot$ < 1 second $\cdot$ 70\% of tests};
+
+% MIDDLE LEVEL: Mode B (yellow fill)
+\fill[yellow!60, draw=black!40, line width=0.6pt]
+  (-3.2, 2.0) -- (3.2, 2.0) -- (1.8, 4.0) -- (-1.8, 4.0) -- cycle;
+\node[font=\sffamily\small\bfseries, align=center] at (0, 2.95)
+  {Mode B --- local SQLite \texttt{airflow dags test}};
+\node[caption, align=center] at (0, 2.45)
+  {every push $\cdot$ < 30 seconds $\cdot$ 20\%};
+
+% TOP LEVEL: Mode C (orange-red fill)
+\fill[orange!70, draw=black!40, line width=0.6pt]
+  (-1.8, 4.0) -- (1.8, 4.0) -- (0.6, 6.0) -- (-0.6, 6.0) -- cycle;
+\node[font=\sffamily\small\bfseries, align=center, text width=3.2cm] at (0, 5.15)
+  {Mode C --- Docker Compose full stack};
+\node[caption, align=center, text width=3.4cm] at (0, 4.6)
+  {before release $\cdot$ $\sim$2 min $\cdot$ 8\%};
+
+% APEX STAR / FLAG
+\node[draw=red!70, fill=red!20, line width=0.8pt, rounded corners=4pt,
+      minimum width=4.5cm, minimum height=0.9cm, align=center]
+  (smoke) at (0, 7.3) {Real-GCP smoke test};
+\node[caption, align=center] at (0, 6.7)
+  {nightly + release tags $\cdot$ $\sim$8 min $\cdot$ 2\%};
+
+% Arrow from apex to smoke
+\draw[arrow] (0, 6.0) -- (smoke.south);
+
+% Cost label on side
+\node[caption, rotate=68, text=black!50] at (-5.6, 3.0) {cheap / fast};
+\node[caption, rotate=68, text=black!50] at (5.6, 3.0) {costly / slow};
+\draw[-{Stealth[length=4pt]}, draw=black!30, line width=0.5pt] (-5.2, 0.5) -- (-5.2, 5.8);
+
+\end{tikzpicture}
+\end{document}

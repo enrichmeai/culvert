@@ -1,0 +1,59 @@
+\documentclass[tikz,border=8pt]{standalone}
+\usepackage{tikz}
+\usepackage{fontspec}
+\setmainfont{DejaVu Sans}
+\setsansfont{DejaVu Sans}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc, fit, backgrounds}
+\begin{document}
+\begin{tikzpicture}[
+  font=\sffamily\small,
+  every node/.style={font=\sffamily\small},
+  box/.style={draw=black!50, line width=0.6pt, rounded corners=4pt, minimum width=2.4cm, minimum height=1cm, align=center, inner sep=4pt},
+  src/.style={box, fill=blue!10},
+  storage/.style={box, fill=green!10},
+  compute/.style={box, fill=yellow!15},
+  output/.style={box, fill=purple!15},
+  control/.style={box, fill=gray!15, font=\sffamily\footnotesize\itshape},
+  err/.style={box, fill=red!10},
+  arrow/.style={-{Stealth[length=4pt]}, line width=0.6pt, draw=black!70},
+  dashed-arrow/.style={arrow, dashed, draw=black!50},
+  caption/.style={font=\sffamily\footnotesize, text=black!60}
+]
+
+% Title
+\node[font=\sffamily\normalsize\bfseries, text=black!80] (title) at (5.5, 3.5)
+  {JOIN vs MAP --- two FDP transformation patterns};
+
+% Divider
+\draw[line width=0.8pt, draw=black!30] (5.5, 3.1) -- (5.5, -3.5);
+
+% === LEFT: JOIN pattern ===
+\node[font=\sffamily\small\bfseries] at (2.0, 2.8) {JOIN pattern};
+
+\node[src, minimum width=3.2cm]     (cust) at (1.0, 1.8)  {customers ODP};
+\node[src, minimum width=3.2cm]     (acct) at (3.2, 1.8)  {accounts ODP};
+\node[storage, minimum width=3.2cm] (fdp1) at (2.1, 0.3)  {event\_transaction\_excess\\FDP};
+
+\draw[arrow] (cust.south) to[out=-90,in=130] (fdp1.north west);
+\draw[arrow] (acct.south) to[out=-90,in=50]  (fdp1.north east);
+
+\node[caption, text width=4.2cm, align=center] at (2.1, -0.7)
+  {Trigger: \textbf{all} sources loaded\\for extract\_date};
+
+% === RIGHT: MAP pattern ===
+\node[font=\sffamily\small\bfseries] at (9.0, 2.8) {MAP pattern};
+
+\node[src, minimum width=3.2cm]     (dec) at (7.0, 1.8)   {decision ODP};
+\node[storage, minimum width=3.2cm] (fdp2) at (10.2, 1.8) {portfolio\_account\_excess\\FDP};
+
+\node[src, minimum width=3.2cm]     (app) at (7.0, 0.3)   {applications ODP};
+\node[storage, minimum width=3.2cm] (fdp3) at (10.2, 0.3) {portfolio\_account\_facility\\FDP};
+
+\draw[arrow] (dec.east) -- (fdp2.west);
+\draw[arrow] (app.east) -- (fdp3.west);
+
+\node[caption, text width=4.2cm, align=center] at (8.6, -0.7)
+  {Trigger: source loaded\\(fires immediately)};
+
+\end{tikzpicture}
+\end{document}

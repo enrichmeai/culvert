@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 400" width="1600" height="400"
+     font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+
+  <defs>
+    <marker id="arrow-yellow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0,0 10,3.5 0,7" fill="#F59E0B"/>
+    </marker>
+    <marker id="arrow-purple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0,0 10,3.5 0,7" fill="#8B5CF6"/>
+    </marker>
+  </defs>
+
+  <!-- White background -->
+  <rect width="1600" height="400" fill="#ffffff"/>
+  <rect x="0" y="0" width="1600" height="4" fill="#F59E0B"/>
+
+  <!-- ═══════════════════════════════════════════════
+       LEFT: Laptop outline (dark grey / neutral)
+       Screen x=60..250 y=60..240
+       Base x=50..260 y=240..260
+       ═══════════════════════════════════════════════ -->
+
+  <!-- Laptop screen/lid -->
+  <rect x="62" y="62" width="236" height="178" rx="8"
+        fill="#F3F4F6" stroke="#6B7280" stroke-width="2"/>
+  <!-- Screen bezel / display area -->
+  <rect x="74" y="72" width="212" height="152" rx="4"
+        fill="#ffffff" stroke="#9CA3AF" stroke-width="1"/>
+
+  <!-- Laptop hinge -->
+  <rect x="62" y="238" width="236" height="6" rx="2"
+        fill="#9CA3AF" stroke="#6B7280" stroke-width="1"/>
+  <!-- Laptop base / keyboard area -->
+  <rect x="44" y="244" width="272" height="24" rx="4"
+        fill="#F3F4F6" stroke="#6B7280" stroke-width="2"/>
+  <!-- Trackpad suggestion -->
+  <rect x="148" y="252" width="64" height="10" rx="3"
+        fill="#D1D5DB" stroke="#9CA3AF" stroke-width="1"/>
+
+  <!-- Build process dots above laptop (decorative "code particles") -->
+  <circle cx="120" cy="46" r="4" fill="#F59E0B"/>
+  <circle cx="140" cy="36" r="3" fill="#F59E0B" opacity="0.7"/>
+  <circle cx="160" cy="28" r="4" fill="#F59E0B"/>
+  <circle cx="180" cy="36" r="3" fill="#F59E0B" opacity="0.7"/>
+  <circle cx="200" cy="44" r="4" fill="#F59E0B"/>
+  <circle cx="150" cy="22" r="2" fill="#F59E0B" opacity="0.5"/>
+  <circle cx="170" cy="18" r="2" fill="#F59E0B" opacity="0.5"/>
+
+  <!-- Screen content: small "$ python publish.py" text -->
+  <text x="86" y="102" font-size="9" fill="#6B7280" font-family="Courier New, monospace">$ python publish.py --version 1.0.29</text>
+  <text x="86" y="116" font-size="9" fill="#10B981" font-family="Courier New, monospace">Building wheel...</text>
+  <text x="86" y="130" font-size="9" fill="#10B981" font-family="Courier New, monospace">Uploading to PyPI...</text>
+  <text x="86" y="144" font-size="9" fill="#10B981" font-family="Courier New, monospace">Done. 6/6 packages published.</text>
+
+  <!-- Stream of dots from laptop to wheel (build flow) -->
+  <circle cx="290" cy="190" r="3" fill="#F59E0B" opacity="0.9"/>
+  <circle cx="316" cy="186" r="3" fill="#F59E0B" opacity="0.75"/>
+  <circle cx="342" cy="182" r="3" fill="#F59E0B" opacity="0.6"/>
+  <circle cx="368" cy="178" r="3" fill="#F59E0B" opacity="0.45"/>
+  <circle cx="394" cy="174" r="3" fill="#F59E0B" opacity="0.3"/>
+
+  <!-- ═══════════════════════════════════════════════
+       CENTRE: Large rounded yellow "wheel" shape
+       Centre x=580, y=190 — wide rounded rect
+       ═══════════════════════════════════════════════ -->
+
+  <!-- Wheel outer shape -->
+  <rect x="420" y="100" width="320" height="190" rx="40"
+        fill="#FEF3C7" stroke="#F59E0B" stroke-width="2.5"/>
+
+  <!-- Wheel spokes (decorative) -->
+  <!-- Horizontal spoke -->
+  <line x1="432" y1="195" x2="728" y2="195" stroke="#F59E0B" stroke-width="1.5" opacity="0.4"/>
+  <!-- Vertical spoke -->
+  <line x1="580" y1="112" x2="580" y2="278" stroke="#F59E0B" stroke-width="1.5" opacity="0.4"/>
+  <!-- Diagonal spokes -->
+  <line x1="468" y1="132" x2="692" y2="258" stroke="#F59E0B" stroke-width="1" opacity="0.25"/>
+  <line x1="692" y1="132" x2="468" y2="258" stroke="#F59E0B" stroke-width="1" opacity="0.25"/>
+
+  <!-- Hub circle -->
+  <circle cx="580" cy="195" r="30" fill="#F59E0B" stroke="#B45309" stroke-width="2"/>
+  <text x="580" y="191" text-anchor="middle" font-size="10" font-weight="bold" fill="#92400E">.whl</text>
+  <text x="580" y="204" text-anchor="middle" font-size="8" fill="#78350F">wheel</text>
+
+  <!-- Wheel filename (monospace, inside the shape) -->
+  <text x="580" y="155" text-anchor="middle" font-size="10"
+        font-family="Courier New, monospace" fill="#92400E">gcp_pipeline_framework</text>
+  <text x="580" y="170" text-anchor="middle" font-size="10"
+        font-family="Courier New, monospace" fill="#92400E">-1.0.29-py3-none-any.whl</text>
+
+  <!-- ═══════════════════════════════════════════════
+       RIGHT: Three purple destination boxes + arrows
+       ═══════════════════════════════════════════════ -->
+
+  <!-- Arrow from wheel to PyPI -->
+  <line x1="744" y1="145" x2="900" y2="145" stroke="#F59E0B" stroke-width="2.5"
+        marker-end="url(#arrow-yellow)"/>
+
+  <!-- Arrow from wheel to Internal Nexus -->
+  <line x1="744" y1="200" x2="900" y2="200" stroke="#F59E0B" stroke-width="2.5"
+        marker-end="url(#arrow-yellow)"/>
+
+  <!-- Arrow from wheel to GCS Artifact Registry -->
+  <line x1="744" y1="255" x2="900" y2="255" stroke="#F59E0B" stroke-width="2.5"
+        marker-end="url(#arrow-yellow)"/>
+
+  <!-- PyPI box -->
+  <rect x="904" y="112" width="220" height="66" rx="8"
+        fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="1014" y="140" text-anchor="middle" font-size="14" font-weight="bold" fill="#4C1D95">PyPI</text>
+  <text x="1014" y="158" text-anchor="middle" font-size="10" fill="#7C3AED">pypi.org</text>
+  <text x="1014" y="170" text-anchor="middle" font-size="9" fill="#9CA3AF">public</text>
+
+  <!-- Internal Nexus box -->
+  <rect x="904" y="167" width="220" height="66" rx="8"
+        fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="1014" y="195" text-anchor="middle" font-size="14" font-weight="bold" fill="#4C1D95">Internal Nexus</text>
+  <text x="1014" y="213" text-anchor="middle" font-size="10" fill="#7C3AED">air-gapped mirror</text>
+  <text x="1014" y="225" text-anchor="middle" font-size="9" fill="#9CA3AF">private</text>
+
+  <!-- GCS Artifact Registry box -->
+  <rect x="904" y="222" width="220" height="66" rx="8"
+        fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="1014" y="247" text-anchor="middle" font-size="12" font-weight="bold" fill="#4C1D95">GCS Artifact Registry</text>
+  <text x="1014" y="265" text-anchor="middle" font-size="10" fill="#7C3AED">Cloud Storage bucket</text>
+  <text x="1014" y="277" text-anchor="middle" font-size="9" fill="#9CA3AF">mirror</text>
+
+  <!-- ═══════════════════════════════════════════════
+       FAR RIGHT: Version badge listing six packages
+       ═══════════════════════════════════════════════ -->
+
+  <!-- Section label -->
+  <text x="1290" y="80" text-anchor="middle" font-size="11" fill="#6B7280" letter-spacing="2">SIX PACKAGES · ONE VERSION</text>
+
+  <!-- Package chips -->
+  <rect x="1150" y="94" width="280" height="34" rx="6"
+        fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/>
+  <text x="1200" y="116" font-size="11" font-weight="bold" fill="#1E40AF">core</text>
+  <text x="1416" y="116" text-anchor="end" font-size="11" fill="#2563EB" font-family="Courier New, monospace">1.0.29</text>
+
+  <rect x="1150" y="134" width="280" height="34" rx="6"
+        fill="#D1FAE5" stroke="#10B981" stroke-width="2"/>
+  <text x="1200" y="156" font-size="11" font-weight="bold" fill="#065F46">beam</text>
+  <text x="1416" y="156" text-anchor="end" font-size="11" fill="#10B981" font-family="Courier New, monospace">1.0.29</text>
+
+  <rect x="1150" y="174" width="280" height="34" rx="6"
+        fill="#EDE9FE" stroke="#8B5CF6" stroke-width="2"/>
+  <text x="1200" y="196" font-size="11" font-weight="bold" fill="#4C1D95">orchestration</text>
+  <text x="1416" y="196" text-anchor="end" font-size="11" fill="#8B5CF6" font-family="Courier New, monospace">1.0.29</text>
+
+  <rect x="1150" y="214" width="280" height="34" rx="6"
+        fill="#FEF3C7" stroke="#F59E0B" stroke-width="2"/>
+  <text x="1200" y="236" font-size="11" font-weight="bold" fill="#92400E">transform</text>
+  <text x="1416" y="236" text-anchor="end" font-size="11" fill="#F59E0B" font-family="Courier New, monospace">1.0.29</text>
+
+  <rect x="1150" y="254" width="280" height="34" rx="6"
+        fill="#DBEAFE" stroke="#2563EB" stroke-width="2"/>
+  <text x="1200" y="276" font-size="11" font-weight="bold" fill="#1E40AF">tester</text>
+  <text x="1416" y="276" text-anchor="end" font-size="11" fill="#2563EB" font-family="Courier New, monospace">1.0.29</text>
+
+  <rect x="1150" y="294" width="280" height="34" rx="6"
+        fill="#FEF3C7" stroke="#F59E0B" stroke-width="2.5"/>
+  <text x="1200" y="316" font-size="11" font-weight="bold" fill="#92400E">framework</text>
+  <text x="1416" y="316" text-anchor="end" font-size="11" fill="#B45309" font-family="Courier New, monospace">1.0.29</text>
+
+  <!-- Subtle arrow from destination boxes to package list -->
+  <line x1="1128" y1="200" x2="1146" y2="214" stroke="#6B7280" stroke-width="1.5"
+        stroke-dasharray="4,3"/>
+
+  <!-- Bottom accent -->
+  <rect x="0" y="396" width="1600" height="4" fill="#F59E0B"/>
+</svg>

@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1410 2250" width="1410" height="2250" font-family="DejaVu Sans, Inter, system-ui, sans-serif">
+  <!-- Background -->
+  <defs>
+    <radialGradient id="bgGradBack" cx="50%" cy="75%" r="60%" fx="50%" fy="75%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+  <rect width="1410" height="2250" fill="url(#bgGradBack)"/>
+
+  <!-- Right edge accent bar -->
+  <rect x="1400" y="0" width="10" height="2250" fill="#fbbf24"/>
+
+  <!-- Top amber accent -->
+  <rect x="0" y="0" width="1410" height="6" fill="#fbbf24"/>
+
+  <!-- ===== MARKETING BLURB ===== -->
+  <!-- Top rule -->
+  <rect x="80" y="60" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- Blurb text block -->
+  <text x="705" y="120" text-anchor="middle" font-size="28" font-weight="bold" fill="#f8fafc">About this book</text>
+
+  <!-- Body text lines -->
+  <text x="120" y="180" font-size="21" fill="#cbd5e1">After twenty-five years of building data pipelines for banks, government</text>
+  <text x="120" y="210" font-size="21" fill="#cbd5e1">departments, retailers, and connected-vehicle platforms, Joseph Aruja</text>
+  <text x="120" y="240" font-size="21" fill="#cbd5e1">consolidated the patterns he'd been writing variations of since 2009 into</text>
+  <text x="120" y="270" font-size="21" fill="#cbd5e1">a single opinionated framework.</text>
+
+  <text x="120" y="320" font-size="21" fill="#cbd5e1">The result is gcp-pipeline-framework: six Python libraries, eight reference</text>
+  <text x="120" y="350" font-size="21" fill="#cbd5e1">deployments, a complete Terraform module set, and eighteen chapters</text>
+  <text x="120" y="380" font-size="21" fill="#cbd5e1">explaining not just what to build, but why each decision was made and</text>
+  <text x="120" y="410" font-size="21" fill="#cbd5e1">what it will cost you to operate.</text>
+
+  <text x="120" y="460" font-size="21" fill="#cbd5e1">This is not a tutorial. It is a field guide — written for the senior engineer</text>
+  <text x="120" y="490" font-size="21" fill="#cbd5e1">who has already built the pipeline and is wondering why it doesn't hold</text>
+  <text x="120" y="520" font-size="21" fill="#cbd5e1">together under audit, budget pressure, and the second on-call rotation.</text>
+
+  <!-- Pull quote -->
+  <rect x="80" y="570" width="1250" height="2" rx="1" fill="#334155"/>
+  <rect x="80" y="572" width="5" height="110" fill="#fbbf24"/>
+
+  <text x="120" y="615" font-size="24" font-style="italic" fill="#fbbf24">"How do we do this in a way we can defend</text>
+  <text x="120" y="650" font-size="24" font-style="italic" fill="#fbbf24">to a regulator and afford to operate?"</text>
+
+  <rect x="80" y="700" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- ===== THREE BULLET HOOKS ===== -->
+  <text x="705" y="760" text-anchor="middle" font-size="26" font-weight="bold" fill="#f8fafc">What you will find inside</text>
+
+  <!-- Bullet 1: Three-unit deployment model -->
+  <rect x="80" y="800" width="1250" height="90" rx="12" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <rect x="80" y="800" width="8" height="90" rx="4" fill="#60a5fa"/>
+  <text x="120" y="838" font-size="22" font-weight="bold" fill="#dbeafe">The three-unit deployment model</text>
+  <text x="120" y="868" font-size="19" fill="#93c5fd">Ingestion, Transformation, and Orchestration as independent, composable units</text>
+
+  <!-- Bullet 2: Mainframe-aware ingestion -->
+  <rect x="80" y="910" width="1250" height="90" rx="12" fill="#14532d" stroke="#34d399" stroke-width="1.5"/>
+  <rect x="80" y="910" width="8" height="90" rx="4" fill="#34d399"/>
+  <text x="120" y="948" font-size="22" font-weight="bold" fill="#d1fae5">Mainframe-aware ingestion with Apache Beam</text>
+  <text x="120" y="978" font-size="19" fill="#6ee7b7">HDR/TRL parsing, split-file reassembly, error quarantine — production-tested</text>
+
+  <!-- Bullet 3: FinOps and audit -->
+  <rect x="80" y="1020" width="1250" height="90" rx="12" fill="#3b0764" stroke="#a78bfa" stroke-width="1.5"/>
+  <rect x="80" y="1020" width="8" height="90" rx="4" fill="#a78bfa"/>
+  <text x="120" y="1058" font-size="22" font-weight="bold" fill="#e9d5ff">First-class FinOps and audit</text>
+  <text x="120" y="1088" font-size="19" fill="#c4b5fd">Cost tracking, run-ID propagation, and quality scoring built into every layer</text>
+
+  <!-- Divider -->
+  <rect x="80" y="1140" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- ===== AUTHOR BLOCK ===== -->
+  <!-- Author circle avatar (initials) -->
+  <circle cx="180" cy="1260" r="70" fill="#1e3a5f" stroke="#fbbf24" stroke-width="3"/>
+  <text x="180" y="1275" text-anchor="middle" font-size="42" font-weight="bold" fill="#fbbf24">JA</text>
+
+  <!-- Author info -->
+  <text x="280" y="1220" font-size="28" font-weight="bold" fill="#f8fafc">Joseph Aruja</text>
+  <text x="280" y="1260" font-size="20" fill="#94a3b8">Senior Lead Engineer  |  25 years in the industry</text>
+  <text x="280" y="1292" font-size="20" fill="#94a3b8">JSR 255 (JMX) Java Community Process contributor</text>
+  <text x="280" y="1324" font-size="20" fill="#94a3b8">Ex-NHS Spine Release 7A  |  Banking, Retail, Automotive</text>
+  <text x="280" y="1356" font-size="20" fill="#64748b">joseph.a.aruja@googlemail.com</text>
+
+  <!-- Divider -->
+  <rect x="80" y="1410" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- ===== BY THE SAME AUTHOR ===== -->
+  <text x="120" y="1460" font-size="22" font-weight="bold" fill="#94a3b8">By the same author</text>
+  <rect x="80" y="1480" width="1250" height="80" rx="10" fill="#1e293b" stroke="#334155" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="705" y="1528" text-anchor="middle" font-size="20" fill="#475569" font-style="italic">(your next book here)</text>
+
+  <!-- Divider -->
+  <rect x="80" y="1590" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- ===== TECH STACK BADGES ===== -->
+  <text x="120" y="1640" font-size="20" font-weight="bold" fill="#94a3b8">Technologies covered</text>
+
+  <rect x="80" y="1660" width="175" height="40" rx="8" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="168" y="1685" text-anchor="middle" font-size="15" fill="#dbeafe">Apache Beam</text>
+
+  <rect x="270" y="1660" width="175" height="40" rx="8" fill="#14532d" stroke="#34d399" stroke-width="1.5"/>
+  <text x="358" y="1685" text-anchor="middle" font-size="15" fill="#d1fae5">BigQuery</text>
+
+  <rect x="460" y="1660" width="175" height="40" rx="8" fill="#3b0764" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="548" y="1685" text-anchor="middle" font-size="15" fill="#e9d5ff">Airflow</text>
+
+  <rect x="650" y="1660" width="175" height="40" rx="8" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="738" y="1685" text-anchor="middle" font-size="15" fill="#dbeafe">Terraform</text>
+
+  <rect x="840" y="1660" width="175" height="40" rx="8" fill="#14532d" stroke="#34d399" stroke-width="1.5"/>
+  <text x="928" y="1685" text-anchor="middle" font-size="15" fill="#d1fae5">Python</text>
+
+  <rect x="1030" y="1660" width="175" height="40" rx="8" fill="#3b0764" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="1118" y="1685" text-anchor="middle" font-size="15" fill="#e9d5ff">dbt + GKE</text>
+
+  <!-- ===== BOTTOM: ISBN placeholder ===== -->
+  <rect x="80" y="2070" width="1250" height="2" rx="1" fill="#334155"/>
+
+  <!-- Gumroad / price -->
+  <text x="120" y="2120" font-size="22" fill="#94a3b8">Available on Gumroad  |  Google Play Books  |  Amazon KDP</text>
+
+  <!-- ISBN barcode placeholder (bottom-right) -->
+  <rect x="1160" y="2140" width="210" height="80" rx="6" fill="#1e293b" stroke="#475569" stroke-width="1.5"/>
+  <text x="1265" y="2175" text-anchor="middle" font-size="14" fill="#94a3b8">ISBN</text>
+  <text x="1265" y="2200" text-anchor="middle" font-size="12" fill="#475569">placeholder</text>
+
+  <!-- Framework URL -->
+  <text x="120" y="2180" font-size="20" fill="#64748b" font-family="monospace">pip install gcp-pipeline-framework</text>
+  <text x="120" y="2210" font-size="18" fill="#475569">github.com/jsr-255/gcp-pipeline-reference</text>
+
+  <!-- Bottom amber accent -->
+  <rect x="0" y="2240" width="1410" height="10" fill="#fbbf24"/>
+</svg>

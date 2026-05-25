@@ -1,0 +1,301 @@
+\selectlanguage *[variant=british]{english}
+\contentsline {chapter}{Preface}{3}{chapter*.1}%
+\contentsline {chapter}{Chapter 1 --- Why This Book Exists}{6}{chapter*.2}%
+\contentsline {section}{The problem that won't go away}{6}{chapter*.2}%
+\contentsline {section}{What I actually built}{6}{chapter*.2}%
+\contentsline {section}{How this book is laid out}{7}{chapter*.2}%
+\contentsline {section}{A few ground rules}{8}{Item.6}%
+\contentsline {chapter}{Chapter 2 --- The State of the GCP Data Pipeline Landscape (and the Gap This Book Fills)}{9}{chapter*.3}%
+\contentsline {section}{Google Cloud has the services. It does not have the answers.}{9}{chapter*.3}%
+\contentsline {section}{What the open ecosystem actually offers}{9}{chapter*.3}%
+\contentsline {section}{The eight gaps}{10}{chapter*.3}%
+\contentsline {section}{Why nobody has filled the gap}{11}{chapter*.3}%
+\contentsline {section}{The framework as the answer}{11}{chapter*.3}%
+\contentsline {section}{What you get from this book}{12}{chapter*.3}%
+\contentsline {chapter}{Chapter 3 --- Zero to Hero: GCP Pipeline Fundamentals}{13}{chapter*.4}%
+\contentsline {section}{The mental model}{13}{chapter*.4}%
+\contentsline {section}{The core services in one paragraph each}{13}{chapter*.4}%
+\contentsline {section}{The simplest possible GCP pipeline, in 30 lines}{15}{chapter*.4}%
+\contentsline {section}{The simplest possible orchestration, in 20 lines}{15}{chapter*.4}%
+\contentsline {section}{The simplest possible transformation, in 10 lines}{16}{chapter*.4}%
+\contentsline {section}{The simplest possible Terraform, in 20 lines}{16}{chapter*.4}%
+\contentsline {section}{The hidden complexity of the simple version}{17}{chapter*.4}%
+\contentsline {section}{Glossary refresher}{17}{chapter*.4}%
+\contentsline {section}{What zero to hero looks like}{18}{chapter*.4}%
+\contentsline {chapter}{Chapter 4 --- The 10,000-Foot View: The Three-Unit Deployment Model}{19}{chapter*.5}%
+\contentsline {section}{One big pipeline is the wrong mental model}{19}{chapter*.5}%
+\contentsline {section}{Unit 1: Ingestion (\texttt {original-data-to-bigqueryload})}{20}{figure.caption.6}%
+\contentsline {section}{Unit 2: Transformation (\texttt {bigquery-to-mapped-product})}{21}{figure.caption.6}%
+\contentsline {section}{Unit 3: Orchestration (\texttt {data-pipeline-orchestrator})}{21}{figure.caption.6}%
+\contentsline {section}{Data flow, end to end}{22}{figure.caption.6}%
+\contentsline {section}{Why this model scales}{23}{Item.16}%
+\contentsline {chapter}{Chapter 5 --- Without the Library vs With It: A Side-by-Side Comparison}{24}{chapter*.8}%
+\contentsline {section}{The scenario}{24}{chapter*.8}%
+\contentsline {section}{Version A --- without the library}{24}{chapter*.8}%
+\contentsline {subsection}{Step 1: the Beam pipeline}{24}{chapter*.8}%
+\contentsline {subsection}{Step 2: the Airflow DAG (still no framework)}{27}{chapter*.8}%
+\contentsline {subsection}{Step 3: the dbt model (still no framework)}{28}{chapter*.8}%
+\contentsline {subsection}{Step 4: the Terraform}{28}{chapter*.8}%
+\contentsline {subsection}{Step 5: the reality at month three}{28}{chapter*.8}%
+\contentsline {section}{Version B --- with \texttt {gcp-pipeline-framework}}{29}{chapter*.8}%
+\contentsline {subsection}{Step 1: the schema}{29}{chapter*.8}%
+\contentsline {subsection}{Step 2: the Beam pipeline}{29}{chapter*.8}%
+\contentsline {subsection}{Step 3: the Airflow DAG}{30}{chapter*.8}%
+\contentsline {subsection}{Step 4: the dbt model}{30}{chapter*.8}%
+\contentsline {subsection}{Step 5: the Terraform}{31}{chapter*.8}%
+\contentsline {subsection}{Step 6: the reality at month three}{31}{chapter*.8}%
+\contentsline {section}{Side-by-side summary}{31}{chapter*.8}%
+\contentsline {chapter}{Chapter 6 --- Foundations First: Building a Framework-Agnostic Core}{33}{chapter*.9}%
+\contentsline {section}{The ``core that knows nothing'' principle}{33}{chapter*.9}%
+\contentsline {section}{What the core provides}{33}{chapter*.9}%
+\contentsline {section}{Schema as single source of truth}{34}{figure.caption.10}%
+\contentsline {section}{The audit trail}{35}{figure.caption.10}%
+\contentsline {section}{Error classification}{36}{figure.caption.10}%
+\contentsline {section}{FinOps as a first-class citizen}{36}{figure.caption.10}%
+\contentsline {section}{Data quality, grades, and anomalies}{37}{figure.caption.10}%
+\contentsline {section}{Safe data deletion}{37}{figure.caption.10}%
+\contentsline {section}{Review: what works, what could be better}{38}{figure.caption.10}%
+\contentsline {chapter}{Chapter 7 --- Ingestion with Apache Beam: HDR/TRL and the Mainframe Problem}{39}{chapter*.11}%
+\contentsline {section}{Why Beam, and why not just Beam}{39}{chapter*.11}%
+\contentsline {section}{When to use Java instead of Python on Dataflow}{39}{chapter*.11}%
+\contentsline {section}{The HDR/TRL pattern}{41}{chapter*.11}%
+\contentsline {section}{Robust CSV parsing}{42}{chapter*.11}%
+\contentsline {section}{Split-file reassembly}{43}{chapter*.11}%
+\contentsline {section}{Validators that compose}{43}{chapter*.11}%
+\contentsline {section}{The error bucket pattern}{44}{chapter*.11}%
+\contentsline {section}{Dataflow Flex Templates}{45}{chapter*.11}%
+\contentsline {section}{Review: what works, what could be better}{45}{Item.19}%
+\contentsline {chapter}{Chapter 8 --- Transformation with dbt: ODP, FDP, JOIN, and MAP}{47}{chapter*.12}%
+\contentsline {section}{Why dbt, and which bits of dbt}{47}{chapter*.12}%
+\contentsline {section}{The layering convention}{47}{chapter*.12}%
+\contentsline {section}{The MAP pattern in detail}{48}{chapter*.12}%
+\contentsline {section}{The JOIN pattern in detail}{49}{chapter*.12}%
+\contentsline {section}{Audit columns and PII masking}{50}{figure.caption.13}%
+\contentsline {section}{Marts and analytics}{50}{figure.caption.13}%
+\contentsline {section}{dbt tests that matter}{51}{figure.caption.13}%
+\contentsline {section}{Reviewing the transformation layer}{52}{figure.caption.13}%
+\contentsline {chapter}{Chapter 9 --- Orchestration with Airflow: When and When Not to Use Composer}{53}{chapter*.14}%
+\contentsline {section}{The brief for orchestration}{53}{chapter*.14}%
+\contentsline {section}{The DAG factory}{53}{chapter*.14}%
+\contentsline {section}{The full entity configuration schema}{54}{chapter*.14}%
+\contentsline {section}{Mapping: source → ODP → FDP → CDP}{57}{chapter*.14}%
+\contentsline {section}{The Pub/Sub trigger pattern}{58}{chapter*.14}%
+\contentsline {section}{The Ingestion DAG}{59}{chapter*.14}%
+\contentsline {section}{The Transformation DAG and \texttt {EntityDependencyChecker}}{60}{chapter*.14}%
+\contentsline {section}{The Error-Handling DAG}{60}{chapter*.14}%
+\contentsline {section}{The Status DAG}{60}{chapter*.14}%
+\contentsline {section}{When Composer is overkill}{61}{chapter*.14}%
+\contentsline {section}{The Airflow version matrix}{61}{chapter*.14}%
+\contentsline {subsection}{What the framework supports}{61}{chapter*.14}%
+\contentsline {subsection}{What pins to watch}{62}{table.0.2}%
+\contentsline {subsection}{The Airflow 3 upgrade story}{62}{table.0.2}%
+\contentsline {subsection}{If you cannot use Composer at all}{62}{table.0.2}%
+\contentsline {section}{Review: what works, what could be better}{63}{table.0.2}%
+\contentsline {chapter}{Chapter 10 --- Infrastructure as Code: Terraform at System Scale}{64}{chapter*.15}%
+\contentsline {section}{Why Terraform, and how the framework organises it}{64}{chapter*.15}%
+\contentsline {section}{State, workspaces, and environments}{65}{chapter*.15}%
+\contentsline {section}{The ingestion module}{65}{chapter*.15}%
+\contentsline {section}{The transformation module}{66}{chapter*.15}%
+\contentsline {section}{The orchestration module}{66}{chapter*.15}%
+\contentsline {section}{Security, KMS, and service accounts}{67}{chapter*.15}%
+\contentsline {section}{Modules, composition, and reuse}{67}{chapter*.15}%
+\contentsline {section}{Review: what works, what could be better}{67}{chapter*.15}%
+\contentsline {chapter}{Chapter 11 --- Observability, FinOps, and Data Governance}{69}{chapter*.16}%
+\contentsline {section}{Observability is not three dashboards}{69}{chapter*.16}%
+\contentsline {section}{Structured logging}{69}{chapter*.16}%
+\contentsline {section}{Metrics and the \texttt {MetricsCollector}}{70}{chapter*.16}%
+\contentsline {section}{Observability Manager and health checks}{70}{chapter*.16}%
+\contentsline {section}{AlertManager and multi-backend alerts}{71}{chapter*.16}%
+\contentsline {section}{OpenTelemetry tracing, gracefully degraded}{71}{chapter*.16}%
+\contentsline {section}{FinOps: cost as a metric}{71}{chapter*.16}%
+\contentsline {section}{Audit trail and reconciliation engine}{72}{chapter*.16}%
+\contentsline {section}{Data governance: quality, quarantine, deletion}{72}{chapter*.16}%
+\contentsline {section}{A complete lineage example}{73}{chapter*.16}%
+\contentsline {section}{Non-functional requirements, in one table}{74}{figure.caption.17}%
+\contentsline {section}{Hooking into your existing observability stack}{75}{table.0.3}%
+\contentsline {section}{Planning NFRs as a team, not as a checklist}{77}{table.0.3}%
+\contentsline {section}{A FinOps reality check}{78}{table.0.3}%
+\contentsline {section}{Review: what works, what could be better}{78}{table.0.3}%
+\contentsline {chapter}{Chapter 12 --- Testing Strategy: 763 Tests Across Six Components}{80}{chapter*.18}%
+\contentsline {section}{The number that matters}{80}{chapter*.18}%
+\contentsline {section}{Tooling}{80}{chapter*.18}%
+\contentsline {section}{The \texttt {gcp-pipeline-tester} library}{81}{chapter*.18}%
+\contentsline {section}{Patterns by layer}{81}{chapter*.18}%
+\contentsline {section}{Local Airflow testing: the missing piece}{82}{chapter*.18}%
+\contentsline {subsection}{Mode A --- Single-task Python invocation}{82}{chapter*.18}%
+\contentsline {subsection}{Mode B --- \texttt {airflow\ dags\ test} on a local SQLite backend}{82}{chapter*.18}%
+\contentsline {subsection}{Mode C --- Docker Compose with the full Airflow stack}{83}{chapter*.18}%
+\contentsline {subsection}{The testing pyramid for Airflow}{84}{chapter*.18}%
+\contentsline {subsection}{Where to put the local testing harness}{85}{figure.caption.19}%
+\contentsline {subsection}{Catching issues this harness finds that CI doesn't}{86}{figure.caption.19}%
+\contentsline {section}{The CI integration}{86}{figure.caption.19}%
+\contentsline {section}{What the framework does not test (yet)}{86}{figure.caption.19}%
+\contentsline {section}{Review}{87}{figure.caption.19}%
+\contentsline {chapter}{Chapter 13 --- End-to-End Testing, Tracing, and the Developer Workflow}{89}{chapter*.20}%
+\contentsline {section}{Why end-to-end testing cannot be skipped}{89}{chapter*.20}%
+\contentsline {section}{The E2E harness in detail}{90}{chapter*.20}%
+\contentsline {subsection}{Running it}{90}{Item.26}%
+\contentsline {subsection}{How often to run it}{90}{Item.26}%
+\contentsline {section}{Distributed tracing, in practice}{91}{Item.26}%
+\contentsline {subsection}{What the framework instruments}{91}{Item.26}%
+\contentsline {subsection}{What a trace looks like}{91}{Item.26}%
+\contentsline {subsection}{Sampling and volume}{92}{Item.26}%
+\contentsline {section}{Planning testing as a team}{92}{Item.26}%
+\contentsline {section}{Local developer workflow against real GCP}{93}{table.0.4}%
+\contentsline {subsection}{The sandbox project pattern}{93}{table.0.4}%
+\contentsline {subsection}{Authenticating natively}{93}{table.0.4}%
+\contentsline {subsection}{Running ingestion against the sandbox}{94}{table.0.4}%
+\contentsline {subsection}{Running the Airflow layer against the sandbox}{94}{table.0.4}%
+\contentsline {subsection}{Running dbt against the sandbox}{94}{table.0.4}%
+\contentsline {subsection}{Safety rails}{95}{table.0.4}%
+\contentsline {subsection}{What this unlocks}{95}{table.0.4}%
+\contentsline {section}{Review}{95}{table.0.4}%
+\contentsline {chapter}{Chapter 14 --- Running on Your Own Kubernetes Cluster}{97}{chapter*.21}%
+\contentsline {section}{Why self-managed Kubernetes}{97}{chapter*.21}%
+\contentsline {subsection}{When not to do this}{97}{chapter*.21}%
+\contentsline {subsection}{The constraint conditions that justify it}{97}{chapter*.21}%
+\contentsline {section}{The deployment artefacts}{98}{chapter*.21}%
+\contentsline {section}{The cluster shape}{98}{chapter*.21}%
+\contentsline {section}{Installing the umbrella chart}{98}{chapter*.21}%
+\contentsline {section}{Replacing Composer with self-managed Airflow}{99}{chapter*.21}%
+\contentsline {section}{Replacing Dataflow with Beam-on-Flink}{100}{chapter*.21}%
+\contentsline {section}{dbt-runner on Kubernetes}{100}{chapter*.21}%
+\contentsline {section}{Observability on a Kubernetes deployment}{100}{chapter*.21}%
+\contentsline {section}{Cost profile}{101}{chapter*.21}%
+\contentsline {section}{Review}{101}{table.0.5}%
+\contentsline {chapter}{Chapter 15 --- CI/CD and Publishing to PyPI}{103}{chapter*.22}%
+\contentsline {section}{The eleven workflows}{103}{chapter*.22}%
+\contentsline {section}{PyPI as the artefact registry}{103}{chapter*.22}%
+\contentsline {section}{The reconstruct.py trick}{104}{table.0.6}%
+\contentsline {section}{The deploy workflow}{105}{table.0.6}%
+\contentsline {section}{Secrets, identities, and Workload Identity Federation}{106}{table.0.6}%
+\contentsline {section}{Versioning, tags, and releases}{106}{table.0.6}%
+\contentsline {section}{Code quality gates}{106}{Item.31}%
+\contentsline {section}{Review}{107}{Item.31}%
+\contentsline {chapter}{Chapter 16 --- A Tour of the Reference Deployments}{108}{chapter*.23}%
+\contentsline {section}{\texttt {original-data-to-bigqueryload} --- the JOIN+MAP ingestion}{108}{chapter*.23}%
+\contentsline {section}{\texttt {bigquery-to-mapped-product} --- the FDP transformation}{108}{chapter*.23}%
+\contentsline {section}{\texttt {data-pipeline-orchestrator} --- the five-DAG orchestrator}{109}{chapter*.23}%
+\contentsline {section}{\texttt {fdp-to-consumable-product} --- the Consumable Data Product layer}{109}{chapter*.23}%
+\contentsline {section}{\texttt {mainframe-segment-transform} --- round-tripping back to the mainframe}{109}{chapter*.23}%
+\contentsline {section}{\texttt {spanner-to-bigquery-load} --- federated query patterns}{110}{chapter*.23}%
+\contentsline {section}{\texttt {postgres-cdc-streaming} --- the streaming reference}{110}{chapter*.23}%
+\contentsline {section}{\texttt {fdp-trigger} --- downstream notification}{110}{chapter*.23}%
+\contentsline {section}{Picking a deployment style}{110}{chapter*.23}%
+\contentsline {chapter}{Chapter 17 --- An Honest Code Review}{112}{chapter*.24}%
+\contentsline {section}{What the framework gets very right}{112}{chapter*.24}%
+\contentsline {section}{What I would change first}{113}{chapter*.24}%
+\contentsline {section}{What I would change next}{113}{chapter*.24}%
+\contentsline {section}{What I would not change}{113}{chapter*.24}%
+\contentsline {section}{Reading recommendations for new contributors}{114}{chapter*.24}%
+\contentsline {chapter}{Chapter 18 --- Governance, Masking, and the Data Product Lifecycle}{115}{chapter*.25}%
+\contentsline {section}{What ``governance'' actually means once a product is live}{115}{chapter*.25}%
+\contentsline {section}{Four masking techniques, and when each applies}{116}{chapter*.25}%
+\contentsline {section}{BigQuery policy tags: who sees the unmasked column}{117}{chapter*.25}%
+\contentsline {section}{Cloud DLP / Sensitive Data Protection}{118}{chapter*.25}%
+\contentsline {section}{Dataplex Universal Catalog}{119}{chapter*.25}%
+\contentsline {subsection}{Catalogue and discovery}{119}{chapter*.25}%
+\contentsline {subsection}{Automated data quality (AutoDQ)}{119}{chapter*.25}%
+\contentsline {subsection}{Data profiling}{120}{chapter*.25}%
+\contentsline {subsection}{Managed data lineage}{121}{chapter*.25}%
+\contentsline {section}{Lakes and zones}{121}{chapter*.25}%
+\contentsline {section}{The data product lifecycle, after creation}{122}{chapter*.25}%
+\contentsline {section}{An honest recommendation}{123}{chapter*.25}%
+\contentsline {chapter}{Chapter 19 --- Streaming and Batch: Choosing the Right Mode}{125}{chapter*.26}%
+\contentsline {section}{The mistake almost everybody makes}{125}{chapter*.26}%
+\contentsline {section}{A decision matrix that is not glib}{126}{chapter*.26}%
+\contentsline {section}{Pub/Sub to Dataflow streaming, the canonical pattern}{128}{table.0.7}%
+\contentsline {section}{Change Data Capture}{130}{table.0.7}%
+\contentsline {section}{The Lambda / Kappa debate, briefly}{131}{table.0.7}%
+\contentsline {section}{The framework's streaming surface}{132}{table.0.7}%
+\contentsline {section}{Operational realities}{133}{table.0.7}%
+\contentsline {section}{A recommendation framework}{134}{table.0.7}%
+\contentsline {chapter}{Chapter 20 --- Setting Up Your GCP Environment: Projects, Networks, Kubernetes, and the Engineer Skill Set}{136}{chapter*.27}%
+\contentsline {section}{Why this chapter exists}{136}{chapter*.27}%
+\contentsline {section}{GCP project topology}{137}{chapter*.27}%
+\contentsline {subsection}{The shape}{137}{chapter*.27}%
+\contentsline {subsection}{Two practical ways to create the projects}{137}{chapter*.27}%
+\contentsline {section}{Networking: VPCs, subnets, private services}{138}{chapter*.27}%
+\contentsline {subsection}{Why a custom VPC, not \texttt {default}}{138}{chapter*.27}%
+\contentsline {subsection}{Choosing CIDRs that will not bite you}{139}{chapter*.27}%
+\contentsline {subsection}{Cloud Router and Cloud NAT}{140}{table.0.8}%
+\contentsline {subsection}{Private Services Access}{140}{table.0.8}%
+\contentsline {section}{Composer environment creation}{141}{table.0.8}%
+\contentsline {section}{Kubernetes namespace and access model}{142}{table.0.8}%
+\contentsline {subsection}{Namespaces in this framework}{142}{table.0.8}%
+\contentsline {subsection}{Workload Identity, the only sensible auth}{142}{table.0.8}%
+\contentsline {subsection}{RBAC: what you actually need}{143}{table.0.8}%
+\contentsline {section}{The skills primer}{143}{table.0.8}%
+\contentsline {subsection}{Docker}{143}{table.0.8}%
+\contentsline {subsection}{Kubernetes}{144}{table.0.8}%
+\contentsline {subsection}{Helm}{144}{table.0.8}%
+\contentsline {subsection}{kustomize}{145}{table.0.8}%
+\contentsline {section}{The engineer skill set, honestly}{145}{table.0.8}%
+\contentsline {section}{Linking back to the framework}{146}{table.0.8}%
+\contentsline {chapter}{Chapter 21 --- Working with AI Coding Agents on Pipeline Work}{149}{chapter*.28}%
+\contentsline {section}{The four agent shapes you'll meet}{149}{chapter*.28}%
+\contentsline {section}{The single most important prompting principle}{150}{chapter*.28}%
+\contentsline {section}{A worked example: five validated joins to a productionised FDP}{151}{chapter*.28}%
+\contentsline {subsection}{Prompt 1 --- understand the shape}{151}{chapter*.28}%
+\contentsline {subsection}{Prompt 2 --- generate the models}{152}{chapter*.28}%
+\contentsline {subsection}{Prompt 3 --- generate the tests}{153}{chapter*.28}%
+\contentsline {subsection}{Prompt 4 --- generate the runbook}{154}{chapter*.28}%
+\contentsline {section}{The agent's blind spots, mapped to the framework's guardrails}{154}{chapter*.28}%
+\contentsline {section}{What to do when the agent's output is wrong}{155}{chapter*.28}%
+\contentsline {section}{Pattern: the prompt template}{156}{chapter*.28}%
+\contentsline {section}{What agents can't do (yet)}{157}{chapter*.28}%
+\contentsline {section}{A note on this chapter aging}{158}{chapter*.28}%
+\contentsline {chapter}{Chapter 22 --- Getting Started and a Roadmap}{159}{chapter*.29}%
+\contentsline {section}{Five minutes: install from PyPI}{159}{chapter*.29}%
+\contentsline {section}{An hour: deploy the generic system to a sandbox project}{159}{chapter*.29}%
+\contentsline {section}{A day: add your own entity}{159}{chapter*.29}%
+\contentsline {section}{A roadmap}{160}{Item.46}%
+\contentsline {section}{Closing thoughts}{160}{Item.54}%
+\contentsline {chapter}{Chapter 23 --- Spring for Data Pipelines: The Multi-Cloud Roadmap}{162}{chapter*.30}%
+\contentsline {section}{Why I am renaming a perfectly working framework}{162}{chapter*.30}%
+\contentsline {section}{The Spring precedent, told properly}{163}{chapter*.30}%
+\contentsline {section}{What was already cloud-neutral}{163}{chapter*.30}%
+\contentsline {section}{What is genuinely GCP}{164}{chapter*.30}%
+\contentsline {section}{Why ``culvert-'' and not ``pipeline-''}{165}{chapter*.30}%
+\contentsline {section}{The contracts, briefly}{165}{chapter*.30}%
+\contentsline {section}{The decorator surface}{167}{chapter*.30}%
+\contentsline {section}{What you can actually do today}{168}{chapter*.30}%
+\contentsline {section}{A year-ahead direction, told as a sequence}{169}{chapter*.30}%
+\contentsline {section}{What I am explicitly not doing}{170}{chapter*.30}%
+\contentsline {section}{An invitation}{171}{chapter*.30}%
+\contentsline {section}{Where Culvert lives}{171}{chapter*.30}%
+\contentsline {chapter}{Appendix A --- Library Reference}{173}{chapter*.31}%
+\contentsline {section}{A.1 \texttt {gcp-pipeline-core}}{173}{chapter*.31}%
+\contentsline {section}{A.2 \texttt {gcp-pipeline-beam}}{174}{chapter*.31}%
+\contentsline {section}{A.3 \texttt {gcp-pipeline-orchestration}}{174}{chapter*.31}%
+\contentsline {section}{A.4 \texttt {gcp-pipeline-transform}}{175}{chapter*.31}%
+\contentsline {section}{A.5 \texttt {gcp-pipeline-tester}}{175}{chapter*.31}%
+\contentsline {section}{A.6 \texttt {gcp-pipeline-framework}}{175}{chapter*.31}%
+\contentsline {chapter}{Appendix B --- Directory Map of the Reference Repository}{176}{chapter*.32}%
+\contentsline {chapter}{Appendix C --- A Cost Model for the Reference Implementation}{178}{chapter*.33}%
+\contentsline {chapter}{Appendix D --- Glossary}{179}{chapter*.34}%
+\contentsline {chapter}{About the Author}{180}{chapter*.35}%
+\contentsline {chapter}{Index}{182}{chapter*.35}%
+\contentsline {chapter}{Appendix E --- Interviewing for the Work}{185}{chapter*.36}%
+\contentsline {section}{Why six questions in sixty minutes}{185}{chapter*.36}%
+\contentsline {section}{Suggested timing}{185}{chapter*.36}%
+\contentsline {section}{The six questions}{186}{table.0.10}%
+\contentsline {subsection}{Q1 --- Design an ODP-to-FDP pipeline from a fixed-width file}{186}{table.0.10}%
+\contentsline {subsection}{Q2 --- Walk a remediation cycle}{187}{table.0.10}%
+\contentsline {subsection}{Q3 --- Prevent and recover from duplication in a dbt foundation model}{187}{table.0.10}%
+\contentsline {subsection}{Q4 --- dbt authentication across environments}{188}{table.0.10}%
+\contentsline {subsection}{Q5 --- Validate a long-lived consumable data product}{188}{table.0.10}%
+\contentsline {subsection}{Q6 --- CI/CD for a data system}{189}{table.0.10}%
+\contentsline {section}{Calibration notes}{190}{table.0.10}%
+\contentsline {section}{What good looks like}{191}{table.0.10}%
+\contentsline {chapter}{Appendix F --- Further Reading}{192}{chapter*.37}%
+\contentsline {section}{Google Cloud documentation that's actually useful}{192}{chapter*.37}%
+\contentsline {section}{Apache Beam canon}{192}{chapter*.37}%
+\contentsline {section}{dbt and analytics engineering}{193}{chapter*.37}%
+\contentsline {section}{Apache Airflow}{193}{chapter*.37}%
+\contentsline {section}{Mainframe modernisation}{193}{chapter*.37}%
+\contentsline {section}{FinOps for data platforms}{194}{chapter*.37}%
+\contentsline {section}{Observability}{194}{chapter*.37}%
+\contentsline {section}{Software architecture and engineering culture}{195}{chapter*.37}%
+\contentsline {section}{Communities worth lurking in}{195}{chapter*.37}%
+\contentsline {chapter}{Colophon}{196}{chapter*.38}%

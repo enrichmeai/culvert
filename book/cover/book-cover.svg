@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1410 2250" width="1410" height="2250" font-family="DejaVu Sans, Inter, system-ui, sans-serif">
+  <!-- Background -->
+  <defs>
+    <radialGradient id="bgGrad" cx="50%" cy="25%" r="60%" fx="50%" fy="25%">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </radialGradient>
+  </defs>
+  <rect width="1410" height="2250" fill="url(#bgGrad)"/>
+
+  <!-- Left edge accent bar -->
+  <rect x="0" y="0" width="10" height="2250" fill="#fbbf24"/>
+
+  <!-- ===== TOP THIRD: TITLE ===== -->
+  <text x="720" y="200" text-anchor="middle" font-family="Georgia, DejaVu Serif, serif" font-size="130" font-weight="bold" fill="#f8fafc">Building</text>
+  <text x="720" y="360" text-anchor="middle" font-family="Georgia, DejaVu Serif, serif" font-size="110" font-weight="bold" fill="#f8fafc">Production-Grade</text>
+  <text x="720" y="510" text-anchor="middle" font-family="Georgia, DejaVu Serif, serif" font-size="120" font-weight="bold" fill="#f8fafc">Data Pipelines</text>
+  <text x="720" y="650" text-anchor="middle" font-family="Georgia, DejaVu Serif, serif" font-size="100" font-weight="bold" fill="#fbbf24">on Google Cloud</text>
+
+  <!-- Amber rule below title -->
+  <rect x="210" y="690" width="990" height="5" rx="2" fill="#fbbf24"/>
+
+  <!-- ===== MIDDLE SECTION: THREE-UNIT MODEL ===== -->
+  <!-- Ingestion box -->
+  <rect x="355" y="780" width="700" height="130" rx="18" fill="#1e3a5f" stroke="#60a5fa" stroke-width="3"/>
+  <text x="705" y="835" text-anchor="middle" font-size="36" font-weight="bold" fill="#dbeafe" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Ingestion</text>
+  <text x="705" y="875" text-anchor="middle" font-size="22" fill="#93c5fd" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Apache Beam  |  Cloud Dataflow</text>
+
+  <!-- Arrow down -->
+  <line x1="705" y1="912" x2="705" y2="960" stroke="#fbbf24" stroke-width="4"/>
+  <polygon points="690,960 705,985 720,960" fill="#fbbf24"/>
+
+  <!-- Transformation box -->
+  <rect x="355" y="985" width="700" height="130" rx="18" fill="#14532d" stroke="#34d399" stroke-width="3"/>
+  <text x="705" y="1040" text-anchor="middle" font-size="36" font-weight="bold" fill="#d1fae5" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Transformation</text>
+  <text x="705" y="1080" text-anchor="middle" font-size="22" fill="#6ee7b7" font-family="DejaVu Sans, Inter, system-ui, sans-serif">dbt  |  BigQuery</text>
+
+  <!-- Arrow down -->
+  <line x1="705" y1="1117" x2="705" y2="1165" stroke="#fbbf24" stroke-width="4"/>
+  <polygon points="690,1165 705,1190 720,1165" fill="#fbbf24"/>
+
+  <!-- Orchestration box -->
+  <rect x="355" y="1190" width="700" height="130" rx="18" fill="#3b0764" stroke="#a78bfa" stroke-width="3"/>
+  <text x="705" y="1245" text-anchor="middle" font-size="36" font-weight="bold" fill="#e9d5ff" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Orchestration</text>
+  <text x="705" y="1285" text-anchor="middle" font-size="22" fill="#c4b5fd" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Apache Airflow  |  Cloud Composer</text>
+
+  <!-- ===== BOTTOM THIRD ===== -->
+  <!-- Subtitle -->
+  <text x="705" y="1440" text-anchor="middle" font-size="34" fill="#f8fafc" font-family="DejaVu Sans, Inter, system-ui, sans-serif">A Developer's Field Guide to the</text>
+  <text x="705" y="1490" text-anchor="middle" font-size="34" fill="#fbbf24" font-family="monospace">gcp-pipeline-framework</text>
+
+  <!-- Amber rule -->
+  <rect x="320" y="1520" width="770" height="3" rx="1" fill="#fbbf24"/>
+
+  <!-- Author name -->
+  <text x="705" y="1610" text-anchor="middle" font-family="Georgia, DejaVu Serif, serif" font-size="72" font-weight="bold" fill="#f8fafc">Joseph Aruja</text>
+
+  <!-- Author title -->
+  <text x="705" y="1670" text-anchor="middle" font-size="26" fill="#94a3b8" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Lead Engineer  |  JSR 255 (JMX) Java Community Process</text>
+
+  <!-- Decorative bottom rule -->
+  <rect x="210" y="1730" width="990" height="2" rx="1" fill="#334155"/>
+
+  <!-- Framework subtitle badge -->
+  <rect x="480" y="1780" width="450" height="60" rx="10" fill="#1e293b" stroke="#fbbf24" stroke-width="2"/>
+  <text x="705" y="1816" text-anchor="middle" font-size="20" fill="#fbbf24" font-family="DejaVu Sans, Inter, system-ui, sans-serif">gcp-pipeline-framework on PyPI</text>
+
+  <!-- Technology badges -->
+  <rect x="180" y="1880" width="160" height="44" rx="8" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="260" y="907" text-anchor="middle" font-size="16" fill="#dbeafe" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Apache Beam</text>
+
+  <rect x="360" y="1880" width="160" height="44" rx="8" fill="#14532d" stroke="#34d399" stroke-width="1.5"/>
+  <text x="440" y="1907" text-anchor="middle" font-size="16" fill="#d1fae5" font-family="DejaVu Sans, Inter, system-ui, sans-serif">BigQuery</text>
+
+  <rect x="540" y="1880" width="160" height="44" rx="8" fill="#3b0764" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="620" y="1907" text-anchor="middle" font-size="16" fill="#e9d5ff" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Airflow</text>
+
+  <rect x="720" y="1880" width="160" height="44" rx="8" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="800" y="1907" text-anchor="middle" font-size="16" fill="#dbeafe" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Terraform</text>
+
+  <rect x="900" y="1880" width="160" height="44" rx="8" fill="#14532d" stroke="#34d399" stroke-width="1.5"/>
+  <text x="980" y="1907" text-anchor="middle" font-size="16" fill="#d1fae5" font-family="DejaVu Sans, Inter, system-ui, sans-serif">Python</text>
+
+  <rect x="1080" y="1880" width="150" height="44" rx="8" fill="#3b0764" stroke="#a78bfa" stroke-width="1.5"/>
+  <text x="1155" y="1907" text-anchor="middle" font-size="16" fill="#e9d5ff" font-family="DejaVu Sans, Inter, system-ui, sans-serif">dbt</text>
+
+  <!-- Bottom amber accent -->
+  <rect x="0" y="2240" width="1410" height="10" fill="#fbbf24"/>
+</svg>
