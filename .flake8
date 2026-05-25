@@ -1,0 +1,38 @@
+# Flake8 configuration. Black-compatible.
+# Run: flake8 gcp-pipeline-libraries deployments
+#
+# Rationale for ignores:
+#   E203  whitespace before ':'     — disagrees with black
+#   W503  line break before binary  — disagrees with black
+#   E501  line too long             — handled by max-line-length below
+[flake8]
+max-line-length = 100
+max-complexity = 10
+extend-select = B950
+extend-ignore = E203, W503
+exclude =
+    .git,
+    __pycache__,
+    venv,
+    .venv,
+    venv*,
+    .venv*,
+    build,
+    dist,
+    *.egg-info,
+    .pytest_cache,
+    .tox,
+    .idea,
+    book,
+    templates,
+    test_data,
+    # Reconstructed monorepo embeds — source of truth is elsewhere
+    gcp-pipeline-libraries/gcp-pipeline-framework/src/gcp_pipeline_framework/deployments,
+    # dbt macros/models get linted by dbt, not Python tooling
+    deployments/*/dbt
+
+per-file-ignores =
+    # Re-export modules: unused imports are intentional
+    __init__.py:F401,F403
+    # DAG factory tests use dynamic attribute access
+    */tests/**:E501
