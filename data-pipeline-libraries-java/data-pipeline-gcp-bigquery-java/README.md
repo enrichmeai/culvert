@@ -68,17 +68,22 @@ Warehouse warehouse = new BigQueryWarehouse("my-gcp-project", client);
 Warehouse warehouse = new BigQueryWarehouse("my-gcp-project", mockClient);
 ```
 
-The wrapped client is closed when you call `warehouse.close()`. The class implements `AutoCloseable` so it works in try-with-resources:
+**Client lifecycle:** `BigQueryWarehouse` does NOT implement `AutoCloseable`. The google-cloud-bigquery 2.x `BigQuery` interface itself is not `AutoCloseable` (this is the divergence from the `SecretManagerProvider` pilot pattern, where `SecretManagerServiceClient` is closeable). Consumers manage the wrapped client's lifecycle directly; the client is safe to keep alive for the lifetime of the JVM.
 
 ```java
-try (BigQueryWarehouse w = new BigQueryWarehouse("my-project", client)) {
-    Iterator<Map<String, Object>> rows = w.query(
-            "SELECT id, name FROM ds.customers WHERE id = @id",
-            Map.of("id", 42L));
-    while (rows.hasNext()) {
-        System.out.println(rows.next());
-    }
+BigQuery client = BigQueryOptions.newBuilder()
+        .setProjectId("my-project")
+        .build()
+        .getService();
+Warehouse w = new BigQueryWarehouse("my-project", client);
+
+Iterator<Map<String, Object>> rows = w.query(
+        "SELECT id, name FROM ds.customers WHERE id = @id",
+        Map.of("id", 42L));
+while (rows.hasNext()) {
+    System.out.println(rows.next());
 }
+// No explicit close needed; the BigQuery client manages its own gRPC channels.
 ```
 
 ### No no-arg constructor (yet)
@@ -117,12 +122,60 @@ ServiceLoader.load(Warehouse.class).findFirst()
 
 ## Sibling adapters (same module)
 
-`data-pipeline-gcp-bigquery-java` is intentionally a multi-contract module — three GCP services share the same Google Cloud SDK family and `libraries-bom` pin, so they ship together. Sprint-1 lands `BigQueryWarehouse` and pre-wires the module's POM; the other two contracts ship as follow-up issues that only add classes:
+`data-pipeline-gcp-bigquery-java` is a multi-contract module — three GCP services share the same Google Cloud SDK family and `libraries-bom` pin, so they ship together. Sprint-1 status:
 
-- [#8](https://github.com/enrichmeai/gcp-pipeline-reference/issues/8) — `JobControlRepository` (BigQuery-backed job-control table)
-- [#9](https://github.com/enrichmeai/gcp-pipeline-reference/issues/9) — `FinOpsSink` (BigQuery-backed cost/observability sink)
+- ✅ `BigQueryWarehouse` — issue [#6](https://github.com/enrichmeai/gcp-pipeline-reference/issues/6) (Warehouse contract)
+- ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/gcp-pipeline-reference/issues/8) (JobControlRepository contract); see section below
+- ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/gcp-pipeline-reference/issues/9) (FinOpsSink contract); see section below
 
-Both sibling issues will share the `pom.xml` defined here; they should only add `.java` sources and (where relevant) extra `META-INF/services` registrations.
+All three share this module's `pom.xml`.
+
+## BigQueryJobControlRepository
+
+Implementation of [`JobControlRepository`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/JobControlRepository.java) — the pipeline-job state-machine contract. Java port of the Python `gcp_pipeline_core.job_control.repository.JobControlRepository`. Same eleven public methods; SQL patterns inherited but adapted to the richer Java `PipelineJob` record schema (more columns: `pipeline_name`, `source_file`, `target_table`, `record_count`, `error_count`, FinOps fields).
+
+### Construction
+
+```java
+BigQuery client = BigQueryOptions.newBuilder().setProjectId("my-project").build().getService();
+JobControlRepository repo = new BigQueryJobControlRepository(
+        client,
+        "my-project",
+        "job_control",         // dataset
+        "pipeline_jobs");      // table
+```
+
+Like `BigQueryWarehouse`, this class does not implement `AutoCloseable`. Consumers own the `BigQuery` client lifecycle.
+
+### Method → SQL pattern
+
+| Contract method | SQL |
+|---|---|
+| `createJob(PipelineJob)` | `INSERT INTO ` *`fqtn`* ` (...) VALUES (...)` — all 23 PipelineJob fields, `created_at`/`updated_at` use `CURRENT_TIMESTAMP()` |
+| `getJob(String runId)` | `SELECT * FROM ` *`fqtn`* ` WHERE run_id = @run_id` |
+| `updateStatus(runId, status, totalRecords)` | Three flavours: `RUNNING` stamps `started_at`; `SUCCEEDED` stamps `completed_at` + `record_count`; all others bump `status` + `updated_at` |
+| `markFailed(runId, code, msg, stage, errorFile)` | `UPDATE` sets `status = 'failed'`, error fields, `completed_at = CURRENT_TIMESTAMP()` |
+| `markRetrying(runId, retryCount)` | `UPDATE` sets `status = 'retrying'`, `retry_count = @retry_count` |
+| `getPendingJobs(systemId?)` | `SELECT * WHERE status IN ('created', 'running')`, optionally `AND system_id = @system_id`, ordered by `created_at` |
+| `getEntityStatus(systemId, date)` | `SELECT entity_type, status, run_id, record_count, error_count, started_at, completed_at WHERE system_id = ? AND extract_date = ?` |
+| `getFailedJobs(systemId, date)` | Like above but filtered to `status = 'failed'`, returns failure context columns |
+| `getFdpJobStatus(systemId, date, modelName)` | Filtered to `job_type = 'TRANSFORMATION'` and `pipeline_name = @model_name`, ordered DESC LIMIT 1 |
+| `cleanupPartialLoad(runId, tableId)` | `DELETE FROM \`<tableId>\` WHERE _run_id = @run_id` — returns DML affected rows |
+| `updateCostMetrics(runId, cost, scanned, written)` | `UPDATE` sets the three FinOps columns |
+
+### Errors
+
+| Cause | Thrown |
+|---|---|
+| `markRetrying` with negative `retryCount` | `IllegalArgumentException` |
+| `cleanupPartialLoad` affected-row count exceeds `Integer.MAX_VALUE` | `ArithmeticException` (real-world this shouldn't happen — defensive) |
+| Thread interrupted during a `client.query` | `RuntimeException` (interrupt flag restored) |
+| Any BigQuery job error | `com.google.cloud.bigquery.BigQueryException` (propagated) |
+| Null required argument | `NullPointerException` |
+
+### ServiceLoader registration
+
+`src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.JobControlRepository` lists the impl. Same caveat as `BigQueryWarehouse` — no no-arg constructor (needs `client`, `projectId`, `dataset`, `table` — 4 args, far past the pilot's ≤2-env-var rule), so direct `ServiceLoader.load(JobControlRepository.class).findFirst()` will throw `ServiceConfigurationError` until sprint-4 auto-config arrives. Wire it explicitly until then.
 
 ## Testing
 
@@ -135,3 +188,50 @@ mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-bigquery-java 
 ```
 
 Live-cloud integration tests against a real BigQuery dataset (or the BigQuery emulator) are sprint-2+ scope.
+
+## BigQueryFinOpsSink
+
+Implementation of [`FinOpsSink`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/FinOpsSink.java) — receives `(CostMetrics, FinOpsTag)` pairs and streams them into the configured `cost_metrics` BigQuery table via `BigQuery.insertAll`.
+
+### Construction
+
+```java
+BigQuery client = BigQueryOptions.newBuilder().setProjectId("my-project").build().getService();
+FinOpsSink sink = new BigQueryFinOpsSink(
+        client,
+        "my-project",
+        "finops",              // dataset
+        "cost_metrics");       // table (the DEFAULT_TABLE constant)
+```
+
+Like its siblings, this class is not `AutoCloseable`; consumer owns the client.
+
+### Row shape
+
+Every `record(metrics, tags)` call writes one row. The columns flatten both records:
+
+| Column | Source | Type |
+|---|---|---|
+| `system`, `environment`, `cost_center`, `owner` | `FinOpsTag` | STRING |
+| `tag_run_id` | `FinOpsTag.runId()` | STRING (separate from `run_id` so analysts can detect attribution drift) |
+| `tag_extra` | `FinOpsTag.extra()` | `ARRAY<STRUCT<key STRING, value STRING>>` |
+| `run_id` | `CostMetrics.runId()` | STRING |
+| `estimated_cost_usd` | `CostMetrics` | FLOAT64 |
+| `billed_bytes_scanned`, `billed_bytes_written`, `billed_bytes_stored`, `billed_messages_count`, `slot_millis` | `CostMetrics` | INT64 |
+| `compute_units` | `CostMetrics` | FLOAT64 |
+| `labels` | `CostMetrics.labels()` | `ARRAY<STRUCT<key STRING, value STRING>>` |
+| `timestamp` | `CostMetrics.timestamp()` | TIMESTAMP (ISO-8601 string) |
+
+The flattened `labels` / `tag_extra` shape avoids BigQuery DDL changes when teams add new tag keys — new keys just appear in the array.
+
+### Streaming buffer + cost
+
+`insertAll` is BigQuery's streaming insert path. Rows are queryable within seconds but are NOT immediately visible to `COPY`/`EXPORT` jobs (streaming buffer flushes on BigQuery's schedule, typically within 90 minutes). Streaming inserts incur a per-GB cost on top of regular storage. For very high-volume cost emission, consider a load-job-based variant in a future sprint.
+
+### Partial failures
+
+`InsertAllResponse` can succeed at the request level while reporting per-row errors. `BigQueryFinOpsSink.FinOpsInsertException` (extends `RuntimeException`) is thrown if `response.hasErrors()` returns true — silently dropping cost rows would defeat the FinOps audit trail. The exception carries the underlying `Map<Long, List<BigQueryError>>` so callers can report specific row failures.
+
+### ServiceLoader registration
+
+`src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.FinOpsSink` lists the impl. Same no-arg-constructor caveat as the siblings — sprint-4 auto-config will resolve it.
