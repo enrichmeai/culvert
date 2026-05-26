@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-core</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-core (Java)</name>
+    <description>
+        The cloud-neutral kernel of the Culvert framework, Java edition. Defines
+        the eleven Protocol interfaces (Source, Sink, Transform, Pipeline,
+        PipelineStage, RuntimeContext, JobControlRepository, BlobStore,
+        Warehouse, AuditEventPublisher, GovernancePolicy, LineageEmitter,
+        ObservabilityHook, FinOpsSink, SecretProvider) plus the supporting
+        records and enums those interfaces reference. Mirror of the Python
+        data-pipeline-core==0.1.0 package — same contracts, JVM language.
+        Zero dependencies on Google Cloud, AWS, or Azure SDKs.
+    </description>
+
+    <dependencies>
+        <!--
+            Intentionally minimal. The core defines interfaces and value types;
+            it does not need a logging implementation, a JSON library, or
+            anything else. Consumers bring their own.
+        -->
+
+        <!-- SLF4J API only — no binding. Consumers add their own (Logback,
+             JUL adapter, log4j2 adapter, etc.). -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
