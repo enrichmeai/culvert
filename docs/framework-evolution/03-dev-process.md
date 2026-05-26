@@ -180,6 +180,44 @@ Unless the issue says otherwise:
 - [ ] Commit message references `closes #N`.
 - [ ] Issue closed with the commit SHA in the closing comment.
 
+## 5-minute retro at sprint close
+
+After every sprint closes (last issue merged / sprint→main PR landed),
+the architect posts a **5-minute retro** as a comment on the sprint's
+epic issue. Hard cap on time — this is not a write-up, it's a signal
+for the next sprint.
+
+Template (paste, fill, post):
+
+```
+## Retro — sprint-N (5 min)
+
+**Shipped:** <closed issues with one-line outcome each>
+
+**What worked:**
+- <one bullet>
+- <one bullet>
+
+**What didn't:**
+- <one bullet — be specific, name the issue / commit / agent run>
+
+**Carry-over to sprint-(N+1):**
+- <follow-up issue # if opened, or "none">
+
+**One thing to change next sprint:**
+- <one bullet — process tweak, not feature scope>
+```
+
+Rules:
+- Architect writes it; engineer (Joseph) reads and reacts.
+- Max five bullets across the whole retro. If you can't fit it in
+  five, the sprint had too much scope — note that as the "one thing
+  to change."
+- The "one thing to change" must be actionable in the next sprint — no
+  vague aspirations like "communicate better." Concrete tweaks only.
+- Tag the comment with the `retro` label on the epic issue so retros
+  are searchable across sprints.
+
 ## When to escalate to advisor mid-sprint
 
 The architect calls `advisor()` (no params, full transcript forwarded):
