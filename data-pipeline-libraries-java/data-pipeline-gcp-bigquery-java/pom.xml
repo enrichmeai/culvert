@@ -95,6 +95,18 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        google-cloud-bigquery transitively brings in an
+                        annotation processor that doesn't claim our JUnit /
+                        Mockito annotations. Under the parent's -Xlint:all
+                        + -Werror, this triggers a "No processor claimed
+                        any of these annotations" warning that fails the
+                        build. We don't use annotation processors here, so
+                        disable processing explicitly.
+                    -->
+                    <proc>none</proc>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

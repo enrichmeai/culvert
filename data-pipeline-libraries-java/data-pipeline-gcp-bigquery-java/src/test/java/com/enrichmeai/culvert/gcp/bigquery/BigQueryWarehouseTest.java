@@ -129,7 +129,9 @@ class BigQueryWarehouseTest {
 
         ArgumentCaptor<JobInfo> jobCaptor = ArgumentCaptor.forClass(JobInfo.class);
         verify(client).create(jobCaptor.capture());
-        assertThat(jobCaptor.getValue().getConfiguration()).isNotNull();
+        // Cast to Object disambiguates AssertJ's assertThat(IntPredicate) vs
+        // assertThat(Predicate<T>) overload conflict on JobConfiguration.
+        assertThat((Object) jobCaptor.getValue().getConfiguration()).isNotNull();
     }
 
     // --- merge -------------------------------------------------------------
@@ -265,12 +267,6 @@ class BigQueryWarehouseTest {
                 .isInstanceOf(BigQueryException.class);
     }
 
-    // --- AutoCloseable -----------------------------------------------------
-
-    @Test
-    void closeDelegatesToClient() throws Exception {
-        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
-        warehouse.close();
-        verify(client).close();
-    }
+    // close() intentionally omitted — BigQuery 2.x client does not implement
+    // AutoCloseable. See BigQueryWarehouse javadoc.
 }
