@@ -57,11 +57,20 @@
     <modules>
         <module>data-pipeline-core-java</module>
         <!--
+            Sprint-1 GCP adapter modules. Pre-registered here so the three
+            sprint-1 sub-agents (issues #5, #6, #7) can each add their module
+            contents without contending on this file. Each agent owns its own
+            module subdirectory; this <modules> block is a coordination seam.
+            See docs/framework-evolution/02-redesign.md and the sprint-1
+            issues for module-by-module scope.
+        -->
+        <module>data-pipeline-gcp-secrets-java</module>
+        <module>data-pipeline-gcp-bigquery-java</module>
+        <module>data-pipeline-gcp-gcs-java</module>
+        <!--
             Reserved future modules. Stay commented until they have content.
 
             <module>data-pipeline-tester-java</module>
-            <module>data-pipeline-gcp-bigquery-java</module>
-            <module>data-pipeline-gcp-gcs-java</module>
             <module>data-pipeline-gcp-dataflow-java</module>
             <module>data-pipeline-gcp-pubsub-java</module>
             <module>data-pipeline-gcp-observability-java</module>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-gcp-bigquery</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-gcp-bigquery (Java) — placeholder</name>
+    <description>
+        Placeholder for the sprint-1 GCP BigQuery adapter — split into
+        three sibling issues (#6 Warehouse, #8 JobControlRepository,
+        #9 FinOpsSink). The first implementing agent (issue #6, the
+        Warehouse impl) should REPLACE THIS ENTIRE FILE with a real
+        pom.xml carrying all three contracts' deps, so the follow-up
+        agents only add classes. Issue bodies are canonical scope.
+    </description>
+
+    <!-- REPLACE THIS ENTIRE FILE when implementing issue #6. -->
+</project>
