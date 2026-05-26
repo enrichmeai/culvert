@@ -126,7 +126,7 @@ ServiceLoader.load(Warehouse.class).findFirst()
 
 - ✅ `BigQueryWarehouse` — issue [#6](https://github.com/enrichmeai/gcp-pipeline-reference/issues/6) (Warehouse contract)
 - ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/gcp-pipeline-reference/issues/8) (JobControlRepository contract); see section below
-- ⏳ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/gcp-pipeline-reference/issues/9) (FinOpsSink contract); not yet implemented
+- ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/gcp-pipeline-reference/issues/9) (FinOpsSink contract); see section below
 
 All three share this module's `pom.xml`.
 
@@ -188,3 +188,50 @@ mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-bigquery-java 
 ```
 
 Live-cloud integration tests against a real BigQuery dataset (or the BigQuery emulator) are sprint-2+ scope.
+
+## BigQueryFinOpsSink
+
+Implementation of [`FinOpsSink`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/FinOpsSink.java) — receives `(CostMetrics, FinOpsTag)` pairs and streams them into the configured `cost_metrics` BigQuery table via `BigQuery.insertAll`.
+
+### Construction
+
+```java
+BigQuery client = BigQueryOptions.newBuilder().setProjectId("my-project").build().getService();
+FinOpsSink sink = new BigQueryFinOpsSink(
+        client,
+        "my-project",
+        "finops",              // dataset
+        "cost_metrics");       // table (the DEFAULT_TABLE constant)
+```
+
+Like its siblings, this class is not `AutoCloseable`; consumer owns the client.
+
+### Row shape
+
+Every `record(metrics, tags)` call writes one row. The columns flatten both records:
+
+| Column | Source | Type |
+|---|---|---|
+| `system`, `environment`, `cost_center`, `owner` | `FinOpsTag` | STRING |
+| `tag_run_id` | `FinOpsTag.runId()` | STRING (separate from `run_id` so analysts can detect attribution drift) |
+| `tag_extra` | `FinOpsTag.extra()` | `ARRAY<STRUCT<key STRING, value STRING>>` |
+| `run_id` | `CostMetrics.runId()` | STRING |
+| `estimated_cost_usd` | `CostMetrics` | FLOAT64 |
+| `billed_bytes_scanned`, `billed_bytes_written`, `billed_bytes_stored`, `billed_messages_count`, `slot_millis` | `CostMetrics` | INT64 |
+| `compute_units` | `CostMetrics` | FLOAT64 |
+| `labels` | `CostMetrics.labels()` | `ARRAY<STRUCT<key STRING, value STRING>>` |
+| `timestamp` | `CostMetrics.timestamp()` | TIMESTAMP (ISO-8601 string) |
+
+The flattened `labels` / `tag_extra` shape avoids BigQuery DDL changes when teams add new tag keys — new keys just appear in the array.
+
+### Streaming buffer + cost
+
+`insertAll` is BigQuery's streaming insert path. Rows are queryable within seconds but are NOT immediately visible to `COPY`/`EXPORT` jobs (streaming buffer flushes on BigQuery's schedule, typically within 90 minutes). Streaming inserts incur a per-GB cost on top of regular storage. For very high-volume cost emission, consider a load-job-based variant in a future sprint.
+
+### Partial failures
+
+`InsertAllResponse` can succeed at the request level while reporting per-row errors. `BigQueryFinOpsSink.FinOpsInsertException` (extends `RuntimeException`) is thrown if `response.hasErrors()` returns true — silently dropping cost rows would defeat the FinOps audit trail. The exception carries the underlying `Map<Long, List<BigQueryError>>` so callers can report specific row failures.
+
+### ServiceLoader registration
+
+`src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.FinOpsSink` lists the impl. Same no-arg-constructor caveat as the siblings — sprint-4 auto-config will resolve it.
