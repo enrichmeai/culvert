@@ -171,6 +171,10 @@ Joseph picks the next theme based on what landed in sprints 1-8.
 ## How this file evolves
 
 After each human sprint closes, the architect:
-1. Updates the sprint's section with actual outcomes (links to closed issues, deviations from plan).
-2. Re-plans the next two sprints if reality has shifted.
-3. Keeps the 8-sprint depth — when sprint N closes, sprint N+8 gets added at the bottom.
+1. Posts the 5-min retro on the sprint's epic issue (see
+   `03-dev-process.md` → "5-minute retro at sprint close").
+2. Updates the sprint's section here with actual outcomes (links to
+   closed issues, retro link, deviations from plan).
+3. Re-plans the next two sprints if reality has shifted.
+4. Keeps the 8-sprint depth — when sprint N closes, sprint N+8 gets
+   added at the bottom.
