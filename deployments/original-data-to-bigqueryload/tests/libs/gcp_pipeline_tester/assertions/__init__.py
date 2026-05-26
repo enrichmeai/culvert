@@ -27,7 +27,7 @@ Exports:
         - assert_pipeline_error_count
 
 Example:
-    >>> from gcp_pipeline_tester.assertions import (
+    >>> from data_pipeline_tester.assertions import (
     ...     assert_field_value, assert_pipeline_success
     ... )
     >>>

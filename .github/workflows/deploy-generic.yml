@@ -3,7 +3,7 @@ name: Deploy Generic
 # =============================================================================
 # Deployment Workflow
 #
-# Deploys pipelines using gcp-pipeline-framework from PyPI:
+# Deploys pipelines using data-pipeline-framework from PyPI:
 #   1. original-data-to-bigqueryload  → Dataflow Flex Template (ingestion)
 #   2. bigquery-to-mapped-product     → dbt models (transformation)
 #   3. data-pipeline-orchestrator     → Airflow DAGs (orchestration, opt-in only)
@@ -148,7 +148,7 @@ jobs:
           sparse-checkout: VERSION
           sparse-checkout-cone-mode: false
 
-      - name: Resolve gcp-pipeline-framework version
+      - name: Resolve data-pipeline-framework version
         id: get-version
         run: |
           # Read fallback version from single source of truth
@@ -160,8 +160,8 @@ jobs:
             VERSION="${{ github.event.inputs.library_version }}"
             echo "Using specified version: $VERSION"
           else
-            # Fetch the latest published version of gcp-pipeline-framework
-            FETCHED=$(pip index versions gcp-pipeline-framework 2>/dev/null \
+            # Fetch the latest published version of data-pipeline-framework
+            FETCHED=$(pip index versions data-pipeline-framework 2>/dev/null \
               | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "")
             VERSION="${FETCHED:-$FALLBACK}"
             echo "Resolved version from PyPI: $VERSION"
@@ -188,15 +188,15 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
 
-    - name: Install gcp-pipeline-framework from PyPI
+    - name: Install data-pipeline-framework from PyPI
       run: |
         python -m pip install --upgrade pip
         VERSION="${{ needs.fetch-version.outputs.version }}"
-        echo "Installing gcp-pipeline-framework==$VERSION from PyPI..."
-        pip install "gcp-pipeline-framework==$VERSION"
+        echo "Installing data-pipeline-framework==$VERSION from PyPI..."
+        pip install "data-pipeline-framework==$VERSION"
         echo ""
         echo "Installed versions:"
-        pip show gcp-pipeline-framework | grep Version
+        pip show data-pipeline-framework | grep Version
         pip show gcp-pipeline-core | grep Version
         pip show gcp-pipeline-beam | grep Version
 
@@ -467,7 +467,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building Ingestion image with gcp-pipeline-framework==$VERSION"
+        echo "Building Ingestion image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/original-data-to-bigqueryload/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -522,7 +522,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building dbt image with gcp-pipeline-framework==$VERSION"
+        echo "Building dbt image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/bigquery-to-mapped-product/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -565,7 +565,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building CDP image with gcp-pipeline-framework==$VERSION"
+        echo "Building CDP image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -608,7 +608,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building segment-transform image with gcp-pipeline-framework==$VERSION"
+        echo "Building segment-transform image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/mainframe-segment-transform/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -643,7 +643,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building fdp-trigger image with gcp-pipeline-framework==$VERSION"
+        echo "Building fdp-trigger image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/fdp-trigger/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -678,7 +678,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building DAG validator image with gcp-pipeline-framework==$VERSION"
+        echo "Building DAG validator image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/data-pipeline-orchestrator/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -696,7 +696,7 @@ jobs:
 
         echo "Installing packages on $COMPOSER_ENV"
         echo "  - gcp-pipeline-core==${VERSION}"
-        echo "  - gcp-pipeline-orchestration==${VERSION}"
+        echo "  - data-pipeline-orchestration==${VERSION}"
         echo "  (apache-airflow-providers-google is pre-installed in Composer — do NOT override)"
 
         # Use || true to handle "no change" error when packages are already installed via Terraform
@@ -706,7 +706,7 @@ jobs:
           --location=${{ env.GCP_REGION }} \
           --project=$PROJECT_ID \
           --update-pypi-package "gcp-pipeline-core==${VERSION}" \
-          --update-pypi-package "gcp-pipeline-orchestration==${VERSION}" \
+          --update-pypi-package "data-pipeline-orchestration==${VERSION}" \
           || echo "Packages already installed or no changes needed"
 
         echo "Composer environment updated with orchestration packages"
@@ -733,16 +733,16 @@ jobs:
           # This prevents "relative import beyond top-level package" errors
           echo "Cleaning up ALL stale library code from DAGs bucket..."
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_core 2>/dev/null || true
-          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_orchestration 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/data_pipeline_orchestration 2>/dev/null || true
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_beam 2>/dev/null || true
-          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_transform 2>/dev/null || true
-          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_tester 2>/dev/null || true
-          gsutil -m rm -rf ${DAGS_BUCKET}/generic/gcp_pipeline_framework 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/data_pipeline_transform 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/data_pipeline_tester 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/generic/data_pipeline_framework 2>/dev/null || true
           gsutil -m rm -rf ${DAGS_BUCKET}/generic/__pycache__ 2>/dev/null || true
           
           # Also clean root dags folder for any stale packages
           gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_core 2>/dev/null || true
-          gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_orchestration 2>/dev/null || true
+          gsutil -m rm -rf ${DAGS_BUCKET}/data_pipeline_orchestration 2>/dev/null || true
           
           echo "Cleanup complete. Now uploading only DAG .py files..."
 
@@ -835,7 +835,7 @@ jobs:
         echo "=============================================="
         echo "  Deployment Validation"
         echo "  Environment:      $ENV"
-        echo "  Framework:        gcp-pipeline-framework==$VERSION"
+        echo "  Framework:        data-pipeline-framework==$VERSION"
         echo "=============================================="
 
         echo ""
@@ -965,7 +965,7 @@ jobs:
         echo "# Deployment Summary" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Environment:** $ENV" >> $GITHUB_STEP_SUMMARY
-        echo "**Framework:** \`gcp-pipeline-framework==$VERSION\`" >> $GITHUB_STEP_SUMMARY
+        echo "**Framework:** \`data-pipeline-framework==$VERSION\`" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
         echo "**Triggered by:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

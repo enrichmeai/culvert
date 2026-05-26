@@ -14,7 +14,7 @@ Exports:
     PipelineScenarioTest: Base class for BDD/Gherkin scenario tests
 
 Example:
-    >>> from gcp_pipeline_tester.base import BasePipelineTest, BaseValidationTest
+    >>> from data_pipeline_tester.base import BasePipelineTest, BaseValidationTest
     >>>
     >>> class TestMyValidator(BaseValidationTest):
     ...     def test_valid_record(self):

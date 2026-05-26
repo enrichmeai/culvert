@@ -1,111 +1,46 @@
-"""GCP Pipeline Framework — umbrella package for all pipeline libraries."""
+"""DEPRECATED -- `gcp-pipeline-framework` has been renamed to `data-pipeline-framework`.
 
-from importlib import resources
-from pathlib import Path
+This package is a thin deprecation shim that re-exports the renamed
+`data_pipeline_framework` distribution. Installing `data-pipeline-framework`
+gives you the umbrella metapackage under the new name.
 
+Migration:
 
-def _package_root() -> Path:
-    """Return the root path of the installed gcp_pipeline_framework package."""
-    return Path(resources.files("gcp_pipeline_framework"))
+    # before
+    pip install gcp-pipeline-framework
+    from gcp_pipeline_framework import export_project, get_docs_path
 
+    # after
+    pip install data-pipeline-framework
+    from data_pipeline_framework import export_project, get_docs_path
 
-def get_docs_path() -> Path:
-    """Return the path to bundled documentation files."""
-    return _package_root() / "docs"
+The renamed package also installs a `data-pipeline-docs` CLI entry point
+(previously `gcp-pipeline-docs`). The shim will be removed in a future
+release. See `docs/framework-evolution/02-redesign.md` for rationale.
+"""
 
+from __future__ import annotations
 
-def get_infrastructure_path() -> Path:
-    """Return the path to bundled infrastructure files (Terraform, K8s)."""
-    return _package_root() / "infrastructure"
+import warnings
 
+warnings.warn(
+    "`gcp_pipeline_framework` is renamed to `data_pipeline_framework`. "
+    "Update your imports: `from gcp_pipeline_framework...` -> "
+    "`from data_pipeline_framework...`. This shim will be removed in a "
+    "future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
-def get_workflows_path() -> Path:
-    """Return the path to bundled GitHub Actions workflow files."""
-    return _package_root() / "workflows"
+from data_pipeline_framework import (  # noqa: F401
+    export_project,
+    get_config_path,
+    get_deployments_path,
+    get_docs_path,
+    get_infrastructure_path,
+    get_test_data_path,
+    get_workflows_path,
+    list_docs,
+)
 
-
-def get_config_path() -> Path:
-    """Return the path to bundled root config files."""
-    return _package_root() / "config"
-
-
-def get_test_data_path() -> Path:
-    """Return the path to bundled test data files."""
-    return _package_root() / "test_data"
-
-
-def get_deployments_path() -> Path:
-    """Return the path to bundled deployment configs (Dockerfiles, cloudbuild)."""
-    return _package_root() / "deployments"
-
-
-def list_docs() -> list[str]:
-    """List all bundled documentation files."""
-    return sorted(f.name for f in get_docs_path().glob("*.md"))
-
-
-def export_project(dest: str = "gcp-pipeline-reference") -> Path:
-    """Export the full project structure to a destination directory.
-
-    Recreates the repo layout:
-        dest/
-            docs/
-            infrastructure/
-            .github/workflows/
-            deployments/  (Dockerfiles, cloudbuild, pyproject.toml, README)
-            .gitignore, .dockerignore, etc.
-
-    Args:
-        dest: Target directory (created if it doesn't exist).
-
-    Returns:
-        Path to the destination directory.
-    """
-    import shutil
-
-    dest_path = Path(dest)
-    dest_path.mkdir(parents=True, exist_ok=True)
-
-    # Docs → dest/docs/
-    _copy_tree(get_docs_path(), dest_path / "docs")
-
-    # Infrastructure → dest/infrastructure/
-    _copy_tree(get_infrastructure_path(), dest_path / "infrastructure")
-
-    # Workflows → dest/.github/workflows/
-    _copy_tree(get_workflows_path(), dest_path / ".github" / "workflows")
-
-    # Deployments → dest/deployments/
-    _copy_tree(get_deployments_path(), dest_path / "deployments")
-
-    # Test data → dest/test_data/
-    _copy_tree(get_test_data_path(), dest_path / "test_data")
-
-    # Config → dest/ (root-level files, restore dotfile names)
-    config_path = get_config_path()
-    if config_path.exists():
-        dotfile_renames = {"gitignore": ".gitignore", "dockerignore": ".dockerignore", "gcloudignore": ".gcloudignore"}
-        for f in config_path.iterdir():
-            if f.is_file():
-                target_name = dotfile_renames.get(f.name, f.name)
-                shutil.copy2(f, dest_path / target_name)
-
-    return dest_path
-
-
-def _copy_tree(src: Path, dest: Path) -> None:
-    """Recursively copy a directory tree."""
-    import shutil
-
-    if not src.exists():
-        return
-    dest.mkdir(parents=True, exist_ok=True)
-    for item in src.rglob("*"):
-        if item.name == "__init__.py" or item.name.endswith(".pyc"):
-            continue
-        rel = item.relative_to(src)
-        if item.is_dir():
-            (dest / rel).mkdir(parents=True, exist_ok=True)
-        else:
-            (dest / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(item, dest / rel)
+__version__ = "2.0.0"

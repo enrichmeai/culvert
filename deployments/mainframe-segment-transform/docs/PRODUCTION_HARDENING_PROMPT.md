@@ -65,7 +65,7 @@ tests/unit/
 ├── pipeline/test_transforms.py    ← Basic DoFn tests (3 cases)
 ```
 
-### Library APIs available (from gcp-pipeline-framework 1.0.29):
+### Library APIs available (from data-pipeline-framework 1.0.29):
 - `gcp_pipeline_core.job_control.JobControlRepository` — create/update/fail jobs
 - `gcp_pipeline_core.audit.trail.AuditTrail` — record_processing_start/end
 - `gcp_pipeline_core.audit.publisher.AuditPublisher` — publish to Pub/Sub

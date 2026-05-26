@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gcp-pipeline-ref-ingestion"
 version = "1.0.29"
-description = "Reference Implementation: GCS-to-BigQuery Ingestion Pipeline using gcp-pipeline-framework"
+description = "Reference Implementation: GCS-to-BigQuery Ingestion Pipeline using data-pipeline-framework"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"
@@ -32,7 +32,7 @@ dependencies = [
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
 Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/original-data-to-bigqueryload"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Framework = "https://pypi.org/project/gcp-pipeline-framework/"
+Framework = "https://pypi.org/project/data-pipeline-framework/"
 
 [project.scripts]
 gcp-ref-ingestion = "data_ingestion.cli:main"
@@ -42,7 +42,7 @@ dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
     "pytest-cov>=4.0.0",
-    "gcp-pipeline-tester==1.0.29",
+    "data-pipeline-tester>=1.0.0",
 ]
 
 [tool.setuptools.packages.find]

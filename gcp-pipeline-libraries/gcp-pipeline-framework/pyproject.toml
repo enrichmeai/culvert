@@ -1,61 +1,36 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-framework"
-version = "1.0.29"
-description = "Umbrella package for GCP Data Migration Pipeline Libraries"
+version = "2.0.0"
+description = "DEPRECATED — thin deprecation shim that installs `data-pipeline-framework`. Renamed as part of the Culvert framework rebranding (Stage 1 of docs/framework-evolution/02-redesign.md). The umbrella metapackage now ships under the data-pipeline name. This package will be removed in a future release."
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Good Shepherd Software Consultancy Limited" }]
-dependencies = [
-    "gcp-pipeline-core==1.0.29",
-    "gcp-pipeline-beam==1.0.29",
-    "gcp-pipeline-orchestration==1.0.29",
-    "gcp-pipeline-transform==1.0.29",
-    "gcp-pipeline-tester==1.0.29",
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
 ]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = ["deprecated", "data-pipeline-framework", "culvert", "shim", "metapackage"]
 
-[project.optional-dependencies]
-core = ["gcp-pipeline-core==1.0.29"]
-beam = ["gcp-pipeline-beam==1.0.29"]
-orchestration = ["gcp-pipeline-orchestration==1.0.29"]
-transform = ["gcp-pipeline-transform==1.0.29"]
-tester = ["gcp-pipeline-tester==1.0.29"]
-
-[project.scripts]
-gcp-pipeline-docs = "gcp_pipeline_framework.cli:main"
+dependencies = [
+    "data-pipeline-framework>=1.0.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/gcp-pipeline-libraries"
-"Reference Implementations" = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments"
+"Bug Tracker" = "https://github.com/enrichmeai/gcp-pipeline-reference/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools.package-data]
-"gcp_pipeline_framework" = [
-    "docs/*.md",
-    "infrastructure/**/*.tf",
-    "infrastructure/**/*.tfvars",
-    "infrastructure/**/*.hcl",
-    "infrastructure/**/*.yaml",
-    "infrastructure/**/Dockerfile",
-    "infrastructure/**/*.md",
-    "workflows/*.yml",
-    "config/*",
-    "test_data/*",
-    "deployments/**/*.py",
-    "deployments/**/*.sql",
-    "deployments/**/*.yml",
-    "deployments/**/*.yaml",
-    "deployments/**/*.json",
-    "deployments/**/*.csv",
-    "deployments/**/*.md",
-    "deployments/**/*.txt",
-    "deployments/**/Dockerfile",
-]

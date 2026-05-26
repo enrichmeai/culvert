@@ -32,7 +32,7 @@ Available Fixtures:
 
 Example:
     >>> # In conftest.py to use fixtures across tests
-    >>> from gcp_pipeline_tester.fixtures import *
+    >>> from data_pipeline_tester.fixtures import *
     >>>
     >>> # In test file
     >>> def test_with_fixtures(sample_records, test_pipeline):

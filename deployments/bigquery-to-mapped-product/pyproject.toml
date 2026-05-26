@@ -22,14 +22,14 @@ classifiers = [
 dependencies = [
     "dbt-bigquery>=1.5.0",
     "gcp-pipeline-core==1.0.29",
-    "gcp-pipeline-transform==1.0.29",
+    "data-pipeline-transform>=1.0.0",
 ]
 
 [project.urls]
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
 Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/bigquery-to-mapped-product"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Framework = "https://pypi.org/project/gcp-pipeline-framework/"
+Framework = "https://pypi.org/project/data-pipeline-framework/"
 
 [project.optional-dependencies]
 dev = [

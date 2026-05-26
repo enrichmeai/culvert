@@ -14,7 +14,7 @@ from typing import Dict, List, Any, Optional, Tuple
 from enum import Enum
 import re
 from datetime import datetime
-from gcp_pipeline_orchestration.routing import (
+from data_pipeline_orchestration.routing import (
     DAGRouter as BasePipelineRouter,
     PipelineConfig,
     FileType as CoreFileType,

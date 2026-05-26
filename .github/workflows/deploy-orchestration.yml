@@ -10,7 +10,7 @@ on:
     branches: [main]
     paths:
       - 'deployments/data-pipeline-orchestrator/**'
-      - 'gcp-pipeline-libraries/gcp-pipeline-orchestration/**'
+      - 'gcp-pipeline-libraries/data-pipeline-orchestration/**'
       - 'infrastructure/terraform/systems/generic/orchestration/**'
       - '.github/workflows/deploy-orchestration.yml'
   workflow_dispatch:
@@ -74,7 +74,7 @@ jobs:
             echo "$CHANGED"
 
             echo "dags_changed=$(echo "$CHANGED" | grep -q '^deployments/data-pipeline-orchestrator/dags/' && echo true || echo false)" >> $GITHUB_OUTPUT
-            echo "libs_changed=$(echo "$CHANGED" | grep -q '^gcp-pipeline-libraries/gcp-pipeline-orchestration/' && echo true || echo false)" >> $GITHUB_OUTPUT
+            echo "libs_changed=$(echo "$CHANGED" | grep -q '^gcp-pipeline-libraries/data-pipeline-orchestration/' && echo true || echo false)" >> $GITHUB_OUTPUT
             echo "terraform_changed=$(echo "$CHANGED" | grep -q '^infrastructure/terraform/systems/generic/orchestration/' && echo true || echo false)" >> $GITHUB_OUTPUT
           fi
 
@@ -95,18 +95,18 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
           cache-dependency-path: |
-            gcp-pipeline-libraries/gcp-pipeline-orchestration/pyproject.toml
+            gcp-pipeline-libraries/data-pipeline-orchestration/pyproject.toml
             deployments/data-pipeline-orchestrator/pyproject.toml
 
       - name: Install orchestration library
         run: |
           python -m pip install --upgrade pip setuptools wheel
-          cd gcp-pipeline-libraries/gcp-pipeline-orchestration
+          cd gcp-pipeline-libraries/data-pipeline-orchestration
           pip install ".[dev]" || pip install .
 
       - name: Run library tests
         run: |
-          cd gcp-pipeline-libraries/gcp-pipeline-orchestration
+          cd gcp-pipeline-libraries/data-pipeline-orchestration
           if [ -d tests ]; then
             pip install pytest pytest-cov pytest-mock
             pytest tests/unit -v --tb=short
@@ -221,7 +221,7 @@ jobs:
 
             # Clean stale library code
             gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_core 2>/dev/null || true
-            gsutil -m rm -rf ${DAGS_BUCKET}/gcp_pipeline_orchestration 2>/dev/null || true
+            gsutil -m rm -rf ${DAGS_BUCKET}/data_pipeline_orchestration 2>/dev/null || true
 
             # Sync DAG files
             gsutil -m rsync -r -d deployments/data-pipeline-orchestrator/dags/ ${DAGS_BUCKET}/generic/

@@ -15,7 +15,7 @@ name: Deploy to GKE (Alternative Orchestration)
 # Primary pattern:  deploy-generic.yml (Cloud Composer)
 # Alternative:      this workflow         (GKE self-hosted Airflow)
 #
-# Library: gcp-pipeline-framework (from PyPI) — same as primary
+# Library: data-pipeline-framework (from PyPI) — same as primary
 # Deployments:
 #   1. original-data-to-bigqueryload  → Dataflow Flex Template
 #   2. bigquery-to-mapped-product     → dbt models
@@ -109,14 +109,14 @@ jobs:
           sparse-checkout: VERSION
           sparse-checkout-cone-mode: false
 
-      - name: Resolve gcp-pipeline-framework version
+      - name: Resolve data-pipeline-framework version
         id: get-version
         run: |
           FALLBACK=$(cat VERSION | tr -d '[:space:]')
           if [ -n "${{ github.event.inputs.library_version }}" ]; then
             VERSION="${{ github.event.inputs.library_version }}"
           else
-            FETCHED=$(pip index versions gcp-pipeline-framework 2>/dev/null \
+            FETCHED=$(pip index versions data-pipeline-framework 2>/dev/null \
               | grep -oP '\d+\.\d+\.\d+' | head -1 || echo "")
             VERSION="${FETCHED:-$FALLBACK}"
           fi
@@ -141,13 +141,13 @@ jobs:
         python-version: ${{ env.PYTHON_VERSION }}
         cache: 'pip'
 
-    - name: Install gcp-pipeline-framework from PyPI
+    - name: Install data-pipeline-framework from PyPI
       run: |
         python -m pip install --upgrade pip
         VERSION="${{ needs.fetch-version.outputs.version }}"
-        echo "Installing gcp-pipeline-framework==$VERSION..."
-        pip install "gcp-pipeline-framework==$VERSION" pytest pytest-mock
-        pip show gcp-pipeline-framework | grep Version
+        echo "Installing data-pipeline-framework==$VERSION..."
+        pip install "data-pipeline-framework==$VERSION" pytest pytest-mock
+        pip show data-pipeline-framework | grep Version
 
     - name: Test original-data-to-bigqueryload
       run: |
@@ -245,7 +245,7 @@ jobs:
         LIBRARY_VERSION: ${{ needs.fetch-version.outputs.version }}
       run: |
         VERSION="${LIBRARY_VERSION}"
-        echo "Building ingestion image with gcp-pipeline-framework==$VERSION"
+        echo "Building ingestion image with data-pipeline-framework==$VERSION"
         gcloud builds submit . \
           --config deployments/original-data-to-bigqueryload/cloudbuild.yaml \
           --substitutions _LIBRARY_VERSION=$VERSION \
@@ -405,7 +405,7 @@ jobs:
         echo "=============================================="
         echo "  GKE Deployment Validation (Alternative)"
         echo "  Environment:  $ENV"
-        echo "  Framework:    gcp-pipeline-framework==$VERSION"
+        echo "  Framework:    data-pipeline-framework==$VERSION"
         echo "=============================================="
 
         echo ""

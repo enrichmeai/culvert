@@ -3,7 +3,7 @@ Data quality BDD steps for GCP pipelines.
 """
 
 from pytest_bdd import given, when, then, parsers
-from gcp_pipeline_tester.validators import validate_ssn
+from data_pipeline_tester.validators import validate_ssn
 
 def mock_validate_loan_amount(value):
     try:

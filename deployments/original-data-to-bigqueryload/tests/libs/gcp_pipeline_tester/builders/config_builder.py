@@ -7,7 +7,7 @@ Fluent builders for test configuration objects.
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from gcp_pipeline_tester.pipelines.base import PipelineConfig
+    from data_pipeline_tester.pipelines.base import PipelineConfig
 
 
 class PipelineConfigBuilder:
@@ -68,7 +68,7 @@ class PipelineConfigBuilder:
         Returns:
             PipelineConfig instance
         """
-        from gcp_pipeline_tester.pipelines.base import PipelineConfig
+        from data_pipeline_tester.pipelines.base import PipelineConfig
         return PipelineConfig(**self.config_data)
 
     def build_dict(self) -> Dict[str, Any]:
@@ -123,6 +123,6 @@ class BeamOptionsBuilder:
         Returns:
             PipelineOptions instance
         """
-        from gcp_pipeline_tester.pipelines.base import GCPPipelineOptions
+        from data_pipeline_tester.pipelines.base import GCPPipelineOptions
         return GCPPipelineOptions(self.options_list)
 

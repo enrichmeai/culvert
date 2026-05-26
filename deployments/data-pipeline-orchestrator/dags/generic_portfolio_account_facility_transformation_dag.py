@@ -28,7 +28,7 @@ except ImportError:
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from data_pipeline_orchestration.dependency import EntityDependencyChecker
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage
