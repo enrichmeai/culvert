@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-gcp-secrets</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-gcp-secrets (Java) — placeholder</name>
+    <description>
+        Placeholder for the sprint-1 GCP Secret Manager adapter (issue #5).
+        Implements SecretProvider from data-pipeline-core. The
+        implementing agent should REPLACE THIS ENTIRE FILE with a real
+        pom.xml (deps, plugins, etc.) per the Definition of Done in
+        GitHub issue #5 — do not edit in place. Issue body is canonical
+        scope; this file is just a parent-POM coordination stub.
+    </description>
+
+    <!-- REPLACE THIS ENTIRE FILE when implementing issue #5. -->
+</project>
