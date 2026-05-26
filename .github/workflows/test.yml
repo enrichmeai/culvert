@@ -23,7 +23,7 @@ jobs:
 
     strategy:
       matrix:
-        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester]
+        library: [gcp-pipeline-core, gcp-pipeline-beam, data-pipeline-orchestration, data-pipeline-transform, data-pipeline-tester]
 
     steps:
     - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e gcp-pipeline-libraries/gcp-pipeline-core
         pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-libraries/data-pipeline-tester
 
     - name: Install deployment
       run: |
@@ -107,8 +107,8 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install -e gcp-pipeline-libraries/gcp-pipeline-core
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-libraries/data-pipeline-orchestration
+        pip install -e gcp-pipeline-libraries/data-pipeline-tester
 
     - name: Install deployment
       run: |
@@ -154,7 +154,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e gcp-pipeline-libraries/gcp-pipeline-core
         pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-        pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+        pip install -e gcp-pipeline-libraries/data-pipeline-tester
 
     - name: Install deployment
       run: |

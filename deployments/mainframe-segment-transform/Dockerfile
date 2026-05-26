@@ -26,9 +26,9 @@ RUN pip install --no-cache-dir \
 
 # Install framework from PyPI with version pinning
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-framework; \
+        pip install --no-cache-dir data-pipeline-framework; \
     else \
-        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "data-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Copy deployment code (includes config/ with templates and src/)

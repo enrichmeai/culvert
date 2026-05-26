@@ -1,0 +1,76 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-pipeline-framework"
+version = "1.0.0"
+description = "Umbrella metapackage for the Culvert data pipeline framework. Installs the full reference stack (core + tester + transform + orchestration). Includes bundled deployment templates, Terraform modules, and CI workflow templates. Renamed successor of `data-pipeline-framework`."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
+]
+keywords = ["data", "pipeline", "framework", "culvert", "metapackage", "starter"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "data-pipeline-core>=0.1.0",
+    "data-pipeline-tester>=1.0.0",
+    "data-pipeline-transform>=1.0.0",
+    "data-pipeline-orchestration>=1.0.0",
+    "gcp-pipeline-beam==1.0.29",
+    "gcp-pipeline-core==1.0.29",
+]
+
+[project.optional-dependencies]
+core = ["data-pipeline-core>=0.1.0"]
+beam = ["gcp-pipeline-beam==1.0.29"]
+orchestration = ["data-pipeline-orchestration>=1.0.0"]
+transform = ["data-pipeline-transform>=1.0.0"]
+tester = ["data-pipeline-tester>=1.0.0"]
+
+[project.scripts]
+data-pipeline-docs = "data_pipeline_framework.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/data-pipeline-libraries"
+"Reference Implementations" = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"data_pipeline_framework" = [
+    "docs/*.md",
+    "infrastructure/**/*.tf",
+    "infrastructure/**/*.tfvars",
+    "infrastructure/**/*.hcl",
+    "infrastructure/**/*.yaml",
+    "infrastructure/**/Dockerfile",
+    "infrastructure/**/*.md",
+    "workflows/*.yml",
+    "config/*",
+    "test_data/*",
+    "deployments/**/*.py",
+    "deployments/**/*.sql",
+    "deployments/**/*.yml",
+    "deployments/**/*.yaml",
+    "deployments/**/*.json",
+    "deployments/**/*.csv",
+    "deployments/**/*.md",
+    "deployments/**/*.txt",
+    "deployments/**/Dockerfile",
+]

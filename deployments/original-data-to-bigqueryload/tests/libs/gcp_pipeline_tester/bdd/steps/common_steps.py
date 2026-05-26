@@ -3,7 +3,7 @@ Common BDD steps for GCP pipelines.
 """
 
 from pytest_bdd import given, when, then, parsers
-from gcp_pipeline_tester.validators import validate_ssn
+from data_pipeline_tester.validators import validate_ssn
 
 @given(parsers.re(r'an SSN "(?P<ssn>.*)"'), target_fixture="ssn_context")
 def step_given_ssn(ssn):

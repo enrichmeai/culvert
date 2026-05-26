@@ -22,14 +22,14 @@ RUN pip install --no-cache-dir dbt-bigquery
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-framework; \
+        pip install --no-cache-dir data-pipeline-framework; \
     else \
-        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "data-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
-    pip show gcp-pipeline-framework | grep Version && \
+    pip show data-pipeline-framework | grep Version && \
     pip show gcp-pipeline-core | grep Version
 
 # Copy deployment code
@@ -38,7 +38,7 @@ RUN pip install /app/deployments/bigquery-to-mapped-product
 
 WORKDIR /app/deployments/bigquery-to-mapped-product/dbt
 
-# Copy shared macros from pip-installed gcp-pipeline-transform into dbt project
+# Copy shared macros from pip-installed data-pipeline-transform into dbt project
 RUN TRANSFORM_PKG=$(python -c "import gcp_pipeline_transform; import os; print(os.path.dirname(gcp_pipeline_transform.__file__))") && \
     cp -r "$TRANSFORM_PKG/dbt_shared/macros" /app/deployments/bigquery-to-mapped-product/dbt/shared_macros
 

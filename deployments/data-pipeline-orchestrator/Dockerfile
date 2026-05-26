@@ -34,15 +34,15 @@ RUN pip install --no-cache-dir "apache-airflow-providers-google>=10.0.0"
 
 # Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir gcp-pipeline-framework; \
+        pip install --no-cache-dir data-pipeline-framework; \
     else \
-        pip install --no-cache-dir "gcp-pipeline-framework==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "data-pipeline-framework==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
     pip show gcp-pipeline-core | grep Version && \
-    pip show gcp-pipeline-orchestration | grep Version
+    pip show data-pipeline-orchestration | grep Version
 
 # Copy DAGs
 COPY dags /app/dags

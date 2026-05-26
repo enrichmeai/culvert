@@ -5,9 +5,9 @@ Provides base test classes, mocks, fixtures, builders, and assertions
 for testing BigQuery, GCS, Pub/Sub, and Dataflow pipelines.
 
 Example:
-    >>> from gcp_pipeline_tester import BasePipelineTest, BaseBeamTest
-    >>> from gcp_pipeline_tester.builders import RecordBuilder
-    >>> from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
+    >>> from data_pipeline_tester import BasePipelineTest, BaseBeamTest
+    >>> from data_pipeline_tester.builders import RecordBuilder
+    >>> from data_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
 """
 
 __version__ = "1.0.29"

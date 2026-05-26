@@ -1,42 +1,42 @@
-"""
-Orchestration Module
+"""DEPRECATED -- `gcp-pipeline-orchestration` has been renamed to `data-pipeline-orchestration`.
 
-Provides DAG creation and routing utilities for Airflow pipelines.
+This package is a thin deprecation shim that re-exports the renamed
+`data_pipeline_orchestration` distribution. It exists only to keep
+existing `import gcp_pipeline_orchestration` statements working for one
+release cycle so downstream consumers can migrate at their own pace.
 
-Subpackages:
-    - factories: DAG factory and configuration management
-    - routing: Pipeline routing and configuration resolution
+Migration:
 
-Classes Exported:
-    - DAGFactory: Factory for creating standardized DAGs
-    - DAGRouter: Router for dynamic file type routing
-    - DAGConfig: Complete DAG configuration
-    - DAGValidator: Configuration validator
-    - PipelineConfig: Pipeline route configuration
-    - FileType: Enumeration of file types
-    - ProcessingMode: Enumeration of processing modes
-
-Example:
-    ```python
+    # before
     from gcp_pipeline_orchestration import DAGFactory, DAGRouter
+    from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 
-    # Create a DAG
-    factory = DAGFactory()
-    dag = factory.create_dag_from_dict({
-        'dag_id': 'my_dag',
-        'schedule_interval': '@daily',
-    })
+    # after
+    from data_pipeline_orchestration import DAGFactory, DAGRouter
+    from data_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 
-    # Route based on file type
-    router = DAGRouter()
-    config = router.get_pipeline_config(file_type)
-    ```
+The shim will be removed in a future release. See
+`docs/framework-evolution/02-redesign.md` for the rename rationale.
 """
 
-__version__ = "1.0.29"
+from __future__ import annotations
 
-# Non-Airflow modules: safe to import anywhere
-from .factories import (
+import warnings
+
+warnings.warn(
+    "`gcp_pipeline_orchestration` is renamed to `data_pipeline_orchestration`. "
+    "Update your imports: `from gcp_pipeline_orchestration...` -> "
+    "`from data_pipeline_orchestration...`. This shim will be removed in a "
+    "future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+# Re-export the renamed module's flat surface plus submodule attributes so
+# both `from gcp_pipeline_orchestration import DAGFactory` and
+# `from gcp_pipeline_orchestration.routing import FileType` keep resolving.
+from data_pipeline_orchestration import (
+    # Factories
     DAGFactory,
     DAGConfig,
     DAGValidator,
@@ -46,14 +46,12 @@ from .factories import (
     TimeoutConfig,
     TaskConfig,
     ValidationError,
-)
-from .routing import (
+    # Routing
     DAGRouter,
     PipelineConfig,
     FileType,
     ProcessingMode,
-)
-from .callbacks import (
+    # Callbacks
     ErrorType,
     ErrorHandlerConfig,
     publish_to_dlq,
@@ -64,42 +62,60 @@ from .callbacks import (
     on_schema_mismatch,
     on_data_quality_failure,
     create_error_handler,
+    # Dependency
+    EntityDependencyChecker,
 )
-from .dependency import EntityDependencyChecker
 
-# Airflow-dependent modules are NOT imported here.
-# Import them directly where needed:
+# Submodule attribute re-exports so dotted imports keep working.
+from data_pipeline_orchestration import (  # noqa: F401
+    callbacks,
+    dependency,
+    factories,
+    routing,
+)
+
+# Note: Airflow-dependent submodules (operators, sensors, hooks) are NOT
+# imported eagerly here, matching the original gcp-pipeline-orchestration
+# behaviour. Consumers continue to import them directly:
 #   from gcp_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
-#   from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
+# which now resolves through the shim's __path__ machinery to
+# data_pipeline_orchestration.operators.dataflow.
+
+__version__ = "2.0.0"
 
 __all__ = [
+    "__version__",
     # Factories
-    'DAGFactory',
-    'DAGConfig',
-    'DAGValidator',
-    'DefaultArgs',
-    'ScheduleConfig',
-    'RetryPolicy',
-    'TimeoutConfig',
-    'TaskConfig',
-    'ValidationError',
+    "DAGFactory",
+    "DAGConfig",
+    "DAGValidator",
+    "DefaultArgs",
+    "ScheduleConfig",
+    "RetryPolicy",
+    "TimeoutConfig",
+    "TaskConfig",
+    "ValidationError",
     # Routing
-    'DAGRouter',
-    'PipelineConfig',
-    'FileType',
-    'ProcessingMode',
+    "DAGRouter",
+    "PipelineConfig",
+    "FileType",
+    "ProcessingMode",
     # Callbacks
-    'ErrorType',
-    'ErrorHandlerConfig',
-    'publish_to_dlq',
-    'on_failure_callback',
-    'on_validation_failure',
-    'on_routing_failure',
-    'quarantine_file',
-    'on_schema_mismatch',
-    'on_data_quality_failure',
-    'create_error_handler',
+    "ErrorType",
+    "ErrorHandlerConfig",
+    "publish_to_dlq",
+    "on_failure_callback",
+    "on_validation_failure",
+    "on_routing_failure",
+    "quarantine_file",
+    "on_schema_mismatch",
+    "on_data_quality_failure",
+    "create_error_handler",
     # Dependency
-    'EntityDependencyChecker',
+    "EntityDependencyChecker",
+    # Submodules
+    "callbacks",
+    "dependency",
+    "factories",
+    "routing",
 ]
-

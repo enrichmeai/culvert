@@ -471,7 +471,7 @@ except ImportError:
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
+from data_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
 from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 ''')
@@ -812,7 +812,7 @@ except ImportError:
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from data_pipeline_orchestration.dependency import EntityDependencyChecker
 from airflow.providers.google.cloud.operators.dataflow import DataflowStartFlexTemplateOperator
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
@@ -1154,7 +1154,7 @@ except ImportError:
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_orchestration.dependency import EntityDependencyChecker
+from data_pipeline_orchestration.dependency import EntityDependencyChecker
 from gcp_pipeline_core.audit import AuditTrail, ReconciliationEngine
 from gcp_pipeline_core.job_control import JobControlRepository, JobStatus, PipelineJob, FailureStage
 from gcp_pipeline_core.error_handling import ErrorHandler, GCSErrorStorage

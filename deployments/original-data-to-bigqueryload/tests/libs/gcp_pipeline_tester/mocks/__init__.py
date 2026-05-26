@@ -14,7 +14,7 @@ Exports:
     PubSubClientMock: Mock Pub/Sub client
 
 Example:
-    >>> from gcp_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
+    >>> from data_pipeline_tester.mocks import GCSClientMock, BigQueryClientMock
     >>>
     >>> gcs_mock = GCSClientMock()
     >>> bq_mock = BigQueryClientMock()

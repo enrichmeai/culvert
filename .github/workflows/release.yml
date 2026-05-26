@@ -81,7 +81,7 @@ jobs:
           
           # Build all libraries
           mkdir -p dist/
-          for lib in gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework; do
+          for lib in gcp-pipeline-core gcp-pipeline-beam data-pipeline-orchestration data-pipeline-transform data-pipeline-tester data-pipeline-framework; do
             if [ -d "gcp-pipeline-libraries/$lib" ]; then
               echo "Building $lib..."
               python -m build ./gcp-pipeline-libraries/$lib --outdir dist/ --wheel

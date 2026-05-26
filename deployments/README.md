@@ -453,15 +453,15 @@ Each deployment uses the shared libraries from `gcp-pipeline-libraries/`:
 
 | Deployment | Libraries Used |
 |------------|----------------|
-| orchestrator | `gcp-pipeline-core`, `gcp-pipeline-orchestration` |
+| orchestrator | `gcp-pipeline-core`, `data-pipeline-orchestration` |
 | ingestion | `gcp-pipeline-core`, `gcp-pipeline-beam` |
-| transform | `gcp-pipeline-core`, `gcp-pipeline-transform` (dbt macros) |
-| cdp | `gcp-pipeline-core`, `gcp-pipeline-transform` (dbt macros) |
+| transform | `gcp-pipeline-core`, `data-pipeline-transform` (dbt macros) |
+| cdp | `gcp-pipeline-core`, `data-pipeline-transform` (dbt macros) |
 | segment | `gcp-pipeline-core`, `gcp-pipeline-beam` |
-| spanner | `gcp-pipeline-transform` (dbt macros) |
+| spanner | `data-pipeline-transform` (dbt macros) |
 | postgres-cdc | `gcp-pipeline-core`, `gcp-pipeline-beam` |
 
-**Zero-Bleed Policy:** No library imports code from another layer (e.g., `gcp-pipeline-orchestration` never imports `apache_beam`).
+**Zero-Bleed Policy:** No library imports code from another layer (e.g., `data-pipeline-orchestration` never imports `apache_beam`).
 
 Libraries are installed from PyPI. Each deployment's `pyproject.toml` declares its library dependencies.
 

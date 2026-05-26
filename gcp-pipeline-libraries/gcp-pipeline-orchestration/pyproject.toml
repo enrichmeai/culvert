@@ -1,34 +1,36 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-orchestration"
-version = "1.0.29"
-description = "Orchestration library for GCP data pipelines"
+version = "2.0.0"
+description = "DEPRECATED — thin deprecation shim that re-exports `data-pipeline-orchestration`. Renamed as part of the Culvert framework rebranding (Stage 1 of docs/framework-evolution/02-redesign.md). Install `data-pipeline-orchestration` directly; this package will be removed in a future release."
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Good Shepherd Software Consultancy Limited" }]
-dependencies = [
-    "google-cloud-storage",
-    "google-cloud-pubsub",
-    "PyYAML>=6.0",
-    "gcp-pipeline-core",
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
 ]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = ["deprecated", "data-pipeline-orchestration", "culvert", "shim"]
+
+dependencies = [
+    "data-pipeline-orchestration>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+"Bug Tracker" = "https://github.com/enrichmeai/gcp-pipeline-reference/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src", "../gcp-pipeline-core/src"]
-testpaths = ["tests"]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-cov>=4.0.0",
-    "pytest-mock>=3.10.0",
-    "black>=23.0.0",
-    "flake8>=6.0.0",
-]

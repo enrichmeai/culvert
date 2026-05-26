@@ -1,0 +1,53 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-pipeline-transform"
+version = "1.0.0"
+description = "dbt macro library for the Culvert data pipeline framework (audit columns, PII masking, data-quality checks). Renamed successor of `gcp-pipeline-transform`. dbt-SQL only — no Apache Beam, no Airflow."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
+]
+keywords = ["data", "pipeline", "framework", "culvert", "dbt", "bigquery", "pii-masking"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "data-pipeline-core>=0.1.0",
+    "dbt-bigquery>=1.5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-mock",
+    "pytest-cov",
+]
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+"Bug Tracker" = "https://github.com/enrichmeai/gcp-pipeline-reference/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"*" = ["*.sql", "*.yml"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

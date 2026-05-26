@@ -5,7 +5,7 @@ Compare source system output (e.g., mainframe CSV) with target system output
 (e.g., BigQuery) to validate migration correctness.
 
 Usage:
-    from gcp_pipeline_tester.comparison import DualRunComparison
+    from data_pipeline_tester.comparison import DualRunComparison
 
     comparison = DualRunComparison(
         project_id="my-project",

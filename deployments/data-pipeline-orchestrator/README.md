@@ -63,7 +63,7 @@ Airflow DAGs for pipeline coordination and scheduling.
 
 ## Library-Driven Ease of Use
 
-The Generic orchestration unit leverages the `gcp-pipeline-orchestration` library to coordinate a complex multi-entity arrival pattern:
+The Generic orchestration unit leverages the `data-pipeline-orchestration` library to coordinate a complex multi-entity arrival pattern:
 
 1.  **Event-Driven Triggering**: Uses `BasePubSubPullSensor` with built-in `.ok` file filtering and metadata extraction to XCom.
 2.  **Cross-Entity Coordination**: Uses `EntityDependencyChecker` to verify that all 3 JOIN entities (Customers, Accounts, Decision) plus handling the Applications MAP entity independently are loaded before triggering the FDP transformation.
@@ -132,7 +132,7 @@ The DAGs use several Airflow variables and connections:
 | Library | Purpose |
 |---------|---------|
 | `gcp-pipeline-core` | Audit, logging, error handling |
-| `gcp-pipeline-orchestration` | DAG factory, sensors, operators |
+| `data-pipeline-orchestration` | DAG factory, sensors, operators |
 
 **NO Apache Beam dependency** - ingestion is separate unit.
 
