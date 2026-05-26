@@ -1,4 +1,4 @@
-package com.gcp.pipeline.segment.transform;
+package com.enrichmeai.culvert.deployments.segmenttransform;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;

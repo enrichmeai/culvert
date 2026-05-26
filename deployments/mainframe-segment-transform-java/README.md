@@ -39,7 +39,7 @@ mvn clean test
 ### Running Locally (DirectRunner)
 ```bash
 mvn compile exec:java \
-  -Dexec.mainClass=com.gcp.pipeline.segment.transform.MainframeSegmentPipeline \
+  -Dexec.mainClass=com.enrichmeai.culvert.deployments.segmenttransform.MainframeSegmentPipeline \
   -Dexec.args="--templatePath=../mainframe-segment-transform/config/templates/customer.yaml \
                --extractDate=20260514 \
                --periodStart=2026-05-01 \
