@@ -1,29 +1,27 @@
-package com.gcp.pipeline.segment.transform;
+package com.enrichmeai.culvert.deployments.segmenttransform;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class FieldFormatterTest {
+class FieldFormatterTest {
 
     private FieldFormatter formatter;
     private Map<String, String> context;
 
-    @Before
-    public void setUp() {
+    @BeforeEach
+    void setUp() {
         formatter = new FieldFormatter();
         context = new HashMap<>();
         context.put("extract_date", "20260514");
     }
 
     @Test
-    public void testFormatString() {
+    void formatString() {
         SegmentTemplate.FieldDefinition field = new SegmentTemplate.FieldDefinition();
         field.setName("test");
         field.setType("string");
@@ -33,13 +31,13 @@ public class FieldFormatterTest {
 
         assertEquals("hello     ", formatter.formatField("hello", field, context));
         assertEquals("verylongst", formatter.formatField("verylongstring", field, context));
-        
+
         field.setAlign("right");
         assertEquals("     hello", formatter.formatField("hello", field, context));
     }
 
     @Test
-    public void testFormatInteger() {
+    void formatInteger() {
         SegmentTemplate.FieldDefinition field = new SegmentTemplate.FieldDefinition();
         field.setName("test");
         field.setType("integer");
@@ -53,7 +51,7 @@ public class FieldFormatterTest {
     }
 
     @Test
-    public void testFormatAmount() {
+    void formatAmount() {
         SegmentTemplate.FieldDefinition field = new SegmentTemplate.FieldDefinition();
         field.setName("test");
         field.setType("amount");
@@ -66,7 +64,7 @@ public class FieldFormatterTest {
     }
 
     @Test
-    public void testFormatDate() {
+    void formatDate() {
         SegmentTemplate.FieldDefinition field = new SegmentTemplate.FieldDefinition();
         field.setName("test");
         field.setType("date");
@@ -78,7 +76,7 @@ public class FieldFormatterTest {
     }
 
     @Test
-    public void testExtractDateSource() {
+    void extractDateSource() {
         SegmentTemplate.FieldDefinition field = new SegmentTemplate.FieldDefinition();
         field.setName("test");
         field.setSource("_extract_date");

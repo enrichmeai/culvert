@@ -1,4 +1,4 @@
-package com.gcp.pipeline.segment.transform;
+package com.enrichmeai.culvert.deployments.segmenttransform;
 
 import com.google.api.services.bigquery.model.TableRow;
 import com.fasterxml.jackson.databind.ObjectMapper;
