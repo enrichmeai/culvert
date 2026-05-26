@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+    <artifactId>data-pipeline-gcp-pubsub</artifactId>
+    <packaging>jar</packaging>
+    <name>Culvert :: data-pipeline-gcp-pubsub (Java) — placeholder</name>
+    <description>Placeholder for the sprint-2 GCP Pub/Sub adapter. REPLACE THIS ENTIRE FILE when implementing.</description>
+    <!-- REPLACE THIS ENTIRE FILE when implementing the sprint-2 pubsub ticket. -->
+</project>
