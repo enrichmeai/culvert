@@ -14,15 +14,98 @@
     <artifactId>data-pipeline-gcp-secrets</artifactId>
     <packaging>jar</packaging>
 
-    <name>Culvert :: data-pipeline-gcp-secrets (Java) — placeholder</name>
+    <name>Culvert :: data-pipeline-gcp-secrets (Java)</name>
     <description>
-        Placeholder for the sprint-1 GCP Secret Manager adapter (issue #5).
-        Implements SecretProvider from data-pipeline-core. The
-        implementing agent should REPLACE THIS ENTIRE FILE with a real
-        pom.xml (deps, plugins, etc.) per the Definition of Done in
-        GitHub issue #5 — do not edit in place. Issue body is canonical
-        scope; this file is just a parent-POM coordination stub.
+        Google Cloud Secret Manager adapter for the Culvert framework. Provides
+        SecretManagerProvider, a SecretProvider implementation that wraps
+        com.google.cloud.secretmanager.v1.SecretManagerServiceClient. Registered
+        via java.util.ServiceLoader so consumers can wire it without compile-
+        time coupling to the GCP SDK. Sprint-1 deliverable (issue #5).
     </description>
 
-    <!-- REPLACE THIS ENTIRE FILE when implementing issue #5. -->
+    <properties>
+        <!--
+            Google Cloud Java SDK BOM. Imported here in dependencyManagement so
+            the GCP modules (this one, bigquery-java, gcs-java) each pin the
+            same SDK family without the parent POM depending on GCP. Keeps the
+            parent cloud-neutral.
+        -->
+        <google.cloud.libraries.bom.version>26.39.0</google.cloud.libraries.bom.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google.cloud.libraries.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Culvert contracts -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Google Cloud Secret Manager (version managed by libraries-bom) -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-secretmanager</artifactId>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
