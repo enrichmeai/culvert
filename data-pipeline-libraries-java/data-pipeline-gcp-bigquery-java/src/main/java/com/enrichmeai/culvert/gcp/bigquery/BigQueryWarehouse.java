@@ -60,12 +60,17 @@ import java.util.stream.Collectors;
  * {@link com.google.cloud.bigquery.BigQueryOptions.Builder#setLocation(String)}.
  * It is not a constructor argument here.
  *
- * <p>The class is {@link AutoCloseable}; closing it closes the wrapped
- * client. Use try-with-resources where the lifecycle is short-lived.
+ * <p>The wrapped {@link BigQuery} client is intentionally NOT closed by this
+ * adapter — the google-cloud-bigquery 2.x client does not implement
+ * {@link AutoCloseable}. The client manages its own gRPC channel lifecycle;
+ * consumers that need explicit teardown should close the client they
+ * injected. The pilot's AutoCloseable pattern (see
+ * {@code SecretManagerProvider}) applies only to clients that themselves
+ * implement {@code AutoCloseable}.
  *
  * <p>Sprint-1 deliverable for issue #6.
  */
-public final class BigQueryWarehouse implements Warehouse, AutoCloseable {
+public final class BigQueryWarehouse implements Warehouse {
 
     private final String projectId;
     private final BigQuery client;
@@ -198,17 +203,6 @@ public final class BigQueryWarehouse implements Warehouse, AutoCloseable {
                 return false;
             }
             throw e;
-        }
-    }
-
-    @Override
-    public void close() {
-        try {
-            client.close();
-        } catch (Exception e) {
-            // BigQuery#close() declares Exception per AutoCloseable; rewrap
-            // so the framework-facing contract is unchecked. Don't swallow.
-            throw new RuntimeException("Failed to close BigQuery client", e);
         }
     }
 
