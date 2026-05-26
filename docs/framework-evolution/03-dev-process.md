@@ -100,15 +100,19 @@ For sprint-1 GCP modules:
 
 Live-cloud integration tests are sprint-2+ scope.
 
-## Sprint branch workflow (from Sprint 2 onward)
+## Sprint branch workflow
 
-**Sprint 0** lands on `main` directly (process docs + scaffolding only).
+**Sprint 0** is the only sprint that lands on `main` directly — process
+docs + scaffolding only, no production code.
 
-**Sprint 1** also lands on `main` directly — issues #5-#9 were written
-under the direct-to-main model and dispatching is imminent. Don't
-rewrite them.
+**Every other sprint** (Sprint 1 onward) uses a sprint branch. Mid-Sprint-1
+correction: the earlier draft of this doc carved out a "Sprint 1 stays
+direct-to-main" exception. **That exception was removed.** Wave 1 (#5)
+and wave 2 (#6, #7) of Sprint 1 already landed on `main` before the rule
+took full effect; those commits stay on `main` and the violation is
+captured in the Sprint 1 retro. Wave 3 onward goes through `sprint-1`.
 
-**Sprint 2 onward** uses a sprint branch:
+**Sprint 1 onward** uses a sprint branch:
 
 ```
 main
