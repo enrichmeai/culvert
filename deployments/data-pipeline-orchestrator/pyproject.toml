@@ -21,7 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "gcp-pipeline-core==1.0.29",
-    "gcp-pipeline-orchestration[airflow]==1.0.29",
+    "data-pipeline-orchestration[airflow]>=1.0.0",
 ]
 # NOTE: NO apache-beam or gcp-pipeline-beam dependency -- orchestration only
 
@@ -29,13 +29,13 @@ dependencies = [
 Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
 Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/data-pipeline-orchestrator"
 Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Framework = "https://pypi.org/project/gcp-pipeline-framework/"
+Framework = "https://pypi.org/project/data-pipeline-framework/"
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
-    "gcp-pipeline-tester==1.0.29",
+    "data-pipeline-tester>=1.0.0",
 ]
 
 [tool.setuptools.packages.find]

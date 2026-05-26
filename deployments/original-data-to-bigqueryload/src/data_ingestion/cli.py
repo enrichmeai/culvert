@@ -126,7 +126,7 @@ dependencies = [
 dev = [
     "pytest>=7.0.0",
     "pytest-mock>=3.0.0",
-    "gcp-pipeline-tester>=1.0.6",
+    "data-pipeline-tester>=1.0.6",
 ]
 
 [tool.setuptools.packages.find]

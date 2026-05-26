@@ -26,7 +26,7 @@ except ImportError:
     except ImportError:
         from airflow.operators.dummy import DummyOperator
 
-from gcp_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
+from data_pipeline_orchestration.sensors.pubsub import BasePubSubPullSensor
 from gcp_pipeline_core.file_management import HDRTRLParser
 from gcp_pipeline_core.audit import AuditTrail
 from gcp_pipeline_core.monitoring.alerts import (

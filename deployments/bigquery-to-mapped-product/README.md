@@ -94,13 +94,13 @@ FDP Transformation - dbt models for ODP → FDP transformation.
 
 ## Library-Driven Ease of Use
 
-The Generic transformation unit uses the `gcp-pipeline-transform` library for lineage and audit:
+The Generic transformation unit uses the `data-pipeline-transform` library for lineage and audit:
 
 1.  **Schema Routing**: Uses a custom `generate_schema_name` macro to route staging models to `odp_generic` and FDP models to `fdp_generic`, matching the Terraform-managed datasets.
 2.  **Automated Lineage**: Audit columns (`_run_id`, `_extract_date`, `_transformed_at`) are preserved from ingestion through to FDP, maintaining end-to-end traceability.
 3.  **Incremental Processing**: All FDP models use `merge` strategy with `on_schema_change='append_new_columns'` for efficient incremental loads.
 
-> **Note on PII Masking:** The `mask_pii` macro from `gcp-pipeline-transform` is available but not currently applied in the FDP models. PII masking can be re-enabled per-environment when the library's `get_masking_level` Jinja whitespace issue is resolved.
+> **Note on PII Masking:** The `mask_pii` macro from `data-pipeline-transform` is available but not currently applied in the FDP models. PII masking can be re-enabled per-environment when the library's `get_masking_level` Jinja whitespace issue is resolved.
 
 ---
 
@@ -109,7 +109,7 @@ The Generic transformation unit uses the `gcp-pipeline-transform` library for li
 To create a new transformation unit that joins multiple entities, follow the [Creating New Deployment Guide](../../docs/CREATING_NEW_DEPLOYMENT_GUIDE.md).
 
 Key steps for this JOIN pattern:
-1.  **Register Library**: Point your `dbt_project.yml` to the `gcp-pipeline-transform` macro paths.
+1.  **Register Library**: Point your `dbt_project.yml` to the `data-pipeline-transform` macro paths.
 2.  **Schema Routing**: Create a `generate_schema_name` macro to map logical schemas to your Terraform-managed datasets.
 3.  **Staging Models**: Create views for your ODP tables. Include all audit columns (`_run_id`, `_extract_date`, `_processed_at`).
 4.  **FDP Models**: Implement your JOIN/MAP logic with `incremental` materialization and `merge` strategy.
@@ -151,7 +151,7 @@ The transformation behavior is controlled by variables and configurations in `db
 | Library | Purpose |
 |---------|---------|
 | `dbt-bigquery` | dbt adapter for BigQuery |
-| `gcp-pipeline-transform` | Shared macros (audit columns) |
+| `data-pipeline-transform` | Shared macros (audit columns) |
 
 ---
 

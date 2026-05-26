@@ -49,7 +49,7 @@ jobs:
           # Libraries (core first — required by transitive deps)
           pip install -e gcp-pipeline-libraries/gcp-pipeline-core
           pip install -e gcp-pipeline-libraries/gcp-pipeline-beam
-          pip install -e gcp-pipeline-libraries/gcp-pipeline-tester
+          pip install -e gcp-pipeline-libraries/data-pipeline-tester
           # Deployment package
           pip install -e deployments/mainframe-segment-transform
 

@@ -7,7 +7,7 @@ This class integrates with pytest-bdd to provide scenario-based testing
 with proper setup, teardown, and common utilities.
 
 Example:
-    >>> from gcp_pipeline_tester.base import PipelineScenarioTest
+    >>> from data_pipeline_tester.base import PipelineScenarioTest
     >>>
     >>> class TestDataQuality(PipelineScenarioTest):
     ...     @scenario('features/data_quality.feature', 'Valid SSN passes')

@@ -110,7 +110,7 @@ def sample_pipeline_config():
         >>> def test_with_pipeline_config(sample_pipeline_config):
         ...     assert sample_pipeline_config.run_id is not None
     """
-    from gcp_pipeline_tester.pipelines.base import PipelineConfig
+    from data_pipeline_tester.pipelines.base import PipelineConfig
 
     return PipelineConfig(
         run_id='test_run_001',

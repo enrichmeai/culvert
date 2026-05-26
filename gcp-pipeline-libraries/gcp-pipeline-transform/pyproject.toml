@@ -1,32 +1,36 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "gcp-pipeline-transform"
-version = "1.0.29"
-description = "Transform library for GCP data pipelines (dbt macros)"
+version = "2.0.0"
+description = "DEPRECATED — thin deprecation shim that installs `data-pipeline-transform`. Renamed as part of the Culvert framework rebranding (Stage 1 of docs/framework-evolution/02-redesign.md). Install `data-pipeline-transform` directly; this package will be removed in a future release."
 readme = "README.md"
-requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
-authors = [{ name = "Good Shepherd Software Consultancy Limited" }]
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
+]
+classifiers = [
+    "Development Status :: 7 - Inactive",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+keywords = ["deprecated", "data-pipeline-transform", "culvert", "shim"]
+
 dependencies = [
-    "dbt-bigquery>=1.5.0",
+    "data-pipeline-transform>=1.0.0",
 ]
 
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
-    "pytest-mock",
-    "pytest-cov",
-]
+[project.urls]
+Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+"Bug Tracker" = "https://github.com/enrichmeai/gcp-pipeline-reference/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-pythonpath = ["src"]
-testpaths = ["tests"]
-
-[tool.setuptools.package-data]
-"*" = ["*.sql", "*.yml"]

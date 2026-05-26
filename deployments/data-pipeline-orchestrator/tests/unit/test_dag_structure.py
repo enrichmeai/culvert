@@ -24,7 +24,7 @@ LIBRARY_FACTORY_PATH = (
     / "gcp-pipeline-libraries"
     / "gcp-pipeline-orchestration"
     / "src"
-    / "gcp_pipeline_orchestration"
+    / "data_pipeline_orchestration"
     / "factories"
     / "dag_factory.py"
 )

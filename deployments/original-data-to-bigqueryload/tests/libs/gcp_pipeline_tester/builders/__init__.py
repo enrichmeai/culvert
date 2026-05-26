@@ -14,7 +14,7 @@ Exports:
     TestPipelineBuilder: Build test pipelines
 
 Example:
-    >>> from gcp_pipeline_tester.builders import RecordBuilder, PipelineConfigBuilder
+    >>> from data_pipeline_tester.builders import RecordBuilder, PipelineConfigBuilder
     >>>
     >>> record = (RecordBuilder()
     ...     .with_field('id', '1')

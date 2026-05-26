@@ -59,7 +59,7 @@ env:
   PYTHON_VERSION: '3.11'
   # Library publish order (core must be first due to dependencies)
   CORE_LIBRARY: 'gcp-pipeline-core'
-  DEPENDENT_LIBRARIES: 'gcp-pipeline-beam,gcp-pipeline-orchestration,gcp-pipeline-transform,gcp-pipeline-tester,gcp-pipeline-framework'
+  DEPENDENT_LIBRARIES: 'gcp-pipeline-beam,data-pipeline-orchestration,data-pipeline-transform,data-pipeline-tester,data-pipeline-framework'
 
 permissions:
   contents: write  # Needed for creating GitHub releases
@@ -169,7 +169,7 @@ jobs:
     strategy:
       fail-fast: false  # Continue testing other libraries if one fails
       matrix:
-        library: [gcp-pipeline-core, gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-pipeline-framework]
+        library: [gcp-pipeline-core, gcp-pipeline-beam, data-pipeline-orchestration, data-pipeline-transform, data-pipeline-tester, data-pipeline-framework]
 
     steps:
     - uses: actions/checkout@v4
@@ -193,11 +193,11 @@ jobs:
         fi
         
         # For framework, we need to install all sub-libraries locally first
-        if [ "${{ matrix.library }}" == "gcp-pipeline-framework" ]; then
+        if [ "${{ matrix.library }}" == "data-pipeline-framework" ]; then
           pip install ./gcp-pipeline-libraries/gcp-pipeline-beam
-          pip install ./gcp-pipeline-libraries/gcp-pipeline-orchestration
-          pip install ./gcp-pipeline-libraries/gcp-pipeline-transform
-          pip install ./gcp-pipeline-libraries/gcp-pipeline-tester
+          pip install ./gcp-pipeline-libraries/data-pipeline-orchestration
+          pip install ./gcp-pipeline-libraries/data-pipeline-transform
+          pip install ./gcp-pipeline-libraries/data-pipeline-tester
         fi
         
         cd gcp-pipeline-libraries/${{ matrix.library }}
@@ -211,7 +211,7 @@ jobs:
         cd gcp-pipeline-libraries/${{ matrix.library }}
         if [ -d tests ]; then
           # For transform library, install dbt
-          if [ "${{ matrix.library }}" == "gcp-pipeline-transform" ]; then
+          if [ "${{ matrix.library }}" == "data-pipeline-transform" ]; then
              pip install dbt-bigquery || true
           fi
           
@@ -337,7 +337,7 @@ jobs:
       fail-fast: false
       max-parallel: 2  # Avoid rate limiting
       matrix:
-        library: [gcp-pipeline-beam, gcp-pipeline-orchestration, gcp-pipeline-transform, gcp-pipeline-tester, gcp-pipeline-framework]
+        library: [gcp-pipeline-beam, data-pipeline-orchestration, data-pipeline-transform, data-pipeline-tester, data-pipeline-framework]
 
     steps:
     - uses: actions/checkout@v4
@@ -361,9 +361,9 @@ jobs:
         echo "📦 ${{ matrix.library }} version: $VERSION"
 
     - name: Sync bundled assets into framework package
-      if: matrix.library == 'gcp-pipeline-framework'
+      if: matrix.library == 'data-pipeline-framework'
       run: |
-        FW="gcp-pipeline-libraries/gcp-pipeline-framework/src/gcp_pipeline_framework"
+        FW="gcp-pipeline-libraries/data-pipeline-framework/src/data_pipeline_framework"
 
         echo "📄 Syncing docs..."
         rm -rf "$FW/docs" && mkdir -p "$FW/docs"
@@ -567,7 +567,7 @@ jobs:
       run: |
         pip install --upgrade pip build
         mkdir -p /tmp/local-wheels
-        for lib in gcp-pipeline-core gcp-pipeline-beam gcp-pipeline-orchestration gcp-pipeline-transform gcp-pipeline-tester gcp-pipeline-framework; do
+        for lib in gcp-pipeline-core gcp-pipeline-beam data-pipeline-orchestration data-pipeline-transform data-pipeline-tester data-pipeline-framework; do
           python -m build ./gcp-pipeline-libraries/$lib --outdir /tmp/local-wheels --wheel
         done
         echo "Built wheels:"
@@ -693,10 +693,10 @@ jobs:
         echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
         echo "| gcp-pipeline-core | ${{ needs.publish-core.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "| gcp-pipeline-beam | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| gcp-pipeline-orchestration | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| gcp-pipeline-transform | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| gcp-pipeline-tester | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
-        echo "| gcp-pipeline-framework | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-orchestration | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-transform | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-tester | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| data-pipeline-framework | ${{ needs.publish-others.result == 'success' && '✅ Published' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
         echo "## Reference Implementations" >> $GITHUB_STEP_SUMMARY
