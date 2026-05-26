@@ -29,6 +29,12 @@ slack.
 
 ## Sprint 1 — Java GCP adapters (Phase B start)
 
+**Branching:** Wave 1 (#5) and wave 2 (#6, #7) landed on `main` directly
+before the sprint-branch rule was applied retroactively. Wave 3 (#8, #9)
+and the sprint-close UAT run on the `sprint-1` branch; `sprint-1 → main`
+PR at sprint close. The mid-sprint rule change is logged in the Sprint 1
+retro.
+
 **Goal:** First three GCP contracts on the JVM via Mockito-only tests.
 
 **Tickets:**
@@ -51,12 +57,12 @@ slack.
 
 ---
 
-## Sprint 2 — Java GCP adapters (Phase B finish) — **first sprint on a sprint branch**
+## Sprint 2 — Java GCP adapters (Phase B finish)
 
-**Branching:** This is the first sprint that uses the sprint-branch
-workflow (DEV_PROCESS.md). Cut `sprint-2` from `main` after Sprint 1
-merges. Each ticket's feature branch is `feature/issue-N-<slug>` PR'd
-into `sprint-2`. Single `sprint-2 → main` PR at sprint close.
+**Branching:** Standard sprint-branch workflow (DEV_PROCESS.md). Cut
+`sprint-2` from `main` after Sprint 1 merges. Each ticket's feature
+branch is `feature/issue-N-<slug>` PR'd into `sprint-2`. Single
+`sprint-2 → main` PR at sprint close.
 
 **Goal:** Cover the remaining GCP contracts on the JVM so Beam pipelines have a full adapter set.
 
