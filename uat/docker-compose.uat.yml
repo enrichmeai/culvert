@@ -1,0 +1,40 @@
+# Culvert UAT harness — internal-demo only.
+#
+# Stands up the mock HTTP services that the framework needs for a
+# realistic end-to-end demo without live GCP/AWS/Azure credentials.
+#
+# The GCP Pub/Sub, BigQuery, and Cloud Storage clients are gRPC and are
+# mocked at the SDK level via Mockito in unit/integration tests. WireMock
+# here is for HTTP-style services that surface around the framework
+# (auth gateways, external REST APIs, webhooks). Sprint-6 ships the
+# scaffolding; sample-pipeline demos and the make uat-demo target are
+# follow-up scope.
+#
+# Usage:
+#   cd uat && docker-compose -f docker-compose.uat.yml up -d
+#   curl http://localhost:8080/oauth2/token  # see wiremock/mappings/
+#   docker-compose -f docker-compose.uat.yml down
+#
+# Sprint-6 deliverable. Issue #16.
+
+version: "3.8"
+
+services:
+  wiremock:
+    image: wiremock/wiremock:3.5.4
+    container_name: culvert-uat-wiremock
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./wiremock/mappings:/home/wiremock/mappings:ro
+      - ./wiremock/__files:/home/wiremock/__files:ro
+    command:
+      - --port=8080
+      - --verbose
+      - --global-response-templating
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/__admin/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
