@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-gcp-observability</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-gcp-observability (Java)</name>
+    <description>
+        Google Cloud observability adapters for the Culvert framework. Provides
+        CloudTraceObservabilityHook (ObservabilityHook implementation backed by
+        OpenTelemetry exporting spans to Cloud Trace via the GCP exporter) and
+        DataCatalogLineageEmitter (LineageEmitter implementation that writes
+        lineage events as Data Catalog tags on a configurable entry). Both
+        registered via java.util.ServiceLoader. Sprint-2 deliverable
+        (issue #24). Multi-contract module — same shape as the bigquery-java
+        pilot which ships three contract impls under one pom.
+    </description>
+
+    <properties>
+        <!--
+            Google Cloud Java SDK BOM. Same pin as the other GCP modules
+            (pubsub-java, bigquery-java, gcs-java, secrets-java). Imported here
+            in dependencyManagement so the parent stays cloud-neutral. This
+            BOM manages google-cloud-datacatalog versions.
+        -->
+        <google.cloud.libraries.bom.version>26.39.0</google.cloud.libraries.bom.version>
+
+        <!--
+            OpenTelemetry. The GCP OTel trace exporter
+            (com.google.cloud.opentelemetry:exporter-trace) is published
+            outside of libraries-bom, so we pin its version explicitly. The
+            opentelemetry-bom from io.opentelemetry pins the API/SDK aligned
+            with what the exporter expects.
+        -->
+        <opentelemetry.bom.version>1.38.0</opentelemetry.bom.version>
+        <gcp.opentelemetry.exporter.version>0.30.0</gcp.opentelemetry.exporter.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google.cloud.libraries.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Culvert contracts -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- OpenTelemetry API + SDK (versions managed by opentelemetry-bom) -->
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry</groupId>
+            <artifactId>opentelemetry-sdk</artifactId>
+        </dependency>
+
+        <!--
+            GCP Cloud Trace exporter for OpenTelemetry. Published from the
+            GoogleCloudPlatform/opentelemetry-operations-java repo; sits
+            outside libraries-bom, hence the explicit version above.
+        -->
+        <dependency>
+            <groupId>com.google.cloud.opentelemetry</groupId>
+            <artifactId>exporter-trace</artifactId>
+            <version>${gcp.opentelemetry.exporter.version}</version>
+        </dependency>
+
+        <!-- Google Cloud Data Catalog (version managed by libraries-bom) -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-datacatalog</artifactId>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        google-cloud-datacatalog and the OTel SDK transitively
+                        bring in annotation processors (auto-value, etc.) that
+                        don't claim our JUnit / Mockito annotations. Under the
+                        parent's -Xlint:all + -Werror, this triggers a
+                        "No processor claimed any of these annotations" warning
+                        that fails the build. We don't use annotation
+                        processors here, so disable processing explicitly.
+                        Mirrors bigquery-java and pubsub-java.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -68,13 +68,14 @@
         <module>data-pipeline-gcp-bigquery-java</module>
         <module>data-pipeline-gcp-gcs-java</module>
         <!--
-            Reserved future modules. Stay commented until they have content.
-
-            <module>data-pipeline-tester-java</module>
-            <module>data-pipeline-gcp-dataflow-java</module>
-            <module>data-pipeline-gcp-pubsub-java</module>
-            <module>data-pipeline-gcp-observability-java</module>
+            Sprint-2 GCP modules. Pre-registered so the wave-2 sub-agents
+            can each fill in their module without touching the parent POM.
+            Coordination seam — same pattern as sprint-1.
         -->
+        <module>data-pipeline-gcp-pubsub-java</module>
+        <module>data-pipeline-gcp-observability-java</module>
+        <module>data-pipeline-gcp-dataflow-java</module>
+        <module>data-pipeline-tester-java</module>
     </modules>
 
     <properties>
