@@ -1,0 +1,8 @@
+# Pre-registered for sprint-4 auto-config. The implementation does NOT
+# expose a no-arg constructor — PubSubSink wraps a pre-built Publisher,
+# which itself requires a topic name and batching/retry config at
+# construction time. Direct ServiceLoader.load(Sink.class).findFirst()
+# will fail with ServiceConfigurationError until sprint-4 introduces a
+# config-driven constructor. Until then, instantiate explicitly with
+# `new PubSubSink(publisher)`.
+com.enrichmeai.culvert.gcp.pubsub.PubSubSink
