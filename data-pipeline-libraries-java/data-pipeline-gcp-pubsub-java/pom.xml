@@ -3,15 +3,123 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.enrichmeai.culvert</groupId>
         <artifactId>data-pipeline-libraries-parent</artifactId>
         <version>0.1.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+
     <artifactId>data-pipeline-gcp-pubsub</artifactId>
     <packaging>jar</packaging>
-    <name>Culvert :: data-pipeline-gcp-pubsub (Java) — placeholder</name>
-    <description>Placeholder for the sprint-2 GCP Pub/Sub adapter. REPLACE THIS ENTIRE FILE when implementing.</description>
-    <!-- REPLACE THIS ENTIRE FILE when implementing the sprint-2 pubsub ticket. -->
+
+    <name>Culvert :: data-pipeline-gcp-pubsub (Java)</name>
+    <description>
+        Google Cloud Pub/Sub adapter for the Culvert framework. Provides
+        PubSubSource (Source implementation wrapping a SubscriberStub for
+        synchronous pull) and PubSubSink (Sink implementation wrapping a
+        Publisher). Registered via java.util.ServiceLoader so consumers
+        can wire it without compile-time coupling to the GCP SDK.
+        Sprint-2 deliverable (issue #23).
+    </description>
+
+    <properties>
+        <!--
+            Google Cloud Java SDK BOM. Imported here in dependencyManagement so
+            the GCP modules (this one, bigquery-java, secrets-java, gcs-java)
+            each pin the same SDK family without the parent POM depending on
+            GCP. Keeps the parent cloud-neutral. Mirror of the bigquery-java
+            pilot.
+        -->
+        <google.cloud.libraries.bom.version>26.39.0</google.cloud.libraries.bom.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google.cloud.libraries.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Culvert contracts -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Google Cloud Pub/Sub (version managed by libraries-bom) -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-pubsub</artifactId>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        google-cloud-pubsub transitively brings in annotation
+                        processors (auto-value, etc.) that don't claim our
+                        JUnit / Mockito annotations. Under the parent's
+                        -Xlint:all + -Werror, this triggers a "No processor
+                        claimed any of these annotations" warning that fails
+                        the build. We don't use annotation processors here, so
+                        disable processing explicitly. Mirrors bigquery-java.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
