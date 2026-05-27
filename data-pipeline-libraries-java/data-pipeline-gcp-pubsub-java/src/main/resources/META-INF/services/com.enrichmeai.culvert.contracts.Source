@@ -1,0 +1,9 @@
+# Pre-registered for sprint-4 auto-config. The implementation does NOT
+# expose a no-arg constructor — PubSubSource needs a SubscriberStub and a
+# fully-qualified subscription name at construction time, which exceeds
+# the pilot's "no-arg only if <=2 env vars of state" rule. Direct
+# ServiceLoader.load(Source.class).findFirst() will fail with
+# ServiceConfigurationError until sprint-4 introduces a config-driven
+# constructor. Until then, instantiate explicitly with
+# `new PubSubSource(stub, subscriptionName)`.
+com.enrichmeai.culvert.gcp.pubsub.PubSubSource
