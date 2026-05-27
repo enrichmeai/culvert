@@ -78,6 +78,9 @@
         <module>data-pipeline-tester-java</module>
         <!-- Sprint-5: contract test scaffolding -->
         <module>data-pipeline-contract-tests-java</module>
+        <!-- Sprint-8: non-GCP cloud skeletons (proof of cloud-neutral design) -->
+        <module>data-pipeline-aws-s3-java</module>
+        <module>data-pipeline-azure-blob-java</module>
     </modules>
 
     <properties>
