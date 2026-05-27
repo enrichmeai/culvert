@@ -1,0 +1,21 @@
+{
+  "request": {
+    "method": "POST",
+    "url": "/webhooks/pipeline-event",
+    "headers": {
+      "Authorization": {
+        "matches": "Bearer .+"
+      }
+    }
+  },
+  "response": {
+    "status": 202,
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "jsonBody": {
+      "received": true,
+      "event_id": "{{randomValue type='UUID'}}"
+    }
+  }
+}
