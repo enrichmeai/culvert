@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-gcp-dataflow</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-gcp-dataflow (Java)</name>
+    <description>
+        Google Cloud Dataflow adapter for the Culvert framework. Provides
+        DataflowPipeline, a Pipeline implementation that holds the stage
+        topology (per the Pipeline contract — name + stages + validate)
+        plus utility methods for bridging to Apache Beam: buildBeam()
+        translates the stage graph into a beam.sdk.Pipeline and
+        runOnDataflow() submits it via the DataflowPipelineRunner.
+        Sprint-2 deliverable (issue #25).
+    </description>
+
+    <properties>
+        <!--
+            Beam is NOT under the Google libraries-bom — it has its own
+            release cadence. Pin a single Beam version property; the
+            existing mainframe-segment-transform-java deployment uses 2.55.0.
+        -->
+        <beam.version>2.55.0</beam.version>
+    </properties>
+
+    <dependencies>
+        <!-- Culvert contracts -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Beam core SDK + Dataflow runner. -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-direct-java</artifactId>
+            <version>${beam.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Beam transitively brings in auto-value processors;
+                        same -Werror trap as the GCP modules. Disable.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

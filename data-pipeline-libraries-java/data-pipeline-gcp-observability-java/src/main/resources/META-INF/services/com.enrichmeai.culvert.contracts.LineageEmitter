@@ -1,0 +1,9 @@
+# Pre-registered for sprint-4 auto-config. The implementation does NOT
+# expose a no-arg constructor — Data Catalog tagging requires an entry
+# name + tag template + a pre-built client (3 args), which exceeds the
+# pilot's "no-arg only if <=2 env vars of state" rule. Direct
+# ServiceLoader.load(LineageEmitter.class).findFirst() will fail with
+# ServiceConfigurationError until sprint-4 introduces a config-driven
+# constructor. Until then, instantiate explicitly with
+# `new DataCatalogLineageEmitter(client, entryName, tagTemplate)`.
+com.enrichmeai.culvert.gcp.observability.DataCatalogLineageEmitter

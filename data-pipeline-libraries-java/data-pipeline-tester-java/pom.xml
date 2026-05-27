@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-tester</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-tester (Java)</name>
+    <description>
+        Mockito-helper fixture builders for the Culvert framework contracts.
+        Consumers use these helpers to mock SecretProvider, Warehouse,
+        BlobStore, JobControlRepository, and FinOpsSink in their own unit
+        tests without repeating the Mockito + when(...).thenReturn(...)
+        boilerplate. Sprint-2 deliverable (issue #26).
+
+        Note: Mockito and AssertJ are COMPILE-scope deps here (overriding the
+        parent's test scope). This module IS a test-helper library — its
+        production code uses Mockito. NOT a libraries-bom user (no GCP deps).
+    </description>
+
+    <dependencies>
+        <!-- Culvert contracts -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            Mockito at compile scope — this module's production code uses
+            Mockito.mock(...) inside fixture builders. The parent
+            dependencyManagement declares Mockito as test scope; we override
+            explicitly here.
+        -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>${mockito.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!--
+            AssertJ at compile scope — fixture builders expose typed assertion
+            handles (e.g. capture-sink lookups) that callers can chain with
+            AssertJ. Same scope override as Mockito.
+        -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope: JUnit for self-testing the helpers. -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Mockito's byte-buddy / inline-mock-maker pulls in
+                        annotation processors that don't claim our JUnit /
+                        Mockito annotations. Under the parent's -Xlint:all +
+                        -Werror this triggers a "No processor claimed any of
+                        these annotations" warning that fails the build. We
+                        don't use annotation processors here, so disable
+                        processing explicitly. Same pattern as the GCP
+                        adapter modules.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
