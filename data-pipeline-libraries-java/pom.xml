@@ -76,6 +76,8 @@
         <module>data-pipeline-gcp-observability-java</module>
         <module>data-pipeline-gcp-dataflow-java</module>
         <module>data-pipeline-tester-java</module>
+        <!-- Sprint-5: contract test scaffolding -->
+        <module>data-pipeline-contract-tests-java</module>
     </modules>
 
     <properties>
