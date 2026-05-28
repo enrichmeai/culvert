@@ -1,7 +1,10 @@
 package com.enrichmeai.culvert.gcp.dataflow;
 
+import com.enrichmeai.culvert.autoconfig.AutoConfig;
 import com.enrichmeai.culvert.contracts.Pipeline;
 import com.enrichmeai.culvert.contracts.PipelineStage;
+import com.enrichmeai.culvert.contracts.RuntimeContext;
+import com.enrichmeai.culvert.runtime.DefaultRuntimeContext;
 import org.apache.beam.runners.dataflow.DataflowRunner;
 // Note: Beam 2.x uses `DataflowRunner` (not `DataflowPipelineRunner` —
 // that was the old 1.x name kept around in pre-merge Beam).
@@ -10,8 +13,10 @@ import org.apache.beam.sdk.PipelineResult;
 import org.apache.beam.sdk.options.PipelineOptions;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -19,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * {@link Pipeline} implementation that bridges Culvert's topology contract
@@ -144,17 +150,16 @@ public final class DataflowPipeline implements Pipeline {
     }
 
     /**
-     * Build a Beam {@link org.apache.beam.sdk.Pipeline} from this
-     * topology with default {@link PipelineOptions}.
+     * Build a Beam {@link org.apache.beam.sdk.Pipeline} from this topology
+     * with default {@link PipelineOptions} and a default {@link RuntimeContext}.
      *
-     * <p>Each Culvert {@link PipelineStage} is currently translated as a
-     * Beam {@code Pipeline} root node; concrete per-stage transform
-     * translation arrives in sprint-4 with the auto-config layer that
-     * supplies a runtime context for each stage's {@code execute} call.
+     * <p>The default context is a {@link DefaultRuntimeContext} populated from
+     * {@link AutoConfig#discover()} with {@code runId = "local-" +} a random
+     * UUID, {@code environment = "local"}, and an empty config map. Use
+     * {@link #buildBeam(PipelineOptions, RuntimeContext)} to supply your own.
      *
-     * @return A configured Beam pipeline ready to be passed to a Beam
-     *         runner. The caller may further customise it before calling
-     *         {@code run()}.
+     * @return A configured Beam pipeline with one {@link StageTransform} per
+     *         stage applied in topological order, ready to {@code run()}.
      */
     public org.apache.beam.sdk.Pipeline buildBeam() {
         return buildBeam(PipelineOptionsFactory.create());
@@ -162,16 +167,50 @@ public final class DataflowPipeline implements Pipeline {
 
     /**
      * Build a Beam {@link org.apache.beam.sdk.Pipeline} with caller-supplied
-     * options.
+     * options and a default {@link RuntimeContext} (see {@link #buildBeam()}
+     * for the default's parameters).
      *
      * @param options Beam pipeline options. Required.
      */
     public org.apache.beam.sdk.Pipeline buildBeam(PipelineOptions options) {
+        return buildBeam(options, defaultRuntimeContext());
+    }
+
+    /**
+     * Build a Beam {@link org.apache.beam.sdk.Pipeline} with caller-supplied
+     * options and runtime context.
+     *
+     * <p>Validates the topology, computes a topological execution order from
+     * the stage input/output edges, then applies one {@link StageTransform}
+     * per stage <em>in that order</em>. Declaration order is irrelevant — a
+     * stage is wired after all the stages it depends on.
+     *
+     * <p>Each {@link StageTransform} is rooted at {@code PBegin}, so the stages
+     * are independent roots in the Beam graph. The topological apply order
+     * documents the dependency intent and is the anchor for richer
+     * element-level data flow in a future sprint; today Beam schedules the
+     * independent roots itself.
+     *
+     * @param options Beam pipeline options. Required.
+     * @param context The runtime context handed to every stage's
+     *                {@code execute}. Required; must be serializable to run on
+     *                a distributed runner.
+     */
+    public org.apache.beam.sdk.Pipeline buildBeam(PipelineOptions options, RuntimeContext context) {
         Objects.requireNonNull(options, "options must not be null");
+        Objects.requireNonNull(context, "context must not be null");
         validate();
-        return org.apache.beam.sdk.Pipeline.create(options);
-        // TODO sprint-4: walk the stage graph and apply each stage's
-        // transform to the Beam pipeline. Requires a RuntimeContext factory.
+
+        org.apache.beam.sdk.Pipeline beam = org.apache.beam.sdk.Pipeline.create(options);
+        Map<String, PipelineStage> byName = new HashMap<>();
+        for (PipelineStage stage : stages) {
+            byName.put(stage.name(), stage);
+        }
+        for (String stageName : topologicalOrder()) {
+            PipelineStage stage = byName.get(stageName);
+            beam.apply(StageTransform.of(stage, context));
+        }
+        return beam;
     }
 
     /**
@@ -188,13 +227,97 @@ public final class DataflowPipeline implements Pipeline {
      *         whose {@code waitUntilFinish()} blocks for completion.
      */
     public PipelineResult runOnDataflow(DataflowPipelineOptions options) {
+        return runOnDataflow(options, defaultRuntimeContext());
+    }
+
+    /**
+     * Convenience: submit this pipeline to Google Cloud Dataflow with a
+     * caller-supplied runtime context.
+     *
+     * @param options Dataflow-specific options. Required.
+     * @param context The runtime context handed to every stage. Required.
+     * @return The Beam {@link PipelineResult} from {@code pipeline.run()}.
+     */
+    public PipelineResult runOnDataflow(DataflowPipelineOptions options, RuntimeContext context) {
         Objects.requireNonNull(options, "options must not be null");
+        Objects.requireNonNull(context, "context must not be null");
         options.setRunner(DataflowRunner.class);
-        org.apache.beam.sdk.Pipeline beam = buildBeam(options);
+        org.apache.beam.sdk.Pipeline beam = buildBeam(options, context);
         return beam.run();
     }
 
     // --- helpers -----------------------------------------------------------
+
+    /**
+     * The default {@link RuntimeContext} backing the no-context
+     * {@code buildBeam}/{@code runOnDataflow} overloads: a
+     * {@link DefaultRuntimeContext} from {@link AutoConfig#discover()} with a
+     * generated {@code runId}, {@code environment = "local"}, and an empty
+     * config map.
+     */
+    private static RuntimeContext defaultRuntimeContext() {
+        return DefaultRuntimeContext.fromAutoConfig(
+                "local-" + UUID.randomUUID(),
+                "local",
+                Map.of(),
+                AutoConfig.discover());
+    }
+
+    /**
+     * Compute a topological execution order over the stage dependency graph
+     * using Kahn's algorithm. {@link #validate()} has already proven the graph
+     * is acyclic, so this always succeeds. Ties (stages with no remaining
+     * dependencies) are broken by declaration order for determinism.
+     *
+     * @return Stage names, dependencies before dependents.
+     */
+    private List<String> topologicalOrder() {
+        Map<String, String> outputToProducer = new HashMap<>();
+        for (PipelineStage stage : stages) {
+            for (String output : stage.outputs()) {
+                outputToProducer.put(output, stage.name());
+            }
+        }
+        // edges: producer -> consumers; inDegree: # of producers a stage waits on.
+        Map<String, List<String>> dependents = new HashMap<>();
+        Map<String, Integer> inDegree = new HashMap<>();
+        for (PipelineStage stage : stages) {
+            inDegree.putIfAbsent(stage.name(), 0);
+            dependents.putIfAbsent(stage.name(), new ArrayList<>());
+        }
+        for (PipelineStage stage : stages) {
+            for (String input : stage.inputs()) {
+                String producer = outputToProducer.get(input);
+                if (producer != null && !producer.equals(stage.name())) {
+                    dependents.get(producer).add(stage.name());
+                    inDegree.merge(stage.name(), 1, Integer::sum);
+                }
+            }
+        }
+        // Seed the queue with zero-in-degree stages in declaration order.
+        Deque<String> ready = new ArrayDeque<>();
+        for (PipelineStage stage : stages) {
+            if (inDegree.get(stage.name()) == 0) {
+                ready.add(stage.name());
+            }
+        }
+        List<String> order = new ArrayList<>(stages.size());
+        while (!ready.isEmpty()) {
+            String current = ready.poll();
+            order.add(current);
+            for (String dependent : dependents.get(current)) {
+                if (inDegree.merge(dependent, -1, Integer::sum) == 0) {
+                    ready.add(dependent);
+                }
+            }
+        }
+        if (order.size() != stages.size()) {
+            // Unreachable: validate() rejects cycles. Defensive guard only.
+            throw new IllegalStateException(
+                    "Topological sort incomplete; the graph has a cycle");
+        }
+        return order;
+    }
 
     private Map<String, List<String>> buildDependencyGraph(
             Map<String, String> outputToProducer) {
