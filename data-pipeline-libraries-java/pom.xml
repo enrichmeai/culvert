@@ -76,6 +76,12 @@
         <module>data-pipeline-gcp-observability-java</module>
         <module>data-pipeline-gcp-dataflow-java</module>
         <module>data-pipeline-tester-java</module>
+        <!--
+            Sprint-10: Testcontainers-based integration-test support module
+            (T10.1). Provides emulator fixtures consumed by the adapter
+            modules' *IT.java tests (run via failsafe in the `it` profile).
+        -->
+        <module>data-pipeline-it-support-java</module>
         <!-- Sprint-5: contract test scaffolding -->
         <module>data-pipeline-contract-tests-java</module>
         <!-- Sprint-8: non-GCP cloud skeletons (proof of cloud-neutral design) -->
