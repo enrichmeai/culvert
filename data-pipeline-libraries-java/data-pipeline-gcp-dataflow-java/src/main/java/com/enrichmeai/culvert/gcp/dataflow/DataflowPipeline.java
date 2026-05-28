@@ -207,7 +207,8 @@ public final class DataflowPipeline implements Pipeline {
             byName.put(stage.name(), stage);
         }
         for (String stageName : topologicalOrder()) {
-            PipelineStage stage = byName.get(stageName);
+            PipelineStage stage = Objects.requireNonNull(
+                    byName.get(stageName), () -> "no stage named " + stageName);
             beam.apply(StageTransform.of(stage, context));
         }
         return beam;
@@ -271,7 +272,10 @@ public final class DataflowPipeline implements Pipeline {
      *
      * @return Stage names, dependencies before dependents.
      */
-    private List<String> topologicalOrder() {
+    // Package-private so tests can assert the computed dependency order
+    // directly (apply order is driver-side metadata; a runner schedules the
+    // independent PBegin roots itself — see StageTransform).
+    List<String> topologicalOrder() {
         Map<String, String> outputToProducer = new HashMap<>();
         for (PipelineStage stage : stages) {
             for (String output : stage.outputs()) {
