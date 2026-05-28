@@ -160,26 +160,49 @@ class DataflowPipelineTest {
     }
 
     private static PipelineStage stage(String name, List<String> inputs, List<String> outputs) {
-        return new PipelineStage() {
-            @Override
-            public String name() {
-                return name;
-            }
+        return new StubStage(name, inputs, outputs);
+    }
 
-            @Override
-            public List<String> inputs() {
-                return inputs;
-            }
+    /**
+     * A no-op {@link PipelineStage} stub. Declared as a named, serializable
+     * static class (not an anonymous inner class) so it survives Beam's
+     * serialization when {@code buildBeam} applies a {@link StageTransform}
+     * and the pipeline runs on the DirectRunner.
+     */
+    static final class StubStage implements PipelineStage, java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        private final String name;
+        // List.copyOf yields a serializable immutable list at runtime; the
+        // declared List type can't be proven serializable at compile time.
+        @SuppressWarnings("serial")
+        private final List<String> inputs;
+        @SuppressWarnings("serial")
+        private final List<String> outputs;
 
-            @Override
-            public List<String> outputs() {
-                return outputs;
-            }
+        StubStage(String name, List<String> inputs, List<String> outputs) {
+            this.name = name;
+            this.inputs = List.copyOf(inputs);
+            this.outputs = List.copyOf(outputs);
+        }
 
-            @Override
-            public void execute(RuntimeContext context) {
-                // no-op for tests
-            }
-        };
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public List<String> inputs() {
+            return inputs;
+        }
+
+        @Override
+        public List<String> outputs() {
+            return outputs;
+        }
+
+        @Override
+        public void execute(RuntimeContext context) {
+            // no-op for tests
+        }
     }
 }
