@@ -104,6 +104,9 @@
         <mockito.version>5.11.0</mockito.version>
         <slf4j.version>2.0.13</slf4j.version>
         <assertj.version>3.25.3</assertj.version>
+        <!-- Sprint-10: Testcontainers for emulator integration tests. -->
+        <testcontainers.version>1.19.8</testcontainers.version>
+        <maven.failsafe.plugin.version>3.2.5</maven.failsafe.plugin.version>
 
         <!-- Plugin versions -->
         <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
@@ -145,6 +148,15 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.version}</version>
+            </dependency>
+            <!-- Sprint-10: Testcontainers BOM — manages testcontainers,
+                 junit-jupiter, gcloud module versions for emulator ITs. -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -210,6 +222,34 @@
         Activate with: mvn -P release deploy
     -->
     <profiles>
+        <!--
+            Sprint-10: integration-test profile. Activates the failsafe
+            plugin to run *IT.java tests against Testcontainers emulators.
+            Day-to-day `mvn test` (surefire, *Test.java) is unaffected;
+            ITs run only under `mvn -P it verify`. Needs a running Docker
+            daemon.
+        -->
+        <profile>
+            <id>it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>${maven.failsafe.plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>integration-tests</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
         <profile>
             <id>release</id>
             <build>
