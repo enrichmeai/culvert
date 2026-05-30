@@ -89,6 +89,33 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            Sprint-10 (T10.4): emulator-backed integration tests (*IT.java,
+            run under the parent's `it` profile via failsafe). The it-support
+            fixture library provides FakeGcsServerContainer; it already exposes
+            Testcontainers + JUnit Jupiter transitively, but we declare
+            testcontainers + junit-jupiter explicitly here too. Testcontainers
+            versions are managed by the testcontainers-bom in the parent's
+            dependencyManagement — do NOT pin versions. No gcloud module: this
+            module uses the GCS fake-gcs-server fixture, not Pub/Sub.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-it-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -96,6 +123,21 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Sprint-10 (T10.4): adding data-pipeline-it-support in
+                        test scope pulls its compile-scope google-cloud-bigquery
+                        transitively onto the TEST classpath. That SDK brings an
+                        annotation processor that doesn't claim our JUnit /
+                        Mockito annotations, so under the parent's -Xlint:all +
+                        -Werror the test-compile triggers a "No processor claimed
+                        any of these annotations" warning that fails the build.
+                        We use no annotation processors here, so disable
+                        processing explicitly. Mirrors bigquery-java and
+                        it-support.
+                    -->
+                    <proc>none</proc>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
