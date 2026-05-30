@@ -25,9 +25,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments/bigquery-to-mapped-product"
-Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Homepage = "https://github.com/enrichmeai/culvert"
+Documentation = "https://github.com/enrichmeai/culvert/tree/main/deployments/bigquery-to-mapped-product"
+Repository = "https://github.com/enrichmeai/culvert"
 Framework = "https://pypi.org/project/data-pipeline-framework/"
 
 [project.optional-dependencies]

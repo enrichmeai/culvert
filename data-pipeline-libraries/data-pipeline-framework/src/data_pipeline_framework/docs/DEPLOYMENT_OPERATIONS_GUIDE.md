@@ -569,7 +569,7 @@ Apply with: `terraform apply -var-file=prod.tfvars`
 ### 6.2 Clone and Setup
 
 ```bash
-git clone https://github.com/enrichmeai/gcp-pipeline-reference.git
+git clone https://github.com/enrichmeai/culvert.git
 cd gcp-pipeline-reference
 
 # Create virtual environment

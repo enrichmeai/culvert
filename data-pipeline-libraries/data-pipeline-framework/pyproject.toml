@@ -44,10 +44,10 @@ tester = ["data-pipeline-tester>=1.0.0"]
 data-pipeline-docs = "data_pipeline_framework.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Documentation = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/data-pipeline-libraries"
-"Reference Implementations" = "https://github.com/enrichmeai/gcp-pipeline-reference/tree/main/deployments"
+Homepage = "https://github.com/enrichmeai/culvert"
+Repository = "https://github.com/enrichmeai/culvert"
+Documentation = "https://github.com/enrichmeai/culvert/tree/main/data-pipeline-libraries"
+"Reference Implementations" = "https://github.com/enrichmeai/culvert/tree/main/deployments"
 
 [tool.setuptools.packages.find]
 where = ["src"]
