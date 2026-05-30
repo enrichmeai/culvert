@@ -4,7 +4,7 @@ Google Cloud Pub/Sub adapter for the Culvert data pipeline framework, JVM editio
 
 ## Status
 
-**Version 0.1.0 — Sprint 2 deliverable** (issue [#23](https://github.com/enrichmeai/gcp-pipeline-reference/issues/23)). Mirrors the sprint-1 BigQuery and Secrets pilots in shape: BOM-in-module, no application framework, ServiceLoader-registered, AutoCloseable only when the wrapped client supports it.
+**Version 0.1.0 — Sprint 2 deliverable** (issue [#23](https://github.com/enrichmeai/culvert/issues/23)). Mirrors the sprint-1 BigQuery and Secrets pilots in shape: BOM-in-module, no application framework, ServiceLoader-registered, AutoCloseable only when the wrapped client supports it.
 
 ## Install (Maven)
 

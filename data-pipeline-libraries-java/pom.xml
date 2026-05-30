@@ -30,7 +30,7 @@
         future data-pipeline-gcp-dataflow-java, data-pipeline-gcp-bigquery-java,
         data-pipeline-gcp-gcs-java, data-pipeline-tester-java.
     </description>
-    <url>https://github.com/enrichmeai/gcp-pipeline-reference</url>
+    <url>https://github.com/enrichmeai/culvert</url>
 
     <licenses>
         <license>
@@ -49,9 +49,9 @@
     </developers>
 
     <scm>
-        <connection>scm:git:https://github.com/enrichmeai/gcp-pipeline-reference.git</connection>
-        <developerConnection>scm:git:git@github.com:enrichmeai/gcp-pipeline-reference.git</developerConnection>
-        <url>https://github.com/enrichmeai/gcp-pipeline-reference</url>
+        <connection>scm:git:https://github.com/enrichmeai/culvert.git</connection>
+        <developerConnection>scm:git:git@github.com:enrichmeai/culvert.git</developerConnection>
+        <url>https://github.com/enrichmeai/culvert</url>
     </scm>
 
     <modules>

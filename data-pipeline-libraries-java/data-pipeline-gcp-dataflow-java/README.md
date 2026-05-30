@@ -4,7 +4,7 @@ Google Cloud Dataflow adapter for the Culvert framework. Provides `DataflowPipel
 
 ## Status
 
-**Version 0.1.0 — Sprint 2 deliverable** (issue [#25](https://github.com/enrichmeai/gcp-pipeline-reference/issues/25)).
+**Version 0.1.0 — Sprint 2 deliverable** (issue [#25](https://github.com/enrichmeai/culvert/issues/25)).
 
 ## Install (Maven)
 
