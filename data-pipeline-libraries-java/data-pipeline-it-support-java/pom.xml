@@ -3,15 +3,150 @@
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>com.enrichmeai.culvert</groupId>
         <artifactId>data-pipeline-libraries-parent</artifactId>
         <version>0.1.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+
     <artifactId>data-pipeline-it-support</artifactId>
     <packaging>jar</packaging>
-    <name>Culvert :: data-pipeline-it-support (Java) — placeholder</name>
-    <description>Placeholder for the sprint-10 Testcontainers integration-test support module (T10.1). REPLACE THIS ENTIRE FILE when implementing.</description>
-    <!-- REPLACE THIS ENTIRE FILE when implementing the sprint-10 T10.1 it-support module. -->
+
+    <name>Culvert :: data-pipeline-it-support (Java)</name>
+    <description>
+        Reusable Testcontainers fixtures for the Culvert framework's
+        integration tests. Provides emulator containers (BigQuery via
+        goccy/bigquery-emulator, GCS via fsouza/fake-gcs-server) plus
+        helpers that build GCP SDK clients pointed at those emulators.
+        Pub/Sub uses Testcontainers' built-in PubSubEmulatorContainer
+        directly (no wrapper needed) — see the module README.
+
+        This is a TEST-SUPPORT LIBRARY: dependencies are declared in
+        compile scope so consumer modules can put it in test scope and
+        inherit Testcontainers + JUnit Jupiter transitively into their
+        own *IT.java tests. The fixtures are exercised under the parent's
+        `it` profile (failsafe, *IT.java) against a running Docker daemon.
+        Sprint-10 deliverable (T10.1).
+    </description>
+
+    <properties>
+        <!--
+            Google Cloud Java SDK BOM. Imported here in dependencyManagement
+            so the emulator-client helpers pin the same SDK family as the
+            adapter modules (bigquery-java, gcs-java) without the parent POM
+            depending on GCP. Keeps the parent cloud-neutral. Same version as
+            the sprint-1 GCP modules for SDK consistency.
+        -->
+        <google.cloud.libraries.bom.version>26.39.0</google.cloud.libraries.bom.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google.cloud.libraries.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!--
+            Culvert contracts. The fixtures themselves don't need core today,
+            but consumers wiring an emulator-backed adapter (e.g.
+            BigQueryWarehouse) pull the contract types alongside the fixtures,
+            so we keep the dependency to mirror the adapter modules.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!--
+            Testcontainers — versions managed by the testcontainers-bom in the
+            parent's dependencyManagement. Do NOT pin versions here.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+        <!-- gcloud module provides PubSubEmulatorContainer (consumed directly). -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>gcloud</artifactId>
+        </dependency>
+
+        <!--
+            JUnit Jupiter in COMPILE scope on purpose: this is a test-support
+            library, so consumers that declare it in their test scope inherit
+            JUnit transitively into their *IT.java tests.
+        -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+        </dependency>
+
+        <!--
+            GCP SDK clients for the emulator helpers. Versions managed by
+            libraries-bom. Compile scope so the helper return types
+            (BigQuery, Storage) are visible to consumers.
+        -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-bigquery</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-storage</artifactId>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        google-cloud-* and testcontainers transitively bring in
+                        annotation processors (auto-value, etc.) that don't
+                        claim any of our annotations. Under the parent's
+                        -Xlint:all + -Werror this triggers a "No processor
+                        claimed any of these annotations" warning that fails
+                        the build. We use no annotation processors here, so
+                        disable processing explicitly. Mirrors bigquery-java
+                        and pubsub-java.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
