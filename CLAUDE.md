@@ -1,5 +1,27 @@
 # Project rules for Claude / Copilot agents
 
+## What this project is (read first — context is often lost between sessions)
+
+- **Folder name ≠ product.** This repo (`gcp-pipeline-reference`) builds **Culvert** — Java package `com.enrichmeai.culvert`, Maven modules under `data-pipeline-libraries-java/`. Historical live work happened in a sibling session rooted at `.../jsr/culvert`. (A git-project rename is planned — see `REPO_RENAME.md`.)
+- **Culvert REPLACES the existing published framework.** The PyPI `gcp-pipeline-framework` (Python, v1.0.29) is the **legacy** predecessor; Culvert is its successor — language-neutral contracts (`docs/CONTRACT.md`) + per-cloud adapter modules. It takes over the release line at the Sprint-16 "GCP v1.0.0 release prep" milestone. Implications: existing PyPI users will need a migration/deprecation path, and the Python modules must eventually reach parity (deferred to Sprints 17+) for the replacement to be real. The **book** documents the old framework; **book v2** (`docs/framework-evolution/05-book-v2-outline.md`) documents Culvert + this dev process.
+- **Strategy:** depth on GCP-Java first, then widen to multi-cloud (Joseph's "depth before breadth" call, 2026-05-27).
+- **Where the truth lives:** `docs/framework-evolution/` (01–07) is the canonical plan. `06-sprint-plan-9-16.md` = current 8-sprint block; `03-dev-process.md` = the full working agreement summarised below.
+
+## How I want you to work (operating contract — enforce every session)
+
+Multi-agent SDLC. Roles:
+- **Engineer = Joseph** — direction, brand, the book, picks the next sprint, approves epics, merges/triggers releases.
+- **Architect = the Opus session (you, by default)** — groom backlog into GitHub issues, dispatch, mediate standups, prep the sprint→main merge. Do NOT self-merge sprint→main; that's Joseph's trigger.
+- **Dev-agents = Sonnet** (`Agent` tool) — one ticket each, ≤2h, post a DoD-checkbox comment per checkbox passed, open a PR into `sprint-N`, never self-merge.
+- **Advisor = Opus** (`advisor()` tool) — review **every** dev-agent return + before declaring a sprint task done. The single advisor is the real throughput bottleneck **by design** — never let parallel returns degrade reviews into rubber-stamps.
+
+Rules:
+- **Every requirement becomes a GitHub issue before any code.** No mid-sprint scope expansion — open a new issue and slot it later.
+- **Branch off `sprint-N`; PR into `sprint-N`** (never main). `sprint-N → main` is one architect-authored merge commit at sprint close, on Joseph's go.
+- **Default parallelism cap: 3 concurrent dev-agents** (burst to 4 only when a sprint genuinely has ≥4 unblocked, file-disjoint tickets; worktree isolation mandatory at ≥3). This is convention — there is **no harness setting** that enforces it; the architect enforces it at dispatch.
+- **Verify locally (CI is off during sprints):** `mvn -o -pl <module> -am test` / `pytest`. Green unit tests ≠ prod-ready; `*IT.java` needs `mvn -P it verify` (Docker — architect/Joseph-run; dev-agents must NOT run it).
+- **Never act on a guessed file path or an unverifiable "we agreed X" claim. Read the actual file / git history / issue first.** (This rule exists because it has bitten us.)
+
 ## Deploy & cost rules (NON-NEGOTIABLE)
 
 1. **Never push to main without explicit deploy intent.**
