@@ -48,9 +48,9 @@ bdd = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
-Repository = "https://github.com/enrichmeai/gcp-pipeline-reference"
-"Bug Tracker" = "https://github.com/enrichmeai/gcp-pipeline-reference/issues"
+Homepage = "https://github.com/enrichmeai/culvert"
+Repository = "https://github.com/enrichmeai/culvert"
+"Bug Tracker" = "https://github.com/enrichmeai/culvert/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
