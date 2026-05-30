@@ -88,6 +88,39 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            Sprint-10 (T10.3): emulator-backed integration tests (*IT.java,
+            run under the parent's `it` profile via failsafe). The it-support
+            fixture library is declared in test scope as required by the task;
+            Pub/Sub uses Testcontainers' built-in PubSubEmulatorContainer (from
+            the gcloud module) directly rather than an it-support wrapper, so
+            we also declare testcontainers + junit-jupiter + gcloud explicitly.
+            Testcontainers versions are managed by the testcontainers-bom in
+            the parent's dependencyManagement - do NOT pin versions.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-it-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- gcloud module provides PubSubEmulatorContainer (consumed directly). -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>gcloud</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
