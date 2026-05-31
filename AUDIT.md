@@ -1,4 +1,4 @@
-# Project Audit — gcp-pipeline-reference
+# Project Audit — culvert
 
 **Date:** 2026-04-20
 **Scope:** code quality & structure, security, tests & CI/CD, documentation, incomplete-work / code completion

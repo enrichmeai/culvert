@@ -48,4 +48,4 @@ pytest
 
 ## Sprint-3 deliverable
 
-Issue [#12](https://github.com/enrichmeai/gcp-pipeline-reference/issues/12) (Python Stage 2 epic). Mirrors the sprint-1 Java module.
+Issue [#12](https://github.com/enrichmeai/culvert/issues/12) (Python Stage 2 epic). Mirrors the sprint-1 Java module.
