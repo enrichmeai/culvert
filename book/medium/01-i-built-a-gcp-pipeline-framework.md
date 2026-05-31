@@ -12,7 +12,7 @@ For years I've been building data pipelines on Google Cloud for banks, insurers,
 
 After the third rebuild, I stopped. I sat down. I wrote a proper framework.
 
-It's called `gcp-pipeline-framework`. It's on PyPI. The reference repo is called `gcp-pipeline-reference`. This post is the high-level tour. Future posts in this series go deeper into each part.
+It's called `gcp-pipeline-framework`. It's on PyPI. The reference repo is called `culvert`. This post is the high-level tour. Future posts in this series go deeper into each part.
 
 ---
 

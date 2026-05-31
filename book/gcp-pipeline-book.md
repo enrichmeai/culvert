@@ -126,7 +126,7 @@ Along the way I contributed to the Java standards as a member of the JSR 255\ind
 
 The platforms keep changing. Oracle SOA Suite. JBoss EAP. WebLogic. Spring. Dropwizard. AWS EKS. GCP. Kubernetes. The hard parts never do. Audit trails. Cost tracking. Error classification. Schema drift. Reconciliation. The stuff that makes a pipeline trustworthy rather than merely functional.
 
-Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I called it `gcp-pipeline-framework`. The reference repo — the one this book is a tour of — is called `gcp-pipeline-reference`.
+Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I called it `gcp-pipeline-framework`. The reference repo — the one this book is a tour of — is called `culvert`.
 
 The design language was deliberate. I had spent a decade on Spring projects and watched what Spring Framework had done for the JVM: a small framework-agnostic core, opinionated modules clipped on around it, conventions over configuration, escape hatches when you needed them. The result was an industry. `gcp-pipeline-framework` borrows that DNA without apology. There is a Spring-shaped framework hiding underneath the dbt models and the Beam jobs, and I think it deserves to be called that.
 
@@ -5297,7 +5297,7 @@ The umbrella package. No public API of its own beyond `gcp_pipeline_framework.re
 # Appendix B — Directory Map of the Reference Repository
 
 ```
-gcp-pipeline-reference/
+culvert/
 ├── README.md
 ├── VERSION
 ├── pyproject.toml
@@ -5627,7 +5627,7 @@ The **FinOps Foundation framework** (finops.org/framework) establishes the vocab
 
 This book was written in Markdown and rendered to PDF using Pandoc with the XeLaTeX engine. The body type is Georgia and code is set in Menlo. The cover was assembled with care; the copy was edited at the kitchen table.
 
-The codebase described in this book is `gcp-pipeline-framework` 1.0.29. It lives, at the time of writing, on the public PyPI index and in the `gcp-pipeline-reference` repository.
+The codebase described in this book is `gcp-pipeline-framework` 1.0.29. It lives, at the time of writing, on the public PyPI index and in the `culvert` repository.
 
 Errata, suggestions, and improvements are welcome.
 

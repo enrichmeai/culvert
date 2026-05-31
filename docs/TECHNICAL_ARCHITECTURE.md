@@ -827,7 +827,7 @@ All Terraform-provisioned resources carry standardised labels for billing attrib
 
 ```hcl
 common_labels = {
-  project     = "gcp-pipeline-reference"
+  project     = "culvert"
   system      = "generic"
   environment = "int"
   managed_by  = "terraform"
