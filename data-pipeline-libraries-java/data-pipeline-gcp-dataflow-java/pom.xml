@@ -87,6 +87,39 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            Sprint-10 (T10.0): real-adapter wiring integration test
+            (DefaultRuntimeContextWiringIT). Registers a real GcsBlobStore
+            (backed by the fake-gcs-server fixture from it-support) into a
+            DefaultRuntimeContext and asserts a round-trip through the
+            context-resolved instance. Test scope only — keeps core
+            cloud-neutral; the GCP coupling lives here in the dataflow
+            adapter's test tree. Testcontainers versions managed by the
+            parent's testcontainers-bom — do NOT pin.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-it-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-gcs</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

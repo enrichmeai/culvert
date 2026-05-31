@@ -47,22 +47,40 @@ import java.util.concurrent.ConcurrentHashMap;
  * to pre-populate the registry from a Sprint-4 {@link AutoConfig} discovery
  * (the first discovered impl of each protocol is registered).
  *
- * <h2>Serialization</h2>
+ * <h2>Serialization (T10.6: serializable context boundary)</h2>
  *
  * <p>This class is {@link Serializable} because the GCP Dataflow adapter
  * captures a {@code RuntimeContext} inside Beam {@code DoFn}s, which Beam
- * serializes to its workers. Registered impls must therefore also be
- * {@code Serializable} — the bundled {@linkplain NoOpDefaults no-op defaults}
- * are; adapter impls that get registered are expected to be too. The registry
- * is a {@link ConcurrentHashMap}, which serializes its entries.
+ * serializes to its workers. <strong>Only the identity and config cross that
+ * boundary</strong> — {@code runId}, {@code environment}, and the {@code config}
+ * map. The {@linkplain #registry registry of protocol impls is {@code transient}}
+ * and is <em>not</em> shipped: a worker rebuilds it lazily on first access (see
+ * {@link #registry()}) from {@link AutoConfig#discover() classpath discovery}.
+ *
+ * <p>The consequence callers must understand: an impl placed via
+ * {@link #register(Class, Object)} (or seeded by
+ * {@link #fromAutoConfig fromAutoConfig}) is <strong>driver-side only</strong>.
+ * It does not survive serialization to a worker; worker-side resolution is via
+ * {@link java.util.ServiceLoader}/{@link AutoConfig} only. This is deliberate:
+ * many adapters wrap non-serializable cloud SDK handles (e.g.
+ * {@code com.google.cloud.storage.Storage}), so shipping the registry would
+ * fail serialization the moment any such adapter were registered. Rebuilding
+ * worker-side keeps {@code config} values the only thing required to be
+ * serializable.
  *
  * <p>Cloud-neutral by construction: depends only on the contracts, the
  * auto-config registry, and {@code java.util}. No Beam, no GCP.
  *
- * <p>Sprint-9 deliverable (T9.1).
+ * <p>Sprint-9 deliverable (T9.1); serialization boundary hardened in
+ * Sprint-10 (T10.6).
  */
 public final class DefaultRuntimeContext implements RuntimeContext, Serializable {
 
+    // Intentionally kept at 1L: making `registry` transient (T10.6) is a
+    // serialization-compatible change — a transient field is simply absent
+    // from the stream, and an old stream that carried it discards the extra.
+    // There are no persisted streams (Beam ships these at runtime only), so
+    // there is nothing to migrate. Do not bump.
     private static final long serialVersionUID = 1L;
 
     private final String runId;
@@ -71,25 +89,61 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
      * Read-only config. The declared {@code Map<String, Object>} value type
      * can't be proven {@code Serializable} at compile time; the map is built
      * via {@link Map#copyOf} (a serializable immutable map) and callers are
-     * expected to supply serializable values.
+     * expected to supply serializable values. This — with {@link #runId} and
+     * {@link #environment} — is the <em>only</em> state that crosses the
+     * serialization boundary.
      */
     @SuppressWarnings("serial")
     private final Map<String, Object> config;
     /**
-     * Keyed by protocol interface class; values are protocol impls. The
-     * declared {@code Object} value type can't be proven {@code Serializable}
-     * at compile time, but every value placed here at runtime is
-     * (the no-op defaults are; adapter impls are expected to be). The map
-     * itself ({@link ConcurrentHashMap}) is {@code Serializable}.
+     * Keyed by protocol interface class; values are protocol impls.
+     *
+     * <p><strong>Transient by design (T10.6).</strong> Protocol impls routinely
+     * wrap non-serializable cloud SDK handles, so the registry is not shipped to
+     * Beam workers. After deserialization this field is {@code null}; the first
+     * access via {@link #registry()} rebuilds it from {@link AutoConfig#discover()}.
+     * {@code volatile} so that double-checked lazy initialization in
+     * {@link #registry()} is correct under the JMM.
      */
-    @SuppressWarnings("serial")
-    private final ConcurrentHashMap<Class<?>, Object> registry;
+    private transient volatile ConcurrentHashMap<Class<?>, Object> registry;
 
     private DefaultRuntimeContext(Builder builder) {
         this.runId = Objects.requireNonNull(builder.runId, "runId must not be null");
         this.environment = Objects.requireNonNull(builder.environment, "environment must not be null");
         this.config = Map.copyOf(builder.config);
         this.registry = new ConcurrentHashMap<>(builder.registry);
+    }
+
+    /**
+     * The protocol registry, rebuilt lazily worker-side after deserialization.
+     *
+     * <p>On the driver the field is populated by the constructor and this simply
+     * returns it. After Beam deserializes the context onto a worker the field is
+     * {@code null} (it is {@code transient}); the first call here rebuilds an
+     * empty registry and repopulates it from {@link AutoConfig#discover()} —
+     * i.e. from {@link java.util.ServiceLoader} entries on the worker classpath.
+     * Driver-side {@link #register(Class, Object)} entries are intentionally
+     * absent worker-side (see the class-level Serialization section).
+     */
+    private ConcurrentHashMap<Class<?>, Object> registry() {
+        ConcurrentHashMap<Class<?>, Object> local = registry;
+        if (local == null) {
+            synchronized (this) {
+                local = registry;
+                if (local == null) {
+                    // Build a throwaway context purely to reuse fromAutoConfig's
+                    // registration wiring, then copy its (already-populated, via
+                    // the constructor) registry. Reading the field directly here
+                    // avoids re-entering registry() on the throwaway instance.
+                    ConcurrentHashMap<Class<?>, Object> rebuilt = new ConcurrentHashMap<>(
+                            fromAutoConfig(runId, environment, config, AutoConfig.discover()).registry);
+                    // Publish the fully-populated map as the last step.
+                    registry = rebuilt;
+                    local = rebuilt;
+                }
+            }
+        }
+        return local;
     }
 
     /**
@@ -177,7 +231,7 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
 
     @Override
     public SecretProvider secrets() {
-        Object impl = registry.get(SecretProvider.class);
+        Object impl = registry().get(SecretProvider.class);
         if (impl == null) {
             throw new IllegalStateException(
                     "No SecretProvider registered; install a SecretProvider adapter "
@@ -189,32 +243,32 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
 
     @Override
     public ObservabilityHook observability() {
-        return (ObservabilityHook) registry.computeIfAbsent(
+        return (ObservabilityHook) registry().computeIfAbsent(
                 ObservabilityHook.class, k -> new NoOpDefaults.NoOpObservabilityHook());
     }
 
     @Override
     public LineageEmitter lineage() {
-        return (LineageEmitter) registry.computeIfAbsent(
+        return (LineageEmitter) registry().computeIfAbsent(
                 LineageEmitter.class, k -> new NoOpDefaults.NoOpLineageEmitter());
     }
 
     @Override
     public FinOpsSink finops() {
-        return (FinOpsSink) registry.computeIfAbsent(
+        return (FinOpsSink) registry().computeIfAbsent(
                 FinOpsSink.class, k -> new NoOpDefaults.NoOpFinOpsSink());
     }
 
     @Override
     public GovernancePolicy governance() {
-        return (GovernancePolicy) registry.computeIfAbsent(
+        return (GovernancePolicy) registry().computeIfAbsent(
                 GovernancePolicy.class, k -> new NoOpDefaults.NoOpGovernancePolicy());
     }
 
     @Override
     public <T> T get(Class<T> protocolType) {
         Objects.requireNonNull(protocolType, "protocolType must not be null");
-        Object impl = registry.get(protocolType);
+        Object impl = registry().get(protocolType);
         if (impl == null) {
             throw new IllegalStateException(
                     "No implementation registered for " + protocolType.getName()
@@ -228,7 +282,7 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
     public <T> void register(Class<T> protocolType, T impl) {
         Objects.requireNonNull(protocolType, "protocolType must not be null");
         Objects.requireNonNull(impl, "impl must not be null");
-        registry.put(protocolType, impl);
+        registry().put(protocolType, impl);
     }
 
     /** Fluent builder for {@link DefaultRuntimeContext}. */
