@@ -127,7 +127,7 @@ python reconstruct.py --dest /path/to/my-pipeline-project
 
 This produces a ready-to-use project directory:
 ```
-gcp-pipeline-reference/
+culvert/
 ├── docs/                      # 34 documentation guides
 ├── infrastructure/
 │   ├── terraform/             # All Terraform modules and tfvars
@@ -144,7 +144,7 @@ gcp-pipeline-reference/
 
 Push it to your internal repo:
 ```bash
-cd gcp-pipeline-reference
+cd culvert
 git init && git add -A && git commit -m "Import GCP Pipeline Reference from PyPI"
 git remote add origin <your-internal-repo-url>
 git push -u origin main

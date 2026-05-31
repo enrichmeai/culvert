@@ -129,7 +129,7 @@ This installs all packages into a temporary venv, exports all assets, and copies
 After reconstructing or cloning the project:
 
 ```bash
-cd gcp-pipeline-reference
+cd culvert
 
 # Create a virtual environment
 python -m venv .venv

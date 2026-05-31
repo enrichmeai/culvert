@@ -58,5 +58,5 @@ Pick one. Order = my recommendation, your call.
 | Date | Status | Notes |
 |---|---|---|
 | 2026-05-26 | Decided to rename eventually; new name TBD by Joseph. | Sprint-1 dev-process locked the Culvert brand + `data-pipeline-*` artefact convention. Repo rename deferred. |
-| TBD | Joseph picks the new name | This doc gets updated. |
-| TBD | Rename happens | Steps above executed. |
+| 2026-05-30 | **Name chosen: `culvert`.** | Joseph's call. GitHub repo renamed `enrichmeai/gcp-pipeline-reference` → `enrichmeai/culvert`; local git remote updated; GitHub auto-redirects the old URL. |
+| 2026-05-30 | **Source slug references rewritten.** | `enrichmeai/gcp-pipeline-reference` → `enrichmeai/culvert` across 33 files (POM `<scm>`, pyproject Homepage/Repository/Bug-Tracker, module READMEs, book). Bare `gcp-pipeline-reference` strings in the legacy `gcp-pipeline-libraries/` tree (dir/package names, not the repo) intentionally left unchanged. |

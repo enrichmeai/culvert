@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/enrichmeai/gcp-pipeline-reference"
+Homepage = "https://github.com/enrichmeai/culvert"
 
 [tool.setuptools.packages.find]
 where = ["src"]

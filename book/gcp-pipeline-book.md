@@ -126,7 +126,7 @@ Along the way I contributed to the Java standards as a member of the JSR 255\ind
 
 The platforms keep changing. Oracle SOA Suite. JBoss EAP. WebLogic. Spring. Dropwizard. AWS EKS. GCP. Kubernetes. The hard parts never do. Audit trails. Cost tracking. Error classification. Schema drift. Reconciliation. The stuff that makes a pipeline trustworthy rather than merely functional.
 
-Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I called it `gcp-pipeline-framework`. The reference repo — the one this book is a tour of — is called `gcp-pipeline-reference`.
+Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I called it `gcp-pipeline-framework`. The reference repo — the one this book is a tour of — is called `culvert`.
 
 The design language was deliberate. I had spent a decade on Spring projects and watched what Spring Framework had done for the JVM: a small framework-agnostic core, opinionated modules clipped on around it, conventions over configuration, escape hatches when you needed them. The result was an industry. `gcp-pipeline-framework` borrows that DNA without apology. There is a Spring-shaped framework hiding underneath the dbt models and the Beam jobs, and I think it deserves to be called that.
 
@@ -4922,7 +4922,7 @@ If you build something that improves on it, I would love to hear about it. The b
 
 ## Why I am renaming a perfectly working framework
 
-The framework has a name now: **Culvert**\index{Culvert}. A culvert is the engineered pipe that carries water from one side of a road to the other — controlled flow through a designed channel, holding back what should be held back, releasing what should be released, at a known rate. The metaphor is exact. A data pipeline is a culvert: an engineered channel carrying records from a source to a destination, with controlled gates — governance, masking, quality checks — along the way. The name is short, distinctive, and unclaimed on PyPI, which are the three properties that matter for an open-source framework name. The book you are reading was written about the *reference implementation* — the GCP-specific deployment at `github.com/enrichmeai/gcp-pipeline-reference`\index{Culvert!reference implementation} that the rest of this book documents. **Culvert is the framework that reference grew into.** It lives at `github.com/enrichmeai/culvert`\index{Culvert!repository}. The remainder of this chapter is about Culvert: what it is today (GCP only), what shape it commits to (cloud-neutral contracts, swappable cloud modules), and how the migration from `gcp-pipeline-*` to `culvert-*` lands across the next six months of work.
+The framework has a name now: **Culvert**\index{Culvert}. A culvert is the engineered pipe that carries water from one side of a road to the other — controlled flow through a designed channel, holding back what should be held back, releasing what should be released, at a known rate. The metaphor is exact. A data pipeline is a culvert: an engineered channel carrying records from a source to a destination, with controlled gates — governance, masking, quality checks — along the way. The name is short, distinctive, and unclaimed on PyPI, which are the three properties that matter for an open-source framework name. The book you are reading was written about the *reference implementation* — the GCP-specific deployment at `github.com/enrichmeai/culvert`\index{Culvert!reference implementation} that the rest of this book documents. **Culvert is the framework that reference grew into.** It lives at `github.com/enrichmeai/culvert`\index{Culvert!repository}. The remainder of this chapter is about Culvert: what it is today (GCP only), what shape it commits to (cloud-neutral contracts, swappable cloud modules), and how the migration from `gcp-pipeline-*` to `culvert-*` lands across the next six months of work.
 
 The packages on PyPI are called `gcp-pipeline-core`, `gcp-pipeline-beam`, `gcp-pipeline-orchestration`, `gcp-pipeline-transform`, and `gcp-pipeline-tester`. They will, in the next major release, be called `culvert-core`\index{culvert-core}, `culvert-gcp-dataflow`\index{culvert-gcp-dataflow}, `culvert-gcp-composer`\index{culvert-gcp-composer}, `culvert-gcp-dbt`\index{culvert-gcp-dbt}, and `culvert-test`. A handful of new modules — `culvert-quality`, `culvert-governance`, `culvert-observability`, `culvert-finops`, `culvert-orchestration-core` — will appear alongside them. The reserved slots `culvert-aws-*` and `culvert-azure-*` will sit empty in the layout, unbuilt, on purpose.
 
@@ -5297,7 +5297,7 @@ The umbrella package. No public API of its own beyond `gcp_pipeline_framework.re
 # Appendix B — Directory Map of the Reference Repository
 
 ```
-gcp-pipeline-reference/
+culvert/
 ├── README.md
 ├── VERSION
 ├── pyproject.toml
@@ -5627,7 +5627,7 @@ The **FinOps Foundation framework** (finops.org/framework) establishes the vocab
 
 This book was written in Markdown and rendered to PDF using Pandoc with the XeLaTeX engine. The body type is Georgia and code is set in Menlo. The cover was assembled with care; the copy was edited at the kitchen table.
 
-The codebase described in this book is `gcp-pipeline-framework` 1.0.29. It lives, at the time of writing, on the public PyPI index and in the `gcp-pipeline-reference` repository.
+The codebase described in this book is `gcp-pipeline-framework` 1.0.29. It lives, at the time of writing, on the public PyPI index and in the `culvert` repository.
 
 Errata, suggestions, and improvements are welcome.
 
