@@ -88,6 +88,32 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            Sprint-10 (T10.2): emulator-backed integration tests (*IT.java,
+            run under the parent's `it` profile via failsafe). The it-support
+            fixture library provides BigQueryEmulatorContainer; it already
+            exposes Testcontainers + JUnit Jupiter transitively, but we declare
+            testcontainers + junit-jupiter explicitly here too. Testcontainers
+            versions are managed by the testcontainers-bom in the parent's
+            dependencyManagement — do NOT pin versions.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-it-support</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

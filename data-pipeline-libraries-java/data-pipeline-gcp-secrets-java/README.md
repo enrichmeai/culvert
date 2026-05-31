@@ -6,7 +6,7 @@ Sibling of the Python adapter that will lift out of `data-pipeline-orchestration
 
 ## Status
 
-**Version 0.1.0 — Sprint 1 deliverable** (issue [#5](https://github.com/enrichmeai/gcp-pipeline-reference/issues/5)). First concrete GCP adapter to ship under the Culvert polyglot framework — the pilot that validates the sprint-1 coordination pattern for `data-pipeline-gcp-bigquery-java` and `data-pipeline-gcp-gcs-java`.
+**Version 0.1.0 — Sprint 1 deliverable** (issue [#5](https://github.com/enrichmeai/culvert/issues/5)). First concrete GCP adapter to ship under the Culvert polyglot framework — the pilot that validates the sprint-1 coordination pattern for `data-pipeline-gcp-bigquery-java` and `data-pipeline-gcp-gcs-java`.
 
 ## Install (Maven)
 

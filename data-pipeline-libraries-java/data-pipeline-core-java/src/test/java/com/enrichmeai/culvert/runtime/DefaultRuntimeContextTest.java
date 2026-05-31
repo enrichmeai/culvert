@@ -147,25 +147,44 @@ class DefaultRuntimeContextTest {
     }
 
     @Test
-    void contextWithNoOpDefaultsIsSerializable() throws Exception {
+    void identitySurvivesSerializationButRegistryIsRebuilt() throws Exception {
+        // T10.6 — serializable context boundary. Only runId/environment/config
+        // cross the wire; the protocol registry is transient and rebuilt
+        // worker-side from AutoConfig.discover(). An impl placed via register(...)
+        // is driver-side only and does NOT survive serialization — that is the
+        // whole point: adapters routinely wrap non-serializable cloud SDK handles.
         DefaultRuntimeContext ctx = DefaultRuntimeContext
                 .builder("run-ser", "prod")
                 .config(Map.of("k", "v"))
                 .register(SecretProvider.class, new SerializableSecret())
                 .build();
         // Touch the advisory accessors so the no-op defaults are materialised
-        // into the registry before serialization.
+        // into the (driver-side) registry before serialization. They must still
+        // not be carried across by the wire — they re-materialise lazily.
         ctx.observability();
         ctx.lineage();
         ctx.finops();
         ctx.governance();
+        // The driver-side context resolves the registered secret.
+        assertThat(ctx.secrets().get("x")).isEqualTo("secret-x");
 
         DefaultRuntimeContext roundTripped = roundTrip(ctx);
 
+        // 1. Identity + config survive.
         assertThat(roundTripped.runId()).isEqualTo("run-ser");
         assertThat(roundTripped.environment()).isEqualTo("prod");
         assertThat(roundTripped.config()).containsEntry("k", "v");
-        assertThat(roundTripped.secrets().get("x")).isEqualTo("secret-x");
+
+        // 2. The explicitly-registered SecretProvider did NOT cross the
+        //    boundary; worker-side rebuild via AutoConfig discovers nothing on
+        //    the core test classpath, so secrets() throws again.
+        assertThatThrownBy(roundTripped::secrets)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SecretProvider");
+
+        // 3. Advisory accessors still work post-deserialize — they re-materialise
+        //    their no-op defaults via the lazy rebuild path, not from the wire.
+        assertThat(roundTripped.observability()).isNotNull();
         assertThat(roundTripped.governance().classify("c", "t"))
                 .isEqualTo(DataClassification.INTERNAL);
     }

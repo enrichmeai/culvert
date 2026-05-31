@@ -86,7 +86,7 @@ dbt test
 ## Docker Build
 
 ```bash
-cd /path/to/gcp-pipeline-reference
+cd /path/to/culvert
 gcloud builds submit \
   --config deployments/fdp-to-consumable-product/cloudbuild.yaml \
   --substitutions _LIBRARY_VERSION=1.0.7 \

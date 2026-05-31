@@ -54,7 +54,12 @@ arrive. Re-enable happens in Sprint 7 (book v1 ship) or after Sprint 8
 | Agent dev-sprint | 2 hours max | One dev-agent | One ticket from end to end. |
 
 Multiple agent dev-sprints can run in parallel within a single human
-sprint as long as their issues don't touch the same files.
+sprint as long as their issues don't touch the same files. **Team
+capacity: 4 dev-agents + 1 advisor per session; never dispatch more than
+4 concurrently** (the locked operating model below). The model split is
+fixed: **dev-agents on Sonnet, advisor on Opus**, with one advisor
+reviewing every return — that single reviewer, not the agent count, is
+the real throughput limit.
 
 ## Oversized-ticket split rule
 

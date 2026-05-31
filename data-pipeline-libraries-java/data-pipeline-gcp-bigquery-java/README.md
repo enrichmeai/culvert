@@ -6,7 +6,7 @@ Sibling of the Python adapter that will lift out of `gcp-pipeline-libraries/gcp-
 
 ## Status
 
-**Version 0.1.0 — Sprint 1 deliverable** (issue [#6](https://github.com/enrichmeai/gcp-pipeline-reference/issues/6)). Wave 2 of sprint-1; follows the `data-pipeline-gcp-secrets-java` pilot pattern (BOM in module-level `dependencyManagement`, parent stays cloud-neutral).
+**Version 0.1.0 — Sprint 1 deliverable** (issue [#6](https://github.com/enrichmeai/culvert/issues/6)). Wave 2 of sprint-1; follows the `data-pipeline-gcp-secrets-java` pilot pattern (BOM in module-level `dependencyManagement`, parent stays cloud-neutral).
 
 ## Install (Maven)
 
@@ -124,9 +124,9 @@ ServiceLoader.load(Warehouse.class).findFirst()
 
 `data-pipeline-gcp-bigquery-java` is a multi-contract module — three GCP services share the same Google Cloud SDK family and `libraries-bom` pin, so they ship together. Sprint-1 status:
 
-- ✅ `BigQueryWarehouse` — issue [#6](https://github.com/enrichmeai/gcp-pipeline-reference/issues/6) (Warehouse contract)
-- ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/gcp-pipeline-reference/issues/8) (JobControlRepository contract); see section below
-- ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/gcp-pipeline-reference/issues/9) (FinOpsSink contract); see section below
+- ✅ `BigQueryWarehouse` — issue [#6](https://github.com/enrichmeai/culvert/issues/6) (Warehouse contract)
+- ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/culvert/issues/8) (JobControlRepository contract); see section below
+- ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/culvert/issues/9) (FinOpsSink contract); see section below
 
 All three share this module's `pom.xml`.
 
