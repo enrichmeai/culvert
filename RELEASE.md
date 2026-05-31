@@ -65,4 +65,4 @@ The two languages currently version in lockstep; that may change post-1.0.
 
 ## What CANNOT be automated until the rename happens
 
-Maven artefact `groupId` is `com.enrichmeai.culvert` — that's stable. PyPI package names are `data-pipeline-*` — also stable. The GitHub repo name `gcp-pipeline-reference` is misleading post-Stage-2; see [REPO_RENAME.md](REPO_RENAME.md). The repo rename does NOT block publishing.
+Maven artefact `groupId` is `com.enrichmeai.culvert` — that's stable. PyPI package names are `data-pipeline-*` — also stable. The GitHub repo name `culvert` is misleading post-Stage-2; see [REPO_RENAME.md](REPO_RENAME.md). The repo rename does NOT block publishing.
