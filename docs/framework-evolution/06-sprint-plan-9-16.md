@@ -9,27 +9,19 @@ before spreading wide.**
 
 Format unchanged: each sprint is a 2-week human sprint comprising several
 2-hour agent dev-sprints. Workflow per `03-dev-process.md` — sprint-N branch
-off main, feature PRs → sprint-N, sprint-N → main at close. **Parallelism
-cap: 3 concurrent dev-agents** (raised from 2 by Joseph, 2026-05-30).
+off main, feature PRs → sprint-N, sprint-N → main at close. **Team capacity:
+4 dev-agents + 1 advisor per session; never dispatch more than 4
+concurrently** (the operating model locked in `03-dev-process.md`).
 
-History: the original cap was 2 after the Sprint 2 retro recorded that 3-way
-parallel dispatch hit API-overload + watchdog stalls. That was manual `Agent`
-dispatch on older infra; the cap is raised to 3 now that worktree isolation +
-deterministic fan-out de-risk it.
-
-Operating rules for the 3-cap:
+Operating rules:
 - **Dispatch only unblocked, file-disjoint tickets** — the dependency graph,
-  not the cap, is the real limit. Most sprints here are linear chains with one
-  parallel sibling, so 3 is a ceiling, not a quota; don't manufacture
-  parallelism the graph doesn't have.
-- **Worktree isolation (`Agent` `isolation: "worktree"`) is mandatory at 3
-  concurrent** so feature branches can't stomp each other on the filesystem.
+  not the agent count, is the real limit. Linear-dependency sprints under-use
+  4 agents; that's expected — don't manufacture parallelism the graph lacks.
+- **Worktree isolation (`Agent` `isolation: "worktree"`)** when ≥2 agents touch
+  the tree, so feature branches can't stomp each other on the filesystem.
 - **One Opus advisor reviews every return.** The reviewer is the throughput
-  bottleneck by design — 3 dev-agents feeding 1 reviewer is the intended shape;
+  bottleneck by design — 4 dev-agents feeding 1 reviewer is the intended shape;
   the lead must not let parallel returns degrade reviews into rubber-stamps.
-- **Burst to 4** only for a genuinely fan-out sprint (e.g. the emulator-IT or
-  CI-matrix sprints) where 4 independent tickets are unblocked at once — note
-  it in that sprint's wave plan.
 
 Dependency notation: `T9.2 ⟵ T9.1` means T9.2 is blocked by T9.1.
 
@@ -70,7 +62,7 @@ real-client-against-emulator coverage so adapter bugs surface.
 | **T10.5** | Secret Manager: no public emulator — document the gap, provide a lightweight in-process fake + the rationale in the IT-support README. | T10.1 |
 
 **Dependency graph:** `T10.1 → {T10.0, T10.2, T10.3, T10.4, T10.5}` (fan-out).
-**Wave scheduling (cap 3, but graph-limited):** T10.1 alone first. Then **Wave A: T10.2 (BigQuery) + T10.4 (GCS)** — the two most-used adapters, green first. **Wave B: T10.3 (Pub/Sub) + T10.5 (Secret Manager fake)** — Pub/Sub emulator is heavier, Secret Manager has the no-emulator wrinkle. T10.0 slots into whichever wave has headroom.
+**Wave scheduling (cap 4, but graph-limited):** T10.1 alone first. Then **Wave A: T10.2 (BigQuery) + T10.4 (GCS)** — the two most-used adapters, green first. **Wave B: T10.3 (Pub/Sub) + T10.5 (Secret Manager fake)** — Pub/Sub emulator is heavier, Secret Manager has the no-emulator wrinkle. T10.0 slots into whichever wave has headroom.
 **Exit gate:** every GCP adapter has at least one green emulator-backed IT; ITs are in a `*-it` profile (don't run on every `mvn test`).
 
 ---
