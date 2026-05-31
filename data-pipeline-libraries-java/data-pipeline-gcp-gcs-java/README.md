@@ -6,7 +6,7 @@ Sibling of the Python adapter that will lift out of `data-pipeline-orchestration
 
 ## Status
 
-**Version 0.1.0 — Sprint 1 deliverable** (issue [#7](https://github.com/enrichmeai/gcp-pipeline-reference/issues/7)). Sibling adapter to the sprint-1 pilot [`data-pipeline-gcp-secrets-java`](../data-pipeline-gcp-secrets-java/) and to the parallel `data-pipeline-gcp-bigquery-java`.
+**Version 0.1.0 — Sprint 1 deliverable** (issue [#7](https://github.com/enrichmeai/culvert/issues/7)). Sibling adapter to the sprint-1 pilot [`data-pipeline-gcp-secrets-java`](../data-pipeline-gcp-secrets-java/) and to the parallel `data-pipeline-gcp-bigquery-java`.
 
 ## Install (Maven)
 
