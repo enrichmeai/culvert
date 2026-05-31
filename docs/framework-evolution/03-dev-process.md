@@ -18,6 +18,16 @@ This file captures what's different about Culvert's process.
 | **Advisor** | Stronger reviewer model (`advisor()` tool) | Standup classifier on agent return (on-track / needs-support / scope-broken / abort). Reviews each wave before the next dispatches. |
 | **Dev-agents** | `Agent` tool sub-agents (sonnet by default) | Pick one ticket, work 2h max, post DoD-checkbox comments to the issue, close on done, abort with a comment if blocked. |
 
+## Operating model (LOCKED 2026-05-30)
+
+- **Team capacity per session: 4 dev-agents + 1 advisor.** The advisor acts as scrum master / lead. Never dispatch more than 4 dev-agents concurrently.
+- **Cadence: 2 hours per *sprint*** (wall-clock, with up to 4 agents in parallel) — NOT 2 hours per ticket. A sprint that can't fit 4 agents x 2h must be re-groomed (split or deferred).
+- **Grooming gate (mandatory before any sprint executes):** the architect breaks the sprint epic into atomic, one-agent-sized **tickets**, maps **dependencies** (blocked-by edges), and produces a **parallelization plan** (which tickets the 4 agents take per dependency wave). No dispatch until groomed AND advisor-signed-off.
+- **Ticket sizing target:** each ticket ~= 1 agent, <= ~90 min, single module where possible (avoids file contention). Split at grooming if larger or cross-module.
+- **Parallelism realism:** linear-dependency sprints (e.g. Sprint 9 exec core) under-utilize 4 agents — expected and fine; do not manufacture false parallelism. Fan-out sprints (10, 13) use the full 4.
+- **Verification ownership:** Docker-heavy / long-running gates (emulator `mvn -P it verify`, real-cloud runs) are run by the architect, not agents — agents only write + offline compile-check, to avoid watchdog stalls (Sprint-2 + Sprint-10 lesson).
+- **Groomed backlog of record:** `08-groomed-backlog-9-16.md` (ticket-level + dependency waves for sprints 10-16).
+
 ## Backlog discipline
 
 **Every requirement becomes an issue before any code is written.** No
