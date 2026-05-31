@@ -2,10 +2,10 @@
 
 ## What this project is (read first — context is often lost between sessions)
 
-- **Folder name ≠ product.** This repo (`gcp-pipeline-reference`) builds **Culvert** — Java package `com.enrichmeai.culvert`, Maven modules under `data-pipeline-libraries-java/`. Historical live work happened in a sibling session rooted at `.../jsr/culvert`. (A git-project rename is planned — see `REPO_RENAME.md`.)
+- **Repo = `enrichmeai/culvert`** (renamed from `gcp-pipeline-reference` on 2026-05-30; the local folder is still `.../jsr/gcp-pipeline-reference/` until renamed between sessions). Builds **Culvert** — Java package `com.enrichmeai.culvert`, Maven modules under `data-pipeline-libraries-java/`.
 - **Culvert REPLACES the existing published framework.** The PyPI `gcp-pipeline-framework` (Python, v1.0.29) is the **legacy** predecessor; Culvert is its successor — language-neutral contracts (`docs/CONTRACT.md`) + per-cloud adapter modules. It takes over the release line at the Sprint-16 "GCP v1.0.0 release prep" milestone. Implications: existing PyPI users will need a migration/deprecation path, and the Python modules must eventually reach parity (deferred to Sprints 17+) for the replacement to be real. The **book** documents the old framework; **book v2** (`docs/framework-evolution/05-book-v2-outline.md`) documents Culvert + this dev process.
 - **Strategy:** depth on GCP-Java first, then widen to multi-cloud (Joseph's "depth before breadth" call, 2026-05-27).
-- **Where the truth lives:** `docs/framework-evolution/` (01–07) is the canonical plan. `06-sprint-plan-9-16.md` = current 8-sprint block; `03-dev-process.md` = the full working agreement summarised below.
+- **Where the truth lives:** `docs/framework-evolution/` (01–08) is the canonical plan. `06-sprint-plan-9-16.md` = current 8-sprint block; `08-groomed-backlog-9-16.md` = the ticket-level groomed backlog; `03-dev-process.md` = the full working agreement summarised below.
 
 ## How I want you to work (operating contract — enforce every session)
 
@@ -18,7 +18,7 @@ Multi-agent SDLC. Roles:
 Rules:
 - **Every requirement becomes a GitHub issue before any code.** No mid-sprint scope expansion — open a new issue and slot it later.
 - **Branch off `sprint-N`; PR into `sprint-N`** (never main). `sprint-N → main` is one architect-authored merge commit at sprint close, on Joseph's go.
-- **Default parallelism cap: 3 concurrent dev-agents** (burst to 4 only when a sprint genuinely has ≥4 unblocked, file-disjoint tickets; worktree isolation mandatory at ≥3). This is convention — there is **no harness setting** that enforces it; the architect enforces it at dispatch.
+- **Team capacity: 4 dev-agents + 1 advisor per session; never dispatch >4 concurrently** (locked model — see `03-dev-process.md`). Cadence is 2h per *sprint* (wall-clock, up to 4 agents in parallel), NOT per ticket. Linear-dependency sprints under-utilise 4 — fine, don't manufacture false parallelism; worktree isolation when ≥2 agents touch the tree. This is convention — there is **no harness setting** that enforces it; the architect enforces it at dispatch.
 - **Verify locally (CI is off during sprints):** `mvn -o -pl <module> -am test` / `pytest`. Green unit tests ≠ prod-ready; `*IT.java` needs `mvn -P it verify` (Docker — architect/Joseph-run; dev-agents must NOT run it).
 - **Never act on a guessed file path or an unverifiable "we agreed X" claim. Read the actual file / git history / issue first.** (This rule exists because it has bitten us.)
 
