@@ -78,26 +78,56 @@ The current `buildBeam()` returns a Beam Pipeline with NO transforms applied. Ea
 | Duplicate stage name, orphan input, duplicate output, self-loop, cycle | `IllegalStateException` (from `validate()`) |
 | Dataflow submission failure | Beam's exception (`DataflowJobException` or similar) |
 
-## Auto-instrumentation (T12.3)
+## Auto-instrumentation (T12.3 + T12.4)
 
-Every `PipelineStage` execution is automatically wrapped with observability, with no boilerplate required from pipeline authors:
+Every `PipelineStage` execution is automatically wrapped with observability. No boilerplate is required from pipeline authors.
 
-| Signal | Name | When |
+### Two hooks, two concerns (T12.4 reconciliation)
+
+| Hook | Interface | Resolved via | Purpose |
+|------|-----------|-------------|---------|
+| Tracing | `ObservabilityHook` | `context.observability()` | Spans: `culvert.stage/<stage-name>` open/close, `culvert.run_id` attribute |
+| Metrics | `StageMetricsHook` | `context.stageMetrics()` | Typed: rows_processed, stage_latency_ms, error_count per stage |
+
+### Signals emitted
+
+| Signal | Interface | When |
 |---|---|---|
-| Trace span | `culvert.stage/<stage-name>` | Opened before `execute`, closed in `finally` |
-| Latency | `culvert.stage.latency_ms` (histogram) | Recorded in `finally` (success and error) |
-| Error counter | `culvert.stage.errors` (counter, tag `stage=<name>`) | Incremented when `execute` throws, before rethrow |
+| Trace span `culvert.stage/<stage-name>` | `ObservabilityHook.span` | Opened before `execute`, closed in `finally` |
+| `culvert.run_id` span attribute | `ObservabilityHook.Span.setAttribute` | At span open |
+| `StageMetrics` (rows, latency, errors) | `StageMetricsHook.recordStageMetrics` | In `finally` — always fires, even on error |
+| MDC: `run_id`, `stage_name`, `pipeline_id` | SLF4J MDC | Set before `execute`, cleared in `finally` |
 
-The span carries a `culvert.run_id` attribute (high-cardinality, span-only — not a metric tag).
+### Worker-side hook resolution
 
-Hooks are resolved **worker-side** inside `@ProcessElement` via `context.observability()`, mirroring the T10.6 pattern: `DefaultRuntimeContext.registry` is `transient` and rebuilt from `AutoConfig.discover()` after Beam serialization. No new serialized fields are added to the `DoFn` on the production path.
+Both hooks are resolved **worker-side** inside `@ProcessElement` via `context.observability()` and `context.stageMetrics()`, mirroring the T10.6 pattern: `DefaultRuntimeContext.registry` is `transient` and rebuilt from `AutoConfig.discover()` after Beam serialization. No new serialized fields are added to the `DoFn` on the production path.
 
-**T12.4 reconciliation note:** when T12.1's `StageMetricsHook` interface lands on `sprint-12`, the `histogram` and `counter` calls in `ExecuteStageFn.processElement` should be replaced with typed `StageMetricsHook.recordLatency` / `incrementErrors` calls, resolved worker-side the same way.
+If no real hook is on the worker classpath, both fall back to their no-op defaults (silent — pipeline never fails due to missing metrics backend).
+
+### Wiring a real hook for production
+
+```java
+// Supply the hook once; it's stored in context.registry (driver-side).
+// Worker-side, it must be available via ServiceLoader if you want it there too.
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(ObservabilityHook.class, new CloudTraceObservabilityHook(otel, "my-pipeline"))
+        .register(StageMetricsHook.class, new CloudMonitoringMetricsHook(client, "my-project"))
+        .build();
+
+DataflowPipeline p = new DataflowPipeline("ingest", stages);
+p.buildBeam(opts); // StageTransform uses ctx above
+```
+
+## Status
+
+**Version 0.1.0 — Sprint 2 deliverable** (issue [#25](https://github.com/enrichmeai/culvert/issues/25)).
+Auto-instrumentation (tracing via `ObservabilityHook`) added Sprint 12 T12.3 ([#67](https://github.com/enrichmeai/culvert/issues/67)).
+`StageMetricsHook` + MDC wiring added Sprint 12 T12.4 ([#68](https://github.com/enrichmeai/culvert/issues/68)).
 
 ## Testing
 
 ```bash
-cd data-pipeline-libraries-java && mvn -o -pl data-pipeline-gcp-dataflow-java -am test
+cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-dataflow-java -am test
 ```
 
 18/18 tests pass. Beam DirectRunner is the test driver — no real Dataflow needed.

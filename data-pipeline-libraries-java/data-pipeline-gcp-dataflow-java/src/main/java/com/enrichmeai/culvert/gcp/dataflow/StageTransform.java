@@ -3,6 +3,9 @@ package com.enrichmeai.culvert.gcp.dataflow;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.PipelineStage;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
+import com.enrichmeai.culvert.contracts.StageMetrics;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
+import org.slf4j.MDC;
 import org.apache.beam.sdk.transforms.Create;
 import org.apache.beam.sdk.transforms.DoFn;
 import org.apache.beam.sdk.transforms.PTransform;
@@ -73,15 +76,37 @@ import java.util.Objects;
  * {@code transient} and rebuilt from {@code AutoConfig.discover()} after
  * Beam deserialization. No new serialized state is added to the DoFn.
  *
- * <p>An optional {@code observabilityOverride} field supports test injection of
- * a serializable recording hook. When non-null it takes precedence over
- * {@code context.observability()}. Production callers use {@link #of(PipelineStage, RuntimeContext)},
- * which passes {@code null} (no override) and relies on the context's
- * worker-side registry. T12.4 will reconcile the metrics calls here with the
- * {@code StageMetricsHook} interface introduced in T12.1, swapping
- * {@code histogram}/{@code counter} for typed hook methods.
+ * <p><strong>T12.4 reconciliation (ObservabilityHook vs StageMetricsHook)</strong>:
+ * Two hooks coexist with distinct concerns:
+ * <ul>
+ *   <li>{@link ObservabilityHook} — the general-purpose primitive surface used
+ *       for tracing spans (start / end / recordException). The {@code counter}
+ *       and {@code histogram} calls previously used for latency+errors have been
+ *       moved to the typed hook below.</li>
+ *   <li>{@link StageMetricsHook} — the typed Culvert-specific seam (T12.1)
+ *       that emits exactly the three standard Culvert metrics
+ *       ({@code rows_processed}, {@code stage_latency_ms}, {@code error_count})
+ *       with the fixed label schema. Replaces the raw {@code histogram} /
+ *       {@code counter} calls that were in T12.3.</li>
+ * </ul>
+ * Both hooks are resolved worker-side via {@code context.observability()} and
+ * {@code context.stageMetrics()}, mirroring the T10.6 transient-registry pattern.
  *
- * <p>Sprint-9 deliverable (T9.2); auto-instrumentation added in Sprint-12 (T12.3).
+ * <p>MDC population: before each stage execution the three Culvert MDC keys
+ * ({@code run_id}, {@code stage_name}, {@code pipeline_id}) are set on the
+ * current thread's SLF4J MDC and cleared in the {@code finally} block, so all
+ * log lines emitted inside {@code stage.execute} carry the context fields
+ * automatically. This mirrors what {@code CulvertMdcPopulator} (T12.2) does,
+ * but is applied inline here to avoid adding a module dependency on
+ * {@code data-pipeline-gcp-observability-java} from the dataflow adapter.
+ *
+ * <p>An optional {@code observabilityOverride} field supports test injection of
+ * a serializable recording hook for the tracing seam. Production callers use
+ * {@link #of(PipelineStage, RuntimeContext)}, which passes {@code null} (no
+ * override) and relies on the context's worker-side registry.
+ *
+ * <p>Sprint-9 deliverable (T9.2); auto-instrumentation added in Sprint-12 (T12.3);
+ * StageMetricsHook + MDC wiring in Sprint-12 (T12.4).
  */
 public final class StageTransform extends PTransform<PBegin, PDone> {
 
@@ -131,15 +156,31 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
      * once per input element. Driven by a one-element {@code Create.of}, so
      * {@code execute} runs exactly once per pipeline run.
      *
-     * <p>Each execution is wrapped with a trace span, a latency histogram
-     * observation, and an error counter — all emitted through the
-     * {@link ObservabilityHook} resolved worker-side from
-     * {@code context.observability()} (or from {@code observabilityOverride}
-     * when a serializable test hook is injected).
+     * <p>Each execution is wrapped with:
+     * <ul>
+     *   <li>SLF4J MDC population ({@code run_id}, {@code stage_name},
+     *       {@code pipeline_id}) before {@code execute} and cleared in {@code finally}.</li>
+     *   <li>A trace span via {@link ObservabilityHook#span(String)} (start before,
+     *       end in {@code finally}).</li>
+     *   <li>A {@link StageMetricsHook#recordStageMetrics(StageMetrics)} call in
+     *       {@code finally} with the actual latency and error count — replaces the
+     *       raw {@code histogram}/{@code counter} calls from T12.3.</li>
+     * </ul>
+     *
+     * <p>Both hooks are resolved worker-side: {@code context.observability()} and
+     * {@code context.stageMetrics()} — never captured into the DoFn at construction
+     * time on the production path (T10.6 pattern). Optional {@code observabilityOverride}
+     * supports test injection of a serializable tracing hook.
      */
     static final class ExecuteStageFn extends DoFn<String, Void> {
 
         private static final long serialVersionUID = 1L;
+
+        // MDC key constants — mirrors CulvertMdcPopulator (T12.2) without
+        // adding a module dependency on data-pipeline-gcp-observability-java.
+        private static final String MDC_RUN_ID      = "run_id";
+        private static final String MDC_STAGE_NAME  = "stage_name";
+        private static final String MDC_PIPELINE_ID = "pipeline_id";
 
         // Serialized to workers by Beam. PipelineStage / RuntimeContext are
         // interface types not declared Serializable, but the concrete impls
@@ -152,52 +193,97 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
         private final RuntimeContext context;
 
         /**
-         * Optional serializable hook override for test injection. When non-null,
-         * this hook is used instead of {@code context.observability()}.
-         * Production code passes {@code null} here and the context's worker-side
-         * registry provides the hook lazily (T10.6 pattern — no new serialized
-         * state for the production path).
-         *
-         * <p>T12.4 reconciliation point: when T12.1's {@code StageMetricsHook}
-         * lands on {@code sprint-12}, this override and the metrics calls in
-         * {@code processElement} ({@code histogram} + {@code counter}) should be
-         * replaced with a typed {@code StageMetricsHook} resolved the same way.
+         * Optional serializable hook override for test injection of the tracing
+         * seam ({@link ObservabilityHook}). When non-null, this hook is used
+         * instead of {@code context.observability()} for spans. Production code
+         * passes {@code null} here and the context's worker-side registry provides
+         * the hook lazily (T10.6 pattern — no new serialized state for the
+         * production path).
          */
         @SuppressWarnings("serial")
         private final ObservabilityHook observabilityOverride;
 
+        /**
+         * Optional serializable hook override for test injection of the metrics
+         * seam ({@link StageMetricsHook}). When non-null, this hook is used
+         * instead of {@code context.stageMetrics()}. Production code passes
+         * {@code null} here (T12.4 — no new serialized state for the production path).
+         */
+        @SuppressWarnings("serial")
+        private final StageMetricsHook stageMetricsOverride;
+
         ExecuteStageFn(PipelineStage stage, RuntimeContext context,
                        ObservabilityHook observabilityOverride) {
+            this(stage, context, observabilityOverride, null);
+        }
+
+        ExecuteStageFn(PipelineStage stage, RuntimeContext context,
+                       ObservabilityHook observabilityOverride,
+                       StageMetricsHook stageMetricsOverride) {
             this.stage = stage;
             this.context = context;
             this.observabilityOverride = observabilityOverride;
+            this.stageMetricsOverride = stageMetricsOverride;
         }
 
         @ProcessElement
         public void processElement() {
-            // Resolve the hook worker-side: mirrors the T10.6 pattern where
-            // DefaultRuntimeContext.registry is transient and rebuilt from
-            // AutoConfig.discover() after Beam deserialization. No hook is
-            // captured at construction time on the production path.
+            // --- MDC population (T12.4) ---
+            // Use the pipeline name from stage metadata where available; fall
+            // back to context.runId() as a proxy pipeline identifier.
+            String stageName = stage.name();
+            String runId = context.runId();
+            MDC.put(MDC_RUN_ID, runId);
+            MDC.put(MDC_STAGE_NAME, stageName);
+            MDC.put(MDC_PIPELINE_ID, runId);   // pipeline_id not directly on RuntimeContext;
+                                                // runId is used as the best available proxy.
+
+            // --- Resolve hooks worker-side (T10.6 pattern) ---
+            // ObservabilityHook: used for tracing spans.
             ObservabilityHook obs = (observabilityOverride != null)
                     ? observabilityOverride
                     : context.observability();
 
-            String stageName = stage.name();
+            // StageMetricsHook: used for the three Culvert-standard metrics
+            // (rows_processed, stage_latency_ms, error_count). Resolved
+            // lazily from context.stageMetrics() — no hook captured at
+            // construction time, no new serialized state (T12.4).
+            // stageMetricsOverride is non-null only for test injection.
+            StageMetricsHook metricsHook = (stageMetricsOverride != null)
+                    ? stageMetricsOverride
+                    : context.stageMetrics();
+
             Map<String, String> stageTags = Map.of("stage", stageName);
             long t0 = System.nanoTime();
+            long errorCount = 0L;
             ObservabilityHook.Span span = obs.span("culvert.stage/" + stageName);
-            span.setAttribute("culvert.run_id", context.runId());
+            span.setAttribute("culvert.run_id", runId);
             try {
                 stage.execute(context);
             } catch (RuntimeException e) {
                 span.recordException(e);
-                obs.counter("culvert.stage.errors", 1, stageTags);
+                errorCount = 1L;
                 throw e;
             } finally {
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
-                obs.histogram("culvert.stage.latency_ms", elapsedMs, stageTags);
+                // Emit the three Culvert-standard metrics via StageMetricsHook.
+                // rows_processed is 0 here (stages do not yet expose a row count;
+                // that is a future Sprint concern when element-level translation
+                // arrives). The typed hook never propagates monitoring failures.
+                metricsHook.recordStageMetrics(new StageMetrics(
+                        runId,        // pipelineId proxy
+                        runId,        // runId
+                        stageName,
+                        0L,           // rowsProcessed — not available yet
+                        (double) elapsedMs,
+                        errorCount));
                 span.close();
+                // Clear MDC in the outermost finally so it is always removed
+                // even when recordStageMetrics throws (it should not, but defence
+                // in depth).
+                MDC.remove(MDC_RUN_ID);
+                MDC.remove(MDC_STAGE_NAME);
+                MDC.remove(MDC_PIPELINE_ID);
             }
         }
     }
