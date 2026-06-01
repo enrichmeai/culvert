@@ -450,11 +450,74 @@ For non-retryable errors (e.g., `VALIDATION`), the Error Handling DAG:
 
 ---
 
+## T11.2c — `create_dags` factory entrypoint (Sprint 11)
+
+`create_dags(config, globals())` is the config-driven entrypoint that builds
+the **ingestion-side** DAGs and injects them into a DAG entrypoint module so
+Airflow's DagBag discovers them. It is a thin, decoupled wrapper: all DAG
+construction is delegated to `factories/_dag_builders.py`, which composes the
+ported T11.2a config + T11.2b sensor / operator / dependency-checker. The
+module imports cleanly without Airflow installed (builders lazy-import Airflow
+inside the function body and raise a clear `ImportError` if it is absent).
+
+### What it builds
+
+For a config with **N** entities, `create_dags` registers **1 + N** DAGs:
+
+| DAG id | Count | Role |
+| --- | --- | --- |
+| `{system_id}_pubsub_trigger_dag` | 1 | Listens for `.ok` files via `BasePubSubPullSensor`, parses the notification, then triggers the matching per-entity ingestion DAG. |
+| `{system_id}_{entity}_ingestion_dag` | one per entity | Runs Dataflow via the T11.2b `BaseDataflowOperator`, checks FDP readiness with `EntityDependencyChecker`, then triggers ready transformation DAGs. |
+
+> The **transformation**, **status** and **error-handling** DAGs and the global
+> callbacks are **not** produced by `create_dags` — they are owned by #87.
+
+### How to invoke it from a DAG entrypoint file
+
+Drop a thin loader module into your `dags/` folder. Airflow imports it, the
+DAGs land in `globals()`, and the scheduler picks them up:
+
+```python
+# dags/generic_pipeline.py
+from data_pipeline_orchestration.factories.dag_factory import create_dags
+from data_pipeline_orchestration.factories.config import load_system_config
+
+# Reads dags/config/system.yaml → validated config dict
+config = load_system_config()
+
+# Injects {system}_pubsub_trigger_dag + one {system}_{entity}_ingestion_dag
+# per entity into this module's namespace.
+create_dags(config, globals())
+```
+
+`config` is the parsed/validated `system.yaml` dict (entities, fdp_models,
+infrastructure, trigger_schedule, …); see *System Configuration Schema* above.
+Project / region / template-bucket values are read at build time from Airflow
+`Variable`s (with env-var / config fallbacks), so no secrets live in code.
+
+### Task graphs
+
+```
+{system}_pubsub_trigger_dag
+  wait_for_file_notification → parse_message → validate_file
+    validate_file ─┬→ trigger_odp_load ─┐
+                   ├→ handle_validation_error ─┤→ end
+                   └→ skip_processing ─┘
+
+{system}_{entity}_ingestion_dag   (schedule=None; externally triggered)
+  create_job_record → run_dataflow_pipeline (BaseDataflowOperator)
+    → update_job_success → reconcile_odp_load
+    → check_ready_fdp_models → trigger_ready_transforms → end
+```
+
+---
+
 ## Usage
 
 ```python
 from data_pipeline_orchestration.sensors import BasePubSubPullSensor
 from data_pipeline_orchestration.factories import DAGFactory
+from data_pipeline_orchestration.factories.dag_factory import create_dags
 from data_pipeline_orchestration.dependency import EntityDependencyChecker
 from data_pipeline_orchestration.callbacks import on_failure_callback
 ```
