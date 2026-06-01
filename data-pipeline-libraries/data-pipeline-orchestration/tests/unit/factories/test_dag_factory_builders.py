@@ -140,7 +140,7 @@ class TestBuildPubsubTriggerDag:
         with patch("airflow.models.Variable.get", side_effect=lambda k, **kw: kw.get("default_var", "")):
             dag = build_pubsub_trigger_dag(sample_config)
 
-        assert dag.schedule == "*/5 * * * *"
+        assert dag.schedule_interval == "*/5 * * * *"
 
     def test_task_graph_end_downstream_of_branches(self, sample_config):
         """end task must be downstream of each branch leaf."""
@@ -196,7 +196,7 @@ class TestBuildIngestionDag:
         with patch("airflow.models.Variable.get", side_effect=lambda k, **kw: kw.get("default_var", "")):
             dag = build_ingestion_dag("accounts", sample_config["entities"]["accounts"], sample_config)
 
-        assert dag.schedule is None
+        assert dag.schedule_interval is None
 
     def test_tags_include_entity_and_odp(self, sample_config):
         from data_pipeline_orchestration.factories._dag_builders import build_ingestion_dag
@@ -214,9 +214,8 @@ class TestBuildIngestionDag:
 
         create_job = dag.get_task("create_job_record")
         end_task = dag.get_task("end")
-        # end must be a descendant of create_job_record
-        descendants = dag.get_task_group_dict()
-        all_downstream = dag.get_task("trigger_ready_transforms").get_flat_relatives(upstream=False)
+        # end must be a descendant of create_job_record (via the linear chain)
+        all_downstream = create_job.get_flat_relatives(upstream=False)
         assert end_task in all_downstream
 
     def test_two_entities_produce_two_dags(self, sample_config):
@@ -300,7 +299,7 @@ class TestBuildTransformationDag:
                 sample_config["fdp_models"]["customer_account"],
                 sample_config,
             )
-        assert dag.schedule is None
+        assert dag.schedule_interval is None
 
     def test_verify_branches_to_both_paths(self, sample_config):
         """verify_model_dependencies must have both success and failure branches."""
@@ -348,7 +347,7 @@ class TestBuildErrorHandlingDag:
     def test_schedule_every_30_min(self, sample_config):
         from data_pipeline_orchestration.factories._dag_builders import build_error_handling_dag
         dag = build_error_handling_dag(sample_config)
-        assert dag.schedule == "*/30 * * * *"
+        assert dag.schedule_interval == "*/30 * * * *"
 
     def test_tags_include_error_and_recovery(self, sample_config):
         from data_pipeline_orchestration.factories._dag_builders import build_error_handling_dag
@@ -393,7 +392,7 @@ class TestBuildStatusDag:
     def test_schedule_daily(self, sample_config):
         from data_pipeline_orchestration.factories._dag_builders import build_status_dag
         dag = build_status_dag(sample_config)
-        assert dag.schedule == "0 23 * * *"
+        assert dag.schedule_interval == "0 23 * * *"
 
     def test_tags_include_status_and_observability(self, sample_config):
         from data_pipeline_orchestration.factories._dag_builders import build_status_dag
