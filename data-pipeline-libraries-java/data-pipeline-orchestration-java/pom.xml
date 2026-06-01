@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-orchestration</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-orchestration (Java)</name>
+    <description>
+        Scheduler-agnostic DAG model for Culvert pipelines. Provides DagSpec and
+        TaskSpec (immutable, Serializable value types) and PipelineToDagSpec, a
+        translator from the core Pipeline contract to a DagSpec. Cloud-neutral:
+        no Beam, no Airflow, no GCP imports. Renderers (Composer, Step Functions,
+        etc.) are downstream consumers of DagSpec, not part of this module.
+        Sprint-11 deliverable for issue #61.
+    </description>
+
+    <dependencies>
+        <!-- Core contracts (Pipeline, PipelineStage, RuntimeContext). -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>0.1.0</version>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
