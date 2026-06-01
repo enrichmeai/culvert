@@ -36,7 +36,8 @@ Eleven interfaces in `com.enrichmeai.culvert.contracts` — the entire framework
 | `AuditEventPublisher` | Emits audit records | `PubSubAuditPublisher` (in `data-pipeline-gcp-pubsub-java`) |
 | `GovernancePolicy` | Masking/retention/classification lookups | `StaticGovernancePolicy` (cloud-neutral default) |
 | `LineageEmitter` | OpenLineage events | `OpenLineageEmitter` (cloud-neutral default) |
-| `ObservabilityHook` | Metrics/logs/traces, single seam | OTEL-backed default (Stage 3 Java) |
+| `ObservabilityHook` | Metrics/logs/traces, general-purpose seam | OTEL-backed (Sprint 2 / `data-pipeline-gcp-observability-java`) |
+| `StageMetricsHook` | Typed per-stage Culvert metrics (rows/latency/errors) | `CloudMonitoringMetricsHook` (Sprint 12 T12.1 / `data-pipeline-gcp-observability-java`) |
 | `FinOpsSink` | Cost-metric aggregation | `BigQueryFinOpsSink` (in `data-pipeline-gcp-bigquery-java`) |
 | `SecretProvider` | Secret lookup | env-var default |
 
@@ -63,6 +64,40 @@ Eleven interfaces in `com.enrichmeai.culvert.contracts` — the entire framework
 
 ```bash
 mvn -f data-pipeline-libraries-java/pom.xml clean install
+```
+
+## Observability auto-wiring (Sprint 12 T12.4)
+
+`DefaultRuntimeContext` now auto-wires observability by default. Two hooks
+are registered as advisory protocols (fall back to no-op silently when absent):
+
+| Accessor | Hook interface | Purpose |
+|----------|---------------|---------|
+| `context.observability()` | `ObservabilityHook` | General-purpose: spans, counters, histograms, structured logs |
+| `context.stageMetrics()` | `StageMetricsHook` | Typed: the three Culvert-standard metrics per stage (rows_processed, stage_latency_ms, error_count) |
+
+### How auto-wiring works
+
+1. **Driver side**: `DefaultRuntimeContext.fromAutoConfig(runId, env, config, AutoConfig.discover())` calls `ServiceLoader` for all registered hook impls and registers the first discovered one for each type. Pipeline authors who call `DefaultRuntimeContext.builder(...).build()` get no-op defaults, or can call `context.register(StageMetricsHook.class, myHook)` explicitly.
+
+2. **Worker side (Beam/Dataflow)**: The `registry` field is `transient` (T10.6). After Beam deserializes the context to a worker, the first access to `context.stageMetrics()` or `context.observability()` triggers a lazy rebuild via `AutoConfig.discover()`. This means any `StageMetricsHook` registered with a `META-INF/services/com.enrichmeai.culvert.contracts.StageMetricsHook` file on the worker classpath will be discovered and used.
+
+3. **No-arg constructor limitation**: `CloudMonitoringMetricsHook` (and `CloudTraceObservabilityHook`) require constructor arguments (client + project-id), so ServiceLoader silently skips them at auto-discovery time. Worker-side resolution therefore falls back to `NoOpStageMetricsHook` unless a future config-driven constructor is added. For now, register the hook explicitly on the driver side for production pipelines.
+
+### Overriding with a custom hook
+
+```java
+StageMetricsHook myHook = ...; // e.g. new CloudMonitoringMetricsHook(client, projectId)
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(StageMetricsHook.class, myHook)
+        .build();
+// ctx.stageMetrics() returns myHook
+```
+
+Or via AutoConfig if your hook has a no-arg constructor and a `META-INF/services` entry:
+```
+# META-INF/services/com.enrichmeai.culvert.contracts.StageMetricsHook
+com.example.MyNoArgMetricsHook
 ```
 
 ## License

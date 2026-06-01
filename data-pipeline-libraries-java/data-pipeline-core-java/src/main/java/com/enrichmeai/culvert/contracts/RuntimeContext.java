@@ -15,6 +15,13 @@ import java.util.Map;
  * lookups against each installed cloud module (Stage 3 Java).
  *
  * <p>Java mirror of the Python {@code RuntimeContext} Protocol.
+ *
+ * <p>Sprint-12 (T12.4) added {@link #stageMetrics()} alongside the existing
+ * {@link #observability()} accessor: {@code observability()} is the general-purpose
+ * primitive surface (arbitrary name + tags), while {@code stageMetrics()} exposes
+ * the typed, Culvert-specific seam that emits exactly the three standard Culvert
+ * metrics ({@code rows_processed}, {@code stage_latency_ms}, {@code error_count})
+ * with the fixed label schema. Both are advisory; each falls back to a no-op default.
  */
 public interface RuntimeContext {
 
@@ -32,6 +39,19 @@ public interface RuntimeContext {
 
     /** The registered {@link ObservabilityHook}. */
     ObservabilityHook observability();
+
+    /**
+     * The registered {@link StageMetricsHook}.
+     *
+     * <p>Advisory: falls back to a no-op default if no real hook is registered.
+     * Use this for emitting the three standard Culvert per-stage metrics
+     * ({@code rows_processed}, {@code stage_latency_ms}, {@code error_count})
+     * with the typed label schema. For general-purpose metrics / tracing, use
+     * {@link #observability()}.
+     *
+     * <p>Sprint-12 / T12.4 addition.
+     */
+    StageMetricsHook stageMetrics();
 
     /** The registered {@link LineageEmitter}. */
     LineageEmitter lineage();

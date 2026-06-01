@@ -1,0 +1,11 @@
+# Pre-registered for sprint-12 T12.4 auto-config (DefaultRuntimeContext.stageMetrics()).
+# The implementation does NOT expose a no-arg constructor — Cloud Monitoring requires a
+# pre-built MetricServiceClient + project-id (2 constructor args), which exceeds the
+# pilot's "no-arg only if <=2 env vars of state" rule. Direct
+# ServiceLoader.load(StageMetricsHook.class).findFirst() will fail with
+# ServiceConfigurationError until a config-driven constructor is added. Until then,
+# instantiate explicitly:
+#   MetricServiceClient client = MetricServiceClient.create();
+#   StageMetricsHook hook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
+#   context.register(StageMetricsHook.class, hook);
+com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook

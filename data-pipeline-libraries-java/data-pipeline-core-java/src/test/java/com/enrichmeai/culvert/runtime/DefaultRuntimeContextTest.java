@@ -6,6 +6,8 @@ import com.enrichmeai.culvert.contracts.GovernancePolicy;
 import com.enrichmeai.culvert.contracts.LineageEmitter;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.SecretProvider;
+import com.enrichmeai.culvert.contracts.StageMetrics;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
 import com.enrichmeai.culvert.governance.DataClassification;
 import org.junit.jupiter.api.Test;
 
@@ -87,6 +89,13 @@ class DefaultRuntimeContextTest {
             span.setAttribute("k", "v");
         }
 
+        // T12.4: stageMetrics() is also advisory — falls back to no-op.
+        StageMetricsHook metricsHook = ctx.stageMetrics();
+        assertThat(metricsHook).isNotNull();
+        // Calling recordStageMetrics on the no-op should not throw.
+        metricsHook.recordStageMetrics(
+                new StageMetrics("pipe-1", "r", "stage-1", 100L, 42.0, 0L));
+
         assertThat(ctx.lineage()).isNotNull();
         assertThat(ctx.finops()).isNotNull();
 
@@ -94,6 +103,27 @@ class DefaultRuntimeContextTest {
         assertThat(gov.classify("col", "tbl")).isEqualTo(DataClassification.INTERNAL);
         assertThat(gov.maskingFor("col", "tbl")).isEmpty();
         assertThat(gov.retentionFor("tbl")).isEmpty();
+    }
+
+    @Test
+    void stageMetricsHookIsAnAdvisoryProtocolWithNoOpDefault() {
+        DefaultRuntimeContext ctx = DefaultRuntimeContext.builder("run-metrics", "test").build();
+
+        // stageMetrics() returns a non-null no-op when no real hook is registered.
+        StageMetricsHook hook = ctx.stageMetrics();
+        assertThat(hook).isNotNull();
+
+        // A custom recording hook can be registered and is returned.
+        StageMetrics[] captured = {null};
+        StageMetricsHook recordingHook = metrics -> captured[0] = metrics;
+        ctx.register(StageMetricsHook.class, recordingHook);
+        assertThat(ctx.stageMetrics()).isSameAs(recordingHook);
+
+        ctx.stageMetrics().recordStageMetrics(
+                new StageMetrics("pipe-x", "run-metrics", "my-stage", 50L, 100.0, 0L));
+        assertThat(captured[0]).isNotNull();
+        assertThat(captured[0].stageName()).isEqualTo("my-stage");
+        assertThat(captured[0].rowsProcessed()).isEqualTo(50L);
     }
 
     @Test
@@ -187,6 +217,15 @@ class DefaultRuntimeContextTest {
         assertThat(roundTripped.observability()).isNotNull();
         assertThat(roundTripped.governance().classify("c", "t"))
                 .isEqualTo(DataClassification.INTERNAL);
+
+        // 4. stageMetrics() also re-materialises worker-side — returns a non-null
+        //    hook (no-op on core classpath, real hook if gcp-observability is present).
+        //    Must NOT throw. (T12.4)
+        StageMetricsHook roundTrippedMetrics = roundTripped.stageMetrics();
+        assertThat(roundTrippedMetrics).isNotNull();
+        // No-op call must not throw.
+        roundTrippedMetrics.recordStageMetrics(
+                new StageMetrics("pipe-rt", "run-ser", "stage-rt", 0L, 1.0, 0L));
     }
 
     private static DefaultRuntimeContext roundTrip(DefaultRuntimeContext ctx) throws Exception {
