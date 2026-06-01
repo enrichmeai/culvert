@@ -22,7 +22,7 @@
         Cloud Composer (T11.3) and job-control wiring (T11.4) build on this
         model. Like data-pipeline-core, this module is cloud-neutral: it
         depends only on the contracts + java.util — no Beam, no Airflow, no
-        GCP. Sprint-11 deliverable (epic #46).
+        GCP. Sprint-11 deliverable (epic #46, T11.1 / issue #61).
     </description>
 
     <dependencies>
