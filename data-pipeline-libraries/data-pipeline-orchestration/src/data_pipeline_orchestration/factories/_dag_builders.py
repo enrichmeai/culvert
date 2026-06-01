@@ -431,41 +431,39 @@ def build_ingestion_dag(entity_name: str, entity_cfg: dict,
                 replace_microseconds=False,
             )
 
-    # ---- Dataflow operator (optional) -------------------------------------
+    # ---- Dataflow operator (T11.2b BaseDataflowOperator) ------------------
+    # Compose the ported T11.2b operator rather than re-implementing the raw
+    # provider operator here. BaseDataflowOperator abstracts source/mode/
+    # template-type selection and wraps DataflowStartFlexTemplateOperator at
+    # execute() time, so no Dataflow provider import is needed at build time.
     try:
-        from airflow.providers.google.cloud.operators.dataflow import (  # type: ignore
-            DataflowStartFlexTemplateOperator,
-        )
         from airflow.models import Variable  # type: ignore
+        from data_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 
         _project_id = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
         _region = Variable.get("gcp_region", default_var="europe-west2")
         _odp_dataset = odp_dataset_template.format(system=file_prefix)
         _template_bucket = Variable.get("dataflow_templates_bucket", default_var=temp_bucket_template)
 
-        _dataflow_op = DataflowStartFlexTemplateOperator(
+        _dataflow_op = BaseDataflowOperator(
             task_id="run_dataflow_pipeline",
+            pipeline_name=f"{file_prefix}_{entity_name}_odp_load",
+            source_type="gcs",
+            processing_mode="batch",
+            template_type="flex",
             project_id=_project_id,
-            location=_region,
-            body={
-                "launchParameter": {
-                    "jobName": f"{file_prefix}-odp-load-{entity_name}-{{{{ dag_run.conf.extract_date }}}}",
-                    "containerSpecGcsPath": (
-                        f"gs://{_template_bucket}/templates/{file_prefix}_pipeline.json"
-                    ),
-                    "parameters": {
-                        "input_path": "{{ dag_run.conf.data_file }}",
-                        "output_table": f"{_project_id}:{_odp_dataset}.{entity_name}",
-                        "run_id": '{{ ti.xcom_pull(key="run_id") }}',
-                        "entity": entity_name,
-                        "extract_date": "{{ dag_run.conf.extract_date }}",
-                    },
-                    "environment": {
-                        "tempLocation": f"gs://{_template_bucket}/dataflow",
-                        "maxWorkers": 3,
-                        "machineType": "n1-standard-2",
-                    },
-                }
+            region=_region,
+            input_path="{{ dag_run.conf.data_file }}",
+            output_table=f"{_project_id}:{_odp_dataset}.{entity_name}",
+            template_path=f"gs://{_template_bucket}/templates/{file_prefix}_pipeline.json",
+            temp_location=f"gs://{_template_bucket}/dataflow",
+            max_workers=3,
+            machine_type="n1-standard-2",
+            job_name_prefix=file_prefix,
+            additional_params={
+                "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+                "entity": entity_name,
+                "extract_date": "{{ dag_run.conf.extract_date }}",
             },
         )
         _use_dataflow = True
