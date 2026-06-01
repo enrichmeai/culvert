@@ -3,6 +3,8 @@ package com.enrichmeai.culvert.gcp.dataflow;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.PipelineStage;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
+import com.enrichmeai.culvert.contracts.StageMetrics;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
 import com.enrichmeai.culvert.runtime.DefaultRuntimeContext;
 import org.apache.beam.runners.direct.DirectRunner;
 import org.apache.beam.sdk.Pipeline;
@@ -53,9 +55,15 @@ class StageTransformInstrumentationTest {
     static final CopyOnWriteArrayList<String> SPANS_STARTED = new CopyOnWriteArrayList<>();
     /** Names of spans that were closed (ended). */
     static final CopyOnWriteArrayList<String> SPANS_ENDED = new CopyOnWriteArrayList<>();
-    /** Latency recordings: each entry is a metric name. */
+    /**
+     * Latency recordings via StageMetricsHook: each entry is a stage name.
+     * (T12.4: moved from ObservabilityHook.histogram to StageMetricsHook.)
+     */
     static final CopyOnWriteArrayList<String> LATENCY_RECORDS = new CopyOnWriteArrayList<>();
-    /** Error counter increments: each entry is the stage name. */
+    /**
+     * Error counter increments via StageMetricsHook: each entry is the stage name.
+     * (T12.4: moved from ObservabilityHook.counter to StageMetricsHook.)
+     */
     static final CopyOnWriteArrayList<String> ERROR_COUNTS = new CopyOnWriteArrayList<>();
 
     @BeforeEach
@@ -114,17 +122,20 @@ class StageTransformInstrumentationTest {
                 List.of(stageA, stageB));
 
         RuntimeContext ctx = context();
-        RecordingObservabilityHook hook = new RecordingObservabilityHook();
+        RecordingObservabilityHook obsHook = new RecordingObservabilityHook();
+        RecordingStageMetricsHook metricsHook = new RecordingStageMetricsHook();
 
-        Pipeline beam = buildWithHook(pipeline, ctx, hook, directRunnerOpts());
+        Pipeline beam = buildWithHooks(pipeline, ctx, obsHook, metricsHook, directRunnerOpts());
         beam.run().waitUntilFinish();
 
+        // Tracing seam: spans opened/closed via ObservabilityHook.
         assertThat(SPANS_STARTED).containsExactlyInAnyOrder(
                 "culvert.stage/alpha", "culvert.stage/beta");
         assertThat(SPANS_ENDED).containsExactlyInAnyOrder(
                 "culvert.stage/alpha", "culvert.stage/beta");
+        // Metrics seam: latency recorded via StageMetricsHook (T12.4).
         assertThat(LATENCY_RECORDS).hasSize(2)
-                .allSatisfy(name -> assertThat(name).isEqualTo("culvert.stage.latency_ms"));
+                .allSatisfy(name -> assertThat(name).isIn("alpha", "beta"));
         assertThat(ERROR_COUNTS).isEmpty();
     }
 
@@ -140,9 +151,10 @@ class StageTransformInstrumentationTest {
                 List.of(failingStage));
 
         RuntimeContext ctx = context();
-        RecordingObservabilityHook hook = new RecordingObservabilityHook();
+        RecordingObservabilityHook obsHook = new RecordingObservabilityHook();
+        RecordingStageMetricsHook metricsHook = new RecordingStageMetricsHook();
 
-        Pipeline beam = buildWithHook(pipeline, ctx, hook, directRunnerOpts());
+        Pipeline beam = buildWithHooks(pipeline, ctx, obsHook, metricsHook, directRunnerOpts());
 
         // DirectRunner propagates stage exceptions out of waitUntilFinish.
         assertThatThrownBy(() -> beam.run().waitUntilFinish())
@@ -151,25 +163,28 @@ class StageTransformInstrumentationTest {
         // The span was still opened and closed (finally block).
         assertThat(SPANS_STARTED).containsExactly("culvert.stage/fail-stage");
         assertThat(SPANS_ENDED).containsExactly("culvert.stage/fail-stage");
-        // Latency is recorded in finally, so it appears on both success and error.
-        assertThat(LATENCY_RECORDS).hasSize(1);
-        // Error counter incremented exactly once.
+        // Latency is recorded in finally via StageMetricsHook (T12.4).
+        assertThat(LATENCY_RECORDS).hasSize(1).containsExactly("fail-stage");
+        // Error count incremented exactly once via StageMetricsHook (T12.4).
         assertThat(ERROR_COUNTS).hasSize(1).containsExactly("fail-stage");
     }
 
     // ---------- helpers ----------
 
     /**
-     * Build a Beam pipeline from a {@link DataflowPipeline} with a hook
-     * override injected into every {@link StageTransform.ExecuteStageFn}.
-     * This bypasses the worker-side context registry (which is rebuilt from
+     * Build a Beam pipeline from a {@link DataflowPipeline} with hook overrides
+     * injected into every {@link StageTransform.ExecuteStageFn}.
+     *
+     * <p>This bypasses the worker-side context registry (which is rebuilt from
      * AutoConfig after deserialization and thus drops test-only registrations)
-     * by passing the hook directly to the DoFn constructor.
+     * by passing the hooks directly to the DoFn constructor (T12.4 dual-hook
+     * injection: observability for tracing, stageMetrics for typed metrics).
      */
-    private static Pipeline buildWithHook(DataflowPipeline culvertPipeline,
-                                          RuntimeContext ctx,
-                                          ObservabilityHook hook,
-                                          PipelineOptions opts) {
+    private static Pipeline buildWithHooks(DataflowPipeline culvertPipeline,
+                                           RuntimeContext ctx,
+                                           ObservabilityHook obsHook,
+                                           StageMetricsHook metricsHook,
+                                           PipelineOptions opts) {
         culvertPipeline.validate();
         Pipeline beam = Pipeline.create(opts);
 
@@ -179,13 +194,14 @@ class StageTransformInstrumentationTest {
         }
         for (String stageName : culvertPipeline.topologicalOrder()) {
             PipelineStage stage = byName.get(stageName);
-            // Directly apply a ParDo with a hook-injected DoFn so the
-            // recording hook survives the DirectRunner serialization round-trip.
+            // Directly apply a ParDo with hook-injected DoFns so the recording
+            // hooks survive the DirectRunner serialization round-trip.
             beam.apply("Trigger[" + stageName + "]",
                             org.apache.beam.sdk.transforms.Create.of("execute"))
                     .apply("Execute[" + stageName + "]",
                             org.apache.beam.sdk.transforms.ParDo.of(
-                                    new StageTransform.ExecuteStageFn(stage, ctx, hook)));
+                                    new StageTransform.ExecuteStageFn(
+                                            stage, ctx, obsHook, metricsHook)));
         }
         return beam;
     }
@@ -193,8 +209,11 @@ class StageTransformInstrumentationTest {
     // ---------- serializable recording hook ----------
 
     /**
-     * A serializable {@link ObservabilityHook} that records events into the
-     * static lists of the enclosing test class.
+     * A serializable {@link ObservabilityHook} that records tracing events
+     * (span start/end) into the static lists of the enclosing test class.
+     *
+     * <p>T12.4: counter and histogram calls for metrics have been moved to
+     * {@link RecordingStageMetricsHook}. This hook now records spans only.
      *
      * <p>Static fields survive the DirectRunner's DoFn serialization round-trip
      * because the worker runs in the same JVM. The hook instance itself is
@@ -206,12 +225,7 @@ class StageTransformInstrumentationTest {
 
         @Override
         public void counter(String name, long value, Map<String, String> tags) {
-            if ("culvert.stage.errors".equals(name) && tags != null) {
-                String stage = tags.get("stage");
-                if (stage != null) {
-                    ERROR_COUNTS.add(stage);
-                }
-            }
+            // No longer used for stage metrics (T12.4 — moved to StageMetricsHook).
         }
 
         @Override
@@ -221,7 +235,7 @@ class StageTransformInstrumentationTest {
 
         @Override
         public void histogram(String name, double value, Map<String, String> tags) {
-            LATENCY_RECORDS.add(name);
+            // No longer used for stage latency (T12.4 — moved to StageMetricsHook).
         }
 
         @Override
@@ -233,6 +247,27 @@ class StageTransformInstrumentationTest {
         public Span span(String name) {
             SPANS_STARTED.add(name);
             return new RecordingSpan(name);
+        }
+    }
+
+    /**
+     * A serializable {@link StageMetricsHook} that records per-stage metrics
+     * (latency and error count) into the static lists of the enclosing test class.
+     *
+     * <p>Sprint-12 / T12.4: replaces the raw {@code histogram}/{@code counter}
+     * calls that were on {@link RecordingObservabilityHook} in T12.3.
+     */
+    static final class RecordingStageMetricsHook implements StageMetricsHook, Serializable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public void recordStageMetrics(StageMetrics metrics) {
+            // Record latency: keyed by stage name so tests can assert on stage identity.
+            LATENCY_RECORDS.add(metrics.stageName());
+            // Record error count: add the stage name for each error.
+            if (metrics.errorCount() > 0) {
+                ERROR_COUNTS.add(metrics.stageName());
+            }
         }
     }
 
