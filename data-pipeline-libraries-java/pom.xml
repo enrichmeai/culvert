@@ -87,6 +87,13 @@
         <!-- Sprint-8: non-GCP cloud skeletons (proof of cloud-neutral design) -->
         <module>data-pipeline-aws-s3-java</module>
         <module>data-pipeline-azure-blob-java</module>
+        <!--
+            Sprint-11: scheduler-agnostic orchestration layer (epic #46, T11.1
+            / issue #61). Cloud-neutral DAG model (DagSpec/TaskSpec) +
+            Pipeline->DagSpec translator. Renderers (Airflow/Composer) come in
+            T11.3.
+        -->
+        <module>data-pipeline-orchestration-java</module>
     </modules>
 
     <properties>
