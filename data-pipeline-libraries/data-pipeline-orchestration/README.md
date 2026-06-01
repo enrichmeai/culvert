@@ -124,6 +124,114 @@ Control library - Airflow DAGs, sensors, operators.
 
 ---
 
+## System Configuration Schema (`system.yaml`)
+
+`load_system_config(path)` reads a `system.yaml` into a validated, typed
+`SystemConfig` object.  The function is **Airflow-free** (depends only on
+PyYAML + stdlib).
+
+### Required keys
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `system_id` | `str` | Canonical upper-case identifier (e.g. `GENERIC`) |
+| `system_name` | `str` | Human-readable name |
+| `file_prefix` | `str` | Lower-case prefix used in filenames |
+
+### Optional keys
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `ok_file_suffix` | `str` | `".ok"` | Trigger-file extension |
+| `trigger_schedule` | `str` | `"*/1 * * * *"` | Cron or Airflow preset for PubSub trigger DAG |
+| `environment` | `str` | `"dev"` | Deployment environment tag |
+| `entities` | `dict` | `{}` | Map of entity-name → `{description: …}` |
+| `fdp_models` | `dict` | `{}` | Map of model-name → `{type, requires, description}` |
+| `infrastructure` | `dict` | `{}` | GCP resource naming templates |
+| `retry_config` | `dict` | `{}` | Per-tier retry policies |
+| `reconciliation` | `dict` | defaults | Post-load count-verification settings |
+
+### `entities`
+```yaml
+entities:
+  customers:
+    description: "Customer records from mainframe"
+  accounts:
+    description: "Account records from mainframe"
+```
+
+### `fdp_models`
+Each model lists which entities (or other models) it depends on.  The loader
+validates that every name in `requires` is a declared entity or model, and
+that there are no dependency cycles.
+
+```yaml
+fdp_models:
+  event_transaction_excess:
+    type: join
+    requires: [customers, accounts]   # both must be loaded before this triggers
+    description: "Joined customer-account transactions"
+  portfolio_account_excess:
+    type: map
+    requires: [decision]
+    description: "Decision-based portfolio accounts"
+```
+
+### `infrastructure`
+```yaml
+infrastructure:
+  datasets:
+    odp: "odp_{system}"
+    fdp: "fdp_{system}"
+    job_control: "job_control"
+  buckets:
+    landing: "{project_id}-{system}-{env}-landing"
+    error:   "{project_id}-{system}-{env}-error"
+    temp:    "{project_id}-{system}-{env}-temp"
+  pubsub:
+    topic: "{system}-file-notifications"
+    subscription: "{system}-file-notifications-sub"
+  file_pattern: "{file_prefix}_{entity}_{date}.csv"
+```
+
+### `retry_config`
+```yaml
+retry_config:
+  odp:
+    max_retries: 3
+    cleanup_on_retry: true     # DELETE partial ODP rows before retry
+  fdp:
+    max_retries: 2
+    cleanup_on_retry: false    # MERGE with unique_key handles idempotency
+```
+
+### `reconciliation`
+```yaml
+reconciliation:
+  enabled: true
+  on_mismatch: "fail"           # "fail" raises; "warn" logs only
+  tolerance_percentage: 0       # 0 = strict (no tolerance)
+```
+
+### Validators
+
+| Function | What it checks |
+|----------|---------------|
+| `validate_schedule(schedule)` | Airflow preset or valid 5-field cron expression |
+| `validate_entities(config)` | At least one entity declared |
+| `validate_fdp_dependencies(config)` | All `requires` names declared; no cycles |
+| `validate_system_config(config)` | All three checks in sequence |
+
+```python
+from data_pipeline_orchestration.factories.config import load_system_config
+from data_pipeline_orchestration.factories.validators import validate_system_config
+
+cfg = load_system_config("config/system.yaml")
+validate_system_config(cfg)   # raises ValidationError on any problem
+```
+
+---
+
 ## Entity Dependency Checker
 
 The framework supports **granular per-model dependency checking**, defined in `system.yaml`. Each FDP model specifies which ODP entities it requires — transformation triggers as soon as its dependencies are met, not when all entities are loaded.
