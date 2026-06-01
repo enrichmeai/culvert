@@ -114,6 +114,23 @@ def _system_tags(cfg: Dict[str, Any]) -> List[str]:
     return [file_prefix]
 
 
+def _failure_callback():
+    """Return the global ``on_failure_callback`` (DLQ/quarantine router).
+
+    Imported lazily inside the builder body so that ``dag_factory`` and this
+    module stay import-safe without ``gcp_pipeline_core`` at module load time
+    (``callbacks.dlq`` imports ``gcp_pipeline_core`` at its top level). When the
+    callbacks package cannot be imported, returns ``None`` so DAG construction
+    still succeeds (the DAG simply carries no failure callback).
+    """
+    try:
+        from data_pipeline_orchestration.callbacks import on_failure_callback
+        return on_failure_callback
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("Could not import on_failure_callback (non-fatal): %s", exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # DAG 1: PubSub Trigger DAG
 # ---------------------------------------------------------------------------
@@ -281,7 +298,7 @@ def build_pubsub_trigger_dag(factory_config: Dict[str, Any], **kwargs) -> "Any":
     # ---- DAG definition ----------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(),
+        default_args=_default_args(on_failure_callback=_failure_callback()),
         description=f"Listen for {system_id} file arrivals via Pub/Sub and trigger ODP load",
         schedule=trigger_schedule,
         catchup=False,
@@ -431,41 +448,39 @@ def build_ingestion_dag(entity_name: str, entity_cfg: dict,
                 replace_microseconds=False,
             )
 
-    # ---- Dataflow operator (optional) -------------------------------------
+    # ---- Dataflow operator (T11.2b BaseDataflowOperator) ------------------
+    # Compose the ported T11.2b operator rather than re-implementing the raw
+    # provider operator here. BaseDataflowOperator abstracts source/mode/
+    # template-type selection and wraps DataflowStartFlexTemplateOperator at
+    # execute() time, so no Dataflow provider import is needed at build time.
     try:
-        from airflow.providers.google.cloud.operators.dataflow import (  # type: ignore
-            DataflowStartFlexTemplateOperator,
-        )
         from airflow.models import Variable  # type: ignore
+        from data_pipeline_orchestration.operators.dataflow import BaseDataflowOperator
 
         _project_id = Variable.get("gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", ""))
         _region = Variable.get("gcp_region", default_var="europe-west2")
         _odp_dataset = odp_dataset_template.format(system=file_prefix)
         _template_bucket = Variable.get("dataflow_templates_bucket", default_var=temp_bucket_template)
 
-        _dataflow_op = DataflowStartFlexTemplateOperator(
+        _dataflow_op = BaseDataflowOperator(
             task_id="run_dataflow_pipeline",
+            pipeline_name=f"{file_prefix}_{entity_name}_odp_load",
+            source_type="gcs",
+            processing_mode="batch",
+            template_type="flex",
             project_id=_project_id,
-            location=_region,
-            body={
-                "launchParameter": {
-                    "jobName": f"{file_prefix}-odp-load-{entity_name}-{{{{ dag_run.conf.extract_date }}}}",
-                    "containerSpecGcsPath": (
-                        f"gs://{_template_bucket}/templates/{file_prefix}_pipeline.json"
-                    ),
-                    "parameters": {
-                        "input_path": "{{ dag_run.conf.data_file }}",
-                        "output_table": f"{_project_id}:{_odp_dataset}.{entity_name}",
-                        "run_id": '{{ ti.xcom_pull(key="run_id") }}',
-                        "entity": entity_name,
-                        "extract_date": "{{ dag_run.conf.extract_date }}",
-                    },
-                    "environment": {
-                        "tempLocation": f"gs://{_template_bucket}/dataflow",
-                        "maxWorkers": 3,
-                        "machineType": "n1-standard-2",
-                    },
-                }
+            region=_region,
+            input_path="{{ dag_run.conf.data_file }}",
+            output_table=f"{_project_id}:{_odp_dataset}.{entity_name}",
+            template_path=f"gs://{_template_bucket}/templates/{file_prefix}_pipeline.json",
+            temp_location=f"gs://{_template_bucket}/dataflow",
+            max_workers=3,
+            machine_type="n1-standard-2",
+            job_name_prefix=file_prefix,
+            additional_params={
+                "run_id": '{{ ti.xcom_pull(key="run_id") }}',
+                "entity": entity_name,
+                "extract_date": "{{ dag_run.conf.extract_date }}",
             },
         )
         _use_dataflow = True
@@ -475,7 +490,7 @@ def build_ingestion_dag(entity_name: str, entity_cfg: dict,
     # ---- DAG definition ---------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(),
+        default_args=_default_args(on_failure_callback=_failure_callback()),
         description=f"Load {system_id} {entity_name} data to ODP (BigQuery)",
         schedule=None,
         catchup=False,
@@ -612,7 +627,9 @@ def build_transformation_dag(fdp_model: str, fdp_cfg: dict,
     # ---- DAG definition ---------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(retries=2, retry_delay_minutes=10),
+        default_args=_default_args(
+            retries=2, retry_delay_minutes=10, on_failure_callback=_failure_callback()
+        ),
         description=f"Transform {system_id} ODP to FDP — {fdp_model}",
         schedule=None,
         catchup=False,
@@ -878,7 +895,7 @@ def build_status_dag(factory_config: dict) -> "Any":  # noqa: ANN401
 
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(retries=1),
+        default_args=_default_args(retries=1, on_failure_callback=_failure_callback()),
         description=f"Daily status check for {system_name} pipeline completeness",
         schedule="0 23 * * *",
         catchup=False,

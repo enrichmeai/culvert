@@ -1,14 +1,23 @@
 r"""
 DAG Factory Validators
 
-Validation logic for DAG configurations.
+Validation logic for both DAG configurations and system.yaml-driven
+orchestration configs.
+
+This module is intentionally **Airflow-free** — importing it requires only
+the standard library and PyYAML so that config tests can run without an
+Airflow installation.
 """
 
+from __future__ import annotations
+
 import logging
-from typing import Dict, Any, List
+import re
+from typing import Dict, Any, List, Set
+
 from datetime import datetime
 
-from .config import DAGConfig, TaskConfig, ScheduleConfig
+from .config import DAGConfig, TaskConfig, ScheduleConfig, SystemConfig
 
 logger = logging.getLogger(__name__)
 
@@ -206,8 +215,152 @@ class DAGValidator:
         )
 
 
+# =============================================================================
+# System-level validators (system.yaml → validated SystemConfig)
+# =============================================================================
+
+# Valid Airflow / cron presets
+_VALID_PRESETS: Set[str] = {
+    "@daily", "@hourly", "@weekly", "@monthly", "@yearly", "@once", "None",
+}
+
+# Cron expression: five space-separated fields
+# Each field: digit, *, */n, n-m, or a comma-separated combination thereof
+_CRON_FIELD = r"(?:\*(?:/\d+)?|\d+(?:-\d+)?(?:/\d+)?(?:,\d+(?:-\d+)?(?:/\d+)?)*)"
+_CRON_RE = re.compile(
+    r"^{f}\s+{f}\s+{f}\s+{f}\s+{f}$".format(f=_CRON_FIELD)
+)
+
+
+def validate_schedule(schedule: Any) -> None:
+    """Validate a schedule interval string.
+
+    Accepts Airflow presets (``@daily``, ``@hourly``, etc.) and standard
+    5-field cron expressions.  ``None`` is also accepted (externally
+    triggered DAG).
+
+    Args:
+        schedule: Schedule value from system.yaml (``trigger_schedule`` or
+            ``schedule_interval``).
+
+    Raises:
+        ValidationError: If *schedule* is a non-None string that does not
+            match a known preset or a valid 5-field cron expression.
+    """
+    if schedule is None:
+        return
+    s = str(schedule).strip()
+    if s in _VALID_PRESETS or s.lower() == "none":
+        return
+    if _CRON_RE.match(s):
+        return
+    raise ValidationError(
+        f"Invalid schedule '{s}': must be an Airflow preset (@daily, @hourly, "
+        "@weekly, @monthly, @yearly, @once) or a valid 5-field cron expression "
+        "(e.g. '*/5 * * * *', '0 23 * * *')."
+    )
+
+
+def validate_entities(config: SystemConfig) -> None:
+    """Validate that at least one entity is declared.
+
+    Args:
+        config: A :class:`~data_pipeline_orchestration.factories.config.SystemConfig`
+            instance produced by
+            :func:`~data_pipeline_orchestration.factories.config.load_system_config`.
+
+    Raises:
+        ValidationError: If ``config.entities`` is empty.
+    """
+    if not config.entities:
+        raise ValidationError(
+            f"system '{config.system_id}' declares no entities. "
+            "At least one entity is required under the 'entities:' key."
+        )
+
+
+def validate_fdp_dependencies(config: SystemConfig) -> None:
+    """Validate that FDP model dependencies are resolvable and acyclic.
+
+    Each entry in ``requires`` must name either a declared entity or another
+    FDP model.  Cyclic references (e.g. model A requires model B requires
+    model A) are rejected.
+
+    Args:
+        config: A :class:`~data_pipeline_orchestration.factories.config.SystemConfig`
+            instance.
+
+    Raises:
+        ValidationError: If any ``requires`` entry references an undeclared
+            name, or if a dependency cycle is detected.
+    """
+    entity_names: Set[str] = set(config.entities.keys())
+    model_names: Set[str] = set(config.fdp_models.keys())
+    all_names: Set[str] = entity_names | model_names
+
+    # --- check for missing names first (fast fail) ---------------------------
+    for model_name, model_cfg in config.fdp_models.items():
+        unknown = [r for r in model_cfg.requires if r not in all_names]
+        if unknown:
+            raise ValidationError(
+                f"FDP model '{model_name}' requires undeclared names: {unknown}. "
+                f"Declared entities: {sorted(entity_names)}, "
+                f"declared FDP models: {sorted(model_names)}."
+            )
+
+    # --- cycle detection via iterative DFS -----------------------------------
+    # Build adjacency only over model-to-model edges (entity nodes are leaves).
+    model_deps: Dict[str, List[str]] = {
+        m: [r for r in cfg.requires if r in model_names]
+        for m, cfg in config.fdp_models.items()
+    }
+
+    visited: Set[str] = set()
+    path: Set[str] = set()
+
+    def _dfs(node: str) -> None:
+        if node in path:
+            raise ValidationError(
+                f"Dependency cycle detected involving FDP model '{node}'. "
+                f"Cycle path so far: {sorted(path | {node})}."
+            )
+        if node in visited:
+            return
+        path.add(node)
+        for dep in model_deps.get(node, []):
+            _dfs(dep)
+        path.discard(node)
+        visited.add(node)
+
+    for model in model_names:
+        _dfs(model)
+
+
+def validate_system_config(config: SystemConfig) -> None:
+    """Run all system-level validators on a :class:`SystemConfig`.
+
+    Equivalent to calling :func:`validate_entities`,
+    :func:`validate_fdp_dependencies`, and :func:`validate_schedule` in
+    sequence.  Raises :class:`ValidationError` on the first failure.
+
+    Args:
+        config: A :class:`SystemConfig` instance.
+
+    Raises:
+        ValidationError: On the first validation failure encountered.
+    """
+    validate_entities(config)
+    validate_schedule(config.trigger_schedule)
+    validate_fdp_dependencies(config)
+
+
 __all__ = [
     'DAGValidator',
     'ValidationError',
+    # system-level validators
+    'validate_schedule',
+    'validate_entities',
+    'validate_fdp_dependencies',
+    'validate_system_config',
 ]
 

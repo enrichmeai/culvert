@@ -10,8 +10,24 @@ Tests cover:
 """
 
 import pytest
-from datetime import date, datetime, timezone
-from unittest.mock import MagicMock, patch, call
+
+# OBSOLETE (T11.2c / #86): this file tested the pre-T11.2c *monolithic*
+# dag_factory.py (inline _build_* builders, _resolve_infra, per-stage
+# callables) which has been replaced by a thin, decoupled create_dags()
+# entrypoint that delegates to factories/_dag_builders.py. Its ingestion-side
+# coverage now lives in tests/unit/factories/test_create_dags.py; its
+# transformation/status callable coverage is #87's to re-author against
+# _dag_builders.py. It also imports the Airflow-3.x-only path
+# `airflow.providers.standard.operators.empty` (tech-debt #88), so it cannot
+# even collect under Airflow 2.9.3.
+pytest.skip(
+    "obsolete: tested pre-T11.2c monolithic dag_factory; superseded by "
+    "tests/unit/factories/test_create_dags.py and #87",
+    allow_module_level=True,
+)
+
+from datetime import date, datetime, timezone  # noqa: E402
+from unittest.mock import MagicMock, patch, call  # noqa: E402
 
 pytest.importorskip("airflow", reason="apache-airflow required")
 

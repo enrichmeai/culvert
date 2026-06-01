@@ -5,7 +5,6 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 from data_pipeline_orchestration.dependency import EntityDependencyChecker
-from gcp_pipeline_core.job_control import JobStatus
 
 
 class TestEntityDependencyChecker(unittest.TestCase):
