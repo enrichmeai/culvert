@@ -23,9 +23,14 @@
  *   <li>{@link com.enrichmeai.culvert.orchestration.ComposerDagRenderer} —
  *       renders a {@code DagSpec} to a Cloud Composer-targeted Python DAG
  *       file with Composer-specific packaging header (T11.3).</li>
+ *   <li>{@link com.enrichmeai.culvert.orchestration.JobControlConfig} —
+ *       opt-in configuration that enables job-control state calls
+ *       ({@code create_job} / {@code update_status} / {@code mark_failed})
+ *       to be injected into the rendered Python task callables (T11.4).</li>
  * </ul>
  *
- * <p>Sprint-11 deliverables (epic #46): T11.1 (model + translator) and
- * T11.3 (Airflow + Composer renderers) are both implemented in this package.
+ * <p>Sprint-11 deliverables (epic #46): T11.1 (model + translator),
+ * T11.3 (Airflow + Composer renderers), and T11.4 (job-control wiring)
+ * are all implemented in this package.
  */
 package com.enrichmeai.culvert.orchestration;

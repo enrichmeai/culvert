@@ -7,7 +7,7 @@ task-scheduler renderer can consume — without coupling the model to any
 particular engine (Apache Airflow, Google Cloud Composer, AWS Step Functions,
 etc.).
 
-Sprint-11 deliverables: issue [#61](https://github.com/enrichmeai/culvert/issues/61) (T11.1 — model + translator) and issue [#63](https://github.com/enrichmeai/culvert/issues/63) (T11.3 — Airflow + Composer renderers).
+Sprint-11 deliverables: issue [#61](https://github.com/enrichmeai/culvert/issues/61) (T11.1 — model + translator), issue [#63](https://github.com/enrichmeai/culvert/issues/63) (T11.3 — Airflow + Composer renderers), and issue [#64](https://github.com/enrichmeai/culvert/issues/64) (T11.4 — job-control wiring).
 
 ---
 
@@ -266,6 +266,93 @@ scan.
 
 ---
 
+---
+
+## Job-control wiring (T11.4)
+
+Rendered DAG tasks can call a `JobControlRepository` at task boundaries —
+updating pipeline-run state from `CREATED → RUNNING → SUCCEEDED` (or
+`FAILED`) without coupling the orchestration module to any specific
+repository implementation (no BigQuery, no GCP).
+
+### How it works
+
+Wiring is **opt-in**. The default `new AirflowDagRenderer()` (and the
+default `new ComposerDagRenderer()`) emit unchanged output — all existing
+tests pass without modification.
+
+When wiring is enabled, the renderer:
+
+1. Switches from `EmptyOperator` to `PythonOperator` so each task callable
+   can read `context["run_id"]` from the Airflow task context — the same
+   value across all tasks in the same DAG run (consistency by construction).
+2. Wraps each task body in a `try/except`:
+   - **First task only**: calls `create_job(…, status="created")` then
+     `update_status(…, status="running")`.
+   - **All tasks (entry)**: calls `update_status(…, status="running")`.
+   - **On success**: calls `update_status(…, status="succeeded")`.
+   - **On exception**: calls `mark_failed(…, failure_stage="unknown",
+     error_message=str(_exc))` then re-raises.
+
+Status strings (`"created"`, `"running"`, `"succeeded"`) mirror
+`JobStatus.getValue()`, and `"unknown"` mirrors
+`FailureStage.UNKNOWN.getValue()` — keeping the generated Python in sync
+with the Java contract without importing any GCP type.
+
+### Pointing at a `JobControlRepository` implementation
+
+Create a `JobControlConfig`, supply the Python expression that resolves to
+your repository instance, and pass it to the renderer:
+
+```java
+// Java side — configure wiring
+JobControlConfig config = JobControlConfig.builder(
+            "BigQueryJobControlRepository(project='my-project', dataset='pipeline_control')")
+        .systemId("my-system")
+        .build();
+
+AirflowDagRenderer renderer = AirflowDagRenderer.withJobControl(config);
+String pySource = renderer.render(dagSpec);
+```
+
+The `repoVariable` string is emitted verbatim as the right-hand side of
+`_job_ctrl = <repoVariable>` at module level in the generated DAG. You can
+use any Python expression: a constructor call, a module alias, a factory
+function, or a variable reference.
+
+**To use a different `JobControlRepository` impl** — for example,
+`InMemoryJobControlRepository` in tests or `S3JobControlRepository` in AWS
+deployments — simply change the `repoVariable` string:
+
+```java
+JobControlConfig testConfig = JobControlConfig.builder("InMemoryJobControlRepository()")
+        .systemId("test-system")
+        .runIdTemplate("test-run-001")   // override Airflow macro with literal for tests
+        .build();
+```
+
+### Cloud Composer propagation
+
+Pass the wired `AirflowDagRenderer` into `ComposerDagRenderer` to get the
+Composer header + wired DAG body:
+
+```java
+AirflowDagRenderer wiredAirflow = AirflowDagRenderer.withJobControl(config);
+ComposerDagRenderer composerRenderer = new ComposerDagRenderer(wiredAirflow);
+String pySource = composerRenderer.render(dagSpec);
+```
+
+### `JobControlConfig` fields
+
+| Field                  | Default                     | Description |
+|------------------------|-----------------------------|-------------|
+| `repoVariable`         | *(required)*                | Python expression resolving to the `JobControlRepository` instance. |
+| `systemId`             | `"culvert"`                 | System identifier embedded in the job row. |
+| `runIdTemplate`        | `{{ run_id }}`              | Python expression for the run id — Airflow's DAG-run-scoped macro by default. |
+| `extractDateTemplate`  | `{{ ds }}`                  | Python expression for the extract date — Airflow's logical date by default. |
+
+---
+
 ## Building and testing
 
 ```bash
@@ -273,5 +360,6 @@ scan.
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 36, Failures: 0, Errors: 0, Skipped: 0`
-(11 PipelineToDagSpec tests + 14 AirflowDagRenderer tests + 11 ComposerDagRenderer tests)
+Expected output: `Tests run: 61, Failures: 0, Errors: 0, Skipped: 0`
+(11 PipelineToDagSpec tests + 14 AirflowDagRenderer tests + 11 ComposerDagRenderer tests
++ 25 JobControlWiringTest tests)
