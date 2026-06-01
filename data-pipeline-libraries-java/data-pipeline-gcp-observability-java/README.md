@@ -231,6 +231,36 @@ Cloud Logging uses the `severity` field for log-level routing when
 
 ---
 
+## Auto-wiring via DefaultRuntimeContext (Sprint 12 T12.4)
+
+`DefaultRuntimeContext` exposes two observability accessors, both advisory (no-op if not registered):
+
+| Accessor | Interface | Impl in this module |
+|----------|-----------|---------------------|
+| `context.observability()` | `ObservabilityHook` | `CloudTraceObservabilityHook` |
+| `context.stageMetrics()` | `StageMetricsHook` | `CloudMonitoringMetricsHook` |
+
+Both classes are listed in `META-INF/services/` so `AutoConfig.discover()` knows about them. However, **neither has a no-arg constructor** (they both require a pre-built cloud client + config). `ServiceLoader` will silently skip them at auto-discovery time. Register explicitly for production pipelines:
+
+```java
+// Tracing
+OpenTelemetry otel = ...; // build with TraceExporter for Cloud Trace
+ObservabilityHook obsHook = new CloudTraceObservabilityHook(otel, "my-pipeline");
+
+// Metrics
+MetricServiceClient client = MetricServiceClient.create();
+StageMetricsHook metricsHook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
+
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(ObservabilityHook.class, obsHook)
+        .register(StageMetricsHook.class, metricsHook)
+        .build();
+```
+
+`StageTransform` (in `data-pipeline-gcp-dataflow-java`) resolves both hooks worker-side via `context.observability()` and `context.stageMetrics()` — the T10.6 transient-registry pattern. MDC fields (`run_id`, `stage_name`, `pipeline_id`) are also set inline in `StageTransform.ExecuteStageFn` for each stage execution.
+
+---
+
 ## Building
 
 ```bash
