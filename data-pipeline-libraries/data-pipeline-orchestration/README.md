@@ -462,15 +462,13 @@ inside the function body and raise a clear `ImportError` if it is absent).
 
 ### What it builds
 
-For a config with **N** entities, `create_dags` registers **1 + N** DAGs:
+T11.2c wired the two ingestion-side DAG types below. **T11.2d (#87)** completed
+the set — `create_dags` now produces **four** DAG types (see *T11.2d* below):
 
 | DAG id | Count | Role |
 | --- | --- | --- |
 | `{system_id}_pubsub_trigger_dag` | 1 | Listens for `.ok` files via `BasePubSubPullSensor`, parses the notification, then triggers the matching per-entity ingestion DAG. |
 | `{system_id}_{entity}_ingestion_dag` | one per entity | Runs Dataflow via the T11.2b `BaseDataflowOperator`, checks FDP readiness with `EntityDependencyChecker`, then triggers ready transformation DAGs. |
-
-> The **transformation**, **status** and **error-handling** DAGs and the global
-> callbacks are **not** produced by `create_dags` — they are owned by #87.
 
 ### How to invoke it from a DAG entrypoint file
 
@@ -512,6 +510,86 @@ Project / region / template-bucket values are read at build time from Airflow
 
 ---
 
+## T11.2d — transformation + pipeline_status DAGs + failure callbacks (Sprint 11, #87)
+
+T11.2d closes the #62 split by adding the remaining two DAG types and wiring
+the global DLQ/quarantine callbacks. `create_dags` now produces the **full
+4-DAG topology** for a config with **N** entities and **M** FDP models —
+`2 + N + M` DAGs across four types:
+
+| DAG id | Count | Schedule | Role |
+| --- | --- | --- | --- |
+| `{system_id}_pubsub_trigger_dag` | 1 | `trigger_schedule` (cron) | `.ok`-file listener (#86). |
+| `{system_id}_{entity}_ingestion_dag` | one per entity | `None` (triggered) | Dataflow → ODP load (#86). |
+| `{system_id}_{fdp_model}_transformation_dag` | one per FDP model | `None` (triggered) | **#87** — runs dbt (staging → fdp → tests) for the model once its required ODP entities are loaded. |
+| `{system_id}_pipeline_status_dag` | 1 | `0 23 * * *` (daily) | **#87** — observer; raises/alerts if any entity or FDP model is not `SUCCESS` for the day. |
+
+> **`error_handling` is a 5th builder, not wired into `create_dags`.** The #87
+> acceptance gate is the four types above (the two ingestion-side types from
+> #86 plus transformation + pipeline_status). The periodic
+> `{system_id}_error_handling_dag` (30-min recovery scanner, see *Error
+> Handling & Reprocessing*) remains reachable via
+> `DagFactory.error_handling_dag()`; this matches the #87 DoD literally even
+> though the ticket NOTE also mentions the error-handling builder.
+
+### Transformation DAG task graph
+
+```
+{system}_{fdp_model}_transformation_dag   (schedule=None; triggered by ingestion)
+  verify_model_dependencies (branch)
+    ├─→ create_fdp_job_record → run_dbt_staging → run_dbt_fdp → run_dbt_tests
+    │     → reconcile_fdp_model → mark_fdp_success → end
+    └─→ handle_dependency_failure → end
+```
+
+### Pipeline status DAG task graph
+
+```
+{system}_pipeline_status_dag   (schedule="0 23 * * *", daily observer)
+  check_pipeline_status   # raises if any ODP entity / FDP model != SUCCESS today
+```
+
+### Failure handling — DLQ + quarantine callbacks
+
+Every DAG type that `create_dags` builds carries the library's
+`on_failure_callback` in its Airflow `default_args`, so **any failed task**
+routes its failure to the Dead Letter Queue automatically:
+
+- **DLQ (`callbacks/dlq.py`)** — `on_failure_callback` builds a standardized
+  error payload (dag_id, task_id, run_id, try_number, exception, routing
+  metadata pulled from XCom) and publishes it to the Pub/Sub DLQ topic
+  (`ErrorHandlerConfig.dlq_topic`, default `notifications-dead-letter`).
+  Honours `enable_dlq`; degrades to a no-op (logged) if the topic/client is
+  unavailable, so a callback never masks the original task failure.
+- **Quarantine (`callbacks/quarantine.py`)** — `on_validation_failure` (and
+  `ErrorHandler.quarantine_file`) copies the offending GCS object into the
+  quarantine bucket under `{reason}/{timestamp}/{blob}` and deletes the
+  source. Honours `enable_quarantine`.
+- **Handler factory (`callbacks/factory.py`)** — `create_error_handler(config)`
+  returns an `ErrorHandler` bound to a per-project `ErrorHandlerConfig` (custom
+  DLQ topic / quarantine bucket), exposing `on_failure_callback`,
+  `on_validation_failure`, `on_routing_failure`, `on_schema_mismatch`,
+  `on_data_quality_failure`, `quarantine_file`.
+
+The callbacks are imported **lazily inside the builders** (not at module top),
+so `dag_factory` stays import-safe without `gcp_pipeline_core` installed —
+`_failure_callback()` returns `None` and the DAG still builds if the callbacks
+package can't be imported.
+
+Wiring it into your own task:
+
+```python
+from data_pipeline_orchestration.callbacks import on_failure_callback
+
+task = PythonOperator(
+    task_id="load_data",
+    python_callable=load,
+    on_failure_callback=on_failure_callback,   # → DLQ on failure
+)
+```
+
+---
+
 ## Usage
 
 ```python
@@ -527,6 +605,7 @@ from data_pipeline_orchestration.callbacks import on_failure_callback
 ## Tests
 
 ```bash
-python3.11 -m pytest tests/ -v
-# 58 passed, 8 skipped (airflow-dependent tests skip cleanly when airflow not installed; all pass in CI)
+python3.11 -m pytest tests/unit/ -q
+# 188 passed, 1 skipped  (Airflow 2.9.3 in .venv_airflow; the 1 skip is an
+# obsolete pre-T11.2c create_dags test, superseded by tests/unit/factories/)
 ```
