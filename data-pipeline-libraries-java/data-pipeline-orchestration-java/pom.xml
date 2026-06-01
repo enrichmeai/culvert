@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-orchestration</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-orchestration (Java)</name>
+    <description>
+        Scheduler-agnostic orchestration layer for the Culvert framework.
+        Provides a cloud-neutral DAG model (DagSpec / TaskSpec) and a
+        Pipeline -> DagSpec translator (T11.1). Renderers to Airflow /
+        Cloud Composer (T11.3) and job-control wiring (T11.4) build on this
+        model. Like data-pipeline-core, this module is cloud-neutral: it
+        depends only on the contracts + java.util — no Beam, no Airflow, no
+        GCP. Sprint-11 deliverable (epic #46, T11.1 / issue #61).
+    </description>
+
+    <dependencies>
+        <!-- Culvert contracts (Pipeline, PipelineStage, RuntimeContext, ...) -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope (versions managed by the parent POM) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

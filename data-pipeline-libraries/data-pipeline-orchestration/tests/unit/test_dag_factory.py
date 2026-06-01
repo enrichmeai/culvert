@@ -20,7 +20,7 @@ class TestDAGFactory:
         )
 
         assert dag.dag_id == 'test_dag_001'
-        assert dag.schedule == '@daily'
+        assert dag.schedule_interval == '@daily'
         assert 'gcp-pipeline' in dag.tags
 
     def test_create_dag_with_custom_args(self):
