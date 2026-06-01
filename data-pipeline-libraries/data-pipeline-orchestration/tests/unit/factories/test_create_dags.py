@@ -1,8 +1,9 @@
-"""Structural tests for the ``create_dags`` entrypoint (T11.2c).
+"""Structural tests for the ``create_dags`` entrypoint (T11.2c + T11.2d).
 
-These verify the *ingestion-side* wiring only — pub/sub trigger DAG + one
-ingestion DAG per entity — which is the scope of ticket #86. The
-transformation / status / error-handling DAGs and callbacks are #87 and are
+These verify the full DAG set ``create_dags`` wires — **four** DAG types:
+pub/sub trigger + one ingestion DAG per entity (#86) plus one transformation
+DAG per FDP model + a pipeline-status DAG (#87). The periodic
+``error_handling`` DAG is a 5th builder reachable via ``DagFactory`` but is
 deliberately NOT produced by ``create_dags``.
 
 Tasks are constructed but never executed, so only the ``apache-airflow``
@@ -85,17 +86,20 @@ def test_create_dags_module_imports_cleanly():
     assert callable(dag_factory.create_dags)
 
 
-def test_registers_trigger_plus_one_ingestion_per_entity(sample_config, patched_variable):
+def test_registers_full_dag_set(sample_config, patched_variable):
+    """T11.2d: 1 trigger + 2 ingestion + 1 transformation + 1 status = 5 DAGs."""
     from data_pipeline_orchestration.factories.dag_factory import create_dags
 
     ns: dict = {}
     create_dags(sample_config, ns)
 
-    # 1 pubsub trigger + 2 ingestion (customers, accounts) = 3 DAGs
-    assert len(ns) == 3
+    # 2 entities + 1 fdp model → 1 trigger + 2 ingestion + 1 transform + 1 status
+    assert len(ns) == 5
     assert "generic_pubsub_trigger_dag" in ns
     assert "generic_customers_ingestion_dag" in ns
     assert "generic_accounts_ingestion_dag" in ns
+    assert "generic_customer_account_transformation_dag" in ns
+    assert "generic_pipeline_status_dag" in ns
     for dag in ns.values():
         assert isinstance(dag, DAG)
         # injected under its own dag_id so the DagBag discovers it
@@ -103,17 +107,40 @@ def test_registers_trigger_plus_one_ingestion_per_entity(sample_config, patched_
         assert dag.dag_id == dag_id
 
 
-def test_no_transformation_or_status_dags_created(sample_config, patched_variable):
-    """Transformation / status / error DAGs belong to #87, not create_dags."""
+def test_all_four_dag_types_produced(sample_config, patched_variable):
+    """DoD #3: create_dags produces all 4 DAG types — assert the full set.
+
+    Asserts by dag_id *type* substring, not just count, so the acceptance gate
+    genuinely covers each of the four categories.
+    """
     from data_pipeline_orchestration.factories.dag_factory import create_dags
 
     ns: dict = {}
     create_dags(sample_config, ns)
-
     joined = " ".join(ns.keys())
-    assert "transformation" not in joined
-    assert "status" not in joined
+
+    assert "pubsub_trigger" in joined        # type 1: ingestion-side (#86)
+    assert "ingestion" in joined             # type 2: ingestion-side (#86)
+    assert "transformation" in joined        # type 3: #87
+    assert "pipeline_status" in joined       # type 4: #87
+
+    # error_handling is a 5th builder, NOT wired into create_dags
     assert "error_handling" not in joined
+
+
+def test_every_dag_routes_failures_to_dlq_quarantine(sample_config, patched_variable):
+    """DoD #2: the failure callback (DLQ/quarantine router) is wired as the
+    on_failure_callback on every DAG create_dags builds."""
+    from data_pipeline_orchestration.factories.dag_factory import create_dags
+    from data_pipeline_orchestration.callbacks import on_failure_callback
+
+    ns: dict = {}
+    create_dags(sample_config, ns)
+
+    for dag_id, dag in ns.items():
+        assert dag.default_args.get("on_failure_callback") is on_failure_callback, (
+            f"{dag_id} is missing the on_failure_callback DLQ/quarantine router"
+        )
 
 
 # ---------------------------------------------------------------------------

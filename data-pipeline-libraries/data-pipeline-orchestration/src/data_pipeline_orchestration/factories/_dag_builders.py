@@ -114,6 +114,23 @@ def _system_tags(cfg: Dict[str, Any]) -> List[str]:
     return [file_prefix]
 
 
+def _failure_callback():
+    """Return the global ``on_failure_callback`` (DLQ/quarantine router).
+
+    Imported lazily inside the builder body so that ``dag_factory`` and this
+    module stay import-safe without ``gcp_pipeline_core`` at module load time
+    (``callbacks.dlq`` imports ``gcp_pipeline_core`` at its top level). When the
+    callbacks package cannot be imported, returns ``None`` so DAG construction
+    still succeeds (the DAG simply carries no failure callback).
+    """
+    try:
+        from data_pipeline_orchestration.callbacks import on_failure_callback
+        return on_failure_callback
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("Could not import on_failure_callback (non-fatal): %s", exc)
+        return None
+
+
 # ---------------------------------------------------------------------------
 # DAG 1: PubSub Trigger DAG
 # ---------------------------------------------------------------------------
@@ -281,7 +298,7 @@ def build_pubsub_trigger_dag(factory_config: Dict[str, Any], **kwargs) -> "Any":
     # ---- DAG definition ----------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(),
+        default_args=_default_args(on_failure_callback=_failure_callback()),
         description=f"Listen for {system_id} file arrivals via Pub/Sub and trigger ODP load",
         schedule=trigger_schedule,
         catchup=False,
@@ -473,7 +490,7 @@ def build_ingestion_dag(entity_name: str, entity_cfg: dict,
     # ---- DAG definition ---------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(),
+        default_args=_default_args(on_failure_callback=_failure_callback()),
         description=f"Load {system_id} {entity_name} data to ODP (BigQuery)",
         schedule=None,
         catchup=False,
@@ -610,7 +627,9 @@ def build_transformation_dag(fdp_model: str, fdp_cfg: dict,
     # ---- DAG definition ---------------------------------------------------
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(retries=2, retry_delay_minutes=10),
+        default_args=_default_args(
+            retries=2, retry_delay_minutes=10, on_failure_callback=_failure_callback()
+        ),
         description=f"Transform {system_id} ODP to FDP — {fdp_model}",
         schedule=None,
         catchup=False,
@@ -876,7 +895,7 @@ def build_status_dag(factory_config: dict) -> "Any":  # noqa: ANN401
 
     with DAG(
         dag_id=dag_id,
-        default_args=_default_args(retries=1),
+        default_args=_default_args(retries=1, on_failure_callback=_failure_callback()),
         description=f"Daily status check for {system_name} pipeline completeness",
         schedule="0 23 * * *",
         catchup=False,
