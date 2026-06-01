@@ -24,9 +24,44 @@ Usage:
 
 import logging
 from datetime import date
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
+# ---------------------------------------------------------------------------
+# gcp_pipeline_core coupling REMOVED (T11.2b)
+#
+# Legacy code imported:
+#   from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
+#
+# Target Culvert seam (TODO — T11.2b follow-up, out of scope for config/DAG
+# factory agents #84/#86/#87):
+#   - Repository protocol:
+#       data_pipeline_core.contracts.job_control.JobControlRepository
+#       (runtime_checkable Protocol, 11 methods, no GCP-type leakage)
+#   - Status enum:
+#       data_pipeline_core.job_control_api.types.JobStatus
+#       (str-Enum; values are lowercase, e.g. SUCCEEDED = "succeeded")
+#
+# Migration notes:
+#   1. The legacy JobStatus.SUCCESS = "SUCCESS" (uppercase) while the Culvert
+#      enum uses SUCCEEDED = "succeeded". The comparison in
+#      get_loaded_entities() uses s["status"] == _SUCCESS_STATUS which is
+#      set to the legacy uppercase value here. When the concrete BigQuery
+#      adapter migrates to data_pipeline_core, this constant must change
+#      to match the new value (or the adapter normalises it before returning).
+#   2. The legacy get_entity_status() returns List[dict]. The Culvert
+#      Protocol's return type is List[EntityStatus] (TypedDict) — same
+#      shape, dict-compatible, so s["entity_type"] / s["status"] still work.
+#   3. The fallback path (no job_repo injected) previously instantiated
+#      JobControlRepository(project_id, ...) which imports google-cloud-bigquery
+#      at construction time. Replaced with NotImplementedError so the library
+#      does not pull in GCP SDK at import time. The caller (DAG / pipeline)
+#      is responsible for injecting a concrete implementation.
+# ---------------------------------------------------------------------------
+
+# SUCCESS status string — matches gcp_pipeline_core.job_control.types.JobStatus.SUCCESS
+# When migrating to Culvert contracts, update to "succeeded" AND ensure the
+# concrete adapter returns that value from get_entity_status().
+_SUCCESS_STATUS: str = "SUCCESS"
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +76,18 @@ class EntityDependencyChecker:
     - required_entities: List of entity names that must all be loaded
 
     No hardcoded system configurations in the library.
+
+    The ``job_repo`` argument must satisfy the contract defined by
+    ``data_pipeline_core.contracts.job_control.JobControlRepository``
+    (a ``runtime_checkable`` Protocol).  Callers inject the concrete
+    BigQuery-backed adapter; the library itself does not import
+    ``google-cloud-bigquery`` or ``gcp_pipeline_core`` at module load
+    time.
+
+    TODO (T11.2b follow-up): once the concrete ``BigQueryJobControlRepository``
+    adapter migrates from gcp_pipeline_core to data_pipeline_core, add a
+    type annotation here:
+        job_repo: Optional[data_pipeline_core.contracts.job_control.JobControlRepository]
 
     Example:
         >>> checker = EntityDependencyChecker(
@@ -59,7 +106,7 @@ class EntityDependencyChecker:
         required_entities: List[str],
         job_control_dataset: str = "job_control",
         job_control_table: str = "pipeline_jobs",
-        job_repo: Optional[JobControlRepository] = None
+        job_repo: Optional[Any] = None,
     ):
         """
         Initialize dependency checker.
@@ -68,18 +115,39 @@ class EntityDependencyChecker:
             project_id: GCP project ID
             system_id: System identifier (pipeline provides this)
             required_entities: List of entity types that must all be loaded
-            job_control_dataset: Dataset for job control table
-            job_control_table: Table name for job control
-            job_repo: Optional JobControlRepository (for testing)
+            job_control_dataset: Dataset for job control table (used by the
+                concrete adapter, not by this class directly).
+            job_control_table: Table name for job control (same note).
+            job_repo: Concrete job-control repository that implements
+                ``get_entity_status(system_id, extract_date) -> List[dict]``.
+                Must be provided by the caller (DAG or pipeline); the library
+                no longer instantiates a concrete repo to avoid importing
+                google-cloud-bigquery at module load time.
+
+        Raises:
+            ValueError: if no ``job_repo`` is supplied (avoids a silent
+                failure path that previously imported google-cloud-bigquery).
         """
         self.project_id = project_id
         self.system_id = system_id
         self.required_entities = required_entities
-        self.job_repo = job_repo or JobControlRepository(
-            project_id,
-            dataset=job_control_dataset,
-            table=job_control_table
-        )
+
+        if job_repo is None:
+            # Lazy import — keeps google-cloud-bigquery out of module load
+            # time while preserving the original constructor contract for
+            # callers that don't supply a repo (DAG factory, deployments).
+            # TODO (T11.2b follow-up): replace with the Culvert adapter once
+            # gcp_pipeline_core migrates to satisfy
+            # data_pipeline_core.contracts.job_control.JobControlRepository.
+            # Note: that migration must also normalise the status value
+            # (SUCCESS -> succeeded) before returning from get_entity_status().
+            from gcp_pipeline_core.job_control import JobControlRepository  # noqa: PLC0415
+            job_repo = JobControlRepository(
+                project_id,
+                dataset=job_control_dataset,
+                table=job_control_table,
+            )
+        self.job_repo = job_repo
 
     @property
     def required_count(self) -> int:
@@ -101,7 +169,7 @@ class EntityDependencyChecker:
         return [
             s["entity_type"].lower()
             for s in statuses
-            if s["status"] == JobStatus.SUCCESS.value
+            if s["status"] == _SUCCESS_STATUS
         ]
 
     def all_entities_loaded(self, extract_date: date) -> bool:

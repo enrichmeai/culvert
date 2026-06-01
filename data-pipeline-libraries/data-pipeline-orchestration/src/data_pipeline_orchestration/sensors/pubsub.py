@@ -99,11 +99,14 @@ class BasePubSubPullSensor(PubSubPullSensor if AIRFLOW_AVAILABLE else object):
             impersonation_chain=self.impersonation_chain,
         )
 
+        # Airflow 2.9.x removed the `return_immediately` instance attribute from
+        # PubSubPullSensor; the parent hardcodes return_immediately=True in its
+        # own poke().  We mirror that behaviour here.
         pulled_messages = hook.pull(
             project_id=self.project_id,
             subscription=self.subscription,
             max_messages=self.max_messages,
-            return_immediately=self.return_immediately,
+            return_immediately=True,
         )
 
         if not pulled_messages:

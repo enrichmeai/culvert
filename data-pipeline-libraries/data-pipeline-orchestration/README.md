@@ -2,8 +2,92 @@
 
 Control library - Airflow DAGs, sensors, operators.
 
-**Depends on:** `gcp-pipeline-core`
+**Depends on:** `gcp-pipeline-core` (legacy; being migrated to `data-pipeline-core` contracts — see T11.2b notes below)
 **NO Apache Beam dependency.**
+
+---
+
+## T11.2b — Supporting infra components (Sprint 11)
+
+Three building blocks wired by the DAG factory (#86/#87). Each is
+unit-tested with mocked GCP clients (no live cloud required).
+
+### `BasePubSubPullSensor` (`sensors/pubsub.py`)
+
+**Role:** Airflow sensor that polls a Pub/Sub subscription and returns only
+messages whose GCS object name ends with a configurable extension
+(e.g. `.ok`, `.done`). Non-matching messages are acked and discarded so
+the sensor keeps polling cleanly.
+
+**Wiring:**
+1. Extends Airflow's `PubSubPullSensor`.
+2. `poke()` overrides the parent to filter before ack — the parent acks
+   all pulled messages immediately; this override ensures a `.csv`
+   notification doesn't prematurely satisfy a sensor waiting for `.ok`.
+3. `execute()` calls `super().execute()` then optionally pushes extracted
+   file metadata (bucket, object, system_id, entity_type, timestamps) to
+   XCom under `metadata_xcom_key` for downstream operators.
+
+**Airflow 2.9.x note:** `PubSubPullSensor` dropped the `return_immediately`
+instance attribute in 2.9; the parent hardcodes `return_immediately=True`
+in its own `poke()`. `BasePubSubPullSensor.poke()` mirrors that behaviour.
+
+### `BaseDataflowOperator` (`operators/dataflow.py`)
+
+**Role:** Wraps the Airflow Dataflow provider operators
+(`DataflowTemplatedJobStartOperator`, `DataflowStartFlexTemplateOperator`,
+`DataflowCreatePythonJobOperator`) behind a unified interface that abstracts:
+- source type (GCS vs Pub/Sub)
+- processing mode (batch vs streaming)
+- template type (Classic vs Flex Docker)
+- routing metadata via XCom
+
+**Wiring:**
+1. Extends `airflow.models.BaseOperator`.
+2. `execute()` validates config, builds job parameters from `self.*` fields
+   and XCom routing metadata, generates a unique job name, then delegates
+   to the appropriate Airflow provider operator.
+3. `BatchDataflowOperator` / `StreamingDataflowOperator` are pre-configured
+   convenience subclasses (GCS+batch / Pub/Sub+streaming).
+4. At import time all three Dataflow provider classes are protected by a
+   `DATAFLOW_OPERATORS_AVAILABLE` guard so DAG files can be parsed without
+   `apache-airflow-providers-apache-beam` installed.
+
+### `EntityDependencyChecker` (`dependency.py`)
+
+**Role:** Generic mechanism for checking whether all required ODP entities
+have been successfully loaded before an FDP/CDP transformation fires. The
+library provides the mechanism; the pipeline (DAG) provides the
+configuration (which entities to wait for, which system).
+
+**Wiring:**
+1. Constructed with `project_id`, `system_id`, `required_entities`, and a
+   `job_repo` implementation that satisfies `get_entity_status(system_id, date) -> List[dict]`.
+2. `all_entities_loaded(extract_date)` returns `True` when every entity in
+   `required_entities` has `status == "SUCCESS"` in the job-control ledger.
+3. The DAG factory reads `system.yaml` and passes the correct
+   `required_entities` list per FDP model, so each model fires as soon as
+   its own subset of ODP entities is ready.
+
+**`gcp_pipeline_core` decoupling (T11.2b):**
+
+The legacy `from gcp_pipeline_core.job_control import JobControlRepository, JobStatus`
+import has been removed from `dependency.py`. The coupling is replaced by:
+
+- A local constant `_SUCCESS_STATUS = "SUCCESS"` (matching the legacy
+  `JobStatus.SUCCESS.value`) used in `get_loaded_entities()`.
+- The `job_repo` parameter accepts `Any` — callers inject a concrete
+  BigQuery-backed adapter (currently from `gcp_pipeline_core`).
+- The fallback that instantiated `JobControlRepository` directly has been
+  replaced with `ValueError` so the library no longer imports
+  `google-cloud-bigquery` at module load time.
+
+**Target Culvert seam (TODO for follow-up ticket):**
+- Protocol: `data_pipeline_core.contracts.job_control.JobControlRepository`
+- Status enum: `data_pipeline_core.job_control_api.types.JobStatus`
+  (note: Culvert uses `SUCCEEDED = "succeeded"` — lowercase — vs the legacy
+  `SUCCESS = "SUCCESS"`; the concrete adapter migration must normalise this)
+- Shape: `data_pipeline_core.job_control_api.models.EntityStatus` (TypedDict)
 
 ---
 
