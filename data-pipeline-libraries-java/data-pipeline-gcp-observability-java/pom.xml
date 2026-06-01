@@ -44,6 +44,24 @@
         -->
         <opentelemetry.bom.version>1.38.0</opentelemetry.bom.version>
         <gcp.opentelemetry.exporter.version>0.30.0</gcp.opentelemetry.exporter.version>
+
+        <!--
+            T12.2: structured-logging bridge test dependencies.
+            logstash-logback-encoder + logback-classic are test-scoped only;
+            the CulvertMdcPopulator production class uses only slf4j-api.
+
+            logback-classic 1.4.14 uses slf4j-api 2.0.x (compatible with the
+            parent's slf4j-api 2.0.13). logstash-logback-encoder 7.2
+            transitively declares logback-classic 1.2.11 (slf4j-1.7 line) and
+            jackson-databind 2.13.3 — we pin to cached, compatible versions
+            instead, and exclude the transitive logback-classic 1.2.11.
+
+            jackson-bom 2.13.5 drives all jackson-core/databind/annotations
+            versions to keep them on a fully-cached minor.
+        -->
+        <logstash.logback.encoder.version>7.2</logstash.logback.encoder.version>
+        <logback.version>1.4.14</logback.version>
+        <jackson.bom.version>2.13.5</jackson.bom.version>
     </properties>
 
     <dependencyManagement>
@@ -59,6 +77,18 @@
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
                 <version>${opentelemetry.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--
+                T12.2: Pin all jackson-core/databind/annotations to 2.13.5
+                (fully cached) so logstash-logback-encoder's 2.13.3 transitive
+                doesn't pull an un-cached version.
+            -->
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.bom.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -125,6 +155,52 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            T12.2: logstash-logback-encoder + logback binding for the
+            CulvertMdcPopulatorTest JSON-capture rig. Test scope only —
+            the production CulvertMdcPopulator uses only slf4j-api.
+
+            logback-classic 1.4.14 provides SLF4JServiceProvider for the
+            slf4j 2.0.x API (parent pin 2.0.13). logstash's transitive
+            logback-classic 1.2.11 (slf4j-1.7) is excluded to avoid a
+            NOP-logger situation under slf4j 2.x.
+        -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash.logback.encoder.version}</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-classic</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-access</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>ch.qos.logback</groupId>
+                    <artifactId>logback-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            jackson-databind is needed by LogstashEncoder at test runtime.
+            Version managed by jackson-bom 2.13.5 imported above.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
