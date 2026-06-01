@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.gcp.dataflow;
 
+import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.PipelineStage;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
 import org.apache.beam.sdk.transforms.Create;
@@ -10,6 +11,7 @@ import org.apache.beam.sdk.values.PBegin;
 import org.apache.beam.sdk.values.PCollection;
 import org.apache.beam.sdk.values.PDone;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -51,7 +53,35 @@ import java.util.Objects;
  * (a stage that closes over non-serializable state cannot run on a distributed
  * runner regardless of this transform).
  *
- * <p>Sprint-9 deliverable (T9.2).
+ * <h2>Auto-instrumentation (T12.3)</h2>
+ *
+ * <p>Every stage execution is automatically wrapped with:
+ * <ul>
+ *   <li>A trace span named {@code culvert.stage/<stage-name>}, opened before
+ *       {@code execute} and closed in a {@code finally} block (so the span
+ *       always ends even on error).</li>
+ *   <li>A latency histogram observation ({@code culvert.stage.latency_ms})
+ *       recorded in the same {@code finally} block.</li>
+ *   <li>An error counter ({@code culvert.stage.errors}) incremented when
+ *       {@code execute} throws, before the exception is re-thrown.</li>
+ * </ul>
+ *
+ * <p>The {@link ObservabilityHook} is resolved <em>worker-side</em> (in
+ * {@code processElement}) from {@link RuntimeContext#observability()} — never
+ * captured into the DoFn at construction time. This mirrors the T10.6 pattern:
+ * the hook is backed by {@code DefaultRuntimeContext#registry} which is
+ * {@code transient} and rebuilt from {@code AutoConfig.discover()} after
+ * Beam deserialization. No new serialized state is added to the DoFn.
+ *
+ * <p>An optional {@code observabilityOverride} field supports test injection of
+ * a serializable recording hook. When non-null it takes precedence over
+ * {@code context.observability()}. Production callers use {@link #of(PipelineStage, RuntimeContext)},
+ * which passes {@code null} (no override) and relies on the context's
+ * worker-side registry. T12.4 will reconcile the metrics calls here with the
+ * {@code StageMetricsHook} interface introduced in T12.1, swapping
+ * {@code histogram}/{@code counter} for typed hook methods.
+ *
+ * <p>Sprint-9 deliverable (T9.2); auto-instrumentation added in Sprint-12 (T12.3).
  */
 public final class StageTransform extends PTransform<PBegin, PDone> {
 
@@ -92,7 +122,7 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
                 "Trigger[" + stage.name() + "]", Create.of(TRIGGER_TOKEN));
         trigger.apply(
                 "Execute[" + stage.name() + "]",
-                ParDo.of(new ExecuteStageFn(stage, context)));
+                ParDo.of(new ExecuteStageFn(stage, context, null)));
         return PDone.in(input.getPipeline());
     }
 
@@ -100,6 +130,12 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
      * The {@link DoFn} that invokes {@link PipelineStage#execute(RuntimeContext)}
      * once per input element. Driven by a one-element {@code Create.of}, so
      * {@code execute} runs exactly once per pipeline run.
+     *
+     * <p>Each execution is wrapped with a trace span, a latency histogram
+     * observation, and an error counter — all emitted through the
+     * {@link ObservabilityHook} resolved worker-side from
+     * {@code context.observability()} (or from {@code observabilityOverride}
+     * when a serializable test hook is injected).
      */
     static final class ExecuteStageFn extends DoFn<String, Void> {
 
@@ -115,14 +151,54 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
         @SuppressWarnings("serial")
         private final RuntimeContext context;
 
-        ExecuteStageFn(PipelineStage stage, RuntimeContext context) {
+        /**
+         * Optional serializable hook override for test injection. When non-null,
+         * this hook is used instead of {@code context.observability()}.
+         * Production code passes {@code null} here and the context's worker-side
+         * registry provides the hook lazily (T10.6 pattern — no new serialized
+         * state for the production path).
+         *
+         * <p>T12.4 reconciliation point: when T12.1's {@code StageMetricsHook}
+         * lands on {@code sprint-12}, this override and the metrics calls in
+         * {@code processElement} ({@code histogram} + {@code counter}) should be
+         * replaced with a typed {@code StageMetricsHook} resolved the same way.
+         */
+        @SuppressWarnings("serial")
+        private final ObservabilityHook observabilityOverride;
+
+        ExecuteStageFn(PipelineStage stage, RuntimeContext context,
+                       ObservabilityHook observabilityOverride) {
             this.stage = stage;
             this.context = context;
+            this.observabilityOverride = observabilityOverride;
         }
 
         @ProcessElement
         public void processElement() {
-            stage.execute(context);
+            // Resolve the hook worker-side: mirrors the T10.6 pattern where
+            // DefaultRuntimeContext.registry is transient and rebuilt from
+            // AutoConfig.discover() after Beam deserialization. No hook is
+            // captured at construction time on the production path.
+            ObservabilityHook obs = (observabilityOverride != null)
+                    ? observabilityOverride
+                    : context.observability();
+
+            String stageName = stage.name();
+            Map<String, String> stageTags = Map.of("stage", stageName);
+            long t0 = System.nanoTime();
+            ObservabilityHook.Span span = obs.span("culvert.stage/" + stageName);
+            span.setAttribute("culvert.run_id", context.runId());
+            try {
+                stage.execute(context);
+            } catch (RuntimeException e) {
+                span.recordException(e);
+                obs.counter("culvert.stage.errors", 1, stageTags);
+                throw e;
+            } finally {
+                long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+                obs.histogram("culvert.stage.latency_ms", elapsedMs, stageTags);
+                span.close();
+            }
         }
     }
 }
