@@ -62,6 +62,29 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+            <!--
+                The libraries-bom 26.39.0 resolves google-cloud-monitoring and
+                its transitive proto/grpc stubs to 3.44.0, which is not in the
+                local offline Maven cache. We pin both the main artifact and
+                its proto/grpc stubs to 3.36.0 — the version that IS cached
+                and ships identical API. Remove these pins when the cache is
+                refreshed. Sprint-12 / issue #65.
+            -->
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>google-cloud-monitoring</artifactId>
+                <version>3.36.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.api.grpc</groupId>
+                <artifactId>proto-google-cloud-monitoring-v3</artifactId>
+                <version>3.36.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.api.grpc</groupId>
+                <artifactId>grpc-google-cloud-monitoring-v3</artifactId>
+                <version>3.36.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -98,6 +121,16 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-datacatalog</artifactId>
+        </dependency>
+
+        <!--
+            Google Cloud Monitoring (version pinned to 3.36.0 in
+            dependencyManagement above — overrides the BOM's 3.44.0 which
+            is not in the local offline cache). Sprint-12 / issue #65.
+        -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-monitoring</artifactId>
         </dependency>
 
         <!-- SLF4J API only — consumers bring their own binding -->
