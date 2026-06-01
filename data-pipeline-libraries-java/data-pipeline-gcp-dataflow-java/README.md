@@ -5,6 +5,7 @@ Google Cloud Dataflow adapter for the Culvert framework. Provides `DataflowPipel
 ## Status
 
 **Version 0.1.0 — Sprint 2 deliverable** (issue [#25](https://github.com/enrichmeai/culvert/issues/25)).
+Auto-instrumentation added in Sprint 12 (T12.3, issue [#67](https://github.com/enrichmeai/culvert/issues/67)).
 
 ## Install (Maven)
 
@@ -77,10 +78,26 @@ The current `buildBeam()` returns a Beam Pipeline with NO transforms applied. Ea
 | Duplicate stage name, orphan input, duplicate output, self-loop, cycle | `IllegalStateException` (from `validate()`) |
 | Dataflow submission failure | Beam's exception (`DataflowJobException` or similar) |
 
+## Auto-instrumentation (T12.3)
+
+Every `PipelineStage` execution is automatically wrapped with observability, with no boilerplate required from pipeline authors:
+
+| Signal | Name | When |
+|---|---|---|
+| Trace span | `culvert.stage/<stage-name>` | Opened before `execute`, closed in `finally` |
+| Latency | `culvert.stage.latency_ms` (histogram) | Recorded in `finally` (success and error) |
+| Error counter | `culvert.stage.errors` (counter, tag `stage=<name>`) | Incremented when `execute` throws, before rethrow |
+
+The span carries a `culvert.run_id` attribute (high-cardinality, span-only — not a metric tag).
+
+Hooks are resolved **worker-side** inside `@ProcessElement` via `context.observability()`, mirroring the T10.6 pattern: `DefaultRuntimeContext.registry` is `transient` and rebuilt from `AutoConfig.discover()` after Beam serialization. No new serialized fields are added to the `DoFn` on the production path.
+
+**T12.4 reconciliation note:** when T12.1's `StageMetricsHook` interface lands on `sprint-12`, the `histogram` and `counter` calls in `ExecuteStageFn.processElement` should be replaced with typed `StageMetricsHook.recordLatency` / `incrementErrors` calls, resolved worker-side the same way.
+
 ## Testing
 
 ```bash
-cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-dataflow-java -am clean test
+cd data-pipeline-libraries-java && mvn -o -pl data-pipeline-gcp-dataflow-java -am test
 ```
 
-12/12 tests pass. Beam DirectRunner is the test driver — no real Dataflow needed.
+18/18 tests pass. Beam DirectRunner is the test driver — no real Dataflow needed.
