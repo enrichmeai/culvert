@@ -75,13 +75,15 @@ Each sprint's dev-agent should:
 
 ```bash
 # Prerequisites: Culvert libraries must be installed in ~/.m2.
-# If this is your first run, install them offline:
+# If this is your first run (or on a fresh clone), install them first.
+# NOTE: -o is NOT used here — the dataflow module's -am dependency chain
+# includes testcontainers/fake-gcs transitive deps that may not be cached.
+# Drop -o for the one-time bootstrap; re-add it on warm caches.
 cd data-pipeline-libraries-java
-mvn -o \
-    -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java \
+mvn -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java \
     -am -DskipTests install
 
-# Then run the skeleton test:
+# Then run the skeleton test (offline is fine — all deps are in ~/.m2):
 cd ../deployments/reference-e2e-gcp
 mvn -o test
 ```

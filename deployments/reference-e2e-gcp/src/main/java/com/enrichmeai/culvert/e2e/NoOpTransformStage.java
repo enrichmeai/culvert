@@ -32,13 +32,11 @@ public final class NoOpTransformStage implements PipelineStage, Serializable {
     }
 
     @Override
-    @SuppressWarnings("serial")
     public List<String> inputs() {
         return List.of("rows");
     }
 
     @Override
-    @SuppressWarnings("serial")
     public List<String> outputs() {
         return List.of("clean");
     }
