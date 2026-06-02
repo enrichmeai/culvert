@@ -182,6 +182,22 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
         private static final String MDC_STAGE_NAME  = "stage_name";
         private static final String MDC_PIPELINE_ID = "pipeline_id";
 
+        /**
+         * Sentinel value for {@link StageMetrics#rowsProcessed()} when the stage
+         * does not expose an element count.
+         *
+         * <p>{@link com.enrichmeai.culvert.contracts.PipelineStage#execute(RuntimeContext)}
+         * is {@code void} — the stage accesses sources/sinks through the
+         * {@link RuntimeContext} adapters and does not report element counts back to
+         * the framework. A real row count requires element-level translation
+         * (PCollection-mapped stages, planned for a future sprint). Until then,
+         * 0L is the only Cloud-Monitoring-valid value for a CUMULATIVE INT64
+         * metric (negative values are rejected by the API). Callers that need
+         * real counts should use the metrics hook directly from within their
+         * stage's execute() implementation.
+         */
+        static final long ROWS_PROCESSED_UNKNOWN = 0L;
+
         // Serialized to workers by Beam. PipelineStage / RuntimeContext are
         // interface types not declared Serializable, but the concrete impls
         // placed here at runtime must be (DefaultRuntimeContext is). Suppress
@@ -228,15 +244,16 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
 
         @ProcessElement
         public void processElement() {
-            // --- MDC population (T12.4) ---
-            // Use the pipeline name from stage metadata where available; fall
-            // back to context.runId() as a proxy pipeline identifier.
-            String stageName = stage.name();
-            String runId = context.runId();
+            // --- MDC population (T12.4 / T12.6) ---
+            String stageName  = stage.name();
+            String runId      = context.runId();
+            // T12.6: pipeline_id sourced from RuntimeContext.pipelineId() (new contract
+            // method with default → runId for backward compatibility). No longer a silent
+            // proxy — callers that set a real pipeline name see it reflected here.
+            String pipelineId = context.pipelineId();
             MDC.put(MDC_RUN_ID, runId);
             MDC.put(MDC_STAGE_NAME, stageName);
-            MDC.put(MDC_PIPELINE_ID, runId);   // pipeline_id not directly on RuntimeContext;
-                                                // runId is used as the best available proxy.
+            MDC.put(MDC_PIPELINE_ID, pipelineId);
 
             // --- Resolve hooks worker-side (T10.6 pattern) ---
             // ObservabilityHook: used for tracing spans.
@@ -267,14 +284,18 @@ public final class StageTransform extends PTransform<PBegin, PDone> {
             } finally {
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
                 // Emit the three Culvert-standard metrics via StageMetricsHook.
-                // rows_processed is 0 here (stages do not yet expose a row count;
-                // that is a future Sprint concern when element-level translation
-                // arrives). The typed hook never propagates monitoring failures.
+                // rows_processed uses the ROWS_PROCESSED_UNKNOWN sentinel (0L) because
+                // PipelineStage.execute() is void — stages access sources/sinks through
+                // the RuntimeContext adapters and do not report element counts back to
+                // the framework. A real row count requires element-level translation
+                // (PCollection-mapped stages) which is deferred to a future sprint.
+                // See StageTransform class Javadoc. The sentinel is semantically
+                // meaningful (not an unintentional hard-code) and tested explicitly.
                 metricsHook.recordStageMetrics(new StageMetrics(
-                        runId,        // pipelineId proxy
-                        runId,        // runId
+                        pipelineId,                       // T12.6: real pipelineId from contract
+                        runId,
                         stageName,
-                        0L,           // rowsProcessed — not available yet
+                        ROWS_PROCESSED_UNKNOWN,           // documented sentinel, not silent 0
                         (double) elapsedMs,
                         errorCount));
                 span.close();

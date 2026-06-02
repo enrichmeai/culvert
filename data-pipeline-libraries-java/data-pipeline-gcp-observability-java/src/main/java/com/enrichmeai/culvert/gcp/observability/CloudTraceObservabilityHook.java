@@ -30,6 +30,15 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <h2>Construction</h2>
  * <ul>
+ *   <li>{@link #CloudTraceObservabilityHook()} — no-arg, for {@link java.util.ServiceLoader}
+ *       discovery (T12.6). Wraps {@link io.opentelemetry.api.GlobalOpenTelemetry#get()} with a
+ *       fixed instrumentation scope ({@value #DEFAULT_INSTRUMENTATION_SCOPE}). Consistent with
+ *       the class design: wiring the OTel exporter to Cloud Trace is the caller's responsibility;
+ *       if the global OTel SDK is configured with a GCP trace exporter, this hook transparently
+ *       emits to Cloud Trace. If only the no-op global is installed, spans are discarded — this
+ *       is the expected fallback when the module is on the classpath but no OTel SDK is wired.
+ *       This constructor never throws — {@link io.opentelemetry.api.GlobalOpenTelemetry#get()}
+ *       always returns a non-null instance.</li>
  *   <li>{@link #CloudTraceObservabilityHook(OpenTelemetry, String)} — primary;
  *       caller supplies an OTel instance + an instrumentation scope name
  *       (typically the pipeline name).</li>
@@ -57,11 +66,21 @@ import java.util.concurrent.ConcurrentHashMap;
  * the SDK. Mirrors the {@code BigQueryWarehouse} "AutoCloseable only when
  * the wrapped client supports it" rule.
  *
- * <p>Sprint-2 deliverable for issue #24.
+ * <p>Sprint-2 deliverable for issue #24; no-arg ctor added Sprint-12 T12.6 (issue #91).
  */
 public final class CloudTraceObservabilityHook implements ObservabilityHook {
 
     private static final Logger LOG = LoggerFactory.getLogger(CloudTraceObservabilityHook.class);
+
+    /**
+     * Default instrumentation scope used by the no-arg constructor.
+     *
+     * <p>An instrumentation scope identifies the library or component that produces spans.
+     * When wired via ServiceLoader, the scope is fixed to this constant; callers that need
+     * a pipeline-specific scope should use the {@link #CloudTraceObservabilityHook(OpenTelemetry, String)}
+     * constructor directly.
+     */
+    static final String DEFAULT_INSTRUMENTATION_SCOPE = "com.enrichmeai.culvert";
 
     private final Tracer tracer;
     private final Meter meter;
@@ -72,6 +91,28 @@ public final class CloudTraceObservabilityHook implements ObservabilityHook {
     private final Map<String, LongCounter> counters = new ConcurrentHashMap<>();
     private final Map<String, DoubleHistogram> histograms = new ConcurrentHashMap<>();
     private final Map<String, DoubleHistogram> gauges = new ConcurrentHashMap<>();
+
+    /**
+     * No-arg constructor for {@link java.util.ServiceLoader} discovery (T12.6).
+     *
+     * <p>Wraps {@link io.opentelemetry.api.GlobalOpenTelemetry#get()} with the fixed
+     * instrumentation scope {@value #DEFAULT_INSTRUMENTATION_SCOPE}. Consistent with this
+     * class's stated design: wiring the OTel SDK to export to Cloud Trace is the caller's
+     * responsibility (via a {@code TraceExporter} + {@code BatchSpanProcessor} on the
+     * {@code SdkTracerProvider}). If the global OTel is configured with such an exporter,
+     * spans are emitted to Cloud Trace. If the no-op global is installed (e.g. when no
+     * OTel SDK is on the classpath), spans are discarded — this is the expected graceful
+     * fallback.
+     *
+     * <p>This constructor <strong>never throws</strong>:
+     * {@link io.opentelemetry.api.GlobalOpenTelemetry#get()} always returns a non-null
+     * instance, and {@link OpenTelemetry#getTracer}/{@link OpenTelemetry#getMeter} are
+     * similarly non-throwing. This makes the class unconditionally instantiable by
+     * ServiceLoader — the SPI registration is now real (T12.6).
+     */
+    public CloudTraceObservabilityHook() {
+        this(io.opentelemetry.api.GlobalOpenTelemetry.get(), DEFAULT_INSTRUMENTATION_SCOPE);
+    }
 
     /**
      * Primary constructor.

@@ -72,6 +72,7 @@ class StageTransformInstrumentationTest {
         SPANS_ENDED.clear();
         LATENCY_RECORDS.clear();
         ERROR_COUNTS.clear();
+        CapturingStageMetricsHook.CAPTURED_STATIC.clear();
     }
 
     // ---------- helper factories ----------
@@ -297,6 +298,77 @@ class StageTransformInstrumentationTest {
                 closed = true;
                 SPANS_ENDED.add(name);
             }
+        }
+    }
+
+    // ---------- rows_processed sentinel + pipeline_id tests (T12.6) ----------
+
+    /**
+     * ROWS_PROCESSED_UNKNOWN sentinel is 0L (not a silent magic number):
+     * the constant is exposed and documented so tests and callers can assert
+     * on the sentinel value explicitly.
+     */
+    @Test
+    void rowsProcessedSentinelIsZeroAndDocumented() {
+        assertThat(StageTransform.ExecuteStageFn.ROWS_PROCESSED_UNKNOWN).isEqualTo(0L);
+    }
+
+    /**
+     * StageMetricsHook receives rowsProcessed == ROWS_PROCESSED_UNKNOWN for
+     * execute()-based stages (which do not surface element counts).
+     */
+    @Test
+    void stageMetricsHookReceivesRowsProcessedSentinelNotArbitraryValue() {
+        PipelineStage stage = new NoOpInstrumentedStage("sentinel-stage");
+        DataflowPipeline pipeline = new DataflowPipeline("sentinel-pipeline", List.of(stage));
+        RuntimeContext ctx = context();
+        RecordingObservabilityHook obsHook = new RecordingObservabilityHook();
+        CapturingStageMetricsHook captureHook = new CapturingStageMetricsHook();
+
+        Pipeline beam = buildWithHooks(pipeline, ctx, obsHook, captureHook, directRunnerOpts());
+        beam.run().waitUntilFinish();
+
+        assertThat(CapturingStageMetricsHook.CAPTURED_STATIC).hasSize(1);
+        StageMetrics emitted = CapturingStageMetricsHook.CAPTURED_STATIC.get(0);
+        assertThat(emitted.rowsProcessed())
+                .as("rows_processed must equal the ROWS_PROCESSED_UNKNOWN sentinel (0L)")
+                .isEqualTo(StageTransform.ExecuteStageFn.ROWS_PROCESSED_UNKNOWN);
+        assertThat(emitted.stageName()).isEqualTo("sentinel-stage");
+    }
+
+    /**
+     * pipeline_id in emitted StageMetrics comes from RuntimeContext.pipelineId()
+     * (the T12.6 contract method), not a hard-coded proxy.
+     */
+    @Test
+    void stageMetricsHookReceivesPipelineIdFromRuntimeContextPipelineId() {
+        PipelineStage stage = new NoOpInstrumentedStage("pid-stage");
+        DataflowPipeline pipeline = new DataflowPipeline("pid-pipeline", List.of(stage));
+        // Default: pipelineId() returns runId() (the default impl on the contract).
+        RuntimeContext ctx = context(); // runId = "run-t123"
+        RecordingObservabilityHook obsHook = new RecordingObservabilityHook();
+        CapturingStageMetricsHook captureHook = new CapturingStageMetricsHook();
+
+        Pipeline beam = buildWithHooks(pipeline, ctx, obsHook, captureHook, directRunnerOpts());
+        beam.run().waitUntilFinish();
+
+        assertThat(CapturingStageMetricsHook.CAPTURED_STATIC).hasSize(1);
+        StageMetrics emitted = CapturingStageMetricsHook.CAPTURED_STATIC.get(0);
+        // pipelineId() default returns runId(); verify both are correctly threaded.
+        assertThat(emitted.pipelineId()).isEqualTo(ctx.pipelineId());
+        assertThat(emitted.runId()).isEqualTo(ctx.runId());
+    }
+
+    /** A {@link StageMetricsHook} that captures all emitted {@link StageMetrics} records. */
+    static final class CapturingStageMetricsHook implements StageMetricsHook, java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+        // Use a thread-safe static list; worker-visible (same JVM on DirectRunner).
+        static final java.util.concurrent.CopyOnWriteArrayList<StageMetrics> CAPTURED_STATIC =
+                new java.util.concurrent.CopyOnWriteArrayList<>();
+
+        @Override
+        public void recordStageMetrics(StageMetrics metrics) {
+            CAPTURED_STATIC.add(metrics);
         }
     }
 
