@@ -22,11 +22,36 @@ import java.util.Map;
  * the typed, Culvert-specific seam that emits exactly the three standard Culvert
  * metrics ({@code rows_processed}, {@code stage_latency_ms}, {@code error_count})
  * with the fixed label schema. Both are advisory; each falls back to a no-op default.
+ *
+ * <p>Sprint-12 (T12.6) added {@link #pipelineId()}: the logical name of the
+ * pipeline definition (e.g. {@code "my-etl-pipeline"}), distinct from the run
+ * identifier that changes each execution. The default implementation returns
+ * {@link #runId()} so existing implementations remain source-compatible; a
+ * concrete impl may override to supply a stable, human-readable name from
+ * configuration.
  */
 public interface RuntimeContext {
 
     /** The run identifier. Threaded through audit, lineage, and finops emissions. */
     String runId();
+
+    /**
+     * The logical pipeline identifier (the pipeline definition's name), distinct
+     * from the run identifier that changes each execution.
+     *
+     * <p>Default implementation returns {@link #runId()} so existing
+     * {@code RuntimeContext} implementations remain source-compatible without
+     * any change. Concrete implementations are encouraged to override this with
+     * a stable, human-readable pipeline name configured at pipeline construction
+     * time (e.g. {@code "my-etl-pipeline"}) so that metrics and MDC labels
+     * carry a meaningful {@code pipeline_id} that is consistent across runs.
+     *
+     * <p>Sprint-12 / T12.6 addition — replaces the silent {@code runId} proxy
+     * that {@code StageTransform} used to populate the {@code pipeline_id} label.
+     */
+    default String pipelineId() {
+        return runId();
+    }
 
     /** The deployment environment ({@code "dev"}, {@code "staging"}, {@code "prod"}). */
     String environment();
