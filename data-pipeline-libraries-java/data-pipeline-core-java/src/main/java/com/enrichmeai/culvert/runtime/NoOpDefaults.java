@@ -4,6 +4,8 @@ import com.enrichmeai.culvert.contracts.FinOpsSink;
 import com.enrichmeai.culvert.contracts.GovernancePolicy;
 import com.enrichmeai.culvert.contracts.LineageEmitter;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
+import com.enrichmeai.culvert.contracts.StageMetrics;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
 import com.enrichmeai.culvert.finops.CostMetrics;
 import com.enrichmeai.culvert.finops.FinOpsTag;
 import com.enrichmeai.culvert.governance.DataClassification;
@@ -90,6 +92,24 @@ final class NoOpDefaults {
         @Override
         public void close() {
             // no-op
+        }
+    }
+
+    /**
+     * A {@link StageMetricsHook} that discards every stage-metrics snapshot.
+     *
+     * <p>Used when no real metrics backend is registered (e.g. in unit tests or
+     * when the GCP observability module is not on the classpath). The pipeline
+     * continues normally; metrics are simply not emitted.
+     *
+     * <p>Sprint-12 / T12.4 addition.
+     */
+    static final class NoOpStageMetricsHook implements StageMetricsHook, Serializable {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public void recordStageMetrics(StageMetrics metrics) {
+            // no-op: no metrics backend configured
         }
     }
 

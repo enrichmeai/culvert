@@ -1,0 +1,68 @@
+<!--
+    Cloud Logging JSON Logback configuration for Culvert pipelines.
+
+    Activation options:
+      1. Copy this file to your application's classpath root as logback.xml
+         (auto-discovered by Logback on startup).
+      2. Pass -Dlogback.configurationFile=path/to/logback-cloud.xml on the JVM
+         command line or as a Dataflow worker option.
+      3. Use <include resource="logback-cloud.xml"/> inside your own logback.xml.
+
+    This configuration uses net.logstash.logback:logstash-logback-encoder to
+    emit each log record as a single-line JSON object whose fields are
+    compatible with the Google Cloud Logging structured-log ingestion format.
+
+    Populated MDC keys (injected by CulvertMdcPopulator.withStageContext):
+      run_id       — the pipeline run identifier
+      stage_name   — the executing stage name
+      pipeline_id  — the pipeline identifier
+
+    Key field mapping:
+      severity  — Logback level (INFO, WARN, ERROR, DEBUG, TRACE)
+      message   — the log message
+      timestamp — ISO-8601 / RFC 3339 (e.g. 2026-06-01T12:00:00.000Z)
+      run_id, stage_name, pipeline_id — promoted from MDC as top-level fields
+
+    Note: Cloud Logging automatically uses the 'severity' field for log-level
+    filtering when 'jsonPayload.severity' is present in the structured log.
+    If Cloud Logging is configured with a 'logging.googleapis.com/severity'
+    label extractor, the value of the 'severity' field drives it.
+-->
+<configuration>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!--
+                Rename the default 'level' field to 'severity' so Cloud
+                Logging recognises it for structured log routing.
+            -->
+            <fieldNames>
+                <level>severity</level>
+                <levelValue>[ignore]</levelValue>
+            </fieldNames>
+
+            <!--
+                RFC 3339 timestamp (Cloud Logging preferred format).
+                Logstash encoder emits 'timestamp' by default; we keep the
+                name and override the pattern to produce UTC with millis.
+            -->
+            <timestampPattern>yyyy-MM-dd'T'HH:mm:ss.SSSX</timestampPattern>
+
+            <!--
+                Promote all MDC entries (run_id, stage_name, pipeline_id and
+                any others set by the application) as top-level JSON fields.
+                This is the default for LogstashEncoder — stated explicitly
+                for documentation clarity.
+            -->
+            <includeMdc>true</includeMdc>
+
+            <!-- Keep the logger name and thread for diagnostics. -->
+            <includeContext>false</includeContext>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+    </root>
+
+</configuration>

@@ -13,6 +13,7 @@ import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.SecretProvider;
 import com.enrichmeai.culvert.contracts.Sink;
 import com.enrichmeai.culvert.contracts.Source;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
 import com.enrichmeai.culvert.contracts.Transform;
 import com.enrichmeai.culvert.contracts.Warehouse;
 
@@ -62,6 +63,7 @@ public final class AutoConfig {
     private final List<GovernancePolicy> governancePolicies;
     private final List<LineageEmitter> lineageEmitters;
     private final List<ObservabilityHook> observabilityHooks;
+    private final List<StageMetricsHook> stageMetricsHooks;
     private final List<FinOpsSink> finOpsSinks;
     private final List<SecretProvider> secretProviders;
 
@@ -79,6 +81,7 @@ public final class AutoConfig {
         this.governancePolicies = loadServiceList(GovernancePolicy.class);
         this.lineageEmitters = loadServiceList(LineageEmitter.class);
         this.observabilityHooks = loadServiceList(ObservabilityHook.class);
+        this.stageMetricsHooks = loadServiceList(StageMetricsHook.class);
         this.finOpsSinks = loadServiceList(FinOpsSink.class);
         this.secretProviders = loadServiceList(SecretProvider.class);
     }
@@ -140,6 +143,25 @@ public final class AutoConfig {
 
     public List<ObservabilityHook> observabilityHooks() {
         return observabilityHooks;
+    }
+
+    /**
+     * The first {@link StageMetricsHook} discovered on the classpath, or
+     * {@link Optional#empty()} if none is registered.
+     *
+     * <p>Sprint-12 / T12.4 addition.
+     */
+    public Optional<StageMetricsHook> stageMetricsHook() {
+        return first(stageMetricsHooks);
+    }
+
+    /**
+     * All {@link StageMetricsHook} impls discovered on the classpath.
+     *
+     * <p>Sprint-12 / T12.4 addition.
+     */
+    public List<StageMetricsHook> stageMetricsHooks() {
+        return stageMetricsHooks;
     }
 
     public Optional<LineageEmitter> lineageEmitter() {
