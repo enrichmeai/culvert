@@ -31,13 +31,11 @@ public final class NoOpReadStage implements PipelineStage, Serializable {
     }
 
     @Override
-    @SuppressWarnings("serial")
     public List<String> inputs() {
         return List.of();
     }
 
     @Override
-    @SuppressWarnings("serial")
     public List<String> outputs() {
         return List.of("rows");
     }
