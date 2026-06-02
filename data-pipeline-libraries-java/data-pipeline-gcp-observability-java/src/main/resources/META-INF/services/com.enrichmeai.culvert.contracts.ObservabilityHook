@@ -1,9 +1,15 @@
-# Pre-registered for sprint-4 auto-config. The implementation does NOT
-# expose a no-arg constructor — Cloud Trace export requires an
-# already-built OpenTelemetry SDK (tracer provider + GCP exporter +
-# resource), which exceeds the pilot's "no-arg only if <=2 env vars of
-# state" rule. Direct ServiceLoader.load(ObservabilityHook.class)
-# .findFirst() will fail with ServiceConfigurationError until sprint-4
-# introduces a config-driven constructor. Until then, instantiate
-# explicitly with `new CloudTraceObservabilityHook(otel, scope)`.
+# Sprint-12 T12.6 (#91): CloudTraceObservabilityHook now exposes a no-arg constructor
+# (ServiceLoader entry point). The no-arg ctor wraps GlobalOpenTelemetry.get() with the
+# fixed instrumentation scope "com.enrichmeai.culvert". Consistent with the class design:
+# wiring the OTel SDK to export to Cloud Trace is the caller's responsibility (via an
+# SdkTracerProvider + TraceExporter + BatchSpanProcessor). If the global OTel is
+# configured with a GCP exporter, spans are emitted to Cloud Trace; if not, spans are
+# discarded gracefully. The no-arg ctor never throws.
+#
+# ServiceLoader.load(ObservabilityHook.class).findFirst() NOW returns a real
+# CloudTraceObservabilityHook without throwing ServiceConfigurationError.
+# AutoConfig.discover() similarly resolves the real hook on any classpath.
+#
+# For explicit wiring (pipeline-specific scope, custom OTel instance):
+#   StageMetricsHook hook = new CloudTraceObservabilityHook(myOtelInstance, "my-pipeline");
 com.enrichmeai.culvert.gcp.observability.CloudTraceObservabilityHook
