@@ -66,7 +66,7 @@ Eleven interfaces in `com.enrichmeai.culvert.contracts` — the entire framework
 mvn -f data-pipeline-libraries-java/pom.xml clean install
 ```
 
-## Observability auto-wiring (Sprint 12 T12.4)
+## Observability auto-wiring (Sprint 12 T12.4 + T12.6)
 
 `DefaultRuntimeContext` now auto-wires observability by default. Two hooks
 are registered as advisory protocols (fall back to no-op silently when absent):
@@ -82,7 +82,18 @@ are registered as advisory protocols (fall back to no-op silently when absent):
 
 2. **Worker side (Beam/Dataflow)**: The `registry` field is `transient` (T10.6). After Beam deserializes the context to a worker, the first access to `context.stageMetrics()` or `context.observability()` triggers a lazy rebuild via `AutoConfig.discover()`. This means any `StageMetricsHook` registered with a `META-INF/services/com.enrichmeai.culvert.contracts.StageMetricsHook` file on the worker classpath will be discovered and used.
 
-3. **No-arg constructor limitation**: `CloudMonitoringMetricsHook` (and `CloudTraceObservabilityHook`) require constructor arguments (client + project-id), so ServiceLoader silently skips them at auto-discovery time. Worker-side resolution therefore falls back to `NoOpStageMetricsHook` unless a future config-driven constructor is added. For now, register the hook explicitly on the driver side for production pipelines.
+3. **T12.6 — no-arg constructors are now real**: `CloudMonitoringMetricsHook` and
+   `CloudTraceObservabilityHook` (in `data-pipeline-gcp-observability-java`) now both
+   expose no-arg constructors. Worker-side `AutoConfig.discover()` will instantiate them
+   — no driver-side `register(...)` call needed for production Dataflow jobs. See
+   `data-pipeline-gcp-observability-java/README.md` for configuration requirements.
+
+### RuntimeContext.pipelineId() (T12.6)
+
+`RuntimeContext` now declares `pipelineId()` with a default implementation returning
+`runId()`. This replaces the previous silent proxy in `StageTransform`. The `pipeline_id`
+label in Cloud Monitoring metrics and MDC will therefore reflect the contract method — and
+implementations that override `pipelineId()` will see their value flow through automatically.
 
 ### Overriding with a custom hook
 
@@ -94,10 +105,11 @@ RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
 // ctx.stageMetrics() returns myHook
 ```
 
-Or via AutoConfig if your hook has a no-arg constructor and a `META-INF/services` entry:
+Or rely on auto-discovery (T12.6 — now works for GCP hooks):
 ```
 # META-INF/services/com.enrichmeai.culvert.contracts.StageMetricsHook
-com.example.MyNoArgMetricsHook
+com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook
+# Set one of: -Dculvert.gcp.project=<id>  OR  CULVERT_GCP_PROJECT=<id>  OR  ADC default project
 ```
 
 ## License

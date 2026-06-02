@@ -20,6 +20,7 @@ import org.mockito.quality.Strictness;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
@@ -159,6 +160,51 @@ class CloudTraceObservabilityHookTest {
         hook.log("WARN", "w", fields);
         hook.log("ERROR", "e", fields);
         hook.log("info", "lowercase still routes", fields);
+    }
+
+    // --- no-arg constructor (T12.6) ----------------------------------------
+
+    @Test
+    void noArgCtorInstantiatesWithoutThrowing() {
+        // CloudTraceObservabilityHook() wraps GlobalOpenTelemetry.get() which never
+        // throws. Verifies the SPI story is now TRUE — ServiceLoader can instantiate
+        // this class unconditionally without a ServiceConfigurationError.
+        assertThatCode(CloudTraceObservabilityHook::new).doesNotThrowAnyException();
+    }
+
+    @Test
+    void noArgCtorUsesDefaultInstrumentationScope() {
+        // The no-arg ctor delegates to CloudTraceObservabilityHook(otel, scope) with
+        // the DEFAULT_INSTRUMENTATION_SCOPE constant. Verify the constant value is stable.
+        assertThat(CloudTraceObservabilityHook.DEFAULT_INSTRUMENTATION_SCOPE)
+                .isEqualTo("com.enrichmeai.culvert");
+    }
+
+    @Test
+    void noArgCtorProducesUsableHook() {
+        // The hook produced by the no-arg ctor must accept calls without throwing.
+        // On GlobalOpenTelemetry.get() (no-op if no SDK configured), spans are
+        // discarded — but that is the expected graceful fallback.
+        CloudTraceObservabilityHook hook = new CloudTraceObservabilityHook();
+        assertThatCode(() -> {
+            try (ObservabilityHook.Span s = hook.span("culvert.stage/test")) {
+                s.setAttribute("k", "v");
+            }
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    void serviceLoaderCanInstantiateObservabilityHookSpiEntry() {
+        // SPI story is now TRUE (T12.6). ServiceLoader.load(ObservabilityHook.class)
+        // must succeed and include CloudTraceObservabilityHook.
+        java.util.ServiceLoader<com.enrichmeai.culvert.contracts.ObservabilityHook> loader =
+                java.util.ServiceLoader.load(com.enrichmeai.culvert.contracts.ObservabilityHook.class);
+
+        java.util.List<com.enrichmeai.culvert.contracts.ObservabilityHook> hooks = new java.util.ArrayList<>();
+        loader.forEach(hooks::add);
+
+        assertThat(hooks).isNotEmpty();
+        assertThat(hooks).anyMatch(h -> h instanceof CloudTraceObservabilityHook);
     }
 
     // --- construction ------------------------------------------------------
