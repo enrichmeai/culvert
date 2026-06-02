@@ -13,6 +13,7 @@ Google Cloud observability adapters for the Culvert data pipeline framework, JVM
 **Version 0.1.0 — multi-sprint deliverable:**
 - `CloudTraceObservabilityHook` + `DataCatalogLineageEmitter` — Sprint 2 (issue [#24](https://github.com/enrichmeai/culvert/issues/24))
 - `CloudMonitoringMetricsHook` — Sprint 12 (issue [#65](https://github.com/enrichmeai/culvert/issues/65))
+- No-arg ServiceLoader-discoverable constructors on both hooks — Sprint 12 T12.6 (issue [#91](https://github.com/enrichmeai/culvert/issues/91))
 
 ## Install (Maven)
 
@@ -57,7 +58,22 @@ Note: `run_id` is potentially high-cardinality in Cloud Monitoring. This is
 intentional — the issue spec explicitly requires it to uniquely identify
 pipeline runs in dashboards.
 
-### Wiring project-id
+### Wiring project-id — two options
+
+**Option A — zero-config (ServiceLoader / AutoConfig auto-discovery, T12.6):**
+
+Set the GCP project-id via one of these sources (checked in order):
+1. System property: `-Dculvert.gcp.project=my-gcp-project`
+2. Environment variable: `CULVERT_GCP_PROJECT=my-gcp-project`
+3. ADC default project: configured via `gcloud config set project my-gcp-project` or
+   the metadata server on Dataflow/Cloud Run workers.
+
+Then add this module to the classpath and use `AutoConfig.discover()` (via
+`DefaultRuntimeContext.fromAutoConfig(...)`) — the hook is instantiated automatically
+by `ServiceLoader` and registered under `StageMetricsHook`. No explicit registration
+needed. ADC credentials are picked up from the environment.
+
+**Option B — explicit wiring (tests or custom credentials):**
 
 ```java
 // 1. Build the MetricServiceClient (picks up Application Default Credentials)
@@ -66,20 +82,24 @@ MetricServiceClient client = MetricServiceClient.create();
 // 2. Construct the hook with your GCP project ID
 StageMetricsHook hook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
 
-// 3. Use at each stage boundary
-StageMetrics metrics = new StageMetrics(
-    "invoice-etl",       // pipelineId
-    "run-2026-06-01",    // runId
-    "transform",         // stageName
-    1_000L,              // rowsProcessed
-    250.0,               // stageLatencyMs
-    0L                   // errorCount
-);
-hook.recordStageMetrics(metrics);
+// 3. Register in the RuntimeContext
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(StageMetricsHook.class, hook)
+        .build();
 
 // 4. Close the hook (and the underlying client) when done
-((AutoCloseable) hook).close();
+hook.close();
 ```
+
+### rows_processed sentinel
+
+`StageTransform.ExecuteStageFn` emits `rows_processed = 0L` (constant
+`StageTransform.ExecuteStageFn.ROWS_PROCESSED_UNKNOWN`). This is an explicit,
+documented sentinel, not a silent hard-code: `PipelineStage.execute()` is `void` and
+does not return an element count. Real row counts require element-level translation
+(PCollection-mapped stages) planned for a future sprint. Stages that track their own row
+counts can call `metricsHook.recordStageMetrics(...)` directly from within `execute()`
+with a real count.
 
 ### Monitoring failure isolation
 
@@ -97,7 +117,27 @@ export to Cloud Trace and Cloud Monitoring. Wiring is decoupled from the
 class — callers supply an already-configured `OpenTelemetry` instance with
 a `TraceExporter` from `com.google.cloud.opentelemetry:exporter-trace`.
 
-See the class Javadoc for construction details.
+**T12.6**: A no-arg constructor now wraps `GlobalOpenTelemetry.get()` with the scope
+`"com.enrichmeai.culvert"`. This makes the `ServiceLoader` SPI entry real — `AutoConfig`
+can discover and instantiate this hook without any manual wiring. If the global OTel SDK
+is configured with a GCP trace exporter, spans reach Cloud Trace; otherwise they are
+discarded gracefully (no exception). To configure the OTel SDK globally before the
+pipeline runs:
+
+```java
+// Example: configure GlobalOpenTelemetry before using AutoConfig/ServiceLoader
+OpenTelemetrySdk otel = OpenTelemetrySdk.builder()
+        .setTracerProvider(SdkTracerProvider.builder()
+                .addSpanProcessor(BatchSpanProcessor.builder(
+                        TraceExporter.createWithDefaultConfiguration()).build())
+                .build())
+        .buildAndRegisterGlobal(); // registers as GlobalOpenTelemetry
+```
+
+For pipeline-specific scopes, use the explicit constructor:
+```java
+ObservabilityHook hook = new CloudTraceObservabilityHook(otel, "my-pipeline-name");
+```
 
 ---
 
@@ -231,7 +271,7 @@ Cloud Logging uses the `severity` field for log-level routing when
 
 ---
 
-## Auto-wiring via DefaultRuntimeContext (Sprint 12 T12.4)
+## Auto-wiring via DefaultRuntimeContext (Sprint 12 T12.4 + T12.6)
 
 `DefaultRuntimeContext` exposes two observability accessors, both advisory (no-op if not registered):
 
@@ -240,7 +280,27 @@ Cloud Logging uses the `severity` field for log-level routing when
 | `context.observability()` | `ObservabilityHook` | `CloudTraceObservabilityHook` |
 | `context.stageMetrics()` | `StageMetricsHook` | `CloudMonitoringMetricsHook` |
 
-Both classes are listed in `META-INF/services/` so `AutoConfig.discover()` knows about them. However, **neither has a no-arg constructor** (they both require a pre-built cloud client + config). `ServiceLoader` will silently skip them at auto-discovery time. Register explicitly for production pipelines:
+**T12.6: The SPI story is now TRUE.** Both classes have no-arg constructors and are listed in
+`META-INF/services/`. `AutoConfig.discover()` + `ServiceLoader` can now instantiate them
+automatically — no explicit `context.register(...)` call needed on a properly configured
+Dataflow worker:
+
+- `CloudTraceObservabilityHook` no-arg: wraps `GlobalOpenTelemetry.get()`, never throws.
+- `CloudMonitoringMetricsHook` no-arg: resolves project-id from sys-prop →  env var → ADC,
+  builds `MetricServiceClient` via ADC. Throws `IllegalStateException` if no project-id is found.
+
+**Worker-side rebuild (T10.6 + T12.6):** `DefaultRuntimeContext.registry` is `transient` and
+rebuilt lazily after Beam deserialization via `AutoConfig.discover()`. With T12.6, this rebuild
+now resolves REAL hooks (not NoOp) when:
+- The observability module is on the worker classpath (it will be if it's a pipeline dependency), and
+- For `CloudMonitoringMetricsHook`: one of the project-id sources is configured on the worker.
+
+`StageTransform.ExecuteStageFn` (in `data-pipeline-gcp-dataflow-java`) resolves both hooks
+worker-side via `context.observability()` and `context.stageMetrics()`. MDC fields (`run_id`,
+`stage_name`, `pipeline_id`) are set inline per execution. `pipeline_id` now comes from
+`RuntimeContext.pipelineId()` (T12.6 contract addition, default returns `runId()`).
+
+For explicit wiring when auto-discovery is not desired:
 
 ```java
 // Tracing
@@ -256,8 +316,6 @@ RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
         .register(StageMetricsHook.class, metricsHook)
         .build();
 ```
-
-`StageTransform` (in `data-pipeline-gcp-dataflow-java`) resolves both hooks worker-side via `context.observability()` and `context.stageMetrics()` — the T10.6 transient-registry pattern. MDC fields (`run_id`, `stage_name`, `pipeline_id`) are also set inline in `StageTransform.ExecuteStageFn` for each stage execution.
 
 ---
 

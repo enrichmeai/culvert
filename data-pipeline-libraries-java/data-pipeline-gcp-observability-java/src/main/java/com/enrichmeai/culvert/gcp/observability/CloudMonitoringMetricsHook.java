@@ -15,6 +15,7 @@ import com.google.protobuf.util.Timestamps;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -61,21 +62,32 @@ import java.util.concurrent.atomic.AtomicLong;
  * interrupted by a monitoring backend error. The failure count is accessible
  * via {@link #monitoringFailureCount()} for tests and operational alerting.
  *
- * <h2>Wiring project-id</h2>
- * Pass the GCP project ID to the constructor. Build a {@link MetricServiceClient}
- * using its default factory (which picks up Application Default Credentials)
- * and supply it alongside the project ID:
- * <pre>{@code
- *   MetricServiceClient client = MetricServiceClient.create();
- *   StageMetricsHook hook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
- * }</pre>
+ * <h2>Construction</h2>
+ * <ul>
+ *   <li>{@link #CloudMonitoringMetricsHook()} — no-arg, for {@link java.util.ServiceLoader}
+ *       discovery. Resolves the project-id from the following precedence chain:
+ *       <ol>
+ *         <li>System property {@code culvert.gcp.project}</li>
+ *         <li>Environment variable {@code CULVERT_GCP_PROJECT}</li>
+ *         <li>ADC default via {@code com.google.cloud.ServiceOptions.getDefaultProjectId()}</li>
+ *       </ol>
+ *       Throws {@link IllegalStateException} if none of the three yields a non-blank value.
+ *       Builds the {@link MetricServiceClient} via its {@code create()} factory (ADC). This
+ *       constructor is the {@link java.util.ServiceLoader} entry point — it makes the
+ *       {@code META-INF/services} SPI registration real (T12.6).
+ *   </li>
+ *   <li>{@link #CloudMonitoringMetricsHook(MetricServiceClient, String)} — primary for tests
+ *       and custom-credential wiring. Inject a pre-built client and explicit project-id.
+ *       Ownership of the client transfers to this hook ({@link #close()} will close it).
+ *   </li>
+ * </ul>
  *
  * <p>Implements {@link AutoCloseable}: closing this hook closes the
  * underlying {@link MetricServiceClient} (which implements
  * {@link com.google.api.gax.core.BackgroundResource}). Mirrors the
  * {@link DataCatalogLineageEmitter} lifecycle contract.
  *
- * <p>Sprint-12 deliverable for issue #65.
+ * <p>Sprint-12 deliverable for issues #65 (T12.1) and #91 (T12.6 — no-arg ctor).
  */
 public final class CloudMonitoringMetricsHook implements StageMetricsHook, AutoCloseable {
 
@@ -97,8 +109,40 @@ public final class CloudMonitoringMetricsHook implements StageMetricsHook, AutoC
     private final String projectId;
     private final AtomicLong monitoringFailures = new AtomicLong();
 
+    /** System property key for the GCP project override. */
+    static final String SYSPROP_GCP_PROJECT = "culvert.gcp.project";
+
+    /** Environment variable key for the GCP project override. */
+    static final String ENVVAR_GCP_PROJECT = "CULVERT_GCP_PROJECT";
+
     /**
-     * Primary constructor.
+     * No-arg constructor for {@link java.util.ServiceLoader} discovery (T12.6).
+     *
+     * <p>Resolves the GCP project-id from the following precedence chain:
+     * <ol>
+     *   <li>System property {@value #SYSPROP_GCP_PROJECT}</li>
+     *   <li>Environment variable {@value #ENVVAR_GCP_PROJECT}</li>
+     *   <li>ADC default: {@code com.google.cloud.ServiceOptions.getDefaultProjectId()}</li>
+     * </ol>
+     * Throws {@link IllegalStateException} if none of the three yields a non-blank value.
+     *
+     * <p>Builds the {@link MetricServiceClient} via its {@code create()} factory, which
+     * picks up Application Default Credentials from the environment. This is the expected
+     * mode on a Dataflow worker where ADC is always present.
+     *
+     * <p>Mirrors the {@code GcsBlobStore()} no-arg pattern: same "ADC + no-arg = ServiceLoader
+     * entry point" shape, extended to also resolve project-id from config.
+     *
+     * @throws IllegalStateException if no GCP project-id is resolvable from any source.
+     * @throws RuntimeException wrapping {@link IOException} if {@code MetricServiceClient.create()}
+     *         fails (e.g. credentials unavailable — expected only when ADC is absent).
+     */
+    public CloudMonitoringMetricsHook() {
+        this(createDefaultClient(), resolveProjectId());
+    }
+
+    /**
+     * Explicit constructor for tests and custom-credential wiring.
      *
      * @param client    Pre-built Cloud Monitoring client. Required. Ownership
      *                  transfers to this hook — {@link #close()} will close it.
@@ -108,6 +152,61 @@ public final class CloudMonitoringMetricsHook implements StageMetricsHook, AutoC
     public CloudMonitoringMetricsHook(MetricServiceClient client, String projectId) {
         this.client    = Objects.requireNonNull(client,    "client must not be null");
         this.projectId = Objects.requireNonNull(projectId, "projectId must not be null");
+    }
+
+    /**
+     * Resolves the GCP project-id using the three-step precedence chain.
+     *
+     * <p>Package-private for testing (allows tests to verify resolution without
+     * needing to mock static state — the property branch is testable via
+     * {@link System#setProperty}).
+     *
+     * @return non-blank project-id string
+     * @throws IllegalStateException if all three sources are null or blank
+     */
+    static String resolveProjectId() {
+        // 1. System property (testable via System.setProperty, highest priority)
+        String fromProp = System.getProperty(SYSPROP_GCP_PROJECT);
+        if (fromProp != null && !fromProp.isBlank()) {
+            return fromProp;
+        }
+        // 2. Environment variable (set by Dataflow worker environment / k8s / Cloud Run)
+        String fromEnv = System.getenv(ENVVAR_GCP_PROJECT);
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return fromEnv;
+        }
+        // 3. ADC default project (resolves from gcloud auth, service account, metadata server)
+        String fromAdc = com.google.cloud.ServiceOptions.getDefaultProjectId();
+        if (fromAdc != null && !fromAdc.isBlank()) {
+            return fromAdc;
+        }
+        throw new IllegalStateException(
+                "Cannot resolve GCP project-id for CloudMonitoringMetricsHook. "
+                + "Set one of: system property '" + SYSPROP_GCP_PROJECT + "', "
+                + "environment variable '" + ENVVAR_GCP_PROJECT + "', "
+                + "or configure Application Default Credentials with a default project "
+                + "(gcloud config set project <PROJECT_ID>).");
+    }
+
+    /**
+     * Builds a {@link MetricServiceClient} using Application Default Credentials.
+     *
+     * <p>Package-private so tests can verify no-arg construction without a real GCP
+     * project. The {@code MetricServiceClient.create()} call is wrapped here so the
+     * checked {@link IOException} is translated to an unchecked {@link RuntimeException}.
+     *
+     * @throws RuntimeException wrapping {@link IOException} if client creation fails
+     */
+    static MetricServiceClient createDefaultClient() {
+        try {
+            return MetricServiceClient.create();
+        } catch (IOException e) {
+            throw new RuntimeException(
+                    "Failed to create MetricServiceClient from Application Default Credentials. "
+                    + "Ensure ADC is configured (GOOGLE_APPLICATION_CREDENTIALS env var, "
+                    + "gcloud auth application-default login, or a service account on the "
+                    + "Dataflow worker).", e);
+        }
     }
 
     /**
