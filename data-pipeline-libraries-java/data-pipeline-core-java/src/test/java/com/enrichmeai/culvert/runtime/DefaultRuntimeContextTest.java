@@ -39,6 +39,18 @@ class DefaultRuntimeContextTest {
     }
 
     @Test
+    void pipelineIdDefaultReturnsRunId() {
+        // T12.6: RuntimeContext.pipelineId() has a default impl that returns runId().
+        // This is the backward-compatible baseline — existing impls that don't override
+        // pipelineId() get the run id as the pipeline label (a proxy, but documented).
+        DefaultRuntimeContext ctx = DefaultRuntimeContext
+                .builder("run-pid-test", "dev")
+                .build();
+        assertThat(ctx.pipelineId()).isEqualTo("run-pid-test");
+        assertThat(ctx.pipelineId()).isEqualTo(ctx.runId());
+    }
+
+    @Test
     void configIsImmutable() {
         DefaultRuntimeContext ctx = DefaultRuntimeContext
                 .builder("run-1", "dev")

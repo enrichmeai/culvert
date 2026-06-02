@@ -1,10 +1,16 @@
-# Pre-registered for sprint-12 T12.4 auto-config (DefaultRuntimeContext.stageMetrics()).
-# The implementation does NOT expose a no-arg constructor — Cloud Monitoring requires a
-# pre-built MetricServiceClient + project-id (2 constructor args), which exceeds the
-# pilot's "no-arg only if <=2 env vars of state" rule. Direct
-# ServiceLoader.load(StageMetricsHook.class).findFirst() will fail with
-# ServiceConfigurationError until a config-driven constructor is added. Until then,
-# instantiate explicitly:
+# Sprint-12 T12.6 (#91): CloudMonitoringMetricsHook now exposes a no-arg constructor
+# (ServiceLoader entry point). Project-id is resolved at construction time from the
+# following precedence chain:
+#   1. System property culvert.gcp.project
+#   2. Environment variable CULVERT_GCP_PROJECT
+#   3. ADC default (com.google.cloud.ServiceOptions.getDefaultProjectId())
+# MetricServiceClient is built via MetricServiceClient.create() (ADC).
+#
+# ServiceLoader.load(StageMetricsHook.class).findFirst() NOW returns a real
+# CloudMonitoringMetricsHook on a classpath with ADC + a resolvable project-id.
+# AutoConfig.discover() similarly resolves the real hook on a Dataflow worker.
+#
+# For explicit wiring (tests or custom credentials) use:
 #   MetricServiceClient client = MetricServiceClient.create();
 #   StageMetricsHook hook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
 #   context.register(StageMetricsHook.class, hook);
