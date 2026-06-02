@@ -1,0 +1,5 @@
+# T12.5 (#80): Recording hook for the reference-e2e-gcp observability E2E test.
+# AutoConfig.discover() loads this on the test classpath, making it available
+# worker-side after Beam serialization — proves auto-instrumentation fires with
+# no per-stage boilerplate (epic #47 gate).
+com.enrichmeai.culvert.e2e.RecordingStageMetricsHook
