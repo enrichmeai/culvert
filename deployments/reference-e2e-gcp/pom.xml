@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Standalone deployment pom — NOT a child of data-pipeline-libraries-parent.
+        No <modules> entry is needed in that parent; the architect need do nothing.
+        Pattern matches deployments/mainframe-segment-transform-java/pom.xml.
+
+        This is the reference-e2e-gcp skeleton (T12.0, issue #92). It is the
+        foundation every sprint E2E slice appends to:
+          S12 T12.5 #80 — observability (latency/error metrics + MDC)
+          S13 #81       — cost / FinOps tagging
+          S14 #82       — data-quality checks
+          S15 #83       — CI gating on a live emulator
+
+        TODAY: structural only — no live GCP, no Docker. DirectRunner executes
+        two stub stages; PipelineToDagSpec asserts the scheduler-agnostic DAG
+        shape. The `[deploy]` commit-message trigger is deliberately absent;
+        this scaffold never hits Cloud Dataflow.
+    -->
+
+    <groupId>com.enrichmeai.culvert.deployments</groupId>
+    <artifactId>reference-e2e-gcp</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: deployment :: reference-e2e-gcp (skeleton)</name>
+    <description>
+        Reference E2E GCP deployment skeleton (T12.0, issue #92). Provides a
+        minimal 2-stage Culvert Pipeline (NoOpReadStage -&gt; NoOpTransformStage)
+        wired through DefaultRuntimeContext + StageTransform, executable on
+        Beam's DirectRunner. Each sprint appends its E2E slice to this skeleton
+        (observability S12, cost S13, DQ S14); CI gating on a live emulator
+        arrives in S15.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
+
+        <!-- Pin to same versions as data-pipeline-libraries-java parent. -->
+        <culvert.version>0.1.0</culvert.version>
+        <beam.version>2.55.0</beam.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <junit.version>5.10.2</junit.version>
+        <assertj.version>3.25.3</assertj.version>
+    </properties>
+
+    <dependencies>
+        <!-- Culvert framework libraries (must be installed: mvn -pl ... install) -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-dataflow</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-orchestration</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+
+        <!-- Beam SDK + DirectRunner (structural test only — DataflowRunner for prod) -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-direct-java</artifactId>
+            <version>${beam.version}</version>
+            <!-- Runtime scope: the DirectRunner is only needed at test/run time.
+                 A future prod deployment would swap to DataflowRunner. -->
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- SLF4J: bring a binding so Beam/SLF4J warnings are silent during tests. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                    <!--
+                        No -Werror here: this is a deployment, not a library.
+                        The parent library pom uses -Xlint:all -Werror, which
+                        would flag Serializable warnings on the stub stages.
+                        Deployments opt out by NOT inheriting the parent pom.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>
