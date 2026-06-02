@@ -7,6 +7,7 @@ import com.enrichmeai.culvert.contracts.LineageEmitter;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.SecretProvider;
+import com.enrichmeai.culvert.contracts.StageMetricsHook;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -30,10 +31,13 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <ul>
  *   <li><strong>Advisory protocols</strong> — {@link #observability()},
- *       {@link #lineage()}, {@link #finops()}, {@link #governance()} — fall
- *       back to a silent {@linkplain NoOpDefaults no-op} when nothing is
- *       registered, so a minimal context is usable out of the box. A pipeline
- *       runs correctly whether or not these emit anywhere.</li>
+ *       {@link #stageMetrics()}, {@link #lineage()}, {@link #finops()},
+ *       {@link #governance()} — fall back to a silent {@linkplain NoOpDefaults
+ *       no-op} when nothing is registered, so a minimal context is usable out
+ *       of the box. A pipeline runs correctly whether or not these emit
+ *       anywhere. {@link #stageMetrics()} was added in Sprint-12 T12.4 as the
+ *       typed Culvert-specific metrics seam alongside the general-purpose
+ *       {@link #observability()} hook.</li>
  *   <li><strong>Hard dependencies</strong> — {@link #secrets()} (and any
  *       arbitrary protocol fetched via {@link #get(Class)}) — throw
  *       {@link IllegalStateException} when absent. Silently returning a fake
@@ -72,7 +76,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * auto-config registry, and {@code java.util}. No Beam, no GCP.
  *
  * <p>Sprint-9 deliverable (T9.1); serialization boundary hardened in
- * Sprint-10 (T10.6).
+ * Sprint-10 (T10.6); observability auto-wiring added in Sprint-12 (T12.4).
  */
 public final class DefaultRuntimeContext implements RuntimeContext, Serializable {
 
@@ -188,6 +192,8 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
                 impl -> builder.register(SecretProvider.class, impl));
         autoConfig.observabilityHook().ifPresent(
                 impl -> builder.register(ObservabilityHook.class, impl));
+        autoConfig.stageMetricsHook().ifPresent(
+                impl -> builder.register(StageMetricsHook.class, impl));
         autoConfig.lineageEmitter().ifPresent(
                 impl -> builder.register(LineageEmitter.class, impl));
         autoConfig.finOpsSink().ifPresent(
@@ -245,6 +251,22 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
     public ObservabilityHook observability() {
         return (ObservabilityHook) registry().computeIfAbsent(
                 ObservabilityHook.class, k -> new NoOpDefaults.NoOpObservabilityHook());
+    }
+
+    /**
+     * Returns the registered {@link StageMetricsHook}, or a no-op default if
+     * none is registered.
+     *
+     * <p>Advisory protocol (T12.4): falls back to {@link NoOpDefaults.NoOpStageMetricsHook}
+     * when no real hook is registered — e.g. when the GCP observability module is
+     * not on the classpath. Worker-side, the hook is resolved lazily from
+     * {@link AutoConfig#discover()} after deserialization (same T10.6 pattern as
+     * {@link #observability()}).
+     */
+    @Override
+    public StageMetricsHook stageMetrics() {
+        return (StageMetricsHook) registry().computeIfAbsent(
+                StageMetricsHook.class, k -> new NoOpDefaults.NoOpStageMetricsHook());
     }
 
     @Override

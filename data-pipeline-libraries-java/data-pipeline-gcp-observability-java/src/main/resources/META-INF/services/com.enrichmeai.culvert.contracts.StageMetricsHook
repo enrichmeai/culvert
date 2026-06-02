@@ -1,0 +1,17 @@
+# Sprint-12 T12.6 (#91): CloudMonitoringMetricsHook now exposes a no-arg constructor
+# (ServiceLoader entry point). Project-id is resolved at construction time from the
+# following precedence chain:
+#   1. System property culvert.gcp.project
+#   2. Environment variable CULVERT_GCP_PROJECT
+#   3. ADC default (com.google.cloud.ServiceOptions.getDefaultProjectId())
+# MetricServiceClient is built via MetricServiceClient.create() (ADC).
+#
+# ServiceLoader.load(StageMetricsHook.class).findFirst() NOW returns a real
+# CloudMonitoringMetricsHook on a classpath with ADC + a resolvable project-id.
+# AutoConfig.discover() similarly resolves the real hook on a Dataflow worker.
+#
+# For explicit wiring (tests or custom credentials) use:
+#   MetricServiceClient client = MetricServiceClient.create();
+#   StageMetricsHook hook = new CloudMonitoringMetricsHook(client, "my-gcp-project");
+#   context.register(StageMetricsHook.class, hook);
+com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook
