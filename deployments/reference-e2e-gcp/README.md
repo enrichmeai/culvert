@@ -56,7 +56,7 @@ the core contracts. The planned slices are:
 | Sprint | Issue | Slice | What changes |
 |--------|-------|-------|--------------|
 | S12    | #80 (T12.5) | Observability | `ObservabilityHook` + `StageMetricsHook` verified end-to-end; MDC fields asserted in log output. |
-| S13    | #81         | Cost / FinOps | `FinOpsSink` tagging; cost-budget assertion. |
+| S13    | #81 (T13.5) | Cost / FinOps | `FinOpsSink` tagging per stage; `BudgetGovernancePolicy` wiring; budget-ceiling block test. |
 | S14    | #82         | Data Quality  | DQ assertions inside the transform stage; bad-record routing. |
 | S15    | #83         | CI gating     | Live emulator via Testcontainers; GitHub Actions gate on E2E green. |
 
@@ -88,15 +88,16 @@ cd ../deployments/reference-e2e-gcp
 mvn -o test
 ```
 
-Expected output after S12 T12.5:
+Expected output after S13 T13.5:
 ```
-Tests run: 6, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
 BUILD SUCCESS
 ```
 
-The 6 tests break down as:
+The 8 tests break down as:
 - 3 skeleton tests (`ReferenceE2EPipelineTest`) — unchanged from T12.0.
 - 3 observability tests (`ReferenceE2EObservabilityTest`) — the S12 slice.
+- 2 cost/FinOps tests (`ReferenceE2ECostTest`) — the S13 slice.
 
 **Live emulator / CI (S15, #83, future):**
 
@@ -232,6 +233,197 @@ gcloud logging read \
 #  first-class trace-list command.)
 # Cloud Console → Cloud Trace → Trace list → filter by span name prefix "culvert.stage/"
 ```
+
+---
+
+---
+
+## Sprint-13 cost/FinOps slice (T13.5, #81)
+
+### What was added
+
+```
+src/
+├── main/java/com/enrichmeai/culvert/e2e/
+│   ├── NoOpReadStage.java       updated: emits CostMetrics via context.finops().record()
+│   └── NoOpTransformStage.java  updated: emits CostMetrics via context.finops().record()
+└── test/java/com/enrichmeai/culvert/e2e/
+    ├── RecordingFinOpsSink.java  serializable recording FinOpsSink (ServiceLoader)
+    └── ReferenceE2ECostTest.java  2 DirectRunner assertions (the S13 gate)
+test/resources/META-INF/services/
+    └── com.enrichmeai.culvert.contracts.FinOpsSink  → RecordingFinOpsSink
+```
+
+### How cost recording works
+
+Each stage's `execute(RuntimeContext context)` method calls:
+
+```java
+CostMetrics metrics = CostMetrics.builder(context.runId())
+        .estimatedCostUsd(0.000005)
+        .billedBytesScanned(1_000_000L)
+        .labels(Map.of("stage", name()))   // required by cost_by_stage query
+        .build();
+
+FinOpsTag tag = new FinOpsTag(
+        "reference-e2e-gcp", context.environment(),
+        "cost-center-reference", "culvert-framework-team",
+        context.runId(),
+        Map.of("stage", name())             // extra tag label
+);
+
+context.finops().record(metrics, tag);
+```
+
+In production, replace the stub values with statistics from
+`BigQueryCostTracker.trackJob(job, runId, tag)` (in `data-pipeline-gcp-bigquery-java`).
+
+### Budget governance wiring
+
+Register a `BudgetGovernancePolicy` in the context for pre-flight cost control:
+
+```java
+BudgetGovernancePolicy budget = new BudgetGovernancePolicy(
+        Double.parseDouble(config.getOrDefault("finops.budget.ceiling_usd", "100.0").toString()),
+        BudgetViolationMode.WARN   // reference deployment: WARN so the run is never blocked
+);
+DefaultRuntimeContext ctx = DefaultRuntimeContext.builder(runId, "prod")
+        .budgetPolicy(budget)
+        .build();
+
+// Pre-flight check before submitting:
+CostMetrics estimate = bigQueryCostTracker.estimateDryRun(queryConfig, ctx.runId());
+budget.checkBudget(estimate, ctx.runId());  // throws BudgetExceededException if BLOCK mode
+```
+
+Config key: **`finops.budget.ceiling_usd`** (default `100.0`). Pass via `Map.of(...)` to
+`DefaultRuntimeContext.builder(...).config(...)`. The reference deployment uses `WARN` mode
+so the reference run is never blocked; set `BLOCK` in production where runaway cost is
+unacceptable.
+
+### The `cost_metrics` table columns
+
+The `BigQueryFinOpsSink` (production) streams one row per `record()` call:
+
+| Column | Type | Source |
+|--------|------|--------|
+| `system` | STRING | `FinOpsTag.system()` |
+| `environment` | STRING | `FinOpsTag.environment()` |
+| `cost_center` | STRING | `FinOpsTag.costCenter()` |
+| `owner` | STRING | `FinOpsTag.owner()` |
+| `tag_run_id` | STRING | `FinOpsTag.runId()` |
+| `tag_extra` | RECORD ARRAY | `FinOpsTag.extra()` flattened as `[{key, value}]` |
+| `run_id` | STRING | `CostMetrics.runId()` |
+| `estimated_cost_usd` | FLOAT64 | `CostMetrics.estimatedCostUsd()` |
+| `billed_bytes_scanned` | INT64 | `CostMetrics.billedBytesScanned()` |
+| `billed_bytes_written` | INT64 | `CostMetrics.billedBytesWritten()` |
+| `billed_bytes_stored` | INT64 | `CostMetrics.billedBytesStored()` |
+| `billed_messages_count` | INT64 | `CostMetrics.billedMessagesCount()` |
+| `slot_millis` | INT64 | `CostMetrics.slotMillis()` |
+| `compute_units` | FLOAT64 | `CostMetrics.computeUnits()` |
+| `labels` | RECORD ARRAY | `CostMetrics.labels()` flattened as `[{key, value}]` |
+| `timestamp` | TIMESTAMP | `CostMetrics.timestamp()` |
+
+### Four cost-analysis SQL queries (T13.4)
+
+These queries are loadable via `CostAnalysisQueries.loadQuery(name)` from the
+`data-pipeline-gcp-bigquery-java` artifact:
+
+#### 1. `cost_by_run` — total cost per pipeline run
+
+```sql
+SELECT
+    run_id,
+    SUM(estimated_cost_usd)      AS total_estimated_cost_usd,
+    SUM(slot_millis)             AS total_slot_millis
+FROM cost_metrics
+GROUP BY run_id
+ORDER BY total_estimated_cost_usd DESC;
+```
+
+Expected columns: `run_id STRING`, `total_estimated_cost_usd FLOAT64`,
+`total_slot_millis INT64`.
+
+#### 2. `cost_by_stage` — cost attributed per stage name
+
+```sql
+SELECT
+    label.value                  AS stage,
+    SUM(estimated_cost_usd)      AS total_estimated_cost_usd
+FROM cost_metrics, UNNEST(labels) AS label
+WHERE label.key = 'stage'
+GROUP BY stage
+ORDER BY total_estimated_cost_usd DESC;
+```
+
+Expected columns: `stage STRING`, `total_estimated_cost_usd FLOAT64`.
+**Requires**: `CostMetrics.labels()` contains `"stage" → stageName` (set in both
+`NoOpReadStage` and `NoOpTransformStage`).
+
+#### 3. `top_expensive_runs_7d` — top 10 runs by cost in the last 7 days
+
+```sql
+SELECT
+    run_id,
+    SUM(estimated_cost_usd)      AS total_estimated_cost_usd,
+    MIN(`timestamp`)             AS earliest,
+    MAX(`timestamp`)             AS latest
+FROM cost_metrics
+WHERE `timestamp` >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+GROUP BY run_id
+ORDER BY total_estimated_cost_usd DESC
+LIMIT 10;
+```
+
+Expected columns: `run_id STRING`, `total_estimated_cost_usd FLOAT64`,
+`earliest TIMESTAMP`, `latest TIMESTAMP`.
+
+#### 4. `budget_breach_log` — all rows where cost exceeded a threshold
+
+```sql
+SELECT
+    run_id,
+    estimated_cost_usd,
+    system,
+    environment,
+    cost_center,
+    owner,
+    `timestamp`
+FROM cost_metrics
+WHERE estimated_cost_usd > ?
+ORDER BY `timestamp` DESC;
+```
+
+Bind the `?` placeholder with the ceiling value before executing.
+Expected columns: `run_id STRING`, `estimated_cost_usd FLOAT64`, `system STRING`,
+`environment STRING`, `cost_center STRING`, `owner STRING`, `timestamp TIMESTAMP`.
+
+### Production wiring with BigQueryFinOpsSink ([Joseph runs])
+
+```java
+// 1. Build the BigQuery client (ADC or service account):
+BigQuery bqClient = BigQueryOptions.getDefaultInstance().getService();
+
+// 2. Build the sink pointing at your cost_metrics table:
+BigQueryFinOpsSink sink = new BigQueryFinOpsSink(
+        bqClient, "my-gcp-project", "finops_dataset", BigQueryFinOpsSink.DEFAULT_TABLE);
+
+// 3. Wire into the context:
+DefaultRuntimeContext ctx = DefaultRuntimeContext.builder(runId, "prod")
+        .register(FinOpsSink.class, sink)
+        .budgetPolicy(new BudgetGovernancePolicy(100.0, BudgetViolationMode.WARN))
+        .build();
+```
+
+Add `data-pipeline-gcp-bigquery` (`0.1.0`) as a dependency for access to
+`BigQueryFinOpsSink`, `BigQueryCostTracker`, and `CostAnalysisQueries`.
+
+### IAM roles required for the live GCP run ([Joseph runs])
+
+| Role | Purpose |
+|------|---------|
+| `roles/bigquery.dataEditor` | Stream rows into the `cost_metrics` table |
+| `roles/bigquery.jobUser` | Run BigQuery dry-run estimates |
 
 ---
 
