@@ -1,0 +1,5 @@
+# T13.5 (#81): Recording sink for the reference-e2e-gcp cost/FinOps E2E test.
+# AutoConfig.discover() loads this on the test classpath, making it available
+# worker-side after Beam serialization — proves cost recording fires per-stage
+# with no per-stage boilerplate (sprint-13 exit gate for issue #81).
+com.enrichmeai.culvert.e2e.RecordingFinOpsSink
