@@ -117,3 +117,48 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-pubsub-java -am cle
 ```
 
 Live-cloud integration tests against a real Pub/Sub topic are sprint-3+ scope.
+
+## PubSubCostTracker
+
+Sprint-13 deliverable for issue [#70](https://github.com/enrichmeai/culvert/issues/70) (T13.2). Builds a `CostMetrics` record from Pub/Sub message-count and throughput-bytes, and pushes it to a `FinOpsSink`. Does not hold a Pub/Sub client — it operates on counts and bytes already obtained by the caller.
+
+### Construction
+
+```java
+FinOpsSink sink = new BigQueryFinOpsSink(client, "my-project", "finops", "cost_metrics");
+PubSubCostTracker tracker = new PubSubCostTracker(sink);
+```
+
+### Rate constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `BYTES_PER_TIB` | `1_099_511_627_776L` (2^40) | Binary definition of tebibyte; Pub/Sub pricing uses binary TiB. Mirrors `BigQueryCostTracker.BYTES_PER_TIB` for consistency. |
+| `THROUGHPUT_COST_USD_PER_TIB` | `40.00` | Pub/Sub message throughput rate, USD/TiB (above free tier, 2025). The first 10 GiB/month is free; this constant is the on-demand rate. Source: [Pub/Sub pricing](https://cloud.google.com/pubsub/pricing). |
+
+USD formula: `estimatedCostUsd = totalBytes / BYTES_PER_TIB * THROUGHPUT_COST_USD_PER_TIB`
+
+Note: `messageCount` is recorded in `billedMessagesCount` for attribution but does not drive the USD estimate (Pub/Sub bills on throughput bytes, not message count).
+
+### trackPublish / trackSubscribe usage
+
+```java
+FinOpsTag tag = FinOpsTag.of("retail-fdp", "prod", "cc-1234", "platform-team", runId);
+
+// After a publish batch:
+tracker.trackPublish(messageCount, totalBytes, runId, tag);
+
+// After a subscription pull/push batch:
+tracker.trackSubscribe(messageCount, totalBytes, runId, tag);
+// CostMetrics are pushed to the FinOpsSink automatically.
+```
+
+Field mapping (same for both methods):
+
+| Input | CostMetrics field |
+|---|---|
+| `messageCount` | `billedMessagesCount` |
+| `totalBytes` | `billedBytesWritten` |
+| computed | `estimatedCostUsd` (via `THROUGHPUT_COST_USD_PER_TIB`) |
+
+Zero or negative inputs are accepted; cost is recorded as zero and a WARN log is emitted. `FinOpsSink.record` is called exactly once per invocation.
