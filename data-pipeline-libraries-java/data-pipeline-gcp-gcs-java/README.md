@@ -117,3 +117,61 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-gcs-java -am clean 
 ```
 
 Live-cloud integration tests against a real GCS bucket are sprint-2+ scope.
+
+## GcsCostTracker
+
+Sprint-13 deliverable for issue [#70](https://github.com/enrichmeai/culvert/issues/70) (T13.2). Builds a `CostMetrics` record from GCS operation sizes and pushes it to a `FinOpsSink`. Does not hold a GCS client — it operates on byte counts already obtained by the caller.
+
+### Construction
+
+```java
+FinOpsSink sink = new BigQueryFinOpsSink(client, "my-project", "finops", "cost_metrics");
+GcsCostTracker tracker = new GcsCostTracker(sink);
+```
+
+### Rate constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `BYTES_PER_GIB` | `1_073_741_824L` (2^30) | Binary definition of gibibyte; GCS pricing uses binary GiB. Use this — not 1e9 — to avoid ~7% undercount. |
+| `WRITE_COST_USD_PER_GIB` | `0.01` | Accounting placeholder for upload cost per GiB. **GCS does not bill per-byte for writes** (it charges per Class A operation). Set to 0.0 if per-upload cost attribution is not needed. Source: [GCS operations pricing](https://cloud.google.com/storage/pricing#operations-pricing). |
+| `STANDARD_STORAGE_USD_PER_GIB` | `0.020` | GCS Standard storage, USD/GiB-month (US multi-region, 2025). Source: [GCS storage pricing](https://cloud.google.com/storage/pricing#storage-pricing). |
+| `NEARLINE_STORAGE_USD_PER_GIB` | `0.010` | GCS Nearline storage, USD/GiB-month (US multi-region, 2025). Source: [GCS storage pricing](https://cloud.google.com/storage/pricing#storage-pricing). |
+| `COLDLINE_STORAGE_USD_PER_GIB` | `0.004` | GCS Coldline storage, USD/GiB-month (US multi-region, 2025). Source: [GCS storage pricing](https://cloud.google.com/storage/pricing#storage-pricing). |
+| `ARCHIVE_STORAGE_USD_PER_GIB` | `0.0012` | GCS Archive storage, USD/GiB-month (US multi-region, 2025). Source: [GCS storage pricing](https://cloud.google.com/storage/pricing#storage-pricing). |
+
+USD formula: `estimatedCostUsd = bytes / BYTES_PER_GIB * ratePerGib`
+
+### trackUpload usage
+
+```java
+FinOpsTag tag = FinOpsTag.of("retail-fdp", "prod", "cc-1234", "platform-team", runId);
+// After a GCS write completes — pass the bytes-written count from the operation:
+tracker.trackUpload(bytesWritten, runId, tag);
+// CostMetrics are pushed to the FinOpsSink automatically.
+```
+
+Field mapping:
+
+| Input | CostMetrics field |
+|---|---|
+| `bytesWritten` | `billedBytesWritten` |
+| computed | `estimatedCostUsd` (via `WRITE_COST_USD_PER_GIB`) |
+
+### trackStorageClass usage
+
+```java
+// Estimate monthly cost for data stored under a given storage class:
+tracker.trackStorageClass(bytesStored, "NEARLINE", runId, tag);
+```
+
+Field mapping:
+
+| Input | CostMetrics field |
+|---|---|
+| `bytesStored` | `billedBytesStored` |
+| computed | `estimatedCostUsd` (via per-class rate) |
+
+Recognised storage class strings (case-insensitive): `STANDARD`, `NEARLINE`, `COLDLINE`, `ARCHIVE`. Unknown values fall back to the Standard rate and log at WARN.
+
+Zero or negative byte counts are accepted; cost is recorded as zero and a WARN log is emitted. `FinOpsSink.record` is called exactly once per invocation.
