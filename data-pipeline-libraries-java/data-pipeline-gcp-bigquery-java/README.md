@@ -127,8 +127,9 @@ ServiceLoader.load(Warehouse.class).findFirst()
 - ✅ `BigQueryWarehouse` — issue [#6](https://github.com/enrichmeai/culvert/issues/6) (Warehouse contract)
 - ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/culvert/issues/8) (JobControlRepository contract); see section below
 - ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/culvert/issues/9) (FinOpsSink contract); see section below
+- ✅ `BigQueryCostTracker` — issue [#69](https://github.com/enrichmeai/culvert/issues/69) (T13.1: JobStatistics → CostMetrics pipeline); see section below
 
-All three share this module's `pom.xml`.
+All four share this module's `pom.xml`.
 
 ## BigQueryJobControlRepository
 
@@ -235,3 +236,98 @@ The flattened `labels` / `tag_extra` shape avoids BigQuery DDL changes when team
 ### ServiceLoader registration
 
 `src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.FinOpsSink` lists the impl. Same no-arg-constructor caveat as the siblings — sprint-4 auto-config will resolve it.
+
+## BigQueryCostTracker
+
+Sprint-13 deliverable for issue [#69](https://github.com/enrichmeai/culvert/issues/69) (T13.1). Sets the pattern for T13.2. Reads `JobStatistics` from a completed BigQuery `Job`, builds a `CostMetrics` record, and pushes it to the `FinOpsSink`.
+
+### Construction
+
+```java
+BigQuery client = BigQueryOptions.newBuilder().setProjectId("my-project").build().getService();
+FinOpsSink sink = new BigQueryFinOpsSink(client, "my-project", "finops", "cost_metrics");
+BigQueryCostTracker tracker = new BigQueryCostTracker(client, sink);
+```
+
+### Rate constants
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `BYTES_PER_TIB` | `1_099_511_627_776L` (2^40) | Binary definition of tebibyte; BigQuery pricing uses binary TiB. Use this — not 1e12 — to avoid ~10% undercount. |
+| `QUERY_COST_USD_PER_TIB` | `5.00` | BigQuery on-demand query rate as of 2025 ($5.00/TiB scanned). Source: [BigQuery on-demand pricing](https://cloud.google.com/bigquery/pricing#on_demand_pricing). |
+| `LOAD_COST_USD_PER_TIB` | `0.01` | GCS-egress-equivalent placeholder for load job accounting. **BigQuery batch loads are actually free to ingest** — set this to 0.0 if no GCS egress applies. |
+
+USD formula for query jobs: `estimatedCostUsd = billedBytesScanned / BYTES_PER_TIB * QUERY_COST_USD_PER_TIB`
+
+### trackJob usage
+
+```java
+// After a BigQuery job completes (query or load):
+FinOpsTag tag = FinOpsTag.of("retail-fdp", "prod", "cc-1234", "platform-team", runId);
+tracker.trackJob(completedJob, runId, tag);
+// CostMetrics are pushed to the FinOpsSink automatically.
+```
+
+Field mapping:
+
+| Job type | Statistics field | CostMetrics field |
+|---|---|---|
+| Query | `QueryStatistics.getTotalBytesBilled()` | `billedBytesScanned` |
+| Query | `JobStatistics.getTotalSlotMs()` | `slotMillis` |
+| Load | `LoadStatistics.getOutputBytes()` | `billedBytesWritten` |
+
+Null statistics fields are treated as zero and a `WARN` log is emitted. If `Job.getStatistics()` is null, no metrics are emitted and a `WARN` is logged.
+
+### estimateDryRun — pre-flight cost check
+
+Submits a `setDryRun(true)` job so BigQuery validates the query and returns an estimate **without executing** it. Returns a `CostMetrics` with only `billedBytesScanned` and `estimatedCostUsd` populated; all other fields are zero.
+
+```java
+QueryJobConfiguration config = QueryJobConfiguration.newBuilder(
+        "SELECT COUNT(*) FROM `project.dataset.table`").build();
+CostMetrics estimate = tracker.estimateDryRun(config, runId);
+System.out.printf("Estimated cost: $%.4f%n", estimate.estimatedCostUsd());
+```
+
+**Dry-run field fallback**: `getTotalBytesBilled()` may be null on a dry-run response (the query never executes, so no billing event occurs). When null/zero, the implementation falls back to `getTotalBytesProcessed()` and emits a WARN. This is a known runtime risk that can only be verified against a live BigQuery endpoint — see `BigQueryCostTrackerIT` (architect-run via `mvn -P it verify`).
+
+## Cost-analysis SQL pack (Sprint 13 / T13.4)
+
+A set of pre-written BigQuery Standard SQL queries for analysing the
+`cost_metrics` table populated by `BigQueryFinOpsSink`. The queries live in
+`src/main/resources/com/enrichmeai/culvert/gcp/bigquery/sql/cost_analysis.sql`
+and are loaded at runtime via `CostAnalysisQueries.loadQuery(name)`.
+
+### Available queries
+
+| Name | Purpose |
+|------|---------|
+| `cost_by_run` | Total estimated USD and slot-ms grouped by `run_id`, ordered by cost DESC |
+| `cost_by_stage` | Total estimated USD grouped by the `stage` label, using `UNNEST(labels)` — surfaces per-stage cost ready for T13.5 |
+| `top_expensive_runs_7d` | Top 10 `run_id`s by total estimated cost in the last 7 days |
+| `budget_breach_log` | All rows where `estimated_cost_usd > ?` (positional parameter), ordered by timestamp DESC |
+
+### Usage
+
+```java
+// Load a named SQL block from the classpath resource.
+String sql = CostAnalysisQueries.loadQuery("cost_by_run");
+
+// budget_breach_log has one positional parameter — bind before executing.
+String breachSql = CostAnalysisQueries.loadQuery("budget_breach_log");
+// Replace ? with a QueryParameterValue or pass as a named param after adaptation.
+```
+
+`CostAnalysisQueries.loadQuery(name)` throws `IllegalArgumentException` for
+unknown names and `NullPointerException` for null. It parses the SQL file once
+at class-init (static block) so repeated calls are cheap.
+
+### Add new queries
+
+Drop a new `-- query: <name>` block in `cost_analysis.sql`. No Java changes
+needed; the parser picks it up on the next class load.
+
+### Verify-at-start notes (issue #69, T13.1)
+
+- **Version check**: Ticket assumes `google-cloud-bigquery 2.55.x`. Actual BOM-resolved version is **2.40.1** (via `libraries-bom 26.39.0`). All required API surface (`getTotalBytesBilled`, `getTotalSlotMs` on `JobStatistics`, `getOutputBytes` on `LoadStatistics`) is present in 2.40.1. No workaround needed; architect should update the ticket's version assumption.
+- **Dry-run population**: Whether `getTotalBytesBilled()` is populated at runtime on a dry-run cannot be verified offline (no emulator IT in agent scope). The fallback to `getTotalBytesProcessed()` is the mitigation — see `resolveDryRunBytes` in the source.
