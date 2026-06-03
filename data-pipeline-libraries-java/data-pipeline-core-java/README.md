@@ -112,6 +112,50 @@ com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook
 # Set one of: -Dculvert.gcp.project=<id>  OR  CULVERT_GCP_PROJECT=<id>  OR  ADC default project
 ```
 
+## BudgetGovernancePolicy (Sprint 13 / T13.3)
+
+`BudgetGovernancePolicy` is a `GovernancePolicy` implementation that enforces a cost
+ceiling on pipeline runs. It lives in `com.enrichmeai.culvert.finops` (cloud-neutral;
+no `com.google.cloud.*` or `org.apache.beam.*` imports).
+
+### Two modes
+
+| Mode | Behaviour when projected cost > ceiling |
+|------|-----------------------------------------|
+| `BudgetViolationMode.BLOCK` | Throws `BudgetExceededException` (checked) — the run does not proceed |
+| `BudgetViolationMode.WARN` | Logs a `WARNING` via `java.util.logging` and returns — the run continues |
+
+### Pre-flight wiring example
+
+```java
+// 1. Create the policy with a $50 ceiling in BLOCK mode.
+BudgetGovernancePolicy budget =
+        new BudgetGovernancePolicy(50.0, BudgetViolationMode.BLOCK);
+
+// 2. Register it as the context's GovernancePolicy.
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(GovernancePolicy.class, budget)
+        .build();
+
+// 3. Dry-run the query to get a projected CostMetrics (T13.1).
+//    BigQueryCostTracker lives in data-pipeline-gcp-bigquery-java.
+CostMetrics estimate = costTracker.estimateDryRun(queryConfig, ctx.runId());
+
+// 4. Pre-flight check — throws BudgetExceededException if over ceiling.
+//    Keep a typed reference to call checkBudget; the ctx.governance() accessor
+//    returns GovernancePolicy, which does not declare checkBudget.
+budget.checkBudget(estimate, ctx.runId());
+
+// 5. If we reach here, the run is within budget — submit it.
+```
+
+### GovernancePolicy methods
+
+The three `GovernancePolicy` methods (`classify`, `maskingFor`, `retentionFor`)
+are intentionally inert: every field is `INTERNAL`, nothing is masked, nothing has
+a retention limit. If full governance is also needed, wrap `BudgetGovernancePolicy`
+with a delegating implementation that calls the real governance backend.
+
 ## License
 
 MIT — see [LICENSE](../../LICENSE) at the repository root.
