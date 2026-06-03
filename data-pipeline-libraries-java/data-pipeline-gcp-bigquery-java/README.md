@@ -291,6 +291,42 @@ System.out.printf("Estimated cost: $%.4f%n", estimate.estimatedCostUsd());
 
 **Dry-run field fallback**: `getTotalBytesBilled()` may be null on a dry-run response (the query never executes, so no billing event occurs). When null/zero, the implementation falls back to `getTotalBytesProcessed()` and emits a WARN. This is a known runtime risk that can only be verified against a live BigQuery endpoint — see `BigQueryCostTrackerIT` (architect-run via `mvn -P it verify`).
 
+## Cost-analysis SQL pack (Sprint 13 / T13.4)
+
+A set of pre-written BigQuery Standard SQL queries for analysing the
+`cost_metrics` table populated by `BigQueryFinOpsSink`. The queries live in
+`src/main/resources/com/enrichmeai/culvert/gcp/bigquery/sql/cost_analysis.sql`
+and are loaded at runtime via `CostAnalysisQueries.loadQuery(name)`.
+
+### Available queries
+
+| Name | Purpose |
+|------|---------|
+| `cost_by_run` | Total estimated USD and slot-ms grouped by `run_id`, ordered by cost DESC |
+| `cost_by_stage` | Total estimated USD grouped by the `stage` label, using `UNNEST(labels)` — surfaces per-stage cost ready for T13.5 |
+| `top_expensive_runs_7d` | Top 10 `run_id`s by total estimated cost in the last 7 days |
+| `budget_breach_log` | All rows where `estimated_cost_usd > ?` (positional parameter), ordered by timestamp DESC |
+
+### Usage
+
+```java
+// Load a named SQL block from the classpath resource.
+String sql = CostAnalysisQueries.loadQuery("cost_by_run");
+
+// budget_breach_log has one positional parameter — bind before executing.
+String breachSql = CostAnalysisQueries.loadQuery("budget_breach_log");
+// Replace ? with a QueryParameterValue or pass as a named param after adaptation.
+```
+
+`CostAnalysisQueries.loadQuery(name)` throws `IllegalArgumentException` for
+unknown names and `NullPointerException` for null. It parses the SQL file once
+at class-init (static block) so repeated calls are cheap.
+
+### Add new queries
+
+Drop a new `-- query: <name>` block in `cost_analysis.sql`. No Java changes
+needed; the parser picks it up on the next class load.
+
 ### Verify-at-start notes (issue #69, T13.1)
 
 - **Version check**: Ticket assumes `google-cloud-bigquery 2.55.x`. Actual BOM-resolved version is **2.40.1** (via `libraries-bom 26.39.0`). All required API surface (`getTotalBytesBilled`, `getTotalSlotMs` on `JobStatistics`, `getOutputBytes` on `LoadStatistics`) is present in 2.40.1. No workaround needed; architect should update the ticket's version assumption.
