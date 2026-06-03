@@ -8,6 +8,7 @@ import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.SecretProvider;
 import com.enrichmeai.culvert.contracts.StageMetricsHook;
+import com.enrichmeai.culvert.finops.BudgetGovernancePolicy;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -340,6 +341,34 @@ public final class DefaultRuntimeContext implements RuntimeContext, Serializable
             Objects.requireNonNull(impl, "impl must not be null");
             this.registry.put(protocolType, impl);
             return this;
+        }
+
+        /**
+         * Convenience overload for registering a {@link BudgetGovernancePolicy}.
+         *
+         * <p>Calls {@code register(GovernancePolicy.class, p)} — no new field,
+         * purely syntactic sugar so pipeline authors can write:
+         *
+         * <pre>{@code
+         * DefaultRuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+         *         .budgetPolicy(new BudgetGovernancePolicy(50.0, BudgetViolationMode.BLOCK))
+         *         .build();
+         * // ctx.governance() returns the BudgetGovernancePolicy
+         * }</pre>
+         *
+         * <p><strong>Explicit-register-only</strong>: {@code BudgetGovernancePolicy}
+         * requires a {@code ceilingUsd} + {@code mode} constructor — it has no no-arg
+         * constructor. ServiceLoader cannot instantiate it from a
+         * {@code META-INF/services} entry; use this method (or
+         * {@link #register(Class, Object)}) to wire it explicitly on the driver.
+         *
+         * @param p The policy to register. Required.
+         * @return {@code this} for fluent chaining.
+         * @throws NullPointerException if {@code p} is null.
+         */
+        public Builder budgetPolicy(BudgetGovernancePolicy p) {
+            return register(GovernancePolicy.class,
+                    Objects.requireNonNull(p, "BudgetGovernancePolicy must not be null"));
         }
 
         public DefaultRuntimeContext build() {
