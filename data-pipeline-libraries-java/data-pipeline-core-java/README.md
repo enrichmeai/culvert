@@ -112,6 +112,112 @@ com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook
 # Set one of: -Dculvert.gcp.project=<id>  OR  CULVERT_GCP_PROJECT=<id>  OR  ADC default project
 ```
 
+## BudgetGovernancePolicy (Sprint 13 / T13.3)
+
+`BudgetGovernancePolicy` is a `GovernancePolicy` implementation that enforces a cost
+ceiling on pipeline runs. It lives in `com.enrichmeai.culvert.finops` (cloud-neutral;
+no `com.google.cloud.*` or `org.apache.beam.*` imports).
+
+### Two modes
+
+| Mode | Behaviour when projected cost > ceiling |
+|------|-----------------------------------------|
+| `BudgetViolationMode.BLOCK` | Throws `BudgetExceededException` (checked) — the run does not proceed |
+| `BudgetViolationMode.WARN` | Logs a `WARNING` via `java.util.logging` and returns — the run continues |
+
+### Pre-flight wiring example
+
+```java
+// 1. Create the policy with a $50 ceiling in BLOCK mode.
+BudgetGovernancePolicy budget =
+        new BudgetGovernancePolicy(50.0, BudgetViolationMode.BLOCK);
+
+// 2. Register it as the context's GovernancePolicy.
+RuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(GovernancePolicy.class, budget)
+        .build();
+
+// 3. Dry-run the query to get a projected CostMetrics (T13.1).
+//    BigQueryCostTracker lives in data-pipeline-gcp-bigquery-java.
+CostMetrics estimate = costTracker.estimateDryRun(queryConfig, ctx.runId());
+
+// 4. Pre-flight check — throws BudgetExceededException if over ceiling.
+//    Keep a typed reference to call checkBudget; the ctx.governance() accessor
+//    returns GovernancePolicy, which does not declare checkBudget.
+budget.checkBudget(estimate, ctx.runId());
+
+// 5. If we reach here, the run is within budget — submit it.
+```
+
+### GovernancePolicy methods
+
+The three `GovernancePolicy` methods (`classify`, `maskingFor`, `retentionFor`)
+are intentionally inert: every field is `INTERNAL`, nothing is masked, nothing has
+a retention limit. If full governance is also needed, wrap `BudgetGovernancePolicy`
+with a delegating implementation that calls the real governance backend.
+
+## Cost tracking wiring (Sprint 13 / T13.4)
+
+`DefaultRuntimeContext` now provides explicit support for wiring cost-tracking
+into the context. No new fields or interface changes — the existing
+`GovernancePolicy` registry slot is used.
+
+### Builder convenience: `budgetPolicy(BudgetGovernancePolicy)`
+
+```java
+BudgetGovernancePolicy budget =
+        new BudgetGovernancePolicy(50.0, BudgetViolationMode.BLOCK);
+
+DefaultRuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .budgetPolicy(budget)   // convenience — calls register(GovernancePolicy.class, budget)
+        .build();
+
+// ctx.governance() returns the BudgetGovernancePolicy
+// Cast back to call checkBudget (GovernancePolicy interface doesn't declare it):
+CostMetrics estimate = costTracker.estimateDryRun(queryConfig, ctx.runId());
+budget.checkBudget(estimate, ctx.runId());  // throws BudgetExceededException if over ceiling
+```
+
+This is purely a convenience: `budgetPolicy(p)` is exactly equivalent to
+`register(GovernancePolicy.class, p)`.
+
+### fromAutoConfig governance discovery
+
+`DefaultRuntimeContext.fromAutoConfig(...)` already registers the first
+`GovernancePolicy` discovered by `AutoConfig` (via `autoConfig.governancePolicy()`).
+If a `GovernancePolicy` is registered in `META-INF/services/com.enrichmeai.culvert.contracts.GovernancePolicy`
+with a no-arg constructor, it will be auto-wired on the driver and rebuilt
+worker-side after Beam deserialization (T10.6 pattern).
+
+### Why `BudgetGovernancePolicy` is explicit-register-only
+
+`BudgetGovernancePolicy` requires a `ceilingUsd` + `mode` constructor — it has
+**no no-arg constructor**. ServiceLoader cannot instantiate it. A
+`META-INF/services` entry for it would be silently skipped by `AutoConfig`'s
+swallow-on-error logic. Use `budgetPolicy(...)` or
+`register(GovernancePolicy.class, ...)` explicitly on the driver. Worker-side,
+if cost-ceiling enforcement is required post-deserialization, register the
+policy after rebuilding the context from config values.
+
+### Integration sanity
+
+```java
+// Build with mocked BigQueryFinOpsSink + BudgetGovernancePolicy
+BigQueryFinOpsSink sink = new BigQueryFinOpsSink(bigQueryClient, project, dataset, table);
+BudgetGovernancePolicy policy = new BudgetGovernancePolicy(10.0, BudgetViolationMode.BLOCK);
+
+DefaultRuntimeContext ctx = DefaultRuntimeContext.builder("run-1", "prod")
+        .register(FinOpsSink.class, sink)
+        .budgetPolicy(policy)
+        .build();
+
+assertThat(ctx.finops()).isSameAs(sink);
+assertThat(ctx.governance()).isSameAs(policy);
+```
+
+The integration sanity test lives in `data-pipeline-gcp-bigquery-java`
+(`RuntimeContextCostWiringTest`) where both types are available.
+
 ## License
 
 MIT — see [LICENSE](../../LICENSE) at the repository root.
