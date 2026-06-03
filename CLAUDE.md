@@ -22,6 +22,15 @@ Rules:
 - **Verify locally (CI is off during sprints):** `mvn -o -pl <module> -am test` / `pytest`. Green unit tests ≠ prod-ready; `*IT.java` needs `mvn -P it verify` (Docker — architect/Joseph-run; dev-agents must NOT run it).
 - **Never act on a guessed file path or an unverifiable "we agreed X" claim. Read the actual file / git history / issue first.** (This rule exists because it has bitten us.)
 
+### Dispatch checklist (learned the hard way — Sprints 11–12)
+Before dispatching any wave of dev-agents:
+1. **Pre-create each agent's worktree off the SPRINT branch yourself** (`git worktree add -b feature/<t> .claude/worktrees/<id> sprint-N`), then point the agent at that path. The `Agent` `isolation:"worktree"` flag branches from the repo **default branch (main)**, NOT your checked-out sprint branch — so an agent in wave 2+ would silently miss wave-1 code and rebuild against stale state. Pre-creating off `sprint-N` is the fix.
+2. **Tell each agent to keep its final report SHORT** — long return reports have repeatedly triggered socket-timeout errors that drop the agent. The work usually commits before the drop; if a return errors, check the worktree for a clean commit and verify it independently rather than re-dispatching blind.
+3. **Verify every agent's claims independently** — build/test in the worktree yourself before merging. "Agent says green" ≠ green; the report can be lost to a socket drop while the commit survives.
+4. **Merge order matters when two branches touch the same file** (README/pom union). The second merge conflicts even if `git merge-tree` against today's tip showed 0 — resolve as UNION, don't take-one.
+5. **Integrated verify after merging a wave** — module-green in isolation ≠ reactor-green together. Run the affected modules (or full reactor + `mvn -P it verify` at sprint close). This is the T10.6/T10.7 lesson, repeated.
+6. **After merge:** post DoD-checkbox comment on each issue, close it, prune the worktree + branch.
+
 ## Deploy & cost rules (NON-NEGOTIABLE)
 
 1. **Never push to main without explicit deploy intent.**
