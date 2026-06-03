@@ -8,8 +8,13 @@ import com.enrichmeai.culvert.contracts.ObservabilityHook;
 import com.enrichmeai.culvert.contracts.SecretProvider;
 import com.enrichmeai.culvert.contracts.StageMetrics;
 import com.enrichmeai.culvert.contracts.StageMetricsHook;
+import com.enrichmeai.culvert.finops.BudgetGovernancePolicy;
+import com.enrichmeai.culvert.finops.BudgetViolationMode;
 import com.enrichmeai.culvert.governance.DataClassification;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -17,14 +22,20 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 /**
- * Unit tests for {@link DefaultRuntimeContext} (Sprint-9 T9.1).
+ * Unit tests for {@link DefaultRuntimeContext} (Sprint-9 T9.1; T13.4 additions).
  */
+@ExtendWith(MockitoExtension.class)
 class DefaultRuntimeContextTest {
+
+    @Mock
+    private AutoConfig mockAutoConfig;
 
     @Test
     void builderCarriesIdentityAndConfig() {
@@ -238,6 +249,65 @@ class DefaultRuntimeContextTest {
         // No-op call must not throw.
         roundTrippedMetrics.recordStageMetrics(
                 new StageMetrics("pipe-rt", "run-ser", "stage-rt", 0L, 1.0, 0L));
+    }
+
+    // --- T13.4: budgetPolicy() convenience method + fromAutoConfig GovernancePolicy path ---
+
+    @Test
+    void budgetPolicyConvenienceRegistersAgainstGovernancePolicyClass() {
+        // budgetPolicy(p) must call register(GovernancePolicy.class, p) under the hood.
+        BudgetGovernancePolicy policy =
+                new BudgetGovernancePolicy(50.0, BudgetViolationMode.BLOCK);
+
+        DefaultRuntimeContext ctx = DefaultRuntimeContext
+                .builder("run-budget", "prod")
+                .budgetPolicy(policy)
+                .build();
+
+        GovernancePolicy resolved = ctx.governance();
+        assertThat(resolved)
+                .as("budgetPolicy() must register under GovernancePolicy.class")
+                .isSameAs(policy)
+                .isInstanceOf(BudgetGovernancePolicy.class);
+    }
+
+    @Test
+    void budgetPolicyConvenienceRejectsNull() {
+        assertThatThrownBy(() ->
+                DefaultRuntimeContext.builder("r", "dev").budgetPolicy(null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void fromAutoConfigRegistersDiscoveredGovernancePolicy() {
+        // Simulate AutoConfig returning a GovernancePolicy.
+        BudgetGovernancePolicy policy =
+                new BudgetGovernancePolicy(100.0, BudgetViolationMode.WARN);
+
+        // AutoConfig is final with a private ctor — stub via Mockito.
+        // All other getters default to empty Optional / empty list (Mockito defaults).
+        when(mockAutoConfig.governancePolicy()).thenReturn(Optional.of(policy));
+
+        DefaultRuntimeContext ctx = DefaultRuntimeContext.fromAutoConfig(
+                "run-ac-gov", "staging", Map.of(), mockAutoConfig);
+
+        GovernancePolicy resolved = ctx.governance();
+        assertThat(resolved)
+                .as("fromAutoConfig must register the first GovernancePolicy discovered by AutoConfig")
+                .isSameAs(policy);
+    }
+
+    @Test
+    void fromAutoConfigRegistersNoOpGovernancePolicyWhenNoneDiscovered() {
+        // All getters on a mock return empty by default — simulates a classpath
+        // with no GovernancePolicy implementation registered.
+        DefaultRuntimeContext ctx = DefaultRuntimeContext.fromAutoConfig(
+                "run-ac-empty", "dev", Map.of(), mockAutoConfig);
+
+        // governance() falls back to the no-op default — must not throw.
+        GovernancePolicy gov = ctx.governance();
+        assertThat(gov).isNotNull();
+        assertThat(gov.classify("col", "tbl")).isEqualTo(DataClassification.INTERNAL);
     }
 
     private static DefaultRuntimeContext roundTrip(DefaultRuntimeContext ctx) throws Exception {
