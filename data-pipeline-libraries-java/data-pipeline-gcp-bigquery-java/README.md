@@ -237,6 +237,56 @@ The flattened `labels` / `tag_extra` shape avoids BigQuery DDL changes when team
 
 `src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.FinOpsSink` lists the impl. Same no-arg-constructor caveat as the siblings — sprint-4 auto-config will resolve it.
 
+## Retry &amp; partial-load cleanup (Sprint 14 / T14.3)
+
+Sprint-14 deliverable for issue [#75](https://github.com/enrichmeai/culvert/issues/75).
+
+### `_run_id` column contract
+
+Every pipeline-written **target table** must contain a `_run_id STRING` column populated with the pipeline run's identifier at row-load time. `cleanupPartialLoad` deletes rows from that table using:
+
+```sql
+DELETE FROM `<tableId>` WHERE _run_id = @run_id
+```
+
+Required DDL addition for any BigQuery table loaded by the Culvert framework:
+
+```sql
+ALTER TABLE `my-project.warehouse.customers`
+    ADD COLUMN IF NOT EXISTS _run_id STRING;
+```
+
+Populate this column in every load job (e.g. `LoadJobConfiguration`, Dataflow, `bq load --schema`). Without this column `cleanupPartialLoad` will throw a BigQuery job error on the DELETE.
+
+### `RetryOrchestrator` usage
+
+`RetryOrchestrator` is a stateless helper that sequences the full retry lifecycle: detect prior partial load → `cleanupPartialLoad` → `markRetrying` → return cleared state for re-submission.
+
+```java
+JobControlRepository repo = new BigQueryJobControlRepository(
+        client, "my-project", "job_control", "pipeline_jobs");
+RetryOrchestrator orchestrator = new RetryOrchestrator(repo);
+
+// Called when you detect a FAILED run that needs a clean retry:
+RetryOrchestrator.RetryResult result = orchestrator.prepareRetry("run-abc-123");
+System.out.printf("Job ready to re-submit: retryCount=%d, rowsCleaned=%d%n",
+        result.retryCount(), result.rowsCleaned());
+// Caller re-submits the pipeline using result.runId().
+```
+
+**Idempotency:** calling `prepareRetry` on a job already in `RETRYING` state returns its current counter unchanged and does not call `markRetrying` or `cleanupPartialLoad` again. Safe to call multiple times.
+
+**No target table:** if `PipelineJob.targetTable()` is empty, the cleanup step is skipped (`rowsCleaned = 0`) and the job is still marked `RETRYING`.
+
+**Ordering guarantee:** `cleanupPartialLoad` is always called before `markRetrying`. The orchestrator does not expose partial state; either the full sequence completes or an exception propagates.
+
+### `BigQueryJobControlRepository` SQL for retry
+
+| Method | SQL |
+|---|---|
+| `markRetrying(runId, retryCount)` | `UPDATE <fqtn> SET status = 'retrying', retry_count = @retry_count, updated_at = CURRENT_TIMESTAMP() WHERE run_id = @run_id` |
+| `cleanupPartialLoad(runId, tableId)` | `DELETE FROM \`<tableId>\` WHERE _run_id = @run_id` — returns DML affected rows |
+
 ## BigQueryCostTracker
 
 Sprint-13 deliverable for issue [#69](https://github.com/enrichmeai/culvert/issues/69) (T13.1). Sets the pattern for T13.2. Reads `JobStatistics` from a completed BigQuery `Job`, builds a `CostMetrics` record, and pushes it to the `FinOpsSink`.
