@@ -168,12 +168,37 @@ If `failedRows` is empty, `writeFailures` is a no-op — no file is written and 
 
 ### T14.1 / InvalidRow seam
 
-`QuarantineHandler` depends on the local `FailedRowRecord` interface rather than T14.1's concrete `InvalidRow` (which is created by a parallel agent). T14.5 (the E2E slice) wires them by having `InvalidRow` implement `FailedRowRecord`, or via a one-line adapter. No core edits are required — the seam lives entirely in the calling code.
+`QuarantineHandler` depends on the local `FailedRowRecord` interface rather than T14.1's concrete `InvalidRow` (which is created by a parallel agent on `data-pipeline-core-java`).
+
+**`InvalidRow` cannot implement `FailedRowRecord` directly** — `FailedRowRecord` lives in `data-pipeline-gcp-gcs` (this module) and `InvalidRow` lives in `data-pipeline-core`. The dependency runs core ← gcs, so core code cannot reference a gcs-module type; attempting a cast from `InvalidRow` to `FailedRowRecord` would also not compile for the same reason.
+
+T14.5 (the E2E slice) wires them by adding an **adapter** in its own module (which depends on both core and gcs). The adapter wraps each `InvalidRow` and maps its `FieldViolation` list to `ViolationDescriptor`:
 
 ```java
-// T14.5 adapter (one line — InvalidRow already has the same shape):
+// In T14.5's module — adapt InvalidRow (core) → FailedRowRecord (gcs).
+// Replace the /* ... */ placeholders with T14.1's actual accessor names once that
+// branch lands.
+private static FailedRowRecord adapt(InvalidRow invalidRow) {
+    return new FailedRowRecord() {
+        @Override
+        public Map<String, Object> rowContent() {
+            return invalidRow.rowContent();   // actual accessor TBD from T14.1
+        }
+        @Override
+        public List<? extends ViolationDescriptor> violations() {
+            return invalidRow.violations().stream()
+                .map(fv -> new ViolationDescriptor() {
+                    public String field() { return fv.field(); }  // actual accessor TBD
+                    public String rule()  { return fv.rule();  }  // actual accessor TBD
+                })
+                .toList();
+        }
+    };
+}
+
+// Then pass adapted list to the handler:
 List<FailedRowRecord> adapted = invalidRows.stream()
-    .map(r -> (FailedRowRecord) r)   // if InvalidRow implements FailedRowRecord
+    .map(YourStage::adapt)
     .toList();
 handler.writeFailures(runId, adapted);
 ```
