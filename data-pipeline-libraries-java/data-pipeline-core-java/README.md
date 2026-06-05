@@ -112,6 +112,96 @@ com.enrichmeai.culvert.gcp.observability.CloudMonitoringMetricsHook
 # Set one of: -Dculvert.gcp.project=<id>  OR  CULVERT_GCP_PROJECT=<id>  OR  ADC default project
 ```
 
+## DataQualityTransform (Sprint 14 / T14.1)
+
+`DataQualityTransform<R>` is a cloud-neutral `Transform<R, ValidationResult<R>>`
+that validates each incoming row against an `EntitySchema`. It lives in
+`com.enrichmeai.culvert.dataquality` — zero GCP / Beam dependencies.
+
+### New types
+
+| Type | Kind | Purpose |
+|------|------|---------|
+| `DataQualityTransform<R>` | Class | Implements `Transform<R, ValidationResult<R>>` |
+| `ValidationResult<R>` | Sealed interface | Either-style result: `ValidRow` or `InvalidRow` |
+| `ValidationResult.ValidRow<R>` | Record | Row passed all checks |
+| `ValidationResult.InvalidRow<R>` | Record | Row failed; holds `List<FieldViolation>` |
+| `FieldViolation` | Record | `(fieldName, violationKind, detail)` |
+| `ViolationKind` | Enum | `MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE` |
+| `NumericRange` | Record | Closed range `[min, max]` for out-of-range checking |
+
+### Validation rules (per field, all accumulated — no short-circuit)
+
+1. **MISSING_REQUIRED** — a `REQUIRED` field has a `null` or absent value.
+2. **TYPE_MISMATCH** — value is non-null but its runtime type does not match the
+   schema wire type. Supported wire→Java mappings:
+
+   | Wire type | Expected Java type |
+   |-----------|--------------------|
+   | `STRING`  | `String`           |
+   | `INT64`   | `Number` (Long, Integer) |
+   | `FLOAT64` | `Number` (Double, Float) |
+   | `BOOL`    | `Boolean`          |
+
+   Other wire types (e.g. `BYTES`, `DATE`) bypass the type check.
+
+3. **OUT_OF_RANGE** — a `NumericRange` was supplied for the field and the value
+   falls outside `[min, max]` (inclusive). Checked only when the value is non-null
+   and no `TYPE_MISMATCH` was detected for the same field.
+
+### Usage — direct row validation
+
+```java
+EntitySchema schema = EntitySchema.of("order", List.of(
+        SchemaField.required("id",     "STRING"),
+        SchemaField.required("amount", "FLOAT64"),
+        SchemaField.nullable("note",   "STRING")));
+
+DataQualityTransform<Map<String, Object>> dq =
+        new DataQualityTransform<>(
+                schema,
+                Function.identity(),                        // rowAccessor
+                Map.of("amount", NumericRange.of(0.0, 1_000_000.0)));  // optional
+
+ValidationResult<Map<String, Object>> result = dq.validate(row);
+if (result instanceof ValidationResult.ValidRow<Map<String, Object>> v) {
+    downstreamSink.write(v.row());
+} else if (result instanceof ValidationResult.InvalidRow<Map<String, Object>> inv) {
+    // Route to T14.2 dead-letter handler
+    deadLetterSink.write(inv);   // inv.violations() has the full list
+}
+```
+
+### Usage — as a Transform in a pipeline stage
+
+```java
+Transform<Map<String, Object>, ValidationResult<Map<String, Object>>> transform = dq;
+Iterator<ValidationResult<Map<String, Object>>> results =
+        transform.apply(inputIterator, runtimeContext);
+```
+
+`apply` is lazy — rows are validated on demand as the caller iterates.
+After the iterator is exhausted, one `StageMetrics` snapshot is emitted via
+`context.stageMetrics()`:
+
+| Metric field | Value |
+|---|---|
+| `stageName` | `"DataQualityTransform"` |
+| `rowsProcessed` | Total rows seen |
+| `errorCount` | Count of `InvalidRow` results |
+| `stageLatencyMs` | Wall-clock elapsed from first `next()` to exhaustion |
+
+### ValidationResult routing pattern
+
+```
+apply(input)
+   ├─ ValidRow<R>    → success output (next stage / sink)
+   └─ InvalidRow<R>  → dead-letter output (T14.2 handler)
+                           inv.violations() → per-field FieldViolation list
+```
+
+---
+
 ## BudgetGovernancePolicy (Sprint 13 / T13.3)
 
 `BudgetGovernancePolicy` is a `GovernancePolicy` implementation that enforces a cost
