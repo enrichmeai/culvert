@@ -118,6 +118,66 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-gcs-java -am clean 
 
 Live-cloud integration tests against a real GCS bucket are sprint-2+ scope.
 
+## QuarantineHandler
+
+Sprint-14 deliverable for issue [#74](https://github.com/enrichmeai/culvert/issues/74) (T14.2). Writes rows that failed data-quality validation to a newline-delimited JSON (NDJSON) file in GCS, then marks the pipeline job as failed via `JobControlRepository.markFailed`, recording the quarantine file URI in the `errorFilePath` field.
+
+### Path convention
+
+```
+<errorPathPrefix>/quarantine/<runId>/<timestamp>.jsonl
+```
+
+- `errorPathPrefix` — configured at construction time, e.g. `gs://my-bucket/errors`. Trailing slashes are normalised away.
+- `runId` — pipeline run identifier supplied at call time.
+- `timestamp` — ISO-8601 basic compact UTC, e.g. `20250604T143022456Z` (no colons — safe as a GCS object-name component). Derived from a `Clock` injected at construction time (default: `Clock.systemUTC()`).
+
+### NDJSON record format
+
+Each line in the quarantine file is a self-describing JSON object:
+
+```json
+{"row": {"orderId": "O-42", "amount": 999.99}, "violations": [{"field": "amount", "rule": "must be <= 500"}]}
+```
+
+- `"row"` — the raw field values of the failed row (`Map<String, Object>`).
+- `"violations"` — list of `{"field": "...", "rule": "..."}` objects describing each violated rule.
+
+### Construction and wiring
+
+```java
+// Production — uses Clock.systemUTC()
+QuarantineHandler handler = new QuarantineHandler(
+    new GcsBlobStore(),
+    myJobControlRepository,
+    "gs://my-bucket/errors");
+
+// In a pipeline stage — call after DataQualityTransform produces failures:
+handler.writeFailures(runId, failedRows);
+```
+
+If `failedRows` is empty, `writeFailures` is a no-op — no file is written and `markFailed` is not called.
+
+### Error-code defaults
+
+| Parameter | Value |
+|---|---|
+| `errorCode` | `"DQ_VALIDATION_FAILURE"` |
+| `failureStage` | `FailureStage.VALIDATION` |
+| `errorMessage` | `"N row(s) failed data-quality validation; quarantined to <uri>"` |
+
+### T14.1 / InvalidRow seam
+
+`QuarantineHandler` depends on the local `FailedRowRecord` interface rather than T14.1's concrete `InvalidRow` (which is created by a parallel agent). T14.5 (the E2E slice) wires them by having `InvalidRow` implement `FailedRowRecord`, or via a one-line adapter. No core edits are required — the seam lives entirely in the calling code.
+
+```java
+// T14.5 adapter (one line — InvalidRow already has the same shape):
+List<FailedRowRecord> adapted = invalidRows.stream()
+    .map(r -> (FailedRowRecord) r)   // if InvalidRow implements FailedRowRecord
+    .toList();
+handler.writeFailures(runId, adapted);
+```
+
 ## GcsCostTracker
 
 Sprint-13 deliverable for issue [#70](https://github.com/enrichmeai/culvert/issues/70) (T13.2). Builds a `CostMetrics` record from GCS operation sizes and pushes it to a `FinOpsSink`. Does not hold a GCS client — it operates on byte counts already obtained by the caller.
