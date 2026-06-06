@@ -10,13 +10,11 @@ import com.enrichmeai.culvert.schema.EntitySchema;
 import com.enrichmeai.culvert.schema.SchemaField;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
 
 /**
  * A cloud-neutral {@link Transform} that validates each row against an
@@ -38,10 +36,12 @@ import java.util.function.Function;
  *         BOOL    → Boolean
  *       </pre>
  *       Other wire types pass the type check (no known mapping).</li>
- *   <li><strong>OUT_OF_RANGE</strong> — a {@link NumericRange} was supplied for
- *       the field and the value, after conversion to {@code double}, falls outside
- *       {@code [min, max]}. This check is skipped if the value is null or already
- *       flagged with a type mismatch.</li>
+ *   <li><strong>OUT_OF_RANGE</strong> — the {@link SchemaField} carries a
+ *       {@link NumericRange} (via {@link SchemaField#range()}) and the value,
+ *       after conversion to {@code double}, falls outside {@code [min, max]}.
+ *       This check is skipped if the value is null or already flagged with a
+ *       type mismatch. No separate side-map is required — bounds live in the
+ *       schema definition.</li>
  * </ol>
  *
  * <h2>All violations are accumulated</h2>
@@ -53,12 +53,11 @@ import java.util.function.Function;
  * <pre>{@code
  * EntitySchema schema = EntitySchema.of("order", List.of(
  *         SchemaField.required("id",    "STRING"),
- *         SchemaField.required("amount","FLOAT64"),
+ *         SchemaField.required("amount","FLOAT64").withRange(NumericRange.of(0.0, 1_000_000.0)),
  *         SchemaField.nullable("note",  "STRING")));
  *
  * DataQualityTransform<Map<String,Object>> dq =
- *         new DataQualityTransform<>(schema, Function.identity(),
- *                 Map.of("amount", NumericRange.of(0.0, 1_000_000.0)));
+ *         new DataQualityTransform<>(schema, Function.identity());
  *
  * ValidationResult<Map<String,Object>> result = dq.validate(row);
  * if (result instanceof ValidationResult.ValidRow<Map<String,Object>> v) {
@@ -93,7 +92,7 @@ import java.util.function.Function;
  * <p>Masking is a <em>post-validation</em> step: it runs only on
  * {@link ValidationResult.ValidRow} results, after all violation checks are
  * complete. Invalid rows are never masked.
- * <p>Backward-compat: when no policy is supplied (the two original constructors),
+ * <p>Backward-compat: when no policy is supplied (the original no-policy constructor),
  * masking is fully skipped — all existing tests are unaffected.
  * <p><strong>Mutable-map requirement:</strong> masking mutates the map returned
  * by the row accessor in place. Accessor implementations that return immutable
@@ -103,7 +102,8 @@ import java.util.function.Function;
  * @param <R> The row type. The row-to-field-map accessor is supplied at
  *            construction time via a {@code Function<R, Map<String,Object>>}.
  *
- * @since Sprint 14 / issue #73 (T14.1); masking added T14.4 / issue #76
+ * @since Sprint 14 / issue #73 (T14.1); masking added T14.4 / issue #76;
+ *        schema-grounded range validation T14.7 / issue #100
  */
 public final class DataQualityTransform<R>
         implements Transform<R, ValidationResult<R>> {
@@ -117,12 +117,11 @@ public final class DataQualityTransform<R>
     );
 
     private final EntitySchema schema;
-    private final Function<R, Map<String, Object>> rowAccessor;
-    private final Map<String, NumericRange> rangeConstraints;
+    private final java.util.function.Function<R, Map<String, Object>> rowAccessor;
 
     /**
      * Optional governance policy for PII masking. Null means masking is disabled
-     * (backward-compatible default — the two original constructors leave this null).
+     * (backward-compatible default — the no-policy constructor leaves this null).
      */
     private final GovernancePolicy governancePolicy;
 
@@ -131,69 +130,41 @@ public final class DataQualityTransform<R>
     // ---------------------------------------------------------------
 
     /**
-     * Full constructor with optional per-field range constraints.
+     * Schema-only convenience constructor (no masking policy).
      *
-     * @param schema           The schema to validate each row against.
-     * @param rowAccessor      Extracts a {@code Map<fieldName, value>} from a row.
-     * @param rangeConstraints Optional per-field numeric range bounds. Fields not
-     *                         present in this map are not range-checked.
-     */
-    public DataQualityTransform(
-            EntitySchema schema,
-            Function<R, Map<String, Object>> rowAccessor,
-            Map<String, NumericRange> rangeConstraints) {
-        this(schema, rowAccessor, rangeConstraints, null);
-    }
-
-    /**
-     * Schema-only convenience constructor (no range constraints).
+     * <p>Range validation is driven entirely by
+     * {@link SchemaField#range()} — no side-map required.
      *
      * @param schema      The schema to validate each row against.
      * @param rowAccessor Extracts a {@code Map<fieldName, value>} from a row.
      */
     public DataQualityTransform(
             EntitySchema schema,
-            Function<R, Map<String, Object>> rowAccessor) {
-        this(schema, rowAccessor, Collections.emptyMap(), null);
+            java.util.function.Function<R, Map<String, Object>> rowAccessor) {
+        this(schema, rowAccessor, null);
     }
 
     /**
-     * Constructor with range constraints and a governance policy for PII masking.
+     * Full constructor with an optional governance policy for PII masking.
+     *
+     * <p>Range validation is driven by {@link SchemaField#range()} — no side-map
+     * is accepted or required.
      *
      * <p>When {@code policy} is non-null, matched fields in passing rows are
      * masked in place (see class javadoc for the mutable-map requirement).
      *
-     * @param schema           The schema to validate each row against.
-     * @param rowAccessor      Extracts a {@code Map<fieldName, value>} from a row.
-     * @param rangeConstraints Optional per-field numeric range bounds.
-     * @param policy           Optional governance policy for PII masking.
-     *                         Pass {@code null} to disable masking (default).
-     */
-    public DataQualityTransform(
-            EntitySchema schema,
-            Function<R, Map<String, Object>> rowAccessor,
-            Map<String, NumericRange> rangeConstraints,
-            GovernancePolicy policy) {
-        this.schema            = Objects.requireNonNull(schema,      "schema must not be null");
-        this.rowAccessor       = Objects.requireNonNull(rowAccessor, "rowAccessor must not be null");
-        this.rangeConstraints  = rangeConstraints != null
-                ? Map.copyOf(rangeConstraints)
-                : Collections.emptyMap();
-        this.governancePolicy  = policy; // null ⇒ masking disabled
-    }
-
-    /**
-     * Convenience constructor: schema + governance policy, no range constraints.
-     *
      * @param schema      The schema to validate each row against.
      * @param rowAccessor Extracts a {@code Map<fieldName, value>} from a row.
-     * @param policy      The governance policy for PII masking.
+     * @param policy      Optional governance policy for PII masking.
+     *                    Pass {@code null} to disable masking (default).
      */
     public DataQualityTransform(
             EntitySchema schema,
-            Function<R, Map<String, Object>> rowAccessor,
+            java.util.function.Function<R, Map<String, Object>> rowAccessor,
             GovernancePolicy policy) {
-        this(schema, rowAccessor, Collections.emptyMap(), policy);
+        this.schema           = Objects.requireNonNull(schema,      "schema must not be null");
+        this.rowAccessor      = Objects.requireNonNull(rowAccessor, "rowAccessor must not be null");
+        this.governancePolicy = policy; // null ⇒ masking disabled
     }
 
     // ---------------------------------------------------------------
@@ -247,10 +218,11 @@ public final class DataQualityTransform<R>
                 typeMismatch = true;
             }
 
-            // 3 — OUT_OF_RANGE (only if value is present and no type mismatch)
+            // 3 — OUT_OF_RANGE (schema-grounded: bounds come from SchemaField.range())
             if (!typeMismatch) {
-                NumericRange range = rangeConstraints.get(field.name());
-                if (range != null && value instanceof Number num) {
+                Optional<NumericRange> rangeOpt = field.range();
+                if (rangeOpt.isPresent() && value instanceof Number num) {
+                    NumericRange range = rangeOpt.get();
                     double d = num.doubleValue();
                     if (!range.contains(d)) {
                         violations.add(new FieldViolation(
