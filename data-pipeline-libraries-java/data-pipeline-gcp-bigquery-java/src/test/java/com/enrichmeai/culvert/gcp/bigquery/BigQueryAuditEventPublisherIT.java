@@ -115,6 +115,11 @@ class BigQueryAuditEventPublisherIT {
     @Test
     void publishedRowIsQueryableFromAuditTable() {
         publisher.publish(sampleRecord("it-run-001"));
+        // Surface any swallowed write failure immediately at the write step,
+        // rather than as a confusing "missing row" assertion later.
+        assertThat(publisher.auditFailureCount())
+                .as("publish should not have swallowed an error")
+                .isZero();
         publisher.flush(); // no-op but contract-required call
 
         String fqtn = "`" + EMULATOR.getProjectId() + "." + dataset + "." + auditTable + "`";
@@ -134,6 +139,9 @@ class BigQueryAuditEventPublisherIT {
     void multiplePublishCallsProduceMultipleRows() {
         publisher.publish(sampleRecord("it-run-002a"));
         publisher.publish(sampleRecord("it-run-002b"));
+        assertThat(publisher.auditFailureCount())
+                .as("both publishes should succeed")
+                .isZero();
         publisher.flush();
 
         String fqtn = "`" + EMULATOR.getProjectId() + "." + dataset + "." + auditTable + "`";
@@ -152,6 +160,9 @@ class BigQueryAuditEventPublisherIT {
     @Test
     void metadataJsonFieldContainsSerializedMap() {
         publisher.publish(sampleRecord("it-run-003"));
+        assertThat(publisher.auditFailureCount())
+                .as("publish should not have swallowed an error")
+                .isZero();
 
         String fqtn = "`" + EMULATOR.getProjectId() + "." + dataset + "." + auditTable + "`";
         Iterator<Map<String, Object>> rows = warehouse.query(
