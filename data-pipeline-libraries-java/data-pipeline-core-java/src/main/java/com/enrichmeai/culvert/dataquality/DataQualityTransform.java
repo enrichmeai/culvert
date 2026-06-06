@@ -1,8 +1,11 @@
 package com.enrichmeai.culvert.dataquality;
 
+import com.enrichmeai.culvert.contracts.GovernancePolicy;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.StageMetrics;
 import com.enrichmeai.culvert.contracts.Transform;
+import com.enrichmeai.culvert.governance.MaskingPolicy;
+import com.enrichmeai.culvert.governance.Masker;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import com.enrichmeai.culvert.schema.SchemaField;
 
@@ -12,6 +15,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -80,10 +84,26 @@ import java.util.function.Function;
  * <h2>Zero cloud/Beam dependencies</h2>
  * <p>No {@code org.apache.beam.*} or {@code com.enrichmeai.culvert.gcp.*} imports.
  *
+ * <h2>PII masking (opt-in, T14.4)</h2>
+ * <p>An optional {@link GovernancePolicy} may be supplied at construction time.
+ * When present, after a row passes all validation checks the transform iterates
+ * the row's field map and applies masking to any field for which
+ * {@link GovernancePolicy#maskingFor(String, String)} returns a non-empty policy.
+ * The table name passed to {@code maskingFor} is {@code schema.name()}.
+ * <p>Masking is a <em>post-validation</em> step: it runs only on
+ * {@link ValidationResult.ValidRow} results, after all violation checks are
+ * complete. Invalid rows are never masked.
+ * <p>Backward-compat: when no policy is supplied (the two original constructors),
+ * masking is fully skipped — all existing tests are unaffected.
+ * <p><strong>Mutable-map requirement:</strong> masking mutates the map returned
+ * by the row accessor in place. Accessor implementations that return immutable
+ * maps (e.g. {@code Map.of(...)}) will throw on {@code put}. Use a mutable
+ * {@code HashMap} when masking is enabled.
+ *
  * @param <R> The row type. The row-to-field-map accessor is supplied at
  *            construction time via a {@code Function<R, Map<String,Object>>}.
  *
- * @since Sprint 14 / issue #73
+ * @since Sprint 14 / issue #73 (T14.1); masking added T14.4 / issue #76
  */
 public final class DataQualityTransform<R>
         implements Transform<R, ValidationResult<R>> {
@@ -99,6 +119,12 @@ public final class DataQualityTransform<R>
     private final EntitySchema schema;
     private final Function<R, Map<String, Object>> rowAccessor;
     private final Map<String, NumericRange> rangeConstraints;
+
+    /**
+     * Optional governance policy for PII masking. Null means masking is disabled
+     * (backward-compatible default — the two original constructors leave this null).
+     */
+    private final GovernancePolicy governancePolicy;
 
     // ---------------------------------------------------------------
     // Constructors
@@ -116,11 +142,7 @@ public final class DataQualityTransform<R>
             EntitySchema schema,
             Function<R, Map<String, Object>> rowAccessor,
             Map<String, NumericRange> rangeConstraints) {
-        this.schema           = Objects.requireNonNull(schema,           "schema must not be null");
-        this.rowAccessor      = Objects.requireNonNull(rowAccessor,      "rowAccessor must not be null");
-        this.rangeConstraints = rangeConstraints != null
-                ? Map.copyOf(rangeConstraints)
-                : Collections.emptyMap();
+        this(schema, rowAccessor, rangeConstraints, null);
     }
 
     /**
@@ -132,7 +154,46 @@ public final class DataQualityTransform<R>
     public DataQualityTransform(
             EntitySchema schema,
             Function<R, Map<String, Object>> rowAccessor) {
-        this(schema, rowAccessor, Collections.emptyMap());
+        this(schema, rowAccessor, Collections.emptyMap(), null);
+    }
+
+    /**
+     * Constructor with range constraints and a governance policy for PII masking.
+     *
+     * <p>When {@code policy} is non-null, matched fields in passing rows are
+     * masked in place (see class javadoc for the mutable-map requirement).
+     *
+     * @param schema           The schema to validate each row against.
+     * @param rowAccessor      Extracts a {@code Map<fieldName, value>} from a row.
+     * @param rangeConstraints Optional per-field numeric range bounds.
+     * @param policy           Optional governance policy for PII masking.
+     *                         Pass {@code null} to disable masking (default).
+     */
+    public DataQualityTransform(
+            EntitySchema schema,
+            Function<R, Map<String, Object>> rowAccessor,
+            Map<String, NumericRange> rangeConstraints,
+            GovernancePolicy policy) {
+        this.schema            = Objects.requireNonNull(schema,      "schema must not be null");
+        this.rowAccessor       = Objects.requireNonNull(rowAccessor, "rowAccessor must not be null");
+        this.rangeConstraints  = rangeConstraints != null
+                ? Map.copyOf(rangeConstraints)
+                : Collections.emptyMap();
+        this.governancePolicy  = policy; // null ⇒ masking disabled
+    }
+
+    /**
+     * Convenience constructor: schema + governance policy, no range constraints.
+     *
+     * @param schema      The schema to validate each row against.
+     * @param rowAccessor Extracts a {@code Map<fieldName, value>} from a row.
+     * @param policy      The governance policy for PII masking.
+     */
+    public DataQualityTransform(
+            EntitySchema schema,
+            Function<R, Map<String, Object>> rowAccessor,
+            GovernancePolicy policy) {
+        this(schema, rowAccessor, Collections.emptyMap(), policy);
     }
 
     // ---------------------------------------------------------------
@@ -203,9 +264,26 @@ public final class DataQualityTransform<R>
             }
         }
 
-        return violations.isEmpty()
-                ? new ValidationResult.ValidRow<>(row)
-                : new ValidationResult.InvalidRow<>(row, violations);
+        if (!violations.isEmpty()) {
+            return new ValidationResult.InvalidRow<>(row, violations);
+        }
+
+        // ---- Post-validation PII masking (opt-in, T14.4) -----
+        // Apply masking only when a GovernancePolicy is configured.
+        // Invalid rows are never masked — the dead-letter path receives the
+        // original values so violations can be diagnosed.
+        if (governancePolicy != null && fields != null) {
+            String tableName = schema.name();
+            for (Map.Entry<String, Object> entry : fields.entrySet()) {
+                Optional<MaskingPolicy> mp =
+                        governancePolicy.maskingFor(entry.getKey(), tableName);
+                if (mp.isPresent()) {
+                    entry.setValue(Masker.mask(entry.getValue(), mp.get()));
+                }
+            }
+        }
+
+        return new ValidationResult.ValidRow<>(row);
     }
 
     // ---------------------------------------------------------------
