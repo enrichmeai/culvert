@@ -6,15 +6,16 @@ import java.util.Objects;
  * A closed numeric range {@code [min, max]} used by {@link DataQualityTransform}
  * to detect out-of-range field values.
  *
- * <p>Both bounds are inclusive. Supply a {@code Map<String, NumericRange>} to
- * {@link DataQualityTransform#DataQualityTransform(com.enrichmeai.culvert.schema.EntitySchema,
- * java.util.function.Function, java.util.Map)} to opt a specific field into range
- * validation. Fields without an entry are not range-checked.
+ * <p>Both bounds are inclusive. Attach a {@code NumericRange} to a
+ * {@link com.enrichmeai.culvert.schema.SchemaField} via
+ * {@link com.enrichmeai.culvert.schema.SchemaField#withRange(NumericRange)} to opt
+ * that field into range validation. {@link DataQualityTransform} reads bounds
+ * directly from the schema — no separate side-map is required.
  *
  * @param min The inclusive lower bound.
  * @param max The inclusive upper bound (must be ≥ {@code min}).
  *
- * @since Sprint 14 / issue #73
+ * @since Sprint 14 / issue #73 (T14.1); schema-grounded T14.7 / issue #100
  */
 public record NumericRange(double min, double max) {
 
