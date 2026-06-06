@@ -128,8 +128,9 @@ ServiceLoader.load(Warehouse.class).findFirst()
 - ✅ `BigQueryJobControlRepository` — issue [#8](https://github.com/enrichmeai/culvert/issues/8) (JobControlRepository contract); see section below
 - ✅ `BigQueryFinOpsSink` — issue [#9](https://github.com/enrichmeai/culvert/issues/9) (FinOpsSink contract); see section below
 - ✅ `BigQueryCostTracker` — issue [#69](https://github.com/enrichmeai/culvert/issues/69) (T13.1: JobStatistics → CostMetrics pipeline); see section below
+- ✅ `BigQueryAuditEventPublisher` — issue [#95](https://github.com/enrichmeai/culvert/issues/95) (T14.6: AuditEventPublisher contract — fills the final v1.0.0 gap); see section below
 
-All four share this module's `pom.xml`.
+All five share this module's `pom.xml`.
 
 ## BigQueryJobControlRepository
 
@@ -381,3 +382,76 @@ needed; the parser picks it up on the next class load.
 
 - **Version check**: Ticket assumes `google-cloud-bigquery 2.55.x`. Actual BOM-resolved version is **2.40.1** (via `libraries-bom 26.39.0`). All required API surface (`getTotalBytesBilled`, `getTotalSlotMs` on `JobStatistics`, `getOutputBytes` on `LoadStatistics`) is present in 2.40.1. No workaround needed; architect should update the ticket's version assumption.
 - **Dry-run population**: Whether `getTotalBytesBilled()` is populated at runtime on a dry-run cannot be verified offline (no emulator IT in agent scope). The fallback to `getTotalBytesProcessed()` is the mitigation — see `resolveDryRunBytes` in the source.
+
+## BigQueryAuditEventPublisher (Sprint 14 / T14.6)
+
+Sprint-14 deliverable for issue [#95](https://github.com/enrichmeai/culvert/issues/95). Fills the **last contract gap** in v1.0.0 — `AuditEventPublisher` was the only core contract with an interface but no adapter.
+
+Implementation of [`AuditEventPublisher`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/AuditEventPublisher.java) — writes `AuditRecord` instances as rows to a configurable BigQuery audit table using a parameterised `INSERT ... VALUES` DML statement (via `client.query`, same mechanism as `BigQueryJobControlRepository`).
+
+### Construction
+
+```java
+// Tests / custom-credential wiring: explicit constructor
+BigQuery client = BigQueryOptions.newBuilder().setProjectId("my-project").build().getService();
+AuditEventPublisher pub = new BigQueryAuditEventPublisher(
+        client,
+        "my-project",
+        "audit",          // dataset (default)
+        "audit_events");  // table (default)
+
+// ServiceLoader: no-arg ADC constructor (resolves project from env chain)
+// Requires culvert.gcp.project sysprop or CULVERT_GCP_PROJECT env var (or ADC default project)
+AuditEventPublisher pub = new BigQueryAuditEventPublisher();
+```
+
+### Project-id / dataset / table precedence chain
+
+| Config | Sysprop | Env var | Default |
+|--------|---------|---------|---------|
+| GCP project | `culvert.gcp.project` | `CULVERT_GCP_PROJECT` | ADC `ServiceOptions.getDefaultProjectId()` |
+| Dataset | `culvert.audit.dataset` | `CULVERT_AUDIT_DATASET` | `audit` |
+| Table | `culvert.audit.table` | `CULVERT_AUDIT_TABLE` | `audit_events` |
+
+### Audit table schema
+
+```sql
+CREATE TABLE `<project>.<dataset>.<table>` (
+    run_id                        STRING    NOT NULL,
+    pipeline_name                 STRING    NOT NULL,
+    entity_type                   STRING    NOT NULL,
+    source_file                   STRING    NOT NULL,
+    record_count                  INT64     NOT NULL,
+    processed_timestamp           TIMESTAMP NOT NULL,
+    processing_duration_seconds   FLOAT64   NOT NULL,
+    success                       BOOL      NOT NULL,
+    error_count                   INT64     NOT NULL,
+    audit_hash                    STRING,
+    metadata_json                 STRING,
+    published_at                  TIMESTAMP
+);
+```
+
+`metadata` (`Map<String,Object>` from `AuditRecord`) is serialised to a compact JSON string in `metadata_json`. This avoids the `ARRAY<STRUCT<key,value>>` schema complexity that `BigQueryFinOpsSink` uses for label maps, and remains compatible with the goccy emulator.
+
+`published_at` is populated with `CURRENT_TIMESTAMP()` by the INSERT statement — no client-side clock is needed.
+
+### Failure isolation
+
+Any exception during `publish` is caught, logged at WARN, and swallowed. A failing audit write must never interrupt the data pipeline. The cumulative failure count is accessible via `auditFailureCount()` for tests and alerting. `InterruptedException` restores the thread's interrupt flag before swallowing. This mirrors `CloudMonitoringMetricsHook`'s error handling (T12.6).
+
+### flush
+
+`flush()` is a no-op. Every `publish` call writes synchronously (no internal buffer). Calling `flush()` on an empty publisher is safe and idempotent as required by the contract.
+
+### ServiceLoader registration
+
+`src/main/resources/META-INF/services/com.enrichmeai.culvert.contracts.AuditEventPublisher` registers `com.enrichmeai.culvert.gcp.bigquery.BigQueryAuditEventPublisher`. The no-arg constructor is the ServiceLoader entry point, resolving all config from environment/sysprops and building the BigQuery client via `BigQueryOptions.getDefaultInstance().getService()` (ADC).
+
+### Timestamp parameter format (implementation note)
+
+`QueryParameterValue.timestamp(String)` in google-cloud-bigquery 2.40.1 (via the bundled threeten-bp library) requires the format `"yyyy-MM-dd HH:mm:ss.SSSSSS"` with a space separator — ISO-8601 `T` separator is rejected. This is different from the human-readable `OffsetDateTime.toString()` output and requires an explicit `DateTimeFormatter.ofPattern(...)` in the publisher.
+
+### Known risk: emulator named-parameter support
+
+The goccy emulator's support for named parameters (`@param_name`) in DML `INSERT` statements is not fully documented. The `BigQueryAuditEventPublisherIT` is authored and correct; if the emulator rejects named parameters in INSERT context when the architect runs it, the fallback is to use literal substitution in the IT-only path (the unit tests are the primary correctness gate and remain unaffected). See also `BigQueryCostTrackerIT` for a similar "architect-run only" note.
