@@ -244,17 +244,17 @@ class DataQualityTransformTest {
     }
 
     // ------------------------------------------------------------------
-    // DoD Box 4 — out-of-range → OUT_OF_RANGE
+    // DoD Box 4 — out-of-range → OUT_OF_RANGE (schema-grounded, T14.7)
     // ------------------------------------------------------------------
 
     @Test
     void value_below_min_produces_out_of_range_violation() {
-        EntitySchema schema = schemaWith(SchemaField.required("age", "INT64"));
+        // Range comes from SchemaField — no side-map
+        EntitySchema schema = schemaWith(
+                SchemaField.required("age", "INT64").withRange(NumericRange.of(0, 150)));
 
         DataQualityTransform<Map<String, Object>> dq =
-                new DataQualityTransform<>(
-                        schema, ID,
-                        Map.of("age", NumericRange.of(0, 150)));
+                new DataQualityTransform<>(schema, ID);
 
         Map<String, Object> inputRow = row(field("age", -1L));
 
@@ -273,12 +273,11 @@ class DataQualityTransformTest {
 
     @Test
     void value_above_max_produces_out_of_range_violation() {
-        EntitySchema schema = schemaWith(SchemaField.required("score", "FLOAT64"));
+        EntitySchema schema = schemaWith(
+                SchemaField.required("score", "FLOAT64").withRange(NumericRange.of(0.0, 100.0)));
 
         DataQualityTransform<Map<String, Object>> dq =
-                new DataQualityTransform<>(
-                        schema, ID,
-                        Map.of("score", NumericRange.of(0.0, 100.0)));
+                new DataQualityTransform<>(schema, ID);
 
         Map<String, Object> inputRow = row(field("score", 101.5));
 
@@ -292,15 +291,40 @@ class DataQualityTransformTest {
 
     @Test
     void value_at_boundary_is_valid() {
-        EntitySchema schema = schemaWith(SchemaField.required("score", "FLOAT64"));
+        EntitySchema schema = schemaWith(
+                SchemaField.required("score", "FLOAT64").withRange(NumericRange.of(0.0, 100.0)));
 
         DataQualityTransform<Map<String, Object>> dq =
-                new DataQualityTransform<>(
-                        schema, ID,
-                        Map.of("score", NumericRange.of(0.0, 100.0)));
+                new DataQualityTransform<>(schema, ID);
 
         assertThat(dq.validate(row(field("score", 0.0))).isValid()).isTrue();
         assertThat(dq.validate(row(field("score", 100.0))).isValid()).isTrue();
+    }
+
+    /**
+     * T14.7 DoD: a schema with bounded fields flags an out-of-range row
+     * with NO hand-wired side-map — bounds come from {@link SchemaField#range()}.
+     */
+    @Test
+    void schema_grounded_range_no_side_map() {
+        EntitySchema schema = schemaWith(
+                SchemaField.required("amount", "FLOAT64").withRange(NumericRange.of(0.0, 500.0)));
+
+        // Two-arg constructor — no Map argument at all
+        DataQualityTransform<Map<String, Object>> dq =
+                new DataQualityTransform<>(schema, ID);
+
+        // in-range: valid
+        assertThat(dq.validate(row(field("amount", 250.0))).isValid()).isTrue();
+
+        // out-of-range: invalid
+        ValidationResult<Map<String, Object>> result =
+                dq.validate(row(field("amount", 501.0)));
+        assertThat(result).isInstanceOf(ValidationResult.InvalidRow.class);
+        FieldViolation v = ((ValidationResult.InvalidRow<Map<String, Object>>) result)
+                .violations().get(0);
+        assertThat(v.fieldName()).isEqualTo("amount");
+        assertThat(v.violationKind()).isEqualTo(ViolationKind.OUT_OF_RANGE);
     }
 
     // ------------------------------------------------------------------
@@ -310,15 +334,15 @@ class DataQualityTransformTest {
     @Test
     void multi_field_row_accumulates_all_violations() {
         EntitySchema schema = schemaWith(
-                SchemaField.required("id",     "STRING"),   // → MISSING_REQUIRED
-                SchemaField.required("count",  "INT64"),    // → TYPE_MISMATCH (String)
-                SchemaField.required("score",  "FLOAT64"),  // → OUT_OF_RANGE
-                SchemaField.nullable("note",   "STRING"));  // → valid (nullable, null ok)
+                SchemaField.required("id",    "STRING"),               // → MISSING_REQUIRED
+                SchemaField.required("count", "INT64"),                // → TYPE_MISMATCH (String)
+                SchemaField.required("score", "FLOAT64")
+                        .withRange(NumericRange.of(0.0, 10.0)),        // → OUT_OF_RANGE
+                SchemaField.nullable("note",  "STRING"));              // → valid (nullable, null ok)
 
+        // No Map arg — range comes from SchemaField
         DataQualityTransform<Map<String, Object>> dq =
-                new DataQualityTransform<>(
-                        schema, ID,
-                        Map.of("score", NumericRange.of(0.0, 10.0)));
+                new DataQualityTransform<>(schema, ID);
 
         Map<String, Object> inputRow = new HashMap<>();
         // "id" absent (MISSING_REQUIRED)
