@@ -3,6 +3,9 @@ package com.enrichmeai.culvert.dataquality;
 import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.StageMetrics;
 import com.enrichmeai.culvert.contracts.StageMetricsHook;
+import com.enrichmeai.culvert.governance.MaskingPolicy;
+import com.enrichmeai.culvert.governance.MaskingStrategy;
+import com.enrichmeai.culvert.governance.PiiMaskingGovernancePolicy;
 import com.enrichmeai.culvert.runtime.DefaultRuntimeContext;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import com.enrichmeai.culvert.schema.SchemaField;
@@ -13,6 +16,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -416,5 +420,123 @@ class DataQualityTransformTest {
         StageMetrics m = hook.captured.get(0);
         assertThat(m.rowsProcessed()).isEqualTo(0L);
         assertThat(m.errorCount()).isEqualTo(0L);
+    }
+
+    // ------------------------------------------------------------------
+    // T14.4 — PII masking wired into DataQualityTransform (DoD Box 5)
+    // ------------------------------------------------------------------
+
+    /**
+     * A passing row that contains a PII column ("email") should have that
+     * field masked in the ValidRow result when a PiiMaskingGovernancePolicy
+     * is wired in.  Non-PII fields must pass through unchanged.
+     */
+    @Test
+    void dq_with_governance_policy_masks_pii_fields_in_valid_row() {
+        EntitySchema schema = schemaWith(
+                SchemaField.required("id",    "STRING"),
+                SchemaField.required("email", "STRING"),
+                SchemaField.required("score", "FLOAT64"));
+
+        PiiMaskingGovernancePolicy policy = PiiMaskingGovernancePolicy.builder()
+                .piiColumns(Set.of("email"))
+                .defaultMaskingPolicy(new MaskingPolicy(MaskingStrategy.FULL, "***", ""))
+                .build();
+
+        // Must use a mutable HashMap — masking writes back via put().
+        DataQualityTransform<Map<String, Object>> dq =
+                new DataQualityTransform<>(schema, ID, policy);
+
+        Map<String, Object> inputRow = new HashMap<>();
+        inputRow.put("id",    "user-1");
+        inputRow.put("email", "alice@example.com");
+        inputRow.put("score", 88.0);
+
+        ValidationResult<Map<String, Object>> result = dq.validate(inputRow);
+
+        assertThat(result).isInstanceOf(ValidationResult.ValidRow.class);
+        Map<String, Object> maskedRow = result.row();
+
+        // PII field must be masked
+        assertThat(maskedRow.get("email")).isEqualTo("***");
+        // Non-PII fields must be unchanged
+        assertThat(maskedRow.get("id")).isEqualTo("user-1");
+        assertThat(maskedRow.get("score")).isEqualTo(88.0);
+    }
+
+    /**
+     * A field matched by a regex pattern (not an explicit column-name entry)
+     * must also be masked when a policy is wired in.
+     */
+    @Test
+    void dq_with_governance_policy_masks_regex_matched_field() {
+        EntitySchema schema = schemaWith(
+                SchemaField.required("id",          "STRING"),
+                SchemaField.required("card_pii",    "STRING"));
+
+        PiiMaskingGovernancePolicy policy = PiiMaskingGovernancePolicy.builder()
+                .piiPatterns(List.of(".*_pii$"))
+                .defaultMaskingPolicy(new MaskingPolicy(MaskingStrategy.FULL, "REDACTED", ""))
+                .build();
+
+        DataQualityTransform<Map<String, Object>> dq =
+                new DataQualityTransform<>(schema, ID, policy);
+
+        Map<String, Object> inputRow = new HashMap<>();
+        inputRow.put("id",       "order-42");
+        inputRow.put("card_pii", "4111-1111-1111-1111");
+
+        ValidationResult<Map<String, Object>> result = dq.validate(inputRow);
+
+        assertThat(result.isValid()).isTrue();
+        assertThat(result.row().get("card_pii")).isEqualTo("REDACTED");
+        assertThat(result.row().get("id")).isEqualTo("order-42");
+    }
+
+    /**
+     * An invalid row (with a violation) must NOT be masked — it is returned
+     * as-is so the dead-letter handler can inspect original values.
+     */
+    @Test
+    void dq_with_governance_policy_does_not_mask_invalid_rows() {
+        EntitySchema schema = schemaWith(
+                SchemaField.required("id",    "STRING"),
+                SchemaField.required("email", "STRING"));
+
+        PiiMaskingGovernancePolicy policy = PiiMaskingGovernancePolicy.builder()
+                .piiColumns(Set.of("email"))
+                .defaultMaskingPolicy(new MaskingPolicy(MaskingStrategy.FULL, "***", ""))
+                .build();
+
+        DataQualityTransform<Map<String, Object>> dq =
+                new DataQualityTransform<>(schema, ID, policy);
+
+        // "id" is REQUIRED but absent → InvalidRow
+        Map<String, Object> inputRow = new HashMap<>();
+        inputRow.put("email", "bob@example.com");
+
+        ValidationResult<Map<String, Object>> result = dq.validate(inputRow);
+
+        assertThat(result).isInstanceOf(ValidationResult.InvalidRow.class);
+        // Email must NOT be masked on the dead-letter path
+        assertThat(result.row().get("email")).isEqualTo("bob@example.com");
+    }
+
+    /**
+     * No-policy constructor path must be unaffected — backward compatibility.
+     * The existing {@code valid_row_produces_valid_result} test already covers
+     * this, but we add an explicit assertion that {@code row()} is the
+     * identical reference (not a copy) even in the zero-policy path.
+     */
+    @Test
+    void no_policy_path_returns_same_row_reference() {
+        EntitySchema schema = schemaWith(SchemaField.required("id", "STRING"));
+        DataQualityTransform<Map<String, Object>> dq = new DataQualityTransform<>(schema, ID);
+
+        Map<String, Object> inputRow = row(field("id", "abc"));
+        ValidationResult<Map<String, Object>> result = dq.validate(inputRow);
+
+        assertThat(result.isValid()).isTrue();
+        assertThat(result.row()).isSameAs(inputRow);
     }
 }
