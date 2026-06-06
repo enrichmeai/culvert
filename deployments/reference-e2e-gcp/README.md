@@ -427,6 +427,176 @@ Add `data-pipeline-gcp-bigquery` (`0.1.0`) as a dependency for access to
 
 ---
 
+---
+
+---
+
+## Sprint-14 data-quality slice (T14.5, #82)
+
+### What was added
+
+```
+src/
+├── main/java/com/enrichmeai/culvert/e2e/dq/
+│   └── InvalidRowAdapter.java          seam adapter: InvalidRow<R> → FailedRowRecord
+└── test/java/com/enrichmeai/culvert/e2e/dq/
+    ├── InMemoryBlobStore.java           stub BlobStore (no live GCS)
+    ├── StubJobControlRepository.java    stub JobControlRepository (no live BigQuery)
+    └── ReferenceE2EDqTest.java          4 DQ assertions + 1 @Disabled live-GCS skeleton
+```
+
+### Schema under test
+
+```
+EntitySchema "caseRecord"
+  id       STRING  REQUIRED              — MISSING_REQUIRED if absent
+  score    FLOAT64 REQUIRED [0.0, 100.0] — OUT_OF_RANGE if > 100
+  email    STRING  NULLABLE  (PII)       — masked to "***" on valid rows
+```
+
+### DQ stage config
+
+```java
+// PII masking policy (structural — column-name match, no cloud SDK)
+PiiMaskingGovernancePolicy piiPolicy = PiiMaskingGovernancePolicy.builder()
+        .piiColumns(Set.of("email"))
+        .defaultMaskingPolicy(new MaskingPolicy(MaskingStrategy.FULL, "***", ""))
+        .build();
+
+// DataQualityTransform wired with schema + masking policy
+DataQualityTransform<Map<String, Object>> dq =
+        new DataQualityTransform<>(CASE_SCHEMA, Function.identity(), piiPolicy);
+```
+
+The `rowAccessor` is `Function.identity()` because `R = Map<String,Object>` in the
+reference pipeline. For any other row type supply the accessor that extracts the
+field map.
+
+### Quarantine path convention
+
+Failed rows (those producing an `InvalidRow`) are adapted via `InvalidRowAdapter`
+and passed to `QuarantineHandler`:
+
+```java
+List<FailedRowRecord> records = InvalidRowAdapter.adaptAll(invalidRows, Function.identity());
+QuarantineHandler handler = new QuarantineHandler(blobStore, jobRepo, errorPrefix);
+handler.writeFailures(runId, records);
+```
+
+**Stub (dev-agent run):** `InMemoryBlobStore` backed by a `LinkedHashMap`.
+No credentials, no network.
+
+**Live GCS URI pattern (architect/prod run):**
+```
+gs://<error-bucket>/errors/<pipeline-id>/quarantine/<runId>/<yyyyMMdd'T'HHmmssSSS'Z'>.jsonl
+```
+Example:
+```
+gs://culvert-errors-prod/errors/reference-e2e-gcp/quarantine/run-abc/20260601T120000000Z.jsonl
+```
+The `errorPathPrefix` passed to `QuarantineHandler` should be:
+```
+gs://<error-bucket>/errors/<pipeline-id>
+```
+No trailing slash — the handler normalises it.
+
+Each quarantine file is newline-delimited JSON (NDJSON). One record per failed row:
+```json
+{"row":{"id":null,"score":150.0,"email":"carol@example.com"},"violations":[{"field":"id","rule":"Field 'id' is REQUIRED but was null or absent"},{"field":"score","rule":"Field 'score' value 150.0 is outside range [0.0, 100.0]"}]}
+```
+
+### The InvalidRow → FailedRowRecord seam adapter
+
+`T14.1` (`InvalidRow<R>`) and `T14.2` (`FailedRowRecord`) were built against
+assumed shapes of each other. The bridge is in `InvalidRowAdapter` (main scope,
+deployment module):
+
+```java
+// Single row
+FailedRowRecord adapted = InvalidRowAdapter.adapt(invalidRow, Function.identity());
+
+// Batch
+List<FailedRowRecord> records = InvalidRowAdapter.adaptAll(invalidRows, rowToMap);
+```
+
+**R-vs-Map reconciliation:** `InvalidRow<R>` stores the row as generic `R`; it
+does not expose a `Map<String,Object>`. The adapter re-applies the same
+`Function<R, Map<String,Object>>` accessor (the same one `DataQualityTransform` was
+built with) to project `R` into its field map. `FailedRowRecord.rowContent()` returns
+that map.
+
+**Violation mapping:**
+- `FieldViolation.fieldName()` → `ViolationDescriptor.field()`
+- `FieldViolation.detail()` → `ViolationDescriptor.rule()`
+
+(`violationKind` is the structural enum category; the seam interface surfaces the
+human-readable rule message instead.)
+
+### Retry steps
+
+```java
+// 1. Seed a FAILED job (job already in DB after a real pipeline run)
+RetryOrchestrator orchestrator = new RetryOrchestrator(jobRepo);
+
+// 2. Prepare retry: cleanup stale rows + markRetrying
+RetryOrchestrator.RetryResult result = orchestrator.prepareRetry(runId);
+// result.rowsCleaned() == N rows removed from targetTable WHERE _run_id = runId
+// result.retryCount()  == previous count + 1
+
+// 3. Re-submit the pipeline (same runId, clean table)
+// ... pipeline runs, inserts fresh rows ...
+
+// 4. Idempotency guard: calling prepareRetry again on an ALREADY-RETRYING job
+//    does NOT double-increment. rowsCleaned() == 0.
+```
+
+Every target table written by the pipeline must have a `_run_id STRING` column
+(populated at load time). `cleanupPartialLoad` issues
+`DELETE FROM <table> WHERE _run_id = @run_id` against that column.
+
+### What the tests assert
+
+| Test | Asserts |
+|------|---------|
+| `mixedValidityRowSet_...` | 1 valid row reaches success path; 2 invalid rows written to quarantine stub; `markFailed` called once with `DQ_VALIDATION_FAILURE` and the quarantine URI |
+| `piiMasking_...` | Valid row's `email` field is masked to `"***"` by `DataQualityTransform` before it exits the DQ stage; non-PII fields unchanged |
+| `retry_cleanupPartialLoad_...` | First `prepareRetry` removes 2 stale rows + increments counter to 1; re-run inserts 2 fresh rows; second `prepareRetry` on RETRYING job is idempotent (counter stays 1, 0 rows cleaned) |
+| `seamAdapter_invalidRowAdaptsToFailedRowRecord_roundTrip` | `InvalidRow<Map>` produced by real DQ engine adapts to `FailedRowRecord`; `rowContent()` matches original map; `violations()` carry identical field+rule pairs |
+| `liveGcsQuarantineIT_skeleton` | `@Disabled` — live-GCS emulator skeleton; enable in Sprint-15 T15.3 |
+
+### Build commands (after this slice)
+
+```bash
+# Prerequisites: install framework libraries
+cd data-pipeline-libraries-java
+mvn -o -pl data-pipeline-core-java,data-pipeline-gcp-gcs-java,data-pipeline-gcp-bigquery-java \
+    -am -DskipTests install
+
+# Run all tests (offline, no live GCP):
+cd ../deployments/reference-e2e-gcp
+mvn -o test
+```
+
+Expected output after S14 T14.5:
+```
+Tests run: 13, Failures: 0, Errors: 0, Skipped: 1
+BUILD SUCCESS
+```
+
+The 13 tests break down as:
+- 3 skeleton tests (`ReferenceE2EPipelineTest`)
+- 3 observability tests (`ReferenceE2EObservabilityTest`)
+- 2 cost/FinOps tests (`ReferenceE2ECostTest`)
+- 4 DQ tests (`ReferenceE2EDqTest`, 1 `@Disabled` = Skipped)
+
+**Live E2E run (S15 T15.3, architect-run):** The `@Disabled`
+`liveGcsQuarantineIT_skeleton` test in `ReferenceE2EDqTest` will be enabled in
+Sprint-15 T15.3 when the Testcontainers-based GCS emulator gate is green in CI.
+Until then, the full quarantine path is validated structurally via the in-memory
+stubs above.
+
+---
+
 ## Module placement notes (for the architect)
 
 This directory is a **standalone Maven module** — it does NOT inherit from
@@ -441,3 +611,5 @@ Culvert library coordinates this module depends on:
 | `com.enrichmeai.culvert:data-pipeline-core` | `0.1.0` |
 | `com.enrichmeai.culvert:data-pipeline-gcp-dataflow` | `0.1.0` |
 | `com.enrichmeai.culvert:data-pipeline-orchestration` | `0.1.0` |
+| `com.enrichmeai.culvert:data-pipeline-gcp-gcs` | `0.1.0` |
+| `com.enrichmeai.culvert:data-pipeline-gcp-bigquery` | `0.1.0` |
