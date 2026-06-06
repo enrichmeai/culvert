@@ -502,7 +502,7 @@ No trailing slash — the handler normalises it.
 
 Each quarantine file is newline-delimited JSON (NDJSON). One record per failed row:
 ```json
-{"row":{"id":null,"score":150.0,"email":"carol@example.com"},"violations":[{"field":"id","rule":"Field 'id' is REQUIRED but was null or absent"},{"field":"score","rule":"Field 'score' value 150.0 is outside range [0.0, 100.0]"}]}
+{"row":{"id":"case-003","score":150.0,"email":"carol@example.com"},"violations":[{"field":"score","rule":"Field 'score' value 150.0 is outside range [0.0, 100.0]"}]}
 ```
 
 ### The InvalidRow → FailedRowRecord seam adapter
