@@ -308,6 +308,40 @@ assertThat(ctx.governance()).isSameAs(policy);
 The integration sanity test lives in `data-pipeline-gcp-bigquery-java`
 (`RuntimeContextCostWiringTest`) where both types are available.
 
+## PiiMaskingGovernancePolicy (Sprint 14 / T14.4)
+
+`PiiMaskingGovernancePolicy` is a cloud-neutral `GovernancePolicy` that
+identifies PII fields **structurally** — by column-name allowlist and/or regex
+patterns on the field name — and supplies the `MaskingPolicy` to apply.
+
+**Scope cap (deliberate):** structural matching only. Tag-based policy
+resolution (Dataplex tags, Cloud DLP, per-cell inspection) is intentionally
+out of scope — this class imports only `java.*` and `com.enrichmeai.culvert.*`,
+no cloud SDK. Tag/DLP-driven classification is a post-v1.0.0 concern.
+
+### Configuration
+
+```java
+PiiMaskingGovernancePolicy policy = PiiMaskingGovernancePolicy.builder()
+        .piiColumns(Set.of("email", "ssn", "phone"))          // exact column names
+        .piiPatterns(List.of(".*_pii$", ".*_secret$"))        // regex on field name
+        .defaultMaskingPolicy(new MaskingPolicy(MaskingStrategy.FULL, "***", ""))
+        .columnOverride("ssn", new MaskingPolicy(MaskingStrategy.PARTIAL, "#", ""))
+        .build();
+```
+
+- `classify(field, table)` → `DataClassification.RESTRICTED` for a matched field,
+  `INTERNAL` otherwise.
+- `maskingFor(field, table)` → the per-column override if present, else the
+  default masking policy, for matched fields; empty otherwise.
+
+### Wiring into DataQualityTransform
+
+Masking is applied **after** validation routing — only `ValidRow` fields are
+masked, as a post-validation step, before the row reaches the success output.
+It is **opt-in**: a `DataQualityTransform` built without a `GovernancePolicy`
+behaves exactly as before (the no-policy path is unchanged and still tested).
+
 ## License
 
 MIT — see [LICENSE](../../LICENSE) at the repository root.
