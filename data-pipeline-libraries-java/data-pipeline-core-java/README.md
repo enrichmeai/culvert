@@ -145,23 +145,25 @@ that validates each incoming row against an `EntitySchema`. It lives in
 
    Other wire types (e.g. `BYTES`, `DATE`) bypass the type check.
 
-3. **OUT_OF_RANGE** — a `NumericRange` was supplied for the field and the value
-   falls outside `[min, max]` (inclusive). Checked only when the value is non-null
-   and no `TYPE_MISMATCH` was detected for the same field.
+3. **OUT_OF_RANGE** — the `SchemaField` carries a `NumericRange` (via
+   `SchemaField.withRange(...)`) and the value falls outside `[min, max]` (inclusive).
+   Bounds are read directly from the schema — no separate side-map is required.
+   Checked only when the value is non-null and no `TYPE_MISMATCH` was detected
+   for the same field.
 
 ### Usage — direct row validation
+
+Range bounds are embedded in the schema — no side-map needed:
 
 ```java
 EntitySchema schema = EntitySchema.of("order", List.of(
         SchemaField.required("id",     "STRING"),
-        SchemaField.required("amount", "FLOAT64"),
+        SchemaField.required("amount", "FLOAT64")
+                   .withRange(NumericRange.of(0.0, 1_000_000.0)),   // T14.7: schema-grounded
         SchemaField.nullable("note",   "STRING")));
 
 DataQualityTransform<Map<String, Object>> dq =
-        new DataQualityTransform<>(
-                schema,
-                Function.identity(),                        // rowAccessor
-                Map.of("amount", NumericRange.of(0.0, 1_000_000.0)));  // optional
+        new DataQualityTransform<>(schema, Function.identity());    // two-arg — no Map
 
 ValidationResult<Map<String, Object>> result = dq.validate(row);
 if (result instanceof ValidationResult.ValidRow<Map<String, Object>> v) {
