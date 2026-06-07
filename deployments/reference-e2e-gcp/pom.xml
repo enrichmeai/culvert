@@ -69,6 +69,29 @@
             <artifactId>data-pipeline-orchestration</artifactId>
             <version>${culvert.version}</version>
         </dependency>
+        <!--
+            S14 #82 — DQ/quarantine slice.
+            data-pipeline-gcp-gcs: provides QuarantineHandler + FailedRowRecord.
+            data-pipeline-gcp-bigquery: provides RetryOrchestrator.
+            Gson: used by QuarantineHandler for NDJSON serialisation; declared
+            explicitly here so it is visible on the deployment classpath even if
+            the transitive path from gcs changes.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-gcs</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
 
         <!-- Beam SDK + DirectRunner (structural test only — DataflowRunner for prod) -->
         <dependency>

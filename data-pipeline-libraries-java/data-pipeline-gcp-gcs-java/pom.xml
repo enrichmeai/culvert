@@ -68,6 +68,20 @@
             <artifactId>slf4j-api</artifactId>
         </dependency>
 
+        <!--
+            Gson — used by QuarantineHandler to serialise failed rows as
+            newline-delimited JSON (NDJSON). Transitively present via
+            google-cloud-storage → google-http-client-gson, but declared
+            explicitly so the version is visible and the compile-scope
+            dependency is not accidentally dropped if the transitive path
+            changes. Version managed by the Google Cloud libraries-bom.
+            Sprint-14 / issue #74 (T14.2).
+        -->
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+        </dependency>
+
         <!-- Test scope -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
