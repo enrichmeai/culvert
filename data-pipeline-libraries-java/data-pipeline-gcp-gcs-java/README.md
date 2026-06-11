@@ -118,6 +118,10 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-gcs-java -am clean 
 
 Live-cloud integration tests against a real GCS bucket are sprint-2+ scope.
 
+### Contract test coverage (Sprint-15, T15.4)
+
+`GcsBlobStoreContractTest` extends `BlobStoreContractTest` (Sprint-5 abstract base from `data-pipeline-contract-tests-java`) and runs all 5 inherited contract methods against a stub-backed `GcsBlobStore`. No Testcontainers or Docker required. URIs follow the `gs://contract-bucket/...` scheme; `knownUri()` maps to a mocked `Blob` that returns `"hello".getBytes()`; `missingUri()` maps to a `StorageException(404)` (the idempotent-delete path).
+
 ## QuarantineHandler
 
 Sprint-14 deliverable for issue [#74](https://github.com/enrichmeai/culvert/issues/74) (T14.2). Writes rows that failed data-quality validation to a newline-delimited JSON (NDJSON) file in GCS, then marks the pipeline job as failed via `JobControlRepository.markFailed`, recording the quarantine file URI in the `errorFilePath` field.
