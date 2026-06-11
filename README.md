@@ -92,6 +92,64 @@ gh workflow run deploy-generic.yml
 
 ---
 
+## CI (GitHub Actions)
+
+### Workflow: `.github/workflows/ci.yml`
+
+Introduced in T15.1 (#77). Triggers on `push` and `pull_request` to `sprint-15` and `main`.
+
+#### Jobs
+
+| Job | What it does |
+|-----|-------------|
+| `verify-module-list` | Diffs the workflow's explicit module list against `data-pipeline-libraries-java/pom.xml`. Fails if a module is missing — a gap is a visible red, not a silent pass. |
+| `java-build` | Matrix over all 13 Java reactor modules. Sets up JDK 21 (Temurin), caches `~/.m2`, runs `mvn --batch-mode -pl <module> -am test`. Integration tests (`*IT.java`) are excluded by surefire default; those come in T15.2. |
+| `python-tests` | Matrix over the three GCP adapter modules (`data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub`). Installs `data-pipeline-core` from local source first (it is not on PyPI yet), then the adapter. Caches pip. |
+| `ci-gate` | Required-status-check entry point. Fails if either `java-build` or `python-tests` fail. |
+
+#### Java reactor modules (all 13 enumerated)
+
+```
+data-pipeline-core-java
+data-pipeline-gcp-secrets-java
+data-pipeline-gcp-bigquery-java
+data-pipeline-gcp-gcs-java
+data-pipeline-gcp-pubsub-java
+data-pipeline-gcp-observability-java
+data-pipeline-gcp-dataflow-java
+data-pipeline-tester-java
+data-pipeline-it-support-java
+data-pipeline-contract-tests-java
+data-pipeline-aws-s3-java
+data-pipeline-azure-blob-java
+data-pipeline-orchestration-java
+```
+
+#### Adding a new Java module
+
+1. Add the module directory under `data-pipeline-libraries-java/`.
+2. Add a `<module>` entry to `data-pipeline-libraries-java/pom.xml`.
+3. Add the module name to the `matrix.module` list in `.github/workflows/ci.yml`.
+   The `verify-module-list` job will fail on the next CI run if you forget step 3.
+
+#### Known exclusions
+
+- `data-pipeline-orchestration` (Python) is excluded from CI pending tech-debt #88: `tests/unit/test_create_dags.py` references `airflow.providers.standard.operators.empty`, an Airflow-3.x-only import path that does not exist under the pinned Airflow 2.9.x. The file already carries a module-level `pytest.skip()` guard but the module is still unreliable to collect on a clean runner. Fix tracked in #88.
+- Emulator / Testcontainers integration tests — tracked in T15.2.
+- E2E / cloud-credential steps — tracked in T15.3.
+
+#### Re-enabling CI
+
+The workflow file is committed but the workflow is **disabled at the GitHub level** (intentional since Sprint 0 to avoid billable Actions minutes during development sprints). To enable:
+
+```bash
+gh workflow enable ci.yml
+```
+
+This is an **engineer trigger** — do not enable from an agent session.
+
+---
+
 ## Alternative deployments (advanced)
 
 These escape hatches exist for teams with specific constraints. They are not the default path.
