@@ -131,3 +131,9 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-dataflow-java -am t
 ```
 
 18/18 tests pass. Beam DirectRunner is the test driver — no real Dataflow needed.
+
+### Contract test coverage gap (Sprint-15, T15.4)
+
+`DataflowPipeline` implements `Pipeline`. There is no `PipelineContractTest` abstract base in `data-pipeline-contract-tests-java` (the Sprint-5 bases cover only `BlobStore`, `Warehouse`, and `SecretProvider`).
+
+<!-- TODO: add a PipelineContractTest abstract base (out of T15.4 scope — new base creation is a separate scoped task) and wire DataflowPipelineContractTest once that base exists. -->
