@@ -101,3 +101,7 @@ mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-secrets-java -
 ```
 
 Live-cloud integration tests against a real Secret Manager instance are sprint-2+ scope.
+
+### Contract test coverage (Sprint-15, T15.4)
+
+`GcpSecretManagerContractTest` extends `SecretProviderContractTest` (Sprint-5 abstract base from `data-pipeline-contract-tests-java`) and runs all 3 inherited contract methods against a stub-backed `SecretManagerProvider`. No Testcontainers or Docker required. A `thenAnswer` on `client.accessSecretVersion(any())` branches on the secret name to serve `"the-secret-value"` for `"known-secret"` and throw `NotFoundException` (which the SUT maps to `NoSuchElementException`) for `"missing-secret"`.
