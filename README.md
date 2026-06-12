@@ -100,12 +100,46 @@ Introduced in T15.1 (#77). Triggers on `push` and `pull_request` to `sprint-15` 
 
 #### Jobs
 
+The CI pipeline is a two-tier structure: unit tests run first, then the emulator integration-test tier runs only if the unit tier is green.
+
+**Tier 1 — unit tests (fast, no Docker)**
+
 | Job | What it does |
 |-----|-------------|
 | `verify-module-list` | Diffs the workflow's explicit module list against `data-pipeline-libraries-java/pom.xml`. Fails if a module is missing — a gap is a visible red, not a silent pass. |
-| `java-build` | Matrix over all 13 Java reactor modules. Sets up JDK 21 (Temurin), caches `~/.m2`, runs `mvn --batch-mode -pl <module> -am test`. Integration tests (`*IT.java`) are excluded by surefire default; those come in T15.2. |
-| `python-tests` | Matrix over the three GCP adapter modules (`data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub`). Installs `data-pipeline-core` from local source first (it is not on PyPI yet), then the adapter. Caches pip. |
-| `ci-gate` | Required-status-check entry point. Fails if either `java-build` or `python-tests` fail. |
+| `java-build` | Matrix over all 13 Java reactor modules. Sets up JDK 21 (Temurin), caches `~/.m2`, runs `mvn --batch-mode -pl <module> -am test`. Integration tests (`*IT.java`) are excluded by surefire default. Needs `verify-module-list`. |
+| `python-tests` | Matrix over the three GCP adapter modules (`data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub`). Installs `data-pipeline-core` from local source first (it is not on PyPI yet), then the adapter. Runs pytest with coverage (`--cov`). Caches pip. |
+
+**Tier 2 — emulator integration tests (Docker required, added in T15.2)**
+
+| Job | What it does |
+|-----|-------------|
+| `java-it` | Runs the full reactor's `*IT.java` tests via `mvn --batch-mode -P it verify`. Needs `java-build` — only starts if all unit-test legs pass. Exercises BigQueryWarehouseIT + BigQueryAuditEventPublisherIT (goccy/bigquery-emulator), GcsBlobStoreIT (fsouza/fake-gcs-server), PubSubSinkIT + PubSubSourceIT (Pub/Sub emulator), SecretManagerProviderIT, and DefaultRuntimeContextWiringIT. No GCP credentials needed — all traffic goes to localhost Testcontainers ports. Docker is available on ubuntu-latest runners; no DinD or `services:` block is needed. |
+
+**Gate**
+
+| Job | What it does |
+|-----|-------------|
+| `ci-gate` | Required-status-check entry point. Fails if any of `java-build`, `python-tests`, or `java-it` fail. |
+
+**Job dependency graph:**
+
+```
+verify-module-list
+       │
+   java-build ──────────────┐
+   (matrix, 13 legs)        │ needs: java-build
+                            ↓
+                         java-it
+                            │
+                            └──────────┐
+                                       ↓
+python-tests ──────────────────────→ ci-gate
+(no upstream dep; runs in parallel
+ with the entire Java chain)
+```
+
+`ci-gate` fans in from all three of `java-build`, `python-tests`, and `java-it`.
 
 #### Java reactor modules (all 13 enumerated)
 
@@ -135,8 +169,34 @@ data-pipeline-orchestration-java
 #### Known exclusions
 
 - `data-pipeline-orchestration` (Python) is excluded from CI pending tech-debt #88: `tests/unit/test_create_dags.py` references `airflow.providers.standard.operators.empty`, an Airflow-3.x-only import path that does not exist under the pinned Airflow 2.9.x. The file already carries a module-level `pytest.skip()` guard but the module is still unreliable to collect on a clean runner. Fix tracked in #88.
-- Emulator / Testcontainers integration tests — tracked in T15.2.
 - E2E / cloud-credential steps — tracked in T15.3.
+
+#### Running the emulator IT tier locally (Docker required)
+
+The `java-it` CI job runs `mvn -P it verify` on the reactor. To run the same locally:
+
+```bash
+# Requires a running Docker daemon
+cd data-pipeline-libraries-java
+mvn --batch-mode -P it verify
+```
+
+This activates the `it` Maven profile (defined in `data-pipeline-libraries-java/pom.xml`), which enables maven-failsafe to collect and run all `*IT.java` tests against Testcontainers-backed emulators. The emulator containers are pulled from Docker Hub automatically when the tests start; no GCP credentials are needed.
+
+To run a single module's ITs only:
+
+```bash
+cd data-pipeline-libraries-java
+mvn --batch-mode -P it -pl data-pipeline-gcp-bigquery-java -am verify
+```
+
+Day-to-day unit tests (no Docker needed):
+
+```bash
+cd data-pipeline-libraries-java
+mvn test                         # whole reactor, unit tests only
+mvn -pl data-pipeline-core-java -am test   # single module
+```
 
 #### Re-enabling CI
 

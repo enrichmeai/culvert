@@ -1,11 +1,13 @@
 # ============================================================================
-# Culvert CI — Sprint-15 rewrite (T15.1 / #77)
+# Culvert CI — Sprint-15 rewrite (T15.1 / #77), extended by T15.2 (#79)
 #
 # Replaces the legacy gcp-pipeline-libraries Python-only CI with a polyglot
 # workflow that covers:
 #   1. Java reactor  — 13 modules under data-pipeline-libraries-java/
 #   2. Python (Culvert adapters) — 3 GCP adapter modules under
 #      data-pipeline-libraries/  (bigquery, gcs, pubsub)
+#   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
+#      emulators (BigQuery goccy, GCS fake-gcs-server, Pub/Sub emulator).
 #
 # NOTE — workflow is intentionally NOT enabled at the GitHub level.
 # Re-enabling (gh workflow enable / UI toggle) is an ENGINEER trigger once
@@ -18,6 +20,8 @@
 # populates the cache and subsequent runs are fast.  The observability module
 # specifically imports google-cloud-monitoring via libraries-bom 26.39.0 which
 # is a network-only fetch — another hard blocker for `-o` on CI runners.
+# The same rationale applies to the IT job: failsafe + testcontainers + the
+# emulator client libs are all network-only fetches on a cold runner.
 #
 # NOTE — Python module scope and #88
 # Only data-pipeline-gcp-bigquery, data-pipeline-gcp-gcs, and
@@ -29,6 +33,20 @@
 # `pytest.skip()` as a temporary guard, but the module still cannot be
 # collected cleanly on a clean CI runner without Airflow installed.
 # Fix tracked in #88.
+#
+# NOTE — Required Actions secrets / permissions (T15.2 — emulator IT tier)
+# The emulator IT job (java-it below) runs entirely against Testcontainers-
+# backed in-process emulators.  No GCP credentials are needed for this tier.
+# Needed secrets:
+#   NONE — Testcontainers spins up Docker-based emulators on the runner.
+# Needed permissions:
+#   contents: read   (already set at workflow level — sufficient)
+#
+# If live-cloud steps are added in a future ticket (T15.3), the following
+# Actions secrets will be required at that point:
+#   GCP_SA_KEY       — service-account JSON with BigQuery/GCS/Pub/Sub roles
+#   GCP_PROJECT_ID   — target GCP project for live-cloud assertions
+# Those are NOT wired here; this workflow is emulator-only.
 # ============================================================================
 
 name: CI
@@ -211,16 +229,82 @@ jobs:
       - name: Run pytest — ${{ matrix.module }}
         run: |
           cd "data-pipeline-libraries/${{ matrix.module }}"
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short \
+            --cov=src --cov-report=term-missing --cov-report=xml
 
 # ============================================================================
-# ── Job 4: CI gate ───────────────────────────────────────────────────────────
+# ── Job 4: Java emulator integration tests (T15.2 / #79) ────────────────────
+#
+# Runs the full reactor's *IT.java tests via maven-failsafe (activated with
+# -P it) against Testcontainers-backed emulators:
+#   • BigQuery  — goccy/bigquery-emulator  (BigQueryWarehouseIT,
+#                                            BigQueryAuditEventPublisherIT)
+#   • GCS       — fsouza/fake-gcs-server   (GcsBlobStoreIT)
+#   • Pub/Sub   — gcr.io/google.com/cloudsdktool/cloud-sdk  (PubSubSinkIT,
+#                                                              PubSubSourceIT)
+#   • Secrets   — SecretManagerProviderIT
+#   • Dataflow  — DefaultRuntimeContextWiringIT
+#
+# Emulator fixtures live in data-pipeline-it-support-java
+# (BigQueryEmulatorContainer, FakeGcsServerContainer, and the
+# testcontainers-gcloud PubSubEmulatorContainer consumed directly in the
+# Pub/Sub ITs).
+#
+# Docker is available on ubuntu-latest runners out-of-the-box; Testcontainers
+# picks up the host Docker daemon automatically — no DinD or `services:` block
+# is needed.
+#
+# This job requires java-build (all unit tests) to pass first (explicit
+# `needs:`).  If any unit-test leg is red, the IT job is skipped entirely.
+#
+# Required Actions secrets: NONE (emulator-only — no GCP credentials needed).
+# ============================================================================
+  java-it:
+    name: Java — emulator ITs (mvn -P it verify)
+    runs-on: ubuntu-latest
+    needs: java-build           # unit tests must be green before ITs run
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Same key/restore pattern as java-build so the IT job benefits from
+          # the same warm cache populated by the unit-test leg.
+          key: maven-${{ hashFiles('data-pipeline-libraries-java/**/pom.xml') }}
+          restore-keys: |
+            maven-
+
+      - name: Run integration tests against Testcontainers emulators
+        working-directory: data-pipeline-libraries-java
+        # Online Maven (not -o) — emulator client libs, failsafe, and
+        # Testcontainers images are all network-only fetches on a cold runner.
+        # Docker is available on ubuntu-latest; Testcontainers auto-detects it.
+        # No GCP credentials are configured — all traffic goes to localhost
+        # emulator ports, never to real GCP endpoints.
+        run: |
+          mvn --batch-mode \
+              -P it \
+              verify \
+              -Dsurefire.failIfNoSpecifiedTests=false
+
+# ============================================================================
+# ── Job 5: CI gate ───────────────────────────────────────────────────────────
 # Single required-status-check entry point.  PR merge gates on this job.
+# Updated in T15.2 (#79) to include java-it in the gate.
 # ============================================================================
   ci-gate:
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [java-build, python-tests]
+    needs: [java-build, python-tests, java-it]
     if: always()
 
     steps:
@@ -228,9 +312,11 @@ jobs:
         run: |
           echo "java-build:   ${{ needs.java-build.result }}"
           echo "python-tests: ${{ needs.python-tests.result }}"
+          echo "java-it:      ${{ needs.java-it.result }}"
 
           if [ "${{ needs.java-build.result }}" != "success" ] || \
-             [ "${{ needs.python-tests.result }}" != "success" ]; then
+             [ "${{ needs.python-tests.result }}" != "success" ] || \
+             [ "${{ needs.java-it.result }}" != "success" ]; then
             echo "ERROR: one or more required jobs failed"
             exit 1
           fi
