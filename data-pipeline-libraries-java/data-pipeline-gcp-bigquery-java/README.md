@@ -191,6 +191,12 @@ mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-bigquery-java 
 
 Live-cloud integration tests against a real BigQuery dataset (or the BigQuery emulator) are sprint-2+ scope.
 
+### Contract test coverage (Sprint-15, T15.4)
+
+`BigQueryWarehouseContractTest` extends `WarehouseContractTest` (Sprint-5 abstract base from `data-pipeline-contract-tests-java`) and runs all 4 inherited contract methods against a stub-backed `BigQueryWarehouse`. No Testcontainers or Docker required.
+
+**Deviation:** BigQuery requires fully-qualified table names (`dataset.table`). `WarehouseContractTest` uses bare identifiers by default — the base was extended in Sprint-15 to add overridable `knownTable()` / `missingTable()` hook methods. `BigQueryWarehouseContractTest` overrides both to supply `contract_ds.contract_test_table` and `contract_ds.contract_missing_table` respectively.
+
 ## BigQueryFinOpsSink
 
 Implementation of [`FinOpsSink`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/FinOpsSink.java) — receives `(CostMetrics, FinOpsTag)` pairs and streams them into the configured `cost_metrics` BigQuery table via `BigQuery.insertAll`.

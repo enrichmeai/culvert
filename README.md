@@ -92,6 +92,133 @@ gh workflow run deploy-generic.yml
 
 ---
 
+## CI (GitHub Actions)
+
+### Workflow: `.github/workflows/ci.yml`
+
+Introduced in T15.1 (#77). Triggers on `push` and `pull_request` to `sprint-15` and `main`.
+
+#### Jobs
+
+The CI pipeline is a two-tier structure: unit tests run first, then the emulator integration-test tier runs only if the unit tier is green.
+
+**Tier 1 — unit tests (fast, no Docker)**
+
+| Job | What it does |
+|-----|-------------|
+| `verify-module-list` | Diffs the workflow's explicit module list against `data-pipeline-libraries-java/pom.xml`. Fails if a module is missing — a gap is a visible red, not a silent pass. |
+| `java-build` | Matrix over all 13 Java reactor modules. Sets up JDK 21 (Temurin), caches `~/.m2`, runs `mvn --batch-mode -pl <module> -am test`. Integration tests (`*IT.java`) are excluded by surefire default. Needs `verify-module-list`. |
+| `python-tests` | Matrix over the three GCP adapter modules (`data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub`). Installs `data-pipeline-core` from local source first (it is not on PyPI yet), then the adapter. Runs pytest with coverage (`--cov`). Caches pip. |
+
+**Tier 2 — emulator integration tests (Docker required, added in T15.2)**
+
+| Job | What it does |
+|-----|-------------|
+| `java-it` | Runs the full reactor's `*IT.java` tests via `mvn --batch-mode -P it verify`. Needs `java-build` — only starts if all unit-test legs pass. Exercises BigQueryWarehouseIT + BigQueryAuditEventPublisherIT (goccy/bigquery-emulator), GcsBlobStoreIT (fsouza/fake-gcs-server), PubSubSinkIT + PubSubSourceIT (Pub/Sub emulator), SecretManagerProviderIT, and DefaultRuntimeContextWiringIT. No GCP credentials needed — all traffic goes to localhost Testcontainers ports. Docker is available on ubuntu-latest runners; no DinD or `services:` block is needed. |
+
+**Gate**
+
+| Job | What it does |
+|-----|-------------|
+| `ci-gate` | Required-status-check entry point. Fails if any of `java-build`, `python-tests`, or `java-it` fail. |
+
+**Job dependency graph:**
+
+```
+verify-module-list
+       │
+   java-build ──────────────┐
+   (matrix, 13 legs)        │ needs: java-build
+                            ↓
+                         java-it
+                            │
+                            └──────────┐
+                                       ↓
+python-tests ──────────────────────→ ci-gate
+(no upstream dep; runs in parallel
+ with the entire Java chain)
+```
+
+`ci-gate` fans in from all three of `java-build`, `python-tests`, and `java-it`.
+
+#### Java reactor modules (all 13 enumerated)
+
+```
+data-pipeline-core-java
+data-pipeline-gcp-secrets-java
+data-pipeline-gcp-bigquery-java
+data-pipeline-gcp-gcs-java
+data-pipeline-gcp-pubsub-java
+data-pipeline-gcp-observability-java
+data-pipeline-gcp-dataflow-java
+data-pipeline-tester-java
+data-pipeline-it-support-java
+data-pipeline-contract-tests-java
+data-pipeline-aws-s3-java
+data-pipeline-azure-blob-java
+data-pipeline-orchestration-java
+```
+
+#### Adding a new Java module
+
+1. Add the module directory under `data-pipeline-libraries-java/`.
+2. Add a `<module>` entry to `data-pipeline-libraries-java/pom.xml`.
+3. Add the module name to the `matrix.module` list in `.github/workflows/ci.yml`.
+   The `verify-module-list` job will fail on the next CI run if you forget step 3.
+
+#### Known exclusions
+
+- `data-pipeline-orchestration` (Python) is excluded from CI pending tech-debt #88: `tests/unit/test_create_dags.py` references `airflow.providers.standard.operators.empty`, an Airflow-3.x-only import path that does not exist under the pinned Airflow 2.9.x. The file already carries a module-level `pytest.skip()` guard but the module is still unreliable to collect on a clean runner. Fix tracked in #88.
+- E2E / cloud-credential steps — tracked in T15.3.
+
+#### Running the emulator IT tier locally (Docker required)
+
+The `java-it` CI job runs `mvn -P it verify` on the reactor. To run the same locally:
+
+```bash
+# Requires a running Docker daemon
+cd data-pipeline-libraries-java
+mvn --batch-mode -P it verify
+```
+
+This activates the `it` Maven profile (defined in `data-pipeline-libraries-java/pom.xml`), which enables maven-failsafe to collect and run all `*IT.java` tests against Testcontainers-backed emulators. The emulator containers are pulled from Docker Hub automatically when the tests start; no GCP credentials are needed.
+
+To run a single module's ITs only:
+
+```bash
+cd data-pipeline-libraries-java
+mvn --batch-mode -P it -pl data-pipeline-gcp-bigquery-java -am verify
+```
+
+Day-to-day unit tests (no Docker needed):
+
+```bash
+cd data-pipeline-libraries-java
+mvn test                         # whole reactor, unit tests only
+mvn -pl data-pipeline-core-java -am test   # single module
+```
+
+#### Re-enabling CI
+
+The `ci.yml` workflow is committed but **disabled at the GitHub level** (intentional since Sprint 0 to avoid billable Actions minutes during development sprints). To enable:
+
+```bash
+gh workflow enable ci.yml
+```
+
+This is an **engineer trigger** — do not enable from an agent session.
+
+> **Legacy workflows retired (Sprint 15, T15.5).** The 10 pre-Culvert workflows
+> (`test.yml`, `deploy-generic.yml`, `publish-libraries.yml`, etc.) targeted the
+> old Python `gcp-pipeline-*` framework — several auto-deployed/published to PyPI
+> on push to `main`. They were **deleted** so that enabling Actions is exactly
+> "enable `ci.yml`", with no stale deploy/publish or red legacy-test runs.
+> `.github/workflows/` now contains only `ci.yml`. Deploy/publish workflows for
+> Culvert will be authored fresh in Sprint 16 (release prep) / v1.1, not salvaged
+> from the retired set.
+
+---
+
 ## Alternative deployments (advanced)
 
 These escape hatches exist for teams with specific constraints. They are not the default path.

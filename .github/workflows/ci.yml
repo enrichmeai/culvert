@@ -1,195 +1,399 @@
+# ============================================================================
+# Culvert CI — Sprint-15 rewrite (T15.1 / #77), extended by T15.2 (#79), T15.3 (#83)
+#
+# Replaces the legacy gcp-pipeline-libraries Python-only CI with a polyglot
+# workflow that covers:
+#   1. Java reactor  — 13 modules under data-pipeline-libraries-java/
+#   2. Python (Culvert adapters) — 3 GCP adapter modules under
+#      data-pipeline-libraries/  (bigquery, gcs, pubsub)
+#   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
+#      emulators (BigQuery goccy, GCS fake-gcs-server, Pub/Sub emulator).
+#   4. [T15.3] E2E gate — compile + test deployments/reference-e2e-gcp on
+#      DirectRunner (structural + all sprint slices: skeleton, observability,
+#      cost/FinOps, DQ/quarantine).  No Docker required for this tier.
+#
+# NOTE — workflow is intentionally NOT enabled at the GitHub level.
+# Re-enabling (gh workflow enable / UI toggle) is an ENGINEER trigger once
+# the team is ready to resume Actions minutes. See CLAUDE.md deploy rules.
+#
+# NOTE — `mvn --batch-mode` (online) vs `mvn -o` (offline)
+# The issue (#77) spec said `-o` but CI runners start with an empty ~/.m2
+# cache. Running offline on a cold runner would fail immediately because no
+# artifacts exist. We use online Maven with a cached ~/.m2 so the first run
+# populates the cache and subsequent runs are fast.  The observability module
+# specifically imports google-cloud-monitoring via libraries-bom 26.39.0 which
+# is a network-only fetch — another hard blocker for `-o` on CI runners.
+# The same rationale applies to the IT job: failsafe + testcontainers + the
+# emulator client libs are all network-only fetches on a cold runner.
+#
+# NOTE — Python module scope and #88
+# Only data-pipeline-gcp-bigquery, data-pipeline-gcp-gcs, and
+# data-pipeline-gcp-pubsub are included (matching the DoD checklist from #77).
+# data-pipeline-orchestration is EXCLUDED pending tech-debt #88: the file
+# tests/unit/test_create_dags.py references the Airflow-3.x-only import path
+# `airflow.providers.standard.operators.empty` which does not exist under
+# the pinned Airflow 2.9.x.  That file already contains a module-level
+# `pytest.skip()` as a temporary guard, but the module still cannot be
+# collected cleanly on a clean CI runner without Airflow installed.
+# Fix tracked in #88.
+#
+# NOTE — Required Actions secrets / permissions (T15.2 — emulator IT tier)
+# The emulator IT job (java-it below) runs entirely against Testcontainers-
+# backed in-process emulators.  No GCP credentials are needed for this tier.
+# Needed secrets:
+#   NONE — Testcontainers spins up Docker-based emulators on the runner.
+# Needed permissions:
+#   contents: read   (already set at workflow level — sufficient)
+#
+# T15.3 e2e-gate (now wired) runs the reference-e2e-gcp deployment on
+# DirectRunner + in-memory recording hooks.  No live-cloud steps, no Docker.
+# If the @Disabled liveGcsQuarantineIT_skeleton test is later enabled (post-
+# T15.3, architect-run gate), the following secrets will be required then:
+#   GCP_SA_KEY       — service-account JSON with BigQuery/GCS/Pub/Sub roles
+#   GCP_PROJECT_ID   — target GCP project for live-cloud assertions
+# Those are NOT wired here; the T15.3 gate is structural-only.
+# ============================================================================
+
 name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [sprint-15, main]
   pull_request:
-    branches: [main, develop]
+    branches: [sprint-15, main]
 
 env:
+  JAVA_VERSION: '21'
   PYTHON_VERSION: '3.11'
 
 permissions:
   contents: read
 
+# ============================================================================
+# ── Job 1: Verify the Java reactor module list matches pom.xml ──────────────
+# A separate guard job that diffs the workflow's explicit module list against
+# the authoritative <modules> entries in data-pipeline-libraries-java/pom.xml.
+# A module gap in the matrix is a visible CI failure, not a silent pass.
+# ============================================================================
 jobs:
-  lint:
-    name: Lint & Format
+  verify-module-list:
+    name: Verify reactor module list is in sync with pom.xml
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
+      - name: Check all 13 modules are enumerated
+        run: |
+          set -euo pipefail
+          # Authoritative list from pom.xml (order-independent)
+          POM_MODULES=$(grep '<module>' data-pipeline-libraries-java/pom.xml \
+            | sed 's/.*<module>//;s/<\/module>//' \
+            | tr -d ' ' \
+            | sort)
 
-    - name: Install lint tools
-      run: |
-        python -m pip install --upgrade pip
-        pip install flake8 black isort
+          # Workflow's explicit matrix list (must match POM exactly)
+          WORKFLOW_MODULES=$(cat <<'MODEOF'
+          data-pipeline-aws-s3-java
+          data-pipeline-azure-blob-java
+          data-pipeline-contract-tests-java
+          data-pipeline-core-java
+          data-pipeline-gcp-bigquery-java
+          data-pipeline-gcp-dataflow-java
+          data-pipeline-gcp-gcs-java
+          data-pipeline-gcp-observability-java
+          data-pipeline-gcp-pubsub-java
+          data-pipeline-gcp-secrets-java
+          data-pipeline-it-support-java
+          data-pipeline-orchestration-java
+          data-pipeline-tester-java
+          MODEOF
+          echo "$WORKFLOW_MODULES" | tr -d ' ' | grep -v '^$' | sort)
 
-    # Strict pass: real errors (syntax, undefined names) fail the build.
-    # Config for line length / complexity lives in .flake8 at repo root.
-    - name: Flake8 (blocking — syntax/undefined)
-      run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src \
-               gcp-pipeline-libraries/gcp-pipeline-beam/src \
-               gcp-pipeline-libraries/data-pipeline-orchestration/src \
-               gcp-pipeline-libraries/data-pipeline-transform/src \
-               gcp-pipeline-libraries/data-pipeline-tester/src \
-          --count --select=E9,F63,F7,F82 --show-source --statistics
+          echo "=== POM modules ==="
+          echo "$POM_MODULES"
+          echo "=== Workflow modules ==="
+          echo "$WORKFLOW_MODULES"
 
-    # Advisory pass: style / complexity. Non-blocking until the codebase is clean.
-    # TODO: drop --exit-zero once `pre-commit run --all-files` is clean locally.
-    - name: Flake8 (advisory — style/complexity)
-      run: |
-        flake8 gcp-pipeline-libraries/gcp-pipeline-core/src \
-               gcp-pipeline-libraries/gcp-pipeline-beam/src \
-               gcp-pipeline-libraries/data-pipeline-orchestration/src \
-               gcp-pipeline-libraries/data-pipeline-transform/src \
-               gcp-pipeline-libraries/data-pipeline-tester/src \
-          --count --exit-zero --statistics
+          DIFF=$(diff <(echo "$POM_MODULES") <(echo "$WORKFLOW_MODULES") || true)
+          if [ -n "$DIFF" ]; then
+            echo "ERROR: module list mismatch — update ci.yml matrix to match pom.xml"
+            echo "$DIFF"
+            exit 1
+          fi
+          echo "OK: all 13 modules are enumerated"
 
-    - name: Check formatting (black) — advisory
-      run: |
-        # TODO: drop `|| true` once `pre-commit run black --all-files` is clean locally.
-        black --check --line-length=100 \
-          gcp-pipeline-libraries/gcp-pipeline-core/src \
-          gcp-pipeline-libraries/gcp-pipeline-beam/src \
-          gcp-pipeline-libraries/data-pipeline-orchestration/src \
-          gcp-pipeline-libraries/data-pipeline-transform/src \
-          gcp-pipeline-libraries/data-pipeline-tester/src || true
-
-  test-core:
-    name: Test gcp-pipeline-core
+# ============================================================================
+# ── Job 2: Java reactor build + unit tests ──────────────────────────────────
+# Runs the full reactor (all 13 modules) via -pl <module> -am so each module
+# only builds the modules it depends on, making individual matrix legs fast.
+# The surefire default excludes *IT.java (integration tests) — Testcontainers
+# jobs come in T15.2.
+# ============================================================================
+  java-build:
+    name: Java — ${{ matrix.module }}
     runs-on: ubuntu-latest
-    needs: lint
+    needs: verify-module-list
+
+    strategy:
+      fail-fast: false          # let all modules report; don't stop on first red
+      matrix:
+        module:
+          - data-pipeline-core-java
+          - data-pipeline-gcp-secrets-java
+          - data-pipeline-gcp-bigquery-java
+          - data-pipeline-gcp-gcs-java
+          - data-pipeline-gcp-pubsub-java
+          - data-pipeline-gcp-observability-java
+          - data-pipeline-gcp-dataflow-java
+          - data-pipeline-tester-java
+          - data-pipeline-it-support-java
+          - data-pipeline-contract-tests-java
+          - data-pipeline-aws-s3-java
+          - data-pipeline-azure-blob-java
+          - data-pipeline-orchestration-java
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Key includes the pom hash so the cache busts when deps change.
+          # fallback to any prior run's cache so first builds are still fast.
+          key: maven-${{ hashFiles('data-pipeline-libraries-java/**/pom.xml') }}
+          restore-keys: |
+            maven-
 
-    - name: Run tests
-      run: |
-        cd gcp-pipeline-libraries/gcp-pipeline-core
-        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+      - name: Build and test ${{ matrix.module }}
+        working-directory: data-pipeline-libraries-java
+        run: |
+          mvn --batch-mode \
+              -pl ${{ matrix.module }} \
+              -am \
+              test \
+              -Dsurefire.failIfNoSpecifiedTests=false
 
-  test-beam:
-    name: Test gcp-pipeline-beam
+# ============================================================================
+# ── Job 3: Python GCP adapter tests ─────────────────────────────────────────
+# Covers the three GCP adapter modules whose tests are locally green.
+# Install order: data-pipeline-core first (local editable), then the adapter.
+# This mirrors the pattern in the old test.yml to avoid pip resolving
+# data-pipeline-core from PyPI (it is not published yet).
+#
+# EXCLUDED: data-pipeline-orchestration — see #88 note at the top of this file.
+# ============================================================================
+  python-tests:
+    name: Python — ${{ matrix.module }}
     runs-on: ubuntu-latest
-    needs: lint
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: data-pipeline-gcp-bigquery
+            test-extra: test
+          - module: data-pipeline-gcp-gcs
+            test-extra: test
+          - module: data-pipeline-gcp-pubsub
+            test-extra: test
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ matrix.module }}-${{ hashFiles(format('data-pipeline-libraries/{0}/pyproject.toml', matrix.module)) }}
+          restore-keys: |
+            pip-${{ matrix.module }}-
+            pip-
 
-    - name: Run tests
-      run: |
-        cd gcp-pipeline-libraries/gcp-pipeline-beam
-        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+      - name: Install data-pipeline-core (local, no PyPI)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "data-pipeline-libraries/data-pipeline-core[test]"
 
-  test-orchestration:
-    name: Test data-pipeline-orchestration
+      - name: Install ${{ matrix.module }}
+        run: |
+          pip install -e "data-pipeline-libraries/${{ matrix.module }}[${{ matrix.test-extra }}]"
+
+      - name: Run pytest — ${{ matrix.module }}
+        run: |
+          cd "data-pipeline-libraries/${{ matrix.module }}"
+          pytest tests/ -v --tb=short \
+            --cov=src --cov-report=term-missing --cov-report=xml
+
+# ============================================================================
+# ── Job 4: Java emulator integration tests (T15.2 / #79) ────────────────────
+#
+# Runs the full reactor's *IT.java tests via maven-failsafe (activated with
+# -P it) against Testcontainers-backed emulators:
+#   • BigQuery  — goccy/bigquery-emulator  (BigQueryWarehouseIT,
+#                                            BigQueryAuditEventPublisherIT)
+#   • GCS       — fsouza/fake-gcs-server   (GcsBlobStoreIT)
+#   • Pub/Sub   — gcr.io/google.com/cloudsdktool/cloud-sdk  (PubSubSinkIT,
+#                                                              PubSubSourceIT)
+#   • Secrets   — SecretManagerProviderIT
+#   • Dataflow  — DefaultRuntimeContextWiringIT
+#
+# Emulator fixtures live in data-pipeline-it-support-java
+# (BigQueryEmulatorContainer, FakeGcsServerContainer, and the
+# testcontainers-gcloud PubSubEmulatorContainer consumed directly in the
+# Pub/Sub ITs).
+#
+# Docker is available on ubuntu-latest runners out-of-the-box; Testcontainers
+# picks up the host Docker daemon automatically — no DinD or `services:` block
+# is needed.
+#
+# This job requires java-build (all unit tests) to pass first (explicit
+# `needs:`).  If any unit-test leg is red, the IT job is skipped entirely.
+#
+# Required Actions secrets: NONE (emulator-only — no GCP credentials needed).
+# ============================================================================
+  java-it:
+    name: Java — emulator ITs (mvn -P it verify)
     runs-on: ubuntu-latest
-    needs: lint
+    needs: java-build           # unit tests must be green before ITs run
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
-        pip install -e "gcp-pipeline-libraries/data-pipeline-orchestration[dev]"
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Same key/restore pattern as java-build so the IT job benefits from
+          # the same warm cache populated by the unit-test leg.
+          key: maven-${{ hashFiles('data-pipeline-libraries-java/**/pom.xml') }}
+          restore-keys: |
+            maven-
 
-    - name: Run tests
-      run: |
-        cd gcp-pipeline-libraries/data-pipeline-orchestration
-        pytest tests/ -v --tb=short --cov=src --cov-report=term-missing
+      - name: Run integration tests against Testcontainers emulators
+        working-directory: data-pipeline-libraries-java
+        # Online Maven (not -o) — emulator client libs, failsafe, and
+        # Testcontainers images are all network-only fetches on a cold runner.
+        # Docker is available on ubuntu-latest; Testcontainers auto-detects it.
+        # No GCP credentials are configured — all traffic goes to localhost
+        # emulator ports, never to real GCP endpoints.
+        run: |
+          mvn --batch-mode \
+              -P it \
+              verify \
+              -Dsurefire.failIfNoSpecifiedTests=false
 
-  test-tester:
-    name: Test data-pipeline-tester
+# ============================================================================
+# ── Job 5: E2E gate (T15.3 / #83) ───────────────────────────────────────────
+#
+# Compiles and runs the standalone reference-e2e-gcp deployment.
+#
+# Architecture:
+#   • The deployment is NOT in the Java reactor — its pom.xml has no parent.
+#     Culvert library artifacts (group com.enrichmeai.culvert:0.1.0) are not
+#     published to Maven Central, so we must install them into ~/.m2 inside
+#     the same job before running the deployment's tests.
+#   • The install step runs online (--batch-mode, NOT -o).  CI runners start
+#     with an empty ~/.m2; offline mode would fail immediately on a cold runner
+#     (same rationale as the java-build and java-it jobs above).
+#   • The deployment tests are DirectRunner + in-memory recording hooks —
+#     NO Docker, NO Testcontainers, NO live GCP credentials required.
+#     The one @Disabled test (liveGcsQuarantineIT_skeleton) is the T15.3
+#     architect-run gate and is intentionally left disabled here; enabling it
+#     requires Docker (FakeGCS + BigQuery emulator) and is flagged in the PR
+#     as the remaining open DoD box for Joseph to check.
+#   • Expected result: ~13 tests, 1 skipped (@Disabled IT skeleton), BUILD SUCCESS.
+#
+# No GCP credentials needed — structural + DirectRunner tests only.
+# ============================================================================
+  e2e-gate:
+    name: E2E — reference-e2e-gcp (DirectRunner + structural, T15.3 #83)
     runs-on: ubuntu-latest
-    needs: lint
+    needs: java-build           # unit tests must be green before E2E runs
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
-        pip install -e "gcp-pipeline-libraries/data-pipeline-tester[dev]"
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Same key/restore pattern as java-build and java-it so the E2E job
+          # benefits from any warm cache populated by earlier legs.
+          key: maven-${{ hashFiles('data-pipeline-libraries-java/**/pom.xml') }}
+          restore-keys: |
+            maven-
 
-    - name: Run tests
-      run: |
-        cd gcp-pipeline-libraries/data-pipeline-tester
-        pytest tests/ -v --tb=short
+      - name: Install Culvert library artifacts into local Maven repo
+        # The deployment is standalone (not in the reactor), so its dependencies
+        # are not built as a side-effect of the reactor build.  Install the five
+        # libraries the E2E pom.xml declares as <dependency> entries.
+        # -am installs transitive inter-module deps automatically.
+        working-directory: data-pipeline-libraries-java
+        run: |
+          mvn --batch-mode \
+              -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java,data-pipeline-gcp-bigquery-java,data-pipeline-gcp-gcs-java \
+              -am \
+              -DskipTests \
+              install
 
-  test-deployments:
-    name: Test Deployments
+      - name: Compile and test reference-e2e-gcp (DirectRunner)
+        # mvn test under Surefire picks up all *Test.java classes and skips
+        # @Disabled tests (the liveGcsQuarantineIT_skeleton) without error.
+        # Expected: ~13 tests, 1 skipped, BUILD SUCCESS.
+        working-directory: deployments/reference-e2e-gcp
+        run: |
+          mvn --batch-mode test
+
+# ============================================================================
+# ── Job 6: CI gate ───────────────────────────────────────────────────────────
+# Single required-status-check entry point.  PR merge gates on this job.
+# Updated in T15.2 (#79) to include java-it in the gate.
+# Updated in T15.3 (#83) to include e2e-gate in the gate.
+# ============================================================================
+  ci-gate:
+    name: CI passed
     runs-on: ubuntu-latest
-    needs: [test-core, test-beam]
+    needs: [java-build, python-tests, java-it, e2e-gate]
+    if: always()
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Gate
+        run: |
+          echo "java-build:   ${{ needs.java-build.result }}"
+          echo "python-tests: ${{ needs.python-tests.result }}"
+          echo "java-it:      ${{ needs.java-it.result }}"
+          echo "e2e-gate:     ${{ needs.e2e-gate.result }}"
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ env.PYTHON_VERSION }}
-        cache: 'pip'
-
-    - name: Install library dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-core[dev]"
-        pip install -e "gcp-pipeline-libraries/gcp-pipeline-beam[dev]"
-
-    - name: Test original-data-to-bigqueryload deployment
-      run: |
-        pip install -e "deployments/original-data-to-bigqueryload[dev]" || true
-        PYTHONPATH=deployments/original-data-to-bigqueryload/src pytest \
-          deployments/original-data-to-bigqueryload/tests/ -v --tb=short || true
-
-    - name: Test postgres-cdc-streaming deployment
-      run: |
-        pip install -e "deployments/postgres-cdc-streaming[dev]" || true
-        PYTHONPATH=deployments/postgres-cdc-streaming/src pytest \
-          deployments/postgres-cdc-streaming/tests/ -v --tb=short || true
+          if [ "${{ needs.java-build.result }}" != "success" ] || \
+             [ "${{ needs.python-tests.result }}" != "success" ] || \
+             [ "${{ needs.java-it.result }}" != "success" ] || \
+             [ "${{ needs.e2e-gate.result }}" != "success" ]; then
+            echo "ERROR: one or more required jobs failed"
+            exit 1
+          fi
+          echo "All required jobs passed."
