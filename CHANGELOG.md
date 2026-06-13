@@ -2,6 +2,53 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
+## [1.0.0] — 2026-06-13
+
+**All 15 core contracts have real adapters. The framework's v1.0 feature bar is complete.**
+
+This release spans Sprints 9–16, completing the Culvert framework's initial production-ready milestone. Every contract interface defined in `data-pipeline-core` now has at least one concrete adapter shipping under `com.enrichmeai.culvert:*`.
+
+### Java libraries (`com.enrichmeai.culvert:*`) — Sprint 9–16 additions
+
+- **Sprint 9 (exec core)** — `data-pipeline-core-java`: `DefaultRuntimeContext` wiring through `JobControlRepository`; `governance` package (`PiiMaskingGovernancePolicy`, `MaskingPolicy`, `RetentionPolicy`); `lineage` support types; `finops` package (`BudgetGovernancePolicy`, `CostMetrics`, `FinOpsTag`). `RuntimeContext` and `GovernancePolicy` contracts fully covered.
+- **Sprint 10 (emulator ITs)** — `data-pipeline-it-support-java`: Testcontainers GCP emulator fixtures (`BigQueryEmulatorContainer`, `FakeGcsServerContainer`); `*IT.java` tests activated by `mvn -P it verify`. All adapter modules gained corresponding IT tests.
+- **Sprint 11 (orchestration)** — `data-pipeline-orchestration-java`: cloud-neutral DAG model (`DagSpec`, `TaskSpec`); `PipelineToDagSpec` translator; `AirflowDagRenderer` + `ComposerDagRenderer` (both implement `DagRenderer`). Scheduler-agnostic; no Airflow runtime dependency. 61 tests.
+- **Sprint 12 (observability)** — `data-pipeline-gcp-observability-java`: `CloudTraceObservabilityHook` (`ObservabilityHook`); `DataCatalogLineageEmitter` (`LineageEmitter`); `CloudMonitoringMetricsHook`; `CulvertMdcPopulator` for structured-log correlation. 20 tests.
+- **Sprint 13 (FinOps)** — `data-pipeline-gcp-bigquery-java` `BigQueryFinOpsSink` (`FinOpsSink` impl) + `BigQueryCostTracker`; `data-pipeline-gcp-gcs-java` `GcsCostTracker`; `data-pipeline-gcp-pubsub-java` `PubSubCostTracker`. `FinOpsSink` contract fully implemented.
+- **Sprint 14 (data quality)** — `data-pipeline-core-java` `dataquality` package: `DataQualityTransform`, `ValidationResult`, `FieldViolation`, `ViolationKind`, `NumericRange`; `data-pipeline-gcp-gcs-java` `QuarantineHandler` + `FailedRowRecord` for quarantine-path routing.
+- **Sprint 15 (CI gate)** — `.github/workflows/ci.yml`: per-module parallel matrix (Java 21); integration-test stage (`-P it verify`); PR check suite blocking merge until all contract modules pass.
+- **Sprint 16 (hardening)** — Dataflow perf/load-test notes (`docs/PERF_TUNING.md`); security review (`docs/SECURITY_IAM.md`, `docs/SECURITY_CVE.md`); operational runbook (`docs/RUNBOOK.md`); SLO/alerting docs (`docs/SLO_ALERTING.md`); release dry-run (T16.4, this ticket).
+
+### Contract completion status at 1.0.0
+
+| Contract | Adapter(s) |
+|---|---|
+| `Source` | `PubSubSource` |
+| `Sink` | `PubSubSink` |
+| `Transform` | `DataQualityTransform` (core) |
+| `Pipeline` | `DataflowPipeline` |
+| `PipelineStage` | core framework |
+| `RuntimeContext` | `DefaultRuntimeContext` |
+| `JobControlRepository` | `BigQueryJobControlRepository` |
+| `BlobStore` | `GcsBlobStore`, `S3BlobStore`, `AzureBlobStore` |
+| `Warehouse` | `BigQueryWarehouse` |
+| `AuditEventPublisher` | `BigQueryAuditEventPublisher` |
+| `GovernancePolicy` | `PiiMaskingGovernancePolicy`, `BudgetGovernancePolicy` |
+| `LineageEmitter` | `DataCatalogLineageEmitter` |
+| `ObservabilityHook` | `CloudTraceObservabilityHook`, `CloudMonitoringMetricsHook` |
+| `FinOpsSink` | `BigQueryFinOpsSink` |
+| `SecretProvider` | `SecretManagerProvider` |
+
+**Java reactor at 1.0.0: 13 modules, 478 tests (0 failures, 0 errors).**
+
+### Not published in this release
+
+- Maven Central publication is a manual gate; see [RELEASE.md](RELEASE.md) for the procedure.
+- This release entry documents the dry-run only — no artifact was uploaded.
+- GPG key `3E6E144F` (rsa4096, joseph.a.aruja@gmail.com) exists in the keyring. Signing failed only at passphrase prompt (`gpg: signing failed: Inappropriate ioctl for device`) because no TTY is available in the non-interactive shell. Fix: add `allow-loopback-pinentry` to `~/.gnupg/gpg-agent.conf` and use `-Dpinentry-mode=loopback`. Dry-run was completed with `-Dgpg.skip=true`.
+
+---
+
 ## [0.1.0] — unreleased
 
 The framework's first feature-complete dev-cycle. **Not yet published to PyPI / Maven Central** — that step waits for explicit go.
