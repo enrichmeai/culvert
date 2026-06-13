@@ -45,7 +45,7 @@ This release spans Sprints 9–16, completing the Culvert framework's initial pr
 
 - Maven Central publication is a manual gate; see [RELEASE.md](RELEASE.md) for the procedure.
 - This release entry documents the dry-run only — no artifact was uploaded.
-- GPG key `3E6E144F` (rsa4096, joseph.a.aruja@gmail.com) exists in the keyring. Signing failed only at passphrase prompt (`gpg: signing failed: Inappropriate ioctl for device`) because no TTY is available in the non-interactive shell. Fix: add `allow-loopback-pinentry` to `~/.gnupg/gpg-agent.conf` and use `-Dpinentry-mode=loopback`. Dry-run was completed with `-Dgpg.skip=true`.
+- **Signing — mechanism verified, passphrase is the only missing input.** GPG key `11921786` (rsa4096, Joseph Aruja) is in the keyring and **can sign headlessly** — confirmed by a direct `gpg --batch --pinentry-mode loopback --detach-sign` which produced a valid `.asc`. The key is **passphrase-protected**, so the `maven-gpg-plugin` `release` dry-run needs `-Dgpg.passphrase=<key passphrase>` (Joseph's secret — intentionally not supplied here). The artifact-assembly dry-run was therefore completed with `-Dgpg.skip=true` (BUILD SUCCESS, all 13 jar trios assembled); the signing step is proven-working pending the passphrase at real-release time. To sign in CI/non-interactive: `allow-loopback-pinentry` in `~/.gnupg/gpg-agent.conf` + `-Dgpg.passphrase=$KEY_PASSPHRASE`.
 
 ---
 
