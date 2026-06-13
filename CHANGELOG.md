@@ -4,20 +4,20 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [1.0.0] — 2026-06-13
 
-**All 17 core contracts have real adapters. The framework's v1.0 feature bar is complete.**
+**All 15 core contracts have real adapters. The framework's v1.0 feature bar is complete.**
 
 This release spans Sprints 9–16, completing the Culvert framework's initial production-ready milestone. Every contract interface defined in `data-pipeline-core` now has at least one concrete adapter shipping under `com.enrichmeai.culvert:*`.
 
 ### Java libraries (`com.enrichmeai.culvert:*`) — Sprint 9–16 additions
 
-- **Sprint 9 (exec core)** — executor harness in `data-pipeline-core-java`: synchronous and async `PipelineExecutor` implementations; `ExecutionContext` propagation; full lifecycle (PENDING → RUNNING → SUCCEEDED/FAILED) wired through `JobControlRepository`. 17 contracts now have an exec path.
-- **Sprint 10 (emulator integration tests)** — `data-pipeline-it-support-java`: Testcontainers GCP emulator fixtures (Pub/Sub, Bigtable, GCS, Firestore emulators); `@Tag("it")` `*IT.java` tests activated by `-P it verify`; deterministic emulator lifecycle management via `TestcontainersEmulatorSupport`. All adapter modules gained corresponding `*IT` tests.
-- **Sprint 11 (orchestration)** — `data-pipeline-orchestration-java`: cloud-neutral DAG model (`DagSpec`, `TaskSpec`); `Pipeline→DagSpec` translator; `AirflowDagRenderer` + `ComposerDagRenderer`; idempotent `DagDeployer` interface. Scheduler-agnostic by design; no Apache Airflow runtime dependency.
-- **Sprint 12 (observability)** — `data-pipeline-gcp-observability-java`: `CloudTraceObservabilityHook` (trace span emission per stage); `DataCatalogLineageEmitter` (column-level lineage to Data Catalog); OpenTelemetry BOM alignment; structured-log correlation via MDC. 20 tests.
-- **Sprint 13 (FinOps)** — `data-pipeline-gcp-bigquery-java` `BigQueryFinOpsSink`: per-job cost metadata written to a `pipeline_cost_events` BigQuery table; slot-hour estimation; project-level cost aggregation view DDL. 11 tests. `FinOpsSink` contract fully implemented.
-- **Sprint 14 (data quality)** — `data-pipeline-core-java` `GovernancePolicy` + `data-pipeline-gcp-bigquery-java` `BigQueryGovernancePolicy`: schema-drift detection, null-rate threshold checks, row-count range assertions; quarantine-path routing for failing records. `GovernancePolicy` contract fully implemented.
-- **Sprint 15 (CI + E2E gate)** — GitHub Actions workflow (`release.yml`): matrix build across Java 17/21; integration-test stage (`-P it verify`) against emulators in CI; E2E smoke gate blocking merge to `main`; PR check suite enforcing all 17 adapter contracts are tested. `data-pipeline-contract-tests-java` abstract suites wired into CI.
-- **Sprint 16 (hardening)** — Dataflow perf/load-test config (`-P perf`); security + secrets-handling review (no plaintext credentials, all secrets via `SecretProvider`); operational runbook (`docs/runbook/operations.md`) covering deployment, rollback, and on-call checklist; SLO alerting docs; release dry-run validation (this ticket).
+- **Sprint 9 (exec core)** — `data-pipeline-core-java`: `DefaultRuntimeContext` wiring through `JobControlRepository`; `governance` package (`PiiMaskingGovernancePolicy`, `MaskingPolicy`, `RetentionPolicy`); `lineage` support types; `finops` package (`BudgetGovernancePolicy`, `CostMetrics`, `FinOpsTag`). `RuntimeContext` and `GovernancePolicy` contracts fully covered.
+- **Sprint 10 (emulator ITs)** — `data-pipeline-it-support-java`: Testcontainers GCP emulator fixtures (`BigQueryEmulatorContainer`, `FakeGcsServerContainer`); `*IT.java` tests activated by `mvn -P it verify`. All adapter modules gained corresponding IT tests.
+- **Sprint 11 (orchestration)** — `data-pipeline-orchestration-java`: cloud-neutral DAG model (`DagSpec`, `TaskSpec`); `PipelineToDagSpec` translator; `AirflowDagRenderer` + `ComposerDagRenderer` (both implement `DagRenderer`). Scheduler-agnostic; no Airflow runtime dependency. 61 tests.
+- **Sprint 12 (observability)** — `data-pipeline-gcp-observability-java`: `CloudTraceObservabilityHook` (`ObservabilityHook`); `DataCatalogLineageEmitter` (`LineageEmitter`); `CloudMonitoringMetricsHook`; `CulvertMdcPopulator` for structured-log correlation. 20 tests.
+- **Sprint 13 (FinOps)** — `data-pipeline-gcp-bigquery-java` `BigQueryFinOpsSink` (`FinOpsSink` impl) + `BigQueryCostTracker`; `data-pipeline-gcp-gcs-java` `GcsCostTracker`; `data-pipeline-gcp-pubsub-java` `PubSubCostTracker`. `FinOpsSink` contract fully implemented.
+- **Sprint 14 (data quality)** — `data-pipeline-core-java` `dataquality` package: `DataQualityTransform`, `ValidationResult`, `FieldViolation`, `ViolationKind`, `NumericRange`; `data-pipeline-gcp-gcs-java` `QuarantineHandler` + `FailedRowRecord` for quarantine-path routing.
+- **Sprint 15 (CI gate)** — `.github/workflows/ci.yml`: per-module parallel matrix (Java 21); integration-test stage (`-P it verify`); PR check suite blocking merge until all contract modules pass.
+- **Sprint 16 (hardening)** — Dataflow perf/load-test notes (`docs/PERF_TUNING.md`); security review (`docs/SECURITY_IAM.md`, `docs/SECURITY_CVE.md`); operational runbook (`docs/RUNBOOK.md`); SLO/alerting docs (`docs/SLO_ALERTING.md`); release dry-run (T16.4, this ticket).
 
 ### Contract completion status at 1.0.0
 
@@ -25,28 +25,27 @@ This release spans Sprints 9–16, completing the Culvert framework's initial pr
 |---|---|
 | `Source` | `PubSubSource` |
 | `Sink` | `PubSubSink` |
-| `Transform` | core framework |
+| `Transform` | `DataQualityTransform` (core) |
 | `Pipeline` | `DataflowPipeline` |
 | `PipelineStage` | core framework |
-| `RuntimeContext` | `ExecutionContext` (Sprint 9) |
+| `RuntimeContext` | `DefaultRuntimeContext` |
 | `JobControlRepository` | `BigQueryJobControlRepository` |
-| `BlobStore` | `GcsBlobStore` |
+| `BlobStore` | `GcsBlobStore`, `S3BlobStore`, `AzureBlobStore` |
 | `Warehouse` | `BigQueryWarehouse` |
-| `AuditEventPublisher` | `PubSubAuditEventPublisher` |
-| `GovernancePolicy` | `BigQueryGovernancePolicy` (Sprint 14) |
-| `LineageEmitter` | `DataCatalogLineageEmitter` (Sprint 12) |
-| `ObservabilityHook` | `CloudTraceObservabilityHook` (Sprint 12) |
-| `FinOpsSink` | `BigQueryFinOpsSink` (Sprint 13) |
+| `AuditEventPublisher` | `BigQueryAuditEventPublisher` |
+| `GovernancePolicy` | `PiiMaskingGovernancePolicy`, `BudgetGovernancePolicy` |
+| `LineageEmitter` | `DataCatalogLineageEmitter` |
+| `ObservabilityHook` | `CloudTraceObservabilityHook`, `CloudMonitoringMetricsHook` |
+| `FinOpsSink` | `BigQueryFinOpsSink` |
 | `SecretProvider` | `SecretManagerProvider` |
-| `AutoConfig` | `ServiceLoader`-driven registry |
-| `DagSpec` / orchestration | `AirflowDagRenderer` + `ComposerDagRenderer` (Sprint 11) |
 
-**Java reactor at 1.0.0: 13 modules, ~250+ tests.**
+**Java reactor at 1.0.0: 13 modules, 478 tests (0 failures, 0 errors).**
 
 ### Not published in this release
 
 - Maven Central publication is a manual gate; see [RELEASE.md](RELEASE.md) for the procedure.
-- This release entry documents the dry-run (`mvn -P release verify`) only — no artifact was uploaded.
+- This release entry documents the dry-run only — no artifact was uploaded.
+- GPG key `3E6E144F` (rsa4096, joseph.a.aruja@gmail.com) exists in the keyring. Signing failed only at passphrase prompt (`gpg: signing failed: Inappropriate ioctl for device`) because no TTY is available in the non-interactive shell. Fix: add `allow-loopback-pinentry` to `~/.gnupg/gpg-agent.conf` and use `-Dpinentry-mode=loopback`. Dry-run was completed with `-Dgpg.skip=true`.
 
 ---
 
