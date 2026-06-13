@@ -127,7 +127,7 @@ setters verified from `beam-runners-google-cloud-dataflow-java-2.55.0.jar` (java
 | `--project` | `setProject(String)` | `DataflowPipelineOptions` |
 | `--region` | `setRegion(String)` | `DataflowPipelineOptions` |
 | `--stagingLocation` | `setStagingLocation(String)` | `DataflowPipelineOptions` |
-| `--tempLocation` | `setTempLocation(String)` | `GcpOptions` |
+| `--tempLocation` | `setTempLocation(String)` | `PipelineOptions` (base interface — verified in `beam-sdks-java-core-2.55.0`) |
 | `--serviceAccount` | `setServiceAccount(String)` | `DataflowPipelineOptions` |
 | `--numWorkers` | `setNumWorkers(int)` | `DataflowPipelineWorkerPoolOptions` |
 | `--maxNumWorkers` | `setMaxNumWorkers(int)` | `DataflowPipelineWorkerPoolOptions` |
@@ -265,11 +265,13 @@ Do not move to a larger machine type without first profiling the bottleneck
 
 Beam's default bundle size is determined by the runner's splitting policy.
 For the NoOp stages (no source, no sink) the bundle size has no practical
-impact today.  When real I/O stages are wired:
+impact today.  When real I/O stages are wired (the following are illustrative — verify exact
+API names against the Beam 2.55 SDK before use):
 
-- For BigQuery reads: increase `--maxBundleSizeBytes` or use `withRowRestriction`
-  to partition the source.
-- For GCS reads: use `FileIO.read()` with `withBatchSize()`.
+- For BigQuery reads: use `BigQueryIO.read().withRowRestriction(...)` to
+  partition the source; inspect bundle sizes in the Dataflow step UI.
+- For GCS reads: use `FileIO.match().continuously(...)` or source-level
+  splitting options.
 - For Pub/Sub streaming (future): tune `maxNumWorkers` and the subscription's
   message backlog.
 
@@ -279,12 +281,25 @@ Beam fuses compatible transforms into a single bundle step to reduce
 serialization overhead.  Fusion can be inspected in the Dataflow execution
 graph (fused steps appear as a single node).
 
-To **disable fusion** for profiling individual stage costs:
-```bash
-# *** Joseph runs — NOT executed by agent ***
---experiments=disable_runner_v2_reason_string,unfusedstages
+To **observe or break fusion** for profiling individual stage costs, the
+recommended approach in Beam 2.x is to insert a `Reshuffle` (or `GroupByKey`)
+transform between the stages you want to profile separately.  `Reshuffle` acts
+as a fusion barrier — Beam cannot fuse across a shuffle boundary, so each
+segment appears as a distinct step in the Dataflow graph with its own metrics.
+
+```java
+// In the launcher / pipeline build — NOT the NoOp stage classes themselves:
+pipeline.apply("Read", ...)
+        .apply(Reshuffle.viaRandomKey())  // fusion barrier
+        .apply("Transform", ...);
 ```
-Re-enable fusion (the default) for production runs.
+
+Dataflow-specific `--experiments` flags for disabling fusion exist but are
+version-dependent and undocumented in the public API surface for 2.55.0; verify
+against the Beam 2.55 release notes before use rather than relying on a specific
+flag name.  The `Reshuffle` approach is stable across Beam versions.
+
+Re-enable fusion (the default, no `Reshuffle`) for production runs.
 
 ### 5e. Autoscaling algorithm comparison
 
