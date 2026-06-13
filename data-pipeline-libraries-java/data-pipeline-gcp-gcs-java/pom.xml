@@ -105,6 +105,19 @@
         </dependency>
 
         <!--
+            Sprint-15 (T15.4): abstract contract-test bases. The module ships
+            these as compile-scope deps (it IS a test library), so bringing it
+            as test scope here is correct — the abstract classes end up on our
+            test compile and test-run classpaths only.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
             Sprint-10 (T10.4): emulator-backed integration tests (*IT.java,
             run under the parent's `it` profile via failsafe). The it-support
             fixture library provides FakeGcsServerContainer; it already exposes

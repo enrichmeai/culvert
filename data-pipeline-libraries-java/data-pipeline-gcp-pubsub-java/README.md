@@ -118,6 +118,12 @@ cd data-pipeline-libraries-java && mvn -pl data-pipeline-gcp-pubsub-java -am cle
 
 Live-cloud integration tests against a real Pub/Sub topic are sprint-3+ scope.
 
+### Contract test coverage gap (Sprint-15, T15.4)
+
+`PubSubSource` implements `Source<PubsubMessage>` and `PubSubSink` implements `Sink<PubsubMessage>`. Neither `Source` nor `Sink` has a corresponding abstract contract-test base in `data-pipeline-contract-tests-java` (the Sprint-5 bases cover only `BlobStore`, `Warehouse`, and `SecretProvider`).
+
+<!-- TODO: add SourceContractTest / SinkContractTest abstract bases (out of T15.4 scope — new base creation is a separate scoped task) and wire PubSubSourceContractTest / PubSubSinkContractTest once those bases exist. -->
+
 ## PubSubCostTracker
 
 Sprint-13 deliverable for issue [#70](https://github.com/enrichmeai/culvert/issues/70) (T13.2). Builds a `CostMetrics` record from Pub/Sub message-count and throughput-bytes, and pushes it to a `FinOpsSink`. Does not hold a Pub/Sub client — it operates on counts and bytes already obtained by the caller.
