@@ -58,7 +58,7 @@ the core contracts. The planned slices are:
 | S12    | #80 (T12.5) | Observability | `ObservabilityHook` + `StageMetricsHook` verified end-to-end; MDC fields asserted in log output. |
 | S13    | #81 (T13.5) | Cost / FinOps | `FinOpsSink` tagging per stage; `BudgetGovernancePolicy` wiring; budget-ceiling block test. |
 | S14    | #82         | Data Quality  | DQ assertions inside the transform stage; bad-record routing. |
-| S15    | #83         | CI gating     | Live emulator via Testcontainers; GitHub Actions gate on E2E green. |
+| S15    | #83 (T15.3) | CI gating     | `e2e-gate` job in `ci.yml` — structural DirectRunner tests wired as required check. Live-emulator (@Disabled IT) is architect-run. |
 
 Each sprint's dev-agent should:
 1. Branch off `sprint-N`.
@@ -99,12 +99,25 @@ The 8 tests break down as:
 - 3 observability tests (`ReferenceE2EObservabilityTest`) — the S12 slice.
 - 2 cost/FinOps tests (`ReferenceE2ECostTest`) — the S13 slice.
 
-**Live emulator / CI (S15, #83, future):**
+**CI gate (S15, #83, now wired):**
 
-Once S15 lands, a Testcontainers-based `*IT.java` test will be added here and
-gated via `mvn -P it verify` in GitHub Actions. The `[deploy]` commit-message
-trigger is deliberately absent from this skeleton; Cloud Dataflow runs are out
-of scope until that gate exists.
+The GitHub Actions `ci.yml` workflow now contains an `e2e-gate` job (Job 5) that:
+
+1. Checks out the repo and sets up JDK 21 (temurin).
+2. Installs the five Culvert library artifacts into the runner's `~/.m2` via
+   `mvn --batch-mode -pl data-pipeline-core-java,...-gcp-gcs-java -am -DskipTests install`
+   (the deployment is standalone and its deps are not published to Maven Central).
+3. Runs `mvn --batch-mode test` in `deployments/reference-e2e-gcp/`.
+4. Is wired as a required check via the `ci-gate` aggregator job.
+
+Expected: ~13 tests, 1 skipped (`@Disabled` live-GCS skeleton), `BUILD SUCCESS`.
+No Docker is required for this tier — all tests run on DirectRunner + in-memory
+recording hooks.
+
+**Architect-run box (open until Joseph confirms):** The `liveGcsQuarantineIT_skeleton`
+test in `ReferenceE2EDqTest` is intentionally `@Disabled`. Enabling it requires Docker
+(FakeGCS + BigQuery emulator via Testcontainers) and is gated as a live-CI run that
+Joseph confirms manually before the PR merges.
 
 ---
 
