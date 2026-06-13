@@ -1,5 +1,5 @@
 # ============================================================================
-# Culvert CI — Sprint-15 rewrite (T15.1 / #77), extended by T15.2 (#79)
+# Culvert CI — Sprint-15 rewrite (T15.1 / #77), extended by T15.2 (#79), T15.3 (#83)
 #
 # Replaces the legacy gcp-pipeline-libraries Python-only CI with a polyglot
 # workflow that covers:
@@ -8,6 +8,9 @@
 #      data-pipeline-libraries/  (bigquery, gcs, pubsub)
 #   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
 #      emulators (BigQuery goccy, GCS fake-gcs-server, Pub/Sub emulator).
+#   4. [T15.3] E2E gate — compile + test deployments/reference-e2e-gcp on
+#      DirectRunner (structural + all sprint slices: skeleton, observability,
+#      cost/FinOps, DQ/quarantine).  No Docker required for this tier.
 #
 # NOTE — workflow is intentionally NOT enabled at the GitHub level.
 # Re-enabling (gh workflow enable / UI toggle) is an ENGINEER trigger once
@@ -42,11 +45,13 @@
 # Needed permissions:
 #   contents: read   (already set at workflow level — sufficient)
 #
-# If live-cloud steps are added in a future ticket (T15.3), the following
-# Actions secrets will be required at that point:
+# T15.3 e2e-gate (now wired) runs the reference-e2e-gcp deployment on
+# DirectRunner + in-memory recording hooks.  No live-cloud steps, no Docker.
+# If the @Disabled liveGcsQuarantineIT_skeleton test is later enabled (post-
+# T15.3, architect-run gate), the following secrets will be required then:
 #   GCP_SA_KEY       — service-account JSON with BigQuery/GCS/Pub/Sub roles
 #   GCP_PROJECT_ID   — target GCP project for live-cloud assertions
-# Those are NOT wired here; this workflow is emulator-only.
+# Those are NOT wired here; the T15.3 gate is structural-only.
 # ============================================================================
 
 name: CI
@@ -297,14 +302,83 @@ jobs:
               -Dsurefire.failIfNoSpecifiedTests=false
 
 # ============================================================================
-# ── Job 5: CI gate ───────────────────────────────────────────────────────────
+# ── Job 5: E2E gate (T15.3 / #83) ───────────────────────────────────────────
+#
+# Compiles and runs the standalone reference-e2e-gcp deployment.
+#
+# Architecture:
+#   • The deployment is NOT in the Java reactor — its pom.xml has no parent.
+#     Culvert library artifacts (group com.enrichmeai.culvert:0.1.0) are not
+#     published to Maven Central, so we must install them into ~/.m2 inside
+#     the same job before running the deployment's tests.
+#   • The install step runs online (--batch-mode, NOT -o).  CI runners start
+#     with an empty ~/.m2; offline mode would fail immediately on a cold runner
+#     (same rationale as the java-build and java-it jobs above).
+#   • The deployment tests are DirectRunner + in-memory recording hooks —
+#     NO Docker, NO Testcontainers, NO live GCP credentials required.
+#     The one @Disabled test (liveGcsQuarantineIT_skeleton) is the T15.3
+#     architect-run gate and is intentionally left disabled here; enabling it
+#     requires Docker (FakeGCS + BigQuery emulator) and is flagged in the PR
+#     as the remaining open DoD box for Joseph to check.
+#   • Expected result: ~13 tests, 1 skipped (@Disabled IT skeleton), BUILD SUCCESS.
+#
+# No GCP credentials needed — structural + DirectRunner tests only.
+# ============================================================================
+  e2e-gate:
+    name: E2E — reference-e2e-gcp (DirectRunner + structural, T15.3 #83)
+    runs-on: ubuntu-latest
+    needs: java-build           # unit tests must be green before E2E runs
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Same key/restore pattern as java-build and java-it so the E2E job
+          # benefits from any warm cache populated by earlier legs.
+          key: maven-${{ hashFiles('data-pipeline-libraries-java/**/pom.xml') }}
+          restore-keys: |
+            maven-
+
+      - name: Install Culvert library artifacts into local Maven repo
+        # The deployment is standalone (not in the reactor), so its dependencies
+        # are not built as a side-effect of the reactor build.  Install the five
+        # libraries the E2E pom.xml declares as <dependency> entries.
+        # -am installs transitive inter-module deps automatically.
+        working-directory: data-pipeline-libraries-java
+        run: |
+          mvn --batch-mode \
+              -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java,data-pipeline-gcp-bigquery-java,data-pipeline-gcp-gcs-java \
+              -am \
+              -DskipTests \
+              install
+
+      - name: Compile and test reference-e2e-gcp (DirectRunner)
+        # mvn test under Surefire picks up all *Test.java classes and skips
+        # @Disabled tests (the liveGcsQuarantineIT_skeleton) without error.
+        # Expected: ~13 tests, 1 skipped, BUILD SUCCESS.
+        working-directory: deployments/reference-e2e-gcp
+        run: |
+          mvn --batch-mode test
+
+# ============================================================================
+# ── Job 6: CI gate ───────────────────────────────────────────────────────────
 # Single required-status-check entry point.  PR merge gates on this job.
 # Updated in T15.2 (#79) to include java-it in the gate.
+# Updated in T15.3 (#83) to include e2e-gate in the gate.
 # ============================================================================
   ci-gate:
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [java-build, python-tests, java-it]
+    needs: [java-build, python-tests, java-it, e2e-gate]
     if: always()
 
     steps:
@@ -313,10 +387,12 @@ jobs:
           echo "java-build:   ${{ needs.java-build.result }}"
           echo "python-tests: ${{ needs.python-tests.result }}"
           echo "java-it:      ${{ needs.java-it.result }}"
+          echo "e2e-gate:     ${{ needs.e2e-gate.result }}"
 
           if [ "${{ needs.java-build.result }}" != "success" ] || \
              [ "${{ needs.python-tests.result }}" != "success" ] || \
-             [ "${{ needs.java-it.result }}" != "success" ]; then
+             [ "${{ needs.java-it.result }}" != "success" ] || \
+             [ "${{ needs.e2e-gate.result }}" != "success" ]; then
             echo "ERROR: one or more required jobs failed"
             exit 1
           fi
