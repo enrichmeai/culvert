@@ -200,13 +200,22 @@ mvn -pl data-pipeline-core-java -am test   # single module
 
 #### Re-enabling CI
 
-The workflow file is committed but the workflow is **disabled at the GitHub level** (intentional since Sprint 0 to avoid billable Actions minutes during development sprints). To enable:
+The `ci.yml` workflow is committed but **disabled at the GitHub level** (intentional since Sprint 0 to avoid billable Actions minutes during development sprints). To enable:
 
 ```bash
 gh workflow enable ci.yml
 ```
 
 This is an **engineer trigger** — do not enable from an agent session.
+
+> **Legacy workflows retired (Sprint 15, T15.5).** The 10 pre-Culvert workflows
+> (`test.yml`, `deploy-generic.yml`, `publish-libraries.yml`, etc.) targeted the
+> old Python `gcp-pipeline-*` framework — several auto-deployed/published to PyPI
+> on push to `main`. They were **deleted** so that enabling Actions is exactly
+> "enable `ci.yml`", with no stale deploy/publish or red legacy-test runs.
+> `.github/workflows/` now contains only `ci.yml`. Deploy/publish workflows for
+> Culvert will be authored fresh in Sprint 16 (release prep) / v1.1, not salvaged
+> from the retired set.
 
 ---
 
