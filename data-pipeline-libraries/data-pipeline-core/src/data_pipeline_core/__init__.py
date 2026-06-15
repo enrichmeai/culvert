@@ -13,6 +13,7 @@ Most users will import the Protocols from the top level:
         JobControlRepository, BlobStore, Warehouse,
         AuditEventPublisher, GovernancePolicy, LineageEmitter,
         ObservabilityHook, FinOpsSink, SecretProvider,
+        StageMetrics, StageMetricsHook,
     )
 """
 
@@ -27,6 +28,7 @@ from data_pipeline_core.contracts.pipeline import Pipeline, PipelineStage
 from data_pipeline_core.contracts.runtime import RuntimeContext
 from data_pipeline_core.contracts.secrets import SecretProvider
 from data_pipeline_core.contracts.source import Sink, Source, Transform
+from data_pipeline_core.contracts.stage_metrics import StageMetrics, StageMetricsHook
 from data_pipeline_core.contracts.warehouse import Warehouse
 
 __version__ = "0.1.0"
@@ -52,4 +54,7 @@ __all__ = [
     "ObservabilityHook",
     "FinOpsSink",
     "SecretProvider",
+    # Typed per-stage metrics (Sprint-12 / T17.1)
+    "StageMetrics",
+    "StageMetricsHook",
 ]

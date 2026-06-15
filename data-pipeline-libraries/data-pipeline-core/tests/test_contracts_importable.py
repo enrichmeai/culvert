@@ -20,6 +20,8 @@ from data_pipeline_core import (
     SecretProvider,
     Sink,
     Source,
+    StageMetrics,
+    StageMetricsHook,
     Transform,
     Warehouse,
 )
@@ -29,7 +31,8 @@ def test_version() -> None:
     assert data_pipeline_core.__version__ == "0.1.0"
 
 
-def test_all_eleven_protocols_exported() -> None:
+def test_all_seventeen_contracts_exported() -> None:
+    """All 17 contracts (15 original + StageMetrics + StageMetricsHook) are exported."""
     expected = {
         "Source",
         "Sink",
@@ -46,6 +49,9 @@ def test_all_eleven_protocols_exported() -> None:
         "ObservabilityHook",
         "FinOpsSink",
         "SecretProvider",
+        # Sprint-12 / T17.1 additions
+        "StageMetrics",
+        "StageMetricsHook",
     }
     actual = set(data_pipeline_core.__all__) - {"__version__"}
     assert actual == expected, f"missing: {expected - actual}, extra: {actual - expected}"
@@ -79,3 +85,14 @@ def test_protocols_have_expected_methods() -> None:
     assert hasattr(ObservabilityHook, "span")
     assert hasattr(FinOpsSink, "record")
     assert hasattr(SecretProvider, "get")
+    # Sprint-12 / T17.1: StageMetrics fields (checked on an instance because
+    # frozen-dataclass fields are instance attrs, not class attrs) and
+    # StageMetricsHook Protocol method (class-level).
+    sample = StageMetrics("p", "r", "s", 0, 0.0, 0)
+    assert hasattr(sample, "pipeline_id")
+    assert hasattr(sample, "run_id")
+    assert hasattr(sample, "stage_name")
+    assert hasattr(sample, "rows_processed")
+    assert hasattr(sample, "stage_latency_ms")
+    assert hasattr(sample, "error_count")
+    assert hasattr(StageMetricsHook, "record_stage_metrics")
