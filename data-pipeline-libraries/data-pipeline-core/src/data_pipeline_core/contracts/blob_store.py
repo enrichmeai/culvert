@@ -28,12 +28,22 @@ class BlobStore(Protocol):
         """
         ...
 
-    def open(self, uri: str, mode: str = "rb") -> BinaryIO:
-        """Open a streaming handle on the object at `uri`.
+    def open_input(self, uri: str) -> BinaryIO:
+        """Open a streaming read handle on the object at `uri`.
 
         Use for large objects where loading the full bytes into memory
-        is wasteful. `mode` follows Python's open() conventions
-        (`rb` for read-binary, `wb` for write-binary).
+        is wasteful. Callers must close the stream (use as a context
+        manager where possible).
+
+        Raises FileNotFoundError if the object does not exist.
+        """
+        ...
+
+    def open_output(self, uri: str) -> BinaryIO:
+        """Open a streaming write handle for the object at `uri`.
+
+        Callers must close the stream to commit the write (use as a
+        context manager where possible). Overwrites existing objects.
         """
         ...
 
