@@ -1,4 +1,4 @@
-"""The eleven Protocols that make up the framework-to-cloud seam.
+"""The Protocols and value types that make up the framework-to-cloud seam.
 
 Each Protocol is small. Each is implementable in any cloud. None imports
 anything cloud-specific. Where a Protocol has an obvious GCP
@@ -17,6 +17,7 @@ from data_pipeline_core.contracts.pipeline import Pipeline, PipelineStage
 from data_pipeline_core.contracts.runtime import RuntimeContext
 from data_pipeline_core.contracts.secrets import SecretProvider
 from data_pipeline_core.contracts.source import Sink, Source, Transform
+from data_pipeline_core.contracts.stage_metrics import StageMetrics, StageMetricsHook
 from data_pipeline_core.contracts.warehouse import Warehouse
 
 __all__ = [
@@ -35,4 +36,6 @@ __all__ = [
     "ObservabilityHook",
     "FinOpsSink",
     "SecretProvider",
+    "StageMetrics",
+    "StageMetricsHook",
 ]
