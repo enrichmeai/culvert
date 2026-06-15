@@ -41,7 +41,10 @@ class _FakeBlobStore:
     def get(self, uri: str) -> bytes:
         return self._store[uri]
 
-    def open(self, uri: str, mode: str = "rb") -> Any:
+    def open_input(self, uri: str) -> Any:
+        raise NotImplementedError
+
+    def open_output(self, uri: str) -> Any:
         raise NotImplementedError
 
     def put(self, uri: str, data: bytes) -> None:
