@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from data_pipeline_core.contracts.lineage import LineageEmitter
     from data_pipeline_core.contracts.observability import ObservabilityHook
     from data_pipeline_core.contracts.secrets import SecretProvider
+    from data_pipeline_core.contracts.stage_metrics import StageMetricsHook
 
 
 @runtime_checkable
@@ -54,6 +55,11 @@ class RuntimeContext(Protocol):
     config: Mapping[str, Any]
     secrets: "SecretProvider"
     observability: "ObservabilityHook"
+    # Typed, Culvert-specific metrics seam (rows_processed / stage_latency_ms /
+    # error_count with the fixed label schema), alongside the general-purpose
+    # `observability` surface. Advisory; implementations supply a no-op default.
+    # Mirrors Java `RuntimeContext.stageMetrics()` (Sprint-12 / T12.4).
+    stage_metrics: "StageMetricsHook"
     lineage: "LineageEmitter"
     finops: "FinOpsSink"
     governance: "GovernancePolicy"
