@@ -28,7 +28,7 @@ equivalent to Java accessor methods (`String name()`).
 | **Warehouse** | MATCHES | All six methods — `query`, `execute`, `load_from_uri`, `merge`, `copy`, `table_exists` — match Java (`loadFromUri`, `tableExists` in Java camelCase). Return types match (`long`/`int` ↔ `int`; both are integer row counts). |
 | **ObservabilityHook** | MATCHES (with gap noted) | `counter`, `gauge`, `histogram` match 1:1. `log(level, message, **fields)` vs Java `log(level, message, Map<String,Object> fields)` is idiomatic — left as-is per style-preservation rule. `span(name)` returns an opaque `AbstractContextManager` vs Java's typed nested `Span` interface (with `setAttribute`/`recordException`/`close`) — richness gap, but the Python docstring explicitly notes the yielded object is implementation-defined; adding a `Span` Protocol would exceed the surgical scope of this ticket. Gap flagged for a future ticket. |
 | **JobControlRepository** | MATCHES | All 11 methods present with matching signatures (`create_job`, `get_job`, `update_status`, `mark_failed`, `mark_retrying`, `get_pending_jobs`, `get_entity_status`, `get_failed_jobs`, `get_fdp_job_status`, `cleanup_partial_load`, `update_cost_metrics`). Java uses `Optional<Long> totalRecords`; Python uses `Optional[int] = None` — idiomatic match. |
-| **RuntimeContext** | DRIFT FIXED | Missing `pipeline_id` property (T12.6 addition in Java: `pipelineId()` with default returning `runId()`). Added `pipeline_id` property with default `return self.run_id`. Also hardened module and class docstrings with the T10.6 serialization-boundary contract (only `run_id`/`environment`/`config` cross; registry is transient/rebuilt worker-side). **`stage_metrics` deliberately NOT added** — that accessor (`stageMetricsHook()` in Java) belongs to T12.4/StageMetricsHook, which is owned by ticket #113 (another agent). Adding it here would create a conflict. |
+| **RuntimeContext** | DRIFT FIXED | Missing `pipeline_id` property (T12.6 addition in Java: `pipelineId()` with default returning `runId()`). Added `pipeline_id` property with default `return self.run_id`. Also hardened module and class docstrings with the T10.6 serialization-boundary contract (only `run_id`/`environment`/`config` cross; registry is transient/rebuilt worker-side). `stage_metrics: "StageMetricsHook"` attribute added at sprint-17 integration (after #113 merged the `StageMetricsHook` Protocol), mirroring Java's abstract `StageMetricsHook stageMetrics()` (Sprint-12 / T12.4). Declared as an attribute alongside its siblings `observability`/`lineage`/`finops` — Python maps Java's named accessors to attribute annotations, not methods. |
 | **Source** | MATCHES | `read(context: RuntimeContext) -> Iterator[T_co]` matches Java `Iterator<T> read(RuntimeContext context)`. |
 | **Sink** | MATCHES | `write(records: Iterator[U_contra], context: RuntimeContext) -> None` matches Java `void write(Iterator<U> records, RuntimeContext context)`. |
 | **Pipeline** | MATCHES | `name` attribute + `stages: Sequence[PipelineStage]` + `validate() -> None` match Java `name()`, `stages()`, `validate()`. |
@@ -78,8 +78,9 @@ and cannot introduce runtime regressions; `mypy --strict` or
    span attributes portably. Recommend a follow-up ticket to define a
    minimal `Span` Protocol in Python matching the Java `Span` nested interface.
 
-2. **`stage_metrics` on RuntimeContext**: Java `RuntimeContext` has a
-   `stageMetrics() -> StageMetricsHook` accessor added in T12.4. This ticket
-   deliberately omits it because #113 owns `StageMetrics`/`StageMetricsHook`.
-   Once #113 lands its Python Protocol, a follow-up edit to `runtime.py`
-   should add `stage_metrics: "StageMetricsHook"` to match Java.
+2. **`stage_metrics` on RuntimeContext** — RESOLVED at sprint-17 integration.
+   After #113 merged the `StageMetricsHook` Protocol, `runtime.py` gained the
+   `stage_metrics: "StageMetricsHook"` attribute (with TYPE_CHECKING import),
+   matching Java's abstract `StageMetricsHook stageMetrics()` (T12.4). Declared
+   as an attribute alongside `observability`/`lineage`/`finops`, consistent with
+   how Python represents Java's named contract accessors.
