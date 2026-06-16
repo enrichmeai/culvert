@@ -34,10 +34,22 @@ class BigQueryWarehouse:
     ) -> Iterator[Mapping[str, Any]]:
         """Execute a SELECT and stream rows as dicts.
 
-        Lazy: rows are yielded one at a time as BigQuery streams them.
+        Argument validation is eager (runs before any iteration) so that
+        ``query(None)`` raises immediately rather than only when the caller
+        first iterates the returned generator.  This matches the Java
+        contract (``nullSqlRejected``) and is required for
+        ``WarehouseContract.test_null_sql_rejected``.
         """
         if sql is None:
             raise TypeError("sql must not be None")
+        return self._query_rows(sql, params)
+
+    def _query_rows(
+        self,
+        sql: str,
+        params: Optional[Mapping[str, Any]] = None,
+    ) -> Iterator[Mapping[str, Any]]:
+        """Inner generator — called only after sql has been validated."""
         # google-cloud-bigquery's QueryJobConfig accepts ScalarQueryParameter
         # but we pass dict-style params for the cloud-neutral surface and
         # let the caller stay loosely coupled. For full parameter typing,
