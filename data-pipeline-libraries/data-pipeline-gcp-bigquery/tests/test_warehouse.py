@@ -6,12 +6,51 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from data_pipeline_contract_tests import WarehouseContract
 from data_pipeline_gcp_bigquery import BigQueryWarehouse
 
 
 @pytest.fixture
 def mock_client():
     return MagicMock()
+
+
+# ---------------------------------------------------------------------------
+# Contract tests — bind WarehouseContract to BigQueryWarehouse
+# ---------------------------------------------------------------------------
+
+class TestBigQueryWarehouseContract(WarehouseContract):
+    """Exercise every WarehouseContract guarantee against a mocked BQ client.
+
+    The mixin requires one fixture:
+      ``warehouse`` — a BigQueryWarehouse configured so that:
+        * ``query("SELECT id FROM contract_test_table")`` yields ``{"id": 1}``
+        * ``table_exists("contract_test_table")`` is True
+        * ``table_exists("contract_missing_table")`` is False
+    """
+
+    @pytest.fixture
+    def warehouse(self):
+        client = MagicMock()
+
+        # query() result: one row with {"id": 1}
+        row = MagicMock()
+        row.items.return_value = [("id", 1)]
+        job = MagicMock()
+        job.result.return_value = [row]
+        client.query.return_value = job
+
+        # table_exists: returns True for the known table, False for missing
+        def _get_table(fqtn):
+            if fqtn == "contract_test_table":
+                return MagicMock()
+            raise Exception(f"Not found: {fqtn}")
+
+        client.get_table.side_effect = _get_table
+
+        return BigQueryWarehouse("test-project", client)
+
+
 
 
 def test_constructor_rejects_none_project():

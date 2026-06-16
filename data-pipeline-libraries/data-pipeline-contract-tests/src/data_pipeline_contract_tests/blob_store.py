@@ -1,4 +1,7 @@
-"""BlobStore contract test mixin."""
+"""BlobStore contract test mixin.
+
+Java mirror: ``com.enrichmeai.culvert.contracttests.BlobStoreContractTest``
+"""
 
 from __future__ import annotations
 
@@ -8,6 +11,8 @@ import pytest
 class BlobStoreContract:
     """Mixin — subclasses provide ``store``, ``known_uri``, ``missing_uri``
     fixtures. ``known_uri`` resolves to bytes equal to ``b"hello"``.
+
+    Java mirror: ``BlobStoreContractTest`` (Sprint-5 deliverable).
     """
 
     def test_get_known_returns_bytes(self, store, known_uri):
@@ -22,3 +27,8 @@ class BlobStoreContract:
     def test_delete_missing_idempotent(self, store, missing_uri):
         # Should not raise.
         store.delete(missing_uri)
+
+    def test_null_arguments_rejected(self, store):
+        # Java: ``nullArgumentsRejected`` — get(null) must raise.
+        with pytest.raises((TypeError, ValueError)):
+            store.get(None)

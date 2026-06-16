@@ -42,7 +42,7 @@ class AutoConfig:
     Field names match the contract module names in
     ``data_pipeline_core.contracts.*`` (warehouse, blob_store, source, sink,
     transform, secrets, job_control, finops, observability, lineage,
-    audit, governance, pipeline, runtime).
+    audit, governance, pipeline, runtime, stage_metrics).
     """
 
     warehouse: List[Type[Any]] = field(default_factory=list)
@@ -59,6 +59,9 @@ class AutoConfig:
     governance: List[Type[Any]] = field(default_factory=list)
     pipeline: List[Type[Any]] = field(default_factory=list)
     runtime: List[Type[Any]] = field(default_factory=list)
+    # Sprint-12 / T17.1: StageMetricsHook adapters register here.
+    # Cloud module entry-point key: ``stage_metrics``.
+    stage_metrics: List[Type[Any]] = field(default_factory=list)
 
     # In-process registration table — overrides anything from entry points.
     # Filled by the @register_adapter decorator below.
