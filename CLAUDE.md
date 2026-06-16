@@ -31,6 +31,18 @@ Before dispatching any wave of dev-agents:
 5. **Integrated verify after merging a wave** — module-green in isolation ≠ reactor-green together. Run the affected modules (or full reactor + `mvn -P it verify` at sprint close). This is the T10.6/T10.7 lesson, repeated.
 6. **After merge:** post DoD-checkbox comment on each issue, close it, prune the worktree + branch.
 
+### Dev-agent Definition of Done (learned the hard way — Sprint 17)
+Bake these into every agent prompt; they design out the misses the architect had to catch in Wave A (a `_FakeBlobStore` test double left on the old `open()`; a "45 passed" claim from an env the agent didn't leave behind). The point: the agent's report must be **reproducible by the architect with the exact commands given**, not taken on faith.
+1. **Run the FULL package suite to green — not just your new tests.** Changing a shared type (a `Protocol`, a record, an interface) breaks its implementers and test doubles elsewhere. Before claiming done: `grep` for every implementer + fake of the symbol you changed and update them in the *same* change, then run the whole package's tests.
+2. **A reproducible env is part of "done"; "no env / didn't run" is a STOP-and-report, not a completion.** Use the canonical recipe and quote it verbatim in the report:
+   - Python: `python3 -m venv /tmp/vw_<id> && /tmp/vw_<id>/bin/pip install -q -e <pkg> [-e <each-local-dep>] pytest && /tmp/vw_<id>/bin/python -m pytest <pkg>/tests -q`
+   - Java: `mvn -o -pl <module> -am test`
+   Report the **exact commands + exact pass/fail counts**. The architect re-runs them verbatim; if they don't reproduce, the work isn't done.
+3. **Cite the source for every cross-language / "matches X" claim** as `file:line` (e.g. "mirrors `StageMetrics.java:27`"), so the claim is checkable, not asserted.
+4. **Flag, don't fake.** If a guarantee genuinely doesn't fit, or an env truly can't be built offline, say so precisely and stop — a flagged gap is correct; a silent or invented green is not.
+
+The architect still verifies independently (checklist item 3) — but a DoD-conformant report should make that a confirmation, not a rescue.
+
 ## Deploy & cost rules (NON-NEGOTIABLE)
 
 1. **Never push to main without explicit deploy intent.**

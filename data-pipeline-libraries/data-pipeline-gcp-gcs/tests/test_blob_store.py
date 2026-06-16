@@ -6,12 +6,66 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from data_pipeline_contract_tests import BlobStoreContract
 from data_pipeline_gcp_gcs import GcsBlobStore
 
 
 @pytest.fixture
 def mock_client():
     return MagicMock()
+
+
+# ---------------------------------------------------------------------------
+# Contract tests — bind BlobStoreContract to GcsBlobStore
+# ---------------------------------------------------------------------------
+
+class TestGcsBlobStoreContract(BlobStoreContract):
+    """Exercise every BlobStoreContract guarantee against a mocked GCS client.
+
+    The mixin requires three fixtures:
+      ``store``      — a GcsBlobStore instance
+      ``known_uri``  — a URI whose content is exactly ``b"hello"``
+      ``missing_uri``— a URI that does not exist
+    """
+
+    @pytest.fixture
+    def store(self):
+        """GcsBlobStore backed by a MagicMock client keyed on blob name."""
+        client = MagicMock()
+
+        def _bucket_factory(bucket_name):
+            bucket = MagicMock()
+
+            def _blob_factory(blob_name):
+                blob = MagicMock()
+                if blob_name == "path/known":
+                    blob.download_as_bytes.return_value = b"hello"
+                    blob.exists.return_value = True
+                else:
+                    # missing blob: download raises 404, exists returns False
+                    not_found = Exception("404 not found")
+                    not_found.code = 404
+                    blob.download_as_bytes.side_effect = not_found
+                    blob.exists.return_value = False
+                    # delete is idempotent — raise a 404 that the adapter swallows
+                    delete_err = Exception("not found")
+                    delete_err.code = 404
+                    blob.delete.side_effect = delete_err
+                return blob
+
+            bucket.blob.side_effect = _blob_factory
+            return bucket
+
+        client.bucket.side_effect = _bucket_factory
+        return GcsBlobStore(client)
+
+    @pytest.fixture
+    def known_uri(self):
+        return "gs://test-bucket/path/known"
+
+    @pytest.fixture
+    def missing_uri(self):
+        return "gs://test-bucket/path/missing"
 
 
 def test_constructor_rejects_none():
