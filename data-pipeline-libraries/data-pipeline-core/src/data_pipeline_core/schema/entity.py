@@ -9,10 +9,18 @@ function (Stage 2).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from data_pipeline_core.governance_api.classification import DataClassification
 from data_pipeline_core.governance_api.policies import MaskingPolicy
+
+if TYPE_CHECKING:
+    # Guarded to avoid a circular import at runtime:
+    # dataquality.NumericRange is in a peer sub-package that itself imports
+    # SchemaField.  At type-check time (mypy/pyright) the import is fine;
+    # at runtime the annotation is a string-forward-ref thanks to
+    # `from __future__ import annotations`.
+    from data_pipeline_core.dataquality.numeric_range import NumericRange
 
 
 @dataclass(frozen=True)
@@ -26,6 +34,11 @@ class SchemaField:
     `classification` and `masking` are optional metadata used by the
     `@governed` and `@masked` decorators (Stage 3) to apply
     field-level policy without requiring an explicit decorator call.
+
+    `range` is an optional :class:`~data_pipeline_core.dataquality.NumericRange`
+    that opts this field into OUT_OF_RANGE validation inside
+    :class:`~data_pipeline_core.dataquality.DataQualityTransform`.
+    Mirrors ``SchemaField.range()`` (Java T14.7 / issue #100).
     """
 
     name: str
@@ -34,6 +47,10 @@ class SchemaField:
     description: Optional[str] = None
     classification: Optional[DataClassification] = None
     masking: Optional[MaskingPolicy] = None
+    # Sprint-18 / T18.2: added additively to support schema-grounded range
+    # validation in DataQualityTransform.  Existing callers that omit this
+    # field are unaffected (default None → range validation skipped).
+    range: Optional["NumericRange"] = None
 
 
 @dataclass(frozen=True)
