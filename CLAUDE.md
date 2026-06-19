@@ -40,6 +40,7 @@ Bake these into every agent prompt; they design out the misses the architect had
    Report the **exact commands + exact pass/fail counts**. The architect re-runs them verbatim; if they don't reproduce, the work isn't done.
 3. **Cite the source for every cross-language / "matches X" claim** as `file:line` (e.g. "mirrors `StageMetrics.java:27`"), so the claim is checkable, not asserted.
 4. **Flag, don't fake.** If a guarantee genuinely doesn't fit, or an env truly can't be built offline, say so precisely and stop — a flagged gap is correct; a silent or invented green is not.
+5. **No redundancy; keep the repo current as part of "done."** Don't leave dead code, superseded files, or stale docs behind. When work changes a fact stated elsewhere (a contract count, a "no X yet"/"future" note, a status line, a feature claim), `grep` the repo for that fact and update **every** reference in the same change — a stale doc reads as truth. Delete what a change makes obsolete rather than leaving it alongside the new version. (Exception: `docs/historical/` and the deprecated legacy framework, which are deprecate-in-place by decision — don't edit those.) This applies to the architect's integration commits too, not just dev-agents.
 
 The architect still verifies independently (checklist item 3) — but a DoD-conformant report should make that a confirmation, not a rescue.
 
