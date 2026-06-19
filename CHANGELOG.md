@@ -4,9 +4,9 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [1.0.0] — 2026-06-13
 
-**All 15 core contracts have real adapters. The framework's v1.0 feature bar is complete.**
+**All 16 contract interfaces have real Java adapters. The Java v1.0 feature bar is met — built and HELD, not yet published.**
 
-This release spans Sprints 9–16, completing the Culvert framework's initial production-ready milestone. Every contract interface defined in `data-pipeline-core` now has at least one concrete adapter shipping under `com.enrichmeai.culvert:*`.
+This spans Sprints 9–16: every contract interface defined in `data-pipeline-core-java` now has at least one concrete adapter under `com.enrichmeai.culvert:*`. The Java reactor is frozen at tag `java-1.0.0`, but it does **not** publish alone — the release gate is Java **and** Python both ready, then a coordinated `1.0.0` to Maven Central **and** PyPI (`culvert`). See `docs/framework-evolution/13-python-parity-release.md`. The Python parity work (Sprints 17+) is in progress.
 
 ### Java libraries (`com.enrichmeai.culvert:*`) — Sprint 9–16 additions
 
@@ -35,7 +35,8 @@ This release spans Sprints 9–16, completing the Culvert framework's initial pr
 | `AuditEventPublisher` | `BigQueryAuditEventPublisher` |
 | `GovernancePolicy` | `PiiMaskingGovernancePolicy`, `BudgetGovernancePolicy` |
 | `LineageEmitter` | `DataCatalogLineageEmitter` |
-| `ObservabilityHook` | `CloudTraceObservabilityHook`, `CloudMonitoringMetricsHook` |
+| `ObservabilityHook` | `CloudTraceObservabilityHook` |
+| `StageMetricsHook` | `CloudMonitoringMetricsHook` |
 | `FinOpsSink` | `BigQueryFinOpsSink` |
 | `SecretProvider` | `SecretManagerProvider` |
 
@@ -55,7 +56,7 @@ The framework's first feature-complete dev-cycle. **Not yet published to PyPI / 
 
 ### Java libraries (`com.enrichmeai.culvert:*`)
 
-- `data-pipeline-core` — cloud-neutral kernel: 15 contract interfaces (Source, Sink, Transform, Pipeline, PipelineStage, RuntimeContext, JobControlRepository, BlobStore, Warehouse, AuditEventPublisher, GovernancePolicy, LineageEmitter, ObservabilityHook, FinOpsSink, SecretProvider) + supporting records + `AutoConfig` ServiceLoader-driven registry. 36 tests.
+- `data-pipeline-core` — cloud-neutral kernel: 16 contract interfaces (Source, Sink, Transform, Pipeline, PipelineStage, RuntimeContext, JobControlRepository, BlobStore, Warehouse, AuditEventPublisher, GovernancePolicy, LineageEmitter, ObservabilityHook, StageMetricsHook, FinOpsSink, SecretProvider) + supporting records (incl. `StageMetrics`) + `AutoConfig` ServiceLoader-driven registry. 36 tests.
 - `data-pipeline-gcp-secrets` — SecretManagerProvider implementing SecretProvider. 4 tests.
 - `data-pipeline-gcp-bigquery` — three impls under one module: BigQueryWarehouse (Warehouse, 12), BigQueryJobControlRepository (JobControlRepository, 17), BigQueryFinOpsSink (FinOpsSink, 11). 40 tests.
 - `data-pipeline-gcp-gcs` — GcsBlobStore (BlobStore). 17 tests.
