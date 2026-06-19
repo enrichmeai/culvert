@@ -1,7 +1,8 @@
 # 13 — Python parity → coordinated polyglot release
 
-**Status:** scoped, not started. Successor to the 9–16 Java block (Sprints 11–16
-executed; Java reactor at `1.0.0` on `main`).
+**Status:** in progress. Wave A (S17, contract reconciliation) **merged to `main`**;
+Wave B (S18, core depth) **in PR #123**. Successor to the 9–16 Java block (Java
+reactor at `1.0.0` on `main`, frozen at tag `java-1.0.0`).
 
 **One-line:** Culvert is one polyglot, cloud-agnostic framework with GCP as its
 first implementation. Java is built to `1.0.0` but does **not** ship alone — the
@@ -18,7 +19,7 @@ shared seam; each runtime owns the layers it's best at.
 
 | Layer | Strategy | Why / repo evidence |
 |---|---|---|
-| **Contracts** | **Both** implement the same spec | `docs/CONTRACT.md` is language-neutral. Java: 17 interfaces in `data-pipeline-core-java`. Python: 15 Protocols already in `data-pipeline-core/contracts/`. |
+| **Contracts** | **Both** implement the same spec | `docs/CONTRACT.md` is language-neutral. Java: 16 contract interfaces + the `StageMetrics` record ("17 core contracts"). Python now matches after Wave A (`StageMetrics`/`StageMetricsHook` added). |
 | **dbt / transform** | **Reuse** (language-neutral) | It's SQL + macros, not "Java" or "Python". `data-pipeline-transform` is Python-packaged but the assets are dbt; there is deliberately **no** Java transform module. |
 | **Dataflow / execution** | **Java** (Beam) | `data-pipeline-gcp-dataflow-java` = `DataflowPipeline` + `StageTransform`. Legacy Python Beam is **not** being ported. |
 | **Orchestration** | **Reuse** — complementary, not duplicate | Python owns the runtime side (`operators/ sensors/ hooks/ routing/ factories/`); Java owns the cloud-neutral model + renderers (`DagSpec`/`TaskSpec`, `AirflowDagRenderer`/`ComposerDagRenderer`). |
@@ -46,13 +47,14 @@ Python parity (this epic)  ──┘                       └─►  legacy gcp
 - **Irreversible.** PyPI version numbers can't be reused; Maven Central is
   immutable. The publish itself stays a Joseph-gated manual trigger.
 
-## 3. Current state — Python vs Java 1.0.0 (content-verified 2026-06-14)
+## 3. Current state — Python vs Java 1.0.0 (baseline content-verified 2026-06-14)
 
 **Python already has more than a filename scan suggests.** Verified by grepping
-class definitions, not directory names.
+class definitions, not directory names. *This was the pre-Wave-A baseline; the
+gap table below is annotated with what Waves A/B since closed.*
 
 ### Present in Python today
-- **Contracts (15 of 17 Protocols)** in `data-pipeline-core/contracts/`:
+- **Contracts (all 17 since Wave A)** in `data-pipeline-core/contracts/`:
   BlobStore, AuditEventPublisher, LineageEmitter, PipelineStage, SecretProvider,
   GovernancePolicy, FinOpsSink, Warehouse, ObservabilityHook,
   JobControlRepository, RuntimeContext, Source, Pipeline, **Sink** (in
@@ -62,19 +64,19 @@ class definitions, not directory names.
 - **Adapters**: `data-pipeline-gcp-bigquery`, `-gcs`, `-pubsub`,
   `-orchestration` (runtime), `-transform` (dbt), `-tester`, `-contract-tests`.
 
-### Confirmed gaps vs Java 1.0.0
-| Gap | Kind | Note |
+### Gaps vs Java 1.0.0 (with Wave A/B status)
+| Gap | Kind | Status |
 |---|---|---|
-| `StageMetrics` / `StageMetricsHook` | **Contract** | The only genuine contract gap (added Java-side in S12). |
-| Contract drift on the 15 it has | **Reconcile** | Python Protocols predate the 9–16 Java evolution; verify each matches the final Java shape (esp. `RuntimeContext` T10.6 transient-registry semantics, `AuditEventPublisher`). |
-| `DefaultRuntimeContext` | **Core depth** | Absent in Python. The wiring kernel (S9). |
-| `dataquality` package | **Core depth** | `DataQualityTransform`, `ValidationResult`, quarantine — absent. |
-| Concrete governance policies | **Core depth** | `PiiMaskingGovernancePolicy`, `BudgetGovernancePolicy` — Python has `governance_api` models, not the policies. |
-| FinOps cost model + trackers | **Core/adapter depth** | `CostMetrics`/`FinOpsTag` + per-service `*CostTracker` (bigquery/gcs/pubsub) — absent. |
-| `gcp-secrets` Python package | **Adapter** | No Python `SecretManagerProvider` (Protocol exists, adapter doesn't). |
-| `gcp-observability` Python package | **Adapter** | No Python CloudTrace/DataCatalog/CloudMonitoring impls. |
-| `culvert`-named distribution | **Packaging** | Nothing ships as `culvert` yet; PyPI name is free. |
-| Python publish-from-git | **CI/release** | Actions PyPI job + trusted publishing not set up. |
+| `StageMetrics` / `StageMetricsHook` | **Contract** | ✅ **DONE** — Wave A (T17.1, #113). |
+| Contract drift on the 15 it has | **Reconcile** | ✅ **DONE** — Wave A (T17.2, #114): `BlobStore.open()` split, `RuntimeContext.pipeline_id`, T10.6 docstrings. |
+| `DefaultRuntimeContext` | **Core depth** | ✅ **DONE** — Wave B (T18.1, #117). Caveat: worker-side registry rebuild deferred (#122). |
+| `dataquality` package | **Core depth** | ✅ **DONE** — Wave B (T18.2, #118). Masker wire deferred (#121). |
+| Concrete governance policies | **Core depth** | ✅ **DONE** — Wave B: `PiiMaskingGovernancePolicy` (T18.3, #119), `BudgetGovernancePolicy` (T18.4, #120). |
+| FinOps cost model | **Core depth** | ✅ **DONE** — Wave B (T18.4): `BudgetViolationMode`/`BudgetExceededException`; `CostMetrics`/`FinOpsTag` reconciled. Per-service `*CostTracker` still open → **Wave C**. |
+| `gcp-secrets` Python package | **Adapter** | ⏳ **Wave C** — no Python `SecretManagerProvider` (Protocol exists, adapter doesn't). |
+| `gcp-observability` Python package | **Adapter** | ⏳ **Wave C** — no Python CloudTrace/DataCatalog/CloudMonitoring impls. |
+| `culvert`-named distribution | **Packaging** | ⏳ **Wave D** — nothing ships as `culvert` yet; PyPI name is free. |
+| Python publish-from-git | **CI/release** | ⏳ **Wave D** — Actions PyPI job + trusted publishing not set up. |
 
 ## 4. Epic scope — ticket groups
 
