@@ -87,6 +87,8 @@ class SecretManagerProvider:
         """
         if name is None:
             raise TypeError("name must not be None")
+        if version is None:
+            raise TypeError("version must not be None")
 
         secret_version_path = (
             f"projects/{self.project_id}/secrets/{name}/versions/{version}"
