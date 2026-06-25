@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "data-pipeline-gcp-observability"
+version = "0.1.0"
+description = "GCP observability adapter for the Culvert data pipeline framework. Implements ObservabilityHook (Cloud Trace/OTel), StageMetricsHook (Cloud Monitoring), LineageEmitter (Data Catalog), and CulvertMdcPopulator log-correlation helper."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
+]
+keywords = ["data", "pipeline", "framework", "culvert", "gcp", "observability", "tracing", "metrics", "lineage"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+# GCP/OTel SDK deps are declared but mocked in tests so the suite runs offline.
+# In production these must be installed for real emission; lazy imports inside
+# each class mean import of this package never fails even when the SDK is absent.
+dependencies = [
+    "data-pipeline-core>=0.1.0",
+    "opentelemetry-api>=1.20.0",
+    "google-cloud-monitoring>=2.14.0",
+    "google-cloud-datacatalog>=3.14.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "data-pipeline-contract-tests>=0.1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/enrichmeai/culvert"
+
+# Auto-registration: AutoConfig.discover() reads this group.
+# Key names must match AutoConfig dataclass field names.
+[project.entry-points."data_pipeline_core.adapters"]
+observability  = "data_pipeline_gcp_observability:CloudTraceObservabilityHook"
+stage_metrics  = "data_pipeline_gcp_observability:CloudMonitoringMetricsHook"
+lineage        = "data_pipeline_gcp_observability:DataCatalogLineageEmitter"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
