@@ -24,6 +24,9 @@ where = [
     "deployments/mainframe-segment-transform/src",
 ]
 
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib"
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
