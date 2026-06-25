@@ -4,7 +4,7 @@ Mirrors ``com.enrichmeai.culvert.dataquality.DataQualityTransform``
 (Java Sprint 14 / issue #73; masking T14.4 / issue #76;
 schema-grounded range validation T14.7 / issue #100).
 
-Port: T18.2 / issue #118.
+Port: T18.2 / issue #118.  Masking wired: T19.4 / issue #127.
 
 Design notes vs Java
 --------------------
@@ -14,10 +14,11 @@ Design notes vs Java
   ``numbers.Number``.  The Java ``WIRE_TYPE_MAP`` keeps ``Boolean`` and
   ``Number`` disjoint (Java lines 112-117), so INT64/FLOAT64 checks
   exclude ``bool`` explicitly here.
-* No Python ``Masker`` exists in this package yet (Java counterpart is
-  ``com.enrichmeai.culvert.governance.Masker``; Java lines 247-256).
-  The ``governance_policy`` parameter is accepted for API parity but
-  masking *application* is a FLAG — see class docstring.
+* PII masking is driven by ``governance_policy.masking_for(field, table)``
+  then ``governance_api.masker.mask(value, policy)``, mirroring Java
+  ``DataQualityTransform.java:247-256``.  Only valid rows are masked;
+  invalid rows go to the dead-letter path unchanged (mirrors Java comment
+  at lines 244-246).
 * ``SchemaField.range`` is an additive field added in T18.2 to
   ``data_pipeline_core.schema.entity.SchemaField`` (mirrors Java T14.7).
 """
@@ -47,6 +48,7 @@ from data_pipeline_core.dataquality.validation_result import (
     ValidationResult,
 )
 from data_pipeline_core.dataquality.violation_kind import ViolationKind
+from data_pipeline_core.governance_api.masker import mask as _masker_mask
 from data_pipeline_core.schema.entity import EntitySchema, SchemaField
 
 # TYPE_CHECKING import to avoid runtime circular dependency on GovernancePolicy.
@@ -111,14 +113,15 @@ class DataQualityTransform(Generic[R]):
     All violations are accumulated; validation does not short-circuit on
     the first failure (Java lines 48-50).
 
-    PII masking (FLAG):
-        The ``governance_policy`` constructor parameter is accepted to
-        mirror the Java API (``DataQualityTransform.java:161-168``).
-        However, no Python ``Masker`` exists in this package.  When a
-        policy is supplied the transform raises ``NotImplementedError``
-        on the first valid row that has a matching masking policy — do
-        not use in production until a ``Masker`` is ported.
-        Java masking path: lines 247-256.
+    PII masking (opt-in):
+        When ``governance_policy`` is supplied, each field of a valid row
+        is passed through ``governance_policy.masking_for(field, table)``
+        and, if a :class:`~data_pipeline_core.governance_api.policies.MaskingPolicy`
+        is returned, through ``data_pipeline_core.governance_api.masker.mask()``.
+        Masking mutates the fields mapping in place (mirrors Java
+        ``DataQualityTransform.java:247-256``).  Invalid rows are never
+        masked — they go to the dead-letter path with original values
+        intact (mirrors Java comment at lines 244-246).
 
     Usage — direct row validation::
 
@@ -166,8 +169,8 @@ class DataQualityTransform(Generic[R]):
             governance_policy: Optional GovernancePolicy for PII masking.
                                Pass ``None`` to disable masking (default).
                                Mirrors ``governancePolicy`` (Java line 125-127).
-                               FLAG: masking application is not yet implemented
-                               in Python (no Masker).
+                               When supplied, valid rows are masked via
+                               ``governance_api.masker.mask()`` (T19.4 / #127).
         """
         if schema is None:
             raise ValueError("schema must not be None")
@@ -259,21 +262,26 @@ class DataQualityTransform(Generic[R]):
         if violations:
             return InvalidRow.of(row=row, violations=violations)
 
-        # ---- Post-validation PII masking (opt-in) --------------------------
-        # FLAG: No Python Masker exists yet (Java: Masker.mask(), lines 247-256).
-        # The governance_policy param is stored for API parity.  If a policy
-        # is supplied we raise NotImplementedError to prevent silent no-ops.
-        # When a Masker is ported, replace this block with the real call.
+        # ---- Post-validation PII masking (opt-in, T19.4 / #127) ---------------
+        # Apply masking only when a GovernancePolicy is configured.
+        # Invalid rows are never masked — the dead-letter path receives the
+        # original values so violations can be diagnosed.
+        # Mirrors Java DataQualityTransform.java:247-256:
+        #   if (governancePolicy != null && fields != null) {
+        #       for (entry : fields.entrySet()) {
+        #           Optional<MaskingPolicy> mp =
+        #               governancePolicy.maskingFor(entry.getKey(), tableName);
+        #           if (mp.isPresent()) {
+        #               entry.setValue(Masker.mask(entry.getValue(), mp.get()));
+        #           }
+        #       }
+        #   }
         if self._governance_policy is not None and fields is not None:
-            for field_name, val in fields.items():
-                mp = self._governance_policy.masking_for(field_name, self._schema.name)
+            table_name = self._schema.name
+            for field_name in list(fields.keys()):  # snapshot keys; dict mutated below
+                mp = self._governance_policy.masking_for(field_name, table_name)
                 if mp is not None:
-                    raise NotImplementedError(
-                        "PII masking is accepted by the DataQualityTransform API "
-                        "(mirrors Java T14.4 / issue #76) but the Python Masker "
-                        "has not been ported yet (T18.2 flag).  Port "
-                        "data_pipeline_core.dataquality.masker.Masker first."
-                    )
+                    fields[field_name] = _masker_mask(fields[field_name], mp)  # type: ignore[index]
 
         return ValidRow(row=row)
 
