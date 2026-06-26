@@ -177,9 +177,19 @@ def test_autoconfig_has_stage_metrics_field() -> None:
 
 
 def test_autoconfig_discover_returns_empty_stage_metrics_on_bare_classpath() -> None:
-    """discover() returns empty stage_metrics when no entry-points are registered."""
+    """discover() returns empty stage_metrics when no entry-points are registered.
+
+    Hermetic: the GCP observability adapter (Wave C) now registers
+    CloudMonitoringMetricsHook under the `data_pipeline_core.adapters`
+    entry-point, so a real discover() finds it when that package is installed.
+    Mock the entry-point lookup to simulate the bare classpath this test covers.
+    """
+    from unittest.mock import patch
+
     from data_pipeline_core.autoconfig import discover
 
-    config = discover()
+    with patch("data_pipeline_core.autoconfig.entry_points") as ep:
+        ep.return_value.select.return_value = []
+        config = discover()
     assert config.all("stage_metrics") == []
     assert config.first("stage_metrics") is None
