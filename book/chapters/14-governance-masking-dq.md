@@ -441,29 +441,24 @@ validation checks, the transform calls `Masker.mask()` for each field whose
 place before wrapping it in a `ValidRow` (`DataQualityTransform.java:86–100`). That
 path is complete and tested.
 
-In the Python port, masking is accepted at the API level — `governance_policy` is a
-constructor parameter — but the application is flagged as `NotImplementedError`:
+The Python port now matches. After a row passes validation, the transform reads
+`governance_policy.masking_for(field, table)` for each field and, where a policy is
+returned, applies `governance_api.masker.mask(value, policy)` in place before
+returning the `ValidRow` — mirroring the Java path (`data_quality_transform.py:284`):
 
 ```python
-# data-pipeline-libraries/data-pipeline-core/src/data_pipeline_core/dataquality/data_quality_transform.py:267–276
-
-if self._governance_policy is not None and fields is not None:
-    for field_name, val in fields.items():
-        mp = self._governance_policy.masking_for(field_name, self._schema.name)
-        if mp is not None:
-            raise NotImplementedError(
-                "PII masking is accepted by the DataQualityTransform API "
-                "... the Python Masker has not been ported yet (T18.2 flag)."
-            )
+# data-pipeline-libraries/data-pipeline-core/src/data_pipeline_core/dataquality/data_quality_transform.py
+from data_pipeline_core.governance_api.masker import mask as _masker_mask
+# ... after validation, for each field whose policy is non-None:
+            fields[field_name] = _masker_mask(fields[field_name], mp)
 ```
 
-The standalone `governance_api/masker.py mask()` function works today. The
-`DataQualityTransform` integration with it does not. This is a T18.2 flag, not a
-design gap — the Python `Masker` needs to be wired into `DataQualityTransform`'s
-post-validation step before the Python pipeline path can apply masking inline.
-
-Do not use `governance_policy` in production Python transforms until that flag is
-cleared. The Java path is safe; the Python path will raise.\index{DataQualityTransform!masking flag}
+Earlier in the port (Wave B) this path was a deliberate `NotImplementedError`
+stub, because the `DataQualityTransform` and the `Masker` were written by separate
+agents who could not see each other; the standalone `masker.py mask()` existed but
+was not wired in. That seam was closed at integration (T19.4 / #127): masking now
+runs inline on the Python path, end-to-end, with tests proving a classified field
+is masked through the transform.\index{DataQualityTransform!masking}
 
 
 ## Dead-letter / quarantine routing\index{quarantine}

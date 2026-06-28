@@ -395,9 +395,12 @@ yet. The observability module specifically:
 - `DataCatalogLineageEmitter` — built, tested. Uses Data Catalog tags (stable);
   migration to Cloud Data Lineage API deferred and tracked.
 - Python `ObservabilityHook` and `LineageEmitter` protocols — defined in
-  `data-pipeline-core` v0.1.0. GCP adapter implementations (Python-side) are
-  not yet built; the Java adapters are the primary path for Beam-on-Dataflow
-  workloads.
+  `data-pipeline-core` v0.1.0, with the GCP adapter implementations now built in
+  `data-pipeline-gcp-observability` (Cloud Trace hook, Cloud Monitoring metrics
+  hook, Data Catalog lineage emitter), discoverable via the
+  `data_pipeline_core.adapters` entry-points. The Java adapters remain the
+  primary path for Beam-on-Dataflow workloads, where the hooks run inside the
+  `DoFn`.
 
 The coordinated Maven Central + PyPI `culvert` release is future work, gated on
 the full adapter set being verified against real GCP projects in both languages.
