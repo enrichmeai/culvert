@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-orchestration"
-version = "1.0.0"
+version = "0.1.0"
 description = "Orchestration library for the Culvert data pipeline framework. Airflow DAG factory, operators, sensors, and callbacks. Cloud-coupled to Composer/Airflow — Airflow is Python-only and is not being polyglot-ported. Renamed successor of `gcp-pipeline-orchestration`."
 readme = "README.md"
 requires-python = ">=3.10"

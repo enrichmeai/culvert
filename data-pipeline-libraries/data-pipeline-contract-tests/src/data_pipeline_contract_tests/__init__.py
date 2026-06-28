@@ -18,7 +18,7 @@ from data_pipeline_contract_tests.secrets import SecretProviderContract
 from data_pipeline_contract_tests.stage_metrics_hook import StageMetricsHookContract
 from data_pipeline_contract_tests.warehouse import WarehouseContract
 
-__version__ = "0.2.0"
+__version__ = "0.1.0"
 
 __all__ = [
     "BlobStoreContract",
