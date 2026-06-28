@@ -4,7 +4,7 @@
 
 The framework has a name now: **Culvert**\index{Culvert}. A culvert is the engineered pipe that carries water from one side of a road to the other — controlled flow through a designed channel, holding back what should be held back, releasing what should be released, at a known rate. The metaphor is exact. A data pipeline is a culvert: an engineered channel carrying records from a source to a destination, with controlled gates — governance, masking, quality checks — along the way. The name is short, distinctive, and as of this writing unclaimed on PyPI under the `culvert` namespace, which is the property that matters most when you are planning a coordinated open-source release. The book you are reading was written about the *reference implementation* — the GCP-specific deployment at `github.com/enrichmeai/culvert`\index{Culvert!reference implementation} that the earlier chapters document. **Culvert is the framework that reference grew into.**
 
-The Python distributions are currently named `data-pipeline-core`, `data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, and `data-pipeline-gcp-pubsub`. They will, in the coordinated release, become `culvert-core`\index{culvert-core} and the matching `culvert-gcp-*` family. The namespace `culvert` on PyPI is reserved; the Java groupId `com.enrichmeai.culvert` is in use in the reactor pom at `1.0.0`\index{Culvert!java-1.0.0} right now. I want to explain what happened between "GCP pipeline framework" and "Culvert 1.0.0", because the path is the point.
+The Python distributions are currently named `data-pipeline-core`, `data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, and `data-pipeline-gcp-pubsub`. They will, in the coordinated release, become `culvert-core`\index{culvert-core} and the matching `culvert-gcp-*` family. The namespace `culvert` on PyPI is reserved; the Java groupId `com.enrichmeai.culvert` is in use in the reactor pom at `0.1.0`\index{Culvert!java-0.1.0} right now. I want to explain what happened between "GCP pipeline framework" and "Culvert 0.1.0", because the path is the point.
 
 ## The audit
 
@@ -155,9 +155,9 @@ The contracts also do not include anything about *format*. A `Source[bytes]` mig
 
 ## What is shipped and what is not
 
-The Java reactor is at `1.0.0` (`data-pipeline-libraries-java/pom.xml`). The sixteen contracts compile, the GCP adapter modules compile, the integration test tier passes against Testcontainers emulators. This is built and frozen.\index{Culvert!java-1.0.0}
+The Java reactor is at `0.1.0` (`data-pipeline-libraries-java/pom.xml`). The sixteen contracts compile, the GCP adapter modules compile, the integration test tier passes against Testcontainers emulators. This is built and frozen.\index{Culvert!java-0.1.0}
 
-What is not shipped: the coordinated Maven Central + PyPI release. Publishing the Java artifact as `com.enrichmeai.culvert:data-pipeline-core-java:1.0.0` to Maven Central, and publishing the Python adapter modules to PyPI under the `culvert-*` names, requires the coordinated release process described in Chapter 17. The `culvert` PyPI name is reserved; the `culvert-*` names are reserved. The current PyPI distributions are still `data-pipeline-core`, `data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, and `data-pipeline-gcp-pubsub`. That is the honest status, and it matters: nothing in the code changes when the coordinated release lands. The contracts are the contracts. The adapters are the adapters. The release is an act of publication, not an act of engineering.
+What is not shipped: the coordinated Maven Central + PyPI release. Publishing the Java artifact as `com.enrichmeai.culvert:data-pipeline-core-java:0.1.0` to Maven Central, and publishing the Python adapter modules to PyPI under the `culvert-*` names, requires the coordinated release process described in Chapter 17. The `culvert` PyPI name is reserved; the `culvert-*` names are reserved. The current PyPI distributions are still `data-pipeline-core`, `data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, and `data-pipeline-gcp-pubsub`. That is the honest status, and it matters: nothing in the code changes when the coordinated release lands. The contracts are the contracts. The adapters are the adapters. The release is an act of publication, not an act of engineering.
 
 \begin{takeaways}
 **Chapter 4 — key points**
@@ -180,7 +180,7 @@ What is not shipped: the coordinated Maven Central + PyPI release. Publishing th
 - The boundary is machine-enforced: AssertJ assertions in the Java unit suite
   fail the build on any `com.google.cloud.*` import in core; the Python
   contracts package is clean by grep.
-- The Java reactor is frozen at `1.0.0`. The coordinated Maven Central + PyPI
+- The Java reactor is frozen at `0.1.0`. The coordinated Maven Central + PyPI
   `culvert` release is ahead; current Python distributions remain
   `data-pipeline-*` until that release lands.
 \end{takeaways}

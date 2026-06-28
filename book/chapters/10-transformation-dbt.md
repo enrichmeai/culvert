@@ -369,11 +369,11 @@ the job (SQL), and reuse it everywhere.
 
 ## Honest status
 
-`data-pipeline-transform` is packaged at version `1.0.0` in
-`pyproject.toml:7` (the `__init__.py` carries a different internal counter at
-`1.0.29` — the canonical release version is `pyproject.toml`). It is built and
+`data-pipeline-transform` is packaged at version `0.1.0` (`pyproject.toml:7`),
+consistent with the rest of the Culvert distributions — the first release is
+`0.1.0`, not yet API-frozen at 1.0. It is built and
 held. It has not been published to PyPI under the `culvert` name. That publish
-gates on the coordinated Java-and-Python `1.0.0` release — Maven Central and PyPI
+gates on the coordinated Java-and-Python `0.1.0` release — Maven Central and PyPI
 together, Joseph-triggered, irreversible.
 
 Until that gate opens, the library is available to internal deployments via the
@@ -413,7 +413,7 @@ Culvert on a dataset where historical corrections are common, keep them in mind.
     it raises a compiler error if unmasked values are found in the output table,
     guarding against a model that calls \texttt{mask\_pii()} with the wrong type or
     not at all.
-  \item The library is built and held at \texttt{1.0.0}. It publishes to PyPI as
+  \item The library is built and held at \texttt{0.1.0}. It publishes to PyPI as
     part of the coordinated Java-and-Python Culvert release — not before.
 \end{itemize}
 \end{takeaways}

@@ -249,7 +249,7 @@ in SQL, and the framework is not in the room with you. Land the output in
 
 ## Honest status
 
-Culvert is built and held. Java is at `1.0.0` on `main`, tagged `java-1.0.0`,
+Culvert is built and held. Java is at `0.1.0` on `main`, tagged `java-0.1.0`,
 frozen pending the coordinated release. It does not publish to Maven Central
 alone. Python parity is in progress: Wave A (contract reconciliation, T17.1 and
 T17.2, PR #113) is merged to `main`; Wave B (core depth — `DefaultRuntimeContext`,
@@ -282,7 +282,7 @@ here.
   \item The division of labour between Java and Python is fixed at the contract boundary, not at the organisation level. Contracts: both languages implement the same spec (\texttt{docs/CONTRACT.md} is language-neutral). dbt/transform: language-neutral reuse — it is SQL, not Java or Python. Dataflow/execution: Java only (\texttt{DataflowPipeline} + \texttt{StageTransform} in \texttt{data-pipeline-gcp-dataflow-java}). Orchestration: complementary — Java owns the cloud-neutral model (\texttt{DagSpec}, renderers); Python owns the Airflow runtime (operators, sensors, hooks, factories).
   \item The decorator surface as shipped is five thin class-level markers — \texttt{@pipeline}, \texttt{@stage}, \texttt{@source}, \texttt{@sink}, \texttt{@transform} — each taking only an optional \texttt{name} parameter (\texttt{data-pipeline-core/decorators.py}). The richer ergonomics described in the Stage-3 design (schedule, URI, schema on the decorator) are not yet implemented. The registration model is right; the convenience layer is the next wave.
   \item Orchestration is not duplicated across the two languages. Java produces the DAG description (\texttt{DagSpec}/\texttt{TaskSpec}/renderers); Python executes it (Airflow operators and sensors). The seam is \texttt{DagSpec}: immutable, serialisable, scheduler-agnostic. A new scheduler target requires a new Java renderer, not changes to the Python runtime or to any pipeline.
-  \item Culvert is built and held — Java \texttt{1.0.0} frozen on \texttt{java-1.0.0}; Python Wave A merged to \texttt{main}, Wave B in PR \#123, Waves C/D open. The release gate is both languages ready, then a coordinated publish to Maven Central and PyPI (\texttt{culvert}). Nothing has published yet.
+  \item Culvert is built and held — Java \texttt{0.1.0} frozen on \texttt{java-0.1.0}; Python Wave A merged to \texttt{main}, Wave B in PR \#123, Waves C/D open. The release gate is both languages ready, then a coordinated publish to Maven Central and PyPI (\texttt{culvert}). Nothing has published yet.
   \item Choosing Java vs Python day-to-day is not a preference question. It follows from the layer: execution adapters are Java; pipeline business logic and new contracts are Python; cloud adapters want both; orchestration runtime is Python; DAG model/renderers are Java; SQL transforms belong to neither.
 \end{itemize}
 \end{takeaways}
