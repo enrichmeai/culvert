@@ -3,16 +3,16 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "data-pipeline-gcp-pubsub"
+name = "data-pipeline-gcp-secrets"
 version = "0.1.0"
-description = "Google Cloud Pub/Sub adapter for the Culvert data pipeline framework. Implements the cloud-neutral Source/Sink contracts from data-pipeline-core."
+description = "Google Cloud Secret Manager adapter for the Culvert data pipeline framework. Implements the cloud-neutral SecretProvider contract from data-pipeline-core."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [
     { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
 ]
-keywords = ["data", "pipeline", "framework", "culvert", "pubsub", "gcp"]
+keywords = ["data", "pipeline", "framework", "culvert", "secret-manager", "gcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "License :: OSI Approved :: MIT License",
@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = [
     "data-pipeline-core>=0.1.0",
-    "google-cloud-pubsub>=2.18.0",
+    "google-cloud-secret-manager>=2.16.0",
 ]
 
 [project.optional-dependencies]
@@ -34,12 +34,11 @@ test = ["pytest>=7.4", "pytest-cov>=4.1"]
 Homepage = "https://github.com/enrichmeai/culvert"
 
 [project.entry-points."data_pipeline_core.adapters"]
-source = "data_pipeline_gcp_pubsub:PubSubSource"
-sink = "data_pipeline_gcp_pubsub:PubSubSink"
+secrets = "data_pipeline_gcp_secrets:SecretManagerProvider"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers --import-mode=importlib"
+addopts = "-ra --strict-markers"
