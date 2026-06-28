@@ -1,70 +1,101 @@
-# Culvert — the book (v2). Controlling outline & style guide
+# Culvert — the book. Controlling outline, structure & agent brief
 
-**This supersedes the v1 book** (`gcp-pipeline-book.md`, about the predecessor
-`gcp-pipeline-framework`). Decision (2026-06-27): no point publishing v1; the
-GCP implementation is complete and AWS is being built out alongside the writing.
-This is the controlling document for the rewrite — chapter-writers work to it.
+**The book becomes the Culvert book** (decision 2026-06-28). Culvert is the
+protagonist; the **GCP-origin journey is the narrative spine** — we started with
+one real cloud (GCP), found most of the code was already cloud-neutral, extracted
+contracts, and arrived at a cloud-neutral polyglot framework (the Spring
+precedent, told as lived experience). The v1 manuscript (`gcp-pipeline-book.md`)
+is the raw material: memoir-grade, in Joseph's voice, with **Chapter 23 already
+the Culvert story**. We reposition and extend it; we do not discard it.
+
+**Authorship:** agents *draft* → architect *integrates* (coherence + technical
+verification) → **Joseph owns the final voice**. Agents adapt Joseph's existing
+prose for voice and ground every technical claim in real source.
 
 ## Thesis
 
-Culvert is a **cloud-neutral, polyglot data-pipeline framework**: pipelines are
-defined once against a language-neutral contract and implemented in the language
-that fits the job (Java + Python), with cloud specifics behind adapters. GCP is
-the first full implementation; AWS/Azure prove the seam. The book teaches the
-*why* (contracts as the portability boundary) and the *how* (the 16 contracts,
-their adapters, auto-discovery, contract testing, cost/governance, release).
+Culvert is a **cloud-neutral, polyglot data-pipeline framework**: define a pipeline
+once against a language-neutral contract; implement it in the language that fits
+(Java + Python); keep cloud specifics behind adapters. GCP is the first full
+implementation (real, shipping in this repo); AWS/Azure skeletons prove the seam.
 
-## Hard rules for every chapter (non-negotiable)
+## Non-negotiable standards (every chapter)
 
-1. **Ground every technical claim in real source — cite `path:line`.** Do not
-   invent APIs, class names, method signatures, or numbers. If you describe
-   `BudgetGovernancePolicy.check_budget`, it must exist; quote it. Pricing/config
-   numbers come from the code, not memory.
-2. **Honest status.** Java reactor is at `1.0.0`, **built and frozen at tag
-   `java-1.0.0`, not yet published**. Python parity is in progress. Nothing is on
-   Maven Central or PyPI yet; the release is a coordinated future step. Never
-   imply it's shipped.
-3. **Brand & names.** Product = **Culvert**. Java groupId `com.enrichmeai.culvert`;
-   Python distributions currently `data-pipeline-*` (the `culvert` PyPI name is
-   reserved for the coordinated release). The predecessor `gcp-pipeline-framework`
-   is **deprecated in place**, referenced only as "what came before."
-4. **Code examples must compile/run in spirit** — drawn from real packages
-   (`data-pipeline-core`, the GCP adapters), not pseudo-code that contradicts the
-   API. Prefer short excerpts that mirror actual tests.
-5. **Consistent terminology** (see glossary below). One term per concept.
-6. **Voice:** first-person practitioner, concrete, no marketing fluff. Match the
-   v1 book's readable engineering tone, applied to the Culvert architecture.
+1. **Voice** — first-person practitioner; war stories; earned opinions; British
+   spelling. Adapt the nearest v1 passage; do not invent a flatter tone. (The
+   first agent attempt produced technically-correct but voiceless chapters — that
+   bar is a failure, not a draft.)
+2. **Build conventions** — pandoc-flavoured markdown: `\begin{takeaways}…\end{takeaways}`
+   boxes (one per chapter), `\newpage` between chapters, `\index{}` where v1 uses it,
+   real code fences. Must compile through `book/*.tex`.
+3. **Technical grounding** — every API/name/number cites real source `path:line`.
+   No invented APIs. Honest status: **Culvert is built & held, nothing published**
+   (coordinated Maven Central + PyPI `culvert` is future). Predecessor
+   `gcp-pipeline-framework` = deprecated-in-place, referenced only as origin.
+4. **Canonical names** — see glossary.
 
-## Chapter plan
+## Structure (Culvert-first, GCP-origin arc)
 
-| # | Chapter | Core content | Primary source to ground in |
-|---|---|---|---|
-| Preface | Who this is for, what changed from v1 | — | this outline |
-| 1 | **Why Culvert** — the gap, cloud-neutral + polyglot thesis | the portability problem; contracts as the boundary | `docs/CONTRACT.md`, `docs/framework-evolution/02-redesign.md` |
-| 2 | **The contract** — the language-neutral spec | what a contract is; the 16 + `StageMetrics`; one spec, two languages | `docs/CONTRACT.md`, `data-pipeline-core-java/.../contracts/`, `data-pipeline-core/.../contracts/` |
-| 3 | **The Protocol set by family** | storage / compute / operational / config primitives | the contract interfaces (both languages) |
-| 4 | **Polyglot by design** | Java vs Python boundary; Dataflow=Java; dbt+orchestration reused | `docs/framework-evolution/13-python-parity-release.md` (division of labour) |
-| 5 | **GCP — the first full implementation** | the adapters: BigQuery/GCS/PubSub/Secrets/Observability/Dataflow | `data-pipeline-gcp-*-java` + `data-pipeline-gcp-*` |
-| 6 | **Cross-cloud** | the adapter seam; AWS S3 + Azure Blob skeletons; building out (in progress) | `data-pipeline-aws-s3-java`, `data-pipeline-azure-blob-java` |
-| 7 | **Auto-config & discovery** | ServiceLoader (Java) / entry-points (Python); `AutoConfig.discover()` | `autoconfig.py`, Java `AutoConfig` |
-| 8 | **Contract testing as the safety net** | abstract/mixin contract tests; binding adapters; proving conformance | `data-pipeline-contract-tests*` |
-| 9 | **Cost & governance** | FinOps cost trackers + `BudgetGovernancePolicy`; PII masking; data quality | `finops_api/`, `governance_api/`, `dataquality/` |
-| 10 | **Observability & lineage** | Cloud Trace / Cloud Monitoring / Data Catalog; `StageMetricsHook` | `data-pipeline-gcp-observability*` |
-| 11 | **Orchestration** | cloud-neutral DAG model + Airflow/Composer renderers; Airflow reuse | `data-pipeline-orchestration-java`, Python `data-pipeline-orchestration` |
-| 12 | **Shipping Culvert** | coordinated Maven Central + PyPI; the build-and-hold gate; deprecating the predecessor | `docs/framework-evolution/13-python-parity-release.md` |
+Per chapter: **[src]** = v1 chapter to adapt for voice; **[ground]** = Culvert source for facts.
+
+### Part I — The case
+- **Preface** — [src: v1 Preface] (already Culvert-aware)
+- **1 Why Culvert / why this book** — gap + culvert metaphor + the "start with GCP" thesis [src: v1 Ch1 + Ch23 opening]
+- **2 The landscape and the gap** [src: v1 Ch2]
+- **3 GCP fundamentals, zero to hero** — the concrete first cloud [src: v1 Ch3]
+
+### Part II — The contract (the heart) — write FIRST
+- **4 Contracts as the portability boundary** — cloud-neutral audit + Spring precedent as the GCP-origin story [src: v1 Ch23 §why-rename/§Spring-precedent/§what-was-already-cloud-neutral]
+- **5 The contract set** — 16 interfaces + `StageMetrics`, by family [ground: `data-pipeline-core-java/.../contracts/`, `data-pipeline-core/.../contracts/`; raw input: drafted `book-ch2`/`book-ch3` branches (fact-checked, reuse content, rewrite for voice)]
+- **6 Polyglot by design** — Java+Python division of labour [ground: `docs/framework-evolution/13-python-parity-release.md`]
+
+### Part III — The first implementation (GCP)
+- **7 Storage & messaging adapters** (GCS, Pub/Sub) [src: v1 Ch6/Ch7; ground: `data-pipeline-gcp-gcs`, `-pubsub`]
+- **8 Warehouse & job control** (BigQuery) [ground: `data-pipeline-gcp-bigquery`]
+- **9 Execution — Beam on Dataflow** (Java) [src: v1 Ch7; ground: `data-pipeline-gcp-dataflow-java`]
+- **10 Transformation — dbt** (reused) [src: v1 Ch8; ground: `data-pipeline-transform`]
+- **11 Orchestration** — cloud-neutral DAG model + Airflow/Composer [src: v1 Ch9; ground: `data-pipeline-orchestration-java`, py `data-pipeline-orchestration`]
+
+### Part IV — Production concerns (largely cloud-neutral; strong v1 reuse)
+- **12 Observability & lineage** [src: v1 Ch11; ground: `data-pipeline-gcp-observability`]
+- **13 Cost & FinOps** [src: v1 Ch11 FinOps; ground: `finops_api`, cost trackers, `BudgetGovernancePolicy`]
+- **14 Governance, masking, data quality** [src: v1 Ch18; ground: `governance_api`, `dataquality`]
+- **15 Auto-config & discovery** [ground: `autoconfig.py`, Java `AutoConfig`]
+- **16 Contract testing as the safety net** [src: v1 Ch12; ground: `data-pipeline-contract-tests*`]
+- **17 CI/CD and the coordinated release** — reframed to Maven Central + PyPI `culvert` [src: v1 Ch15; ground: `docs/framework-evolution/13`]
+
+### Part V — Beyond GCP & the road ahead
+- **18 Cross-cloud — the adapter seam** (AWS S3 / Azure Blob skeletons; building out, honest) [ground: `data-pipeline-aws-s3-java`, `data-pipeline-azure-blob-java`]
+- **19 An honest code review** (keep the device, applied to Culvert) [src: v1 Ch17]
+- **20 Working with AI coding agents** — now lived, not hypothetical (the multi-agent SDLC) [src: v1 Ch21 + `CLAUDE.md`]
+- **21 Getting started & roadmap** [src: v1 Ch22 + Ch23 close]
+
+### Appendices — adapt v1
+Contract reference; directory map; cost model; glossary; **About the Author** (keep ~verbatim); further reading; colophon.
 
 ## Glossary (canonical terms)
 
-- **Contract** — a language-neutral interface (Java interface / Python Protocol) every adapter implements.
-- **Adapter** — a cloud/tech-specific implementation of a contract (e.g. `GcsBlobStore`).
+- **Contract** — language-neutral interface (Java interface / Python Protocol) every adapter implements.
+- **Adapter** — cloud/tech-specific implementation of a contract (e.g. `GcsBlobStore`).
 - **Reactor** — the Java Maven multi-module build.
 - **Auto-config / discovery** — `AutoConfig.discover()` finding installed adapters via ServiceLoader (Java) / entry-points (Python).
 - **Coordinated release** — publishing Java (Maven Central) and Python (PyPI `culvert`) together, gated on both being ready.
 
-## Process
+## Agent brief template (per chapter)
 
-Rewrite runs as dispatched waves (one agent per chapter), each grounded per the
-hard rules, then an architect coherence pass (terminology, cross-references,
-status consistency). Predecessor v1 files are replaced; the Medium series is
-rewritten last, derived from the finished chapters. The old
-`docs/framework-evolution/05-book-v2-outline.md` is superseded by this document.
+> You are drafting one chapter of the Culvert book. Worktree: <path> (work only here).
+> Read `book/CULVERT_BOOK_OUTLINE.md` (obey its standards).
+> **Voice:** adapt the v1 source passage `<book/gcp-pipeline-book.md lines …>` —
+> keep Joseph's first-person voice, war-story cadence, British spelling. Do not
+> flatten it into documentation.
+> **Ground:** every technical claim cites real source `<paths>` as `path:line`;
+> no invented APIs; honest unpublished status.
+> **Format:** pandoc markdown; `# Chapter N — Title`; one `\begin{takeaways}` box;
+> end with `\newpage`. Write to `book/chapters/NN-title.md`.
+> Commit + push your branch. Return: file path, the v1 passage adapted, key
+> sources cited (path:line), any flag.
+
+Then: architect verifies citations independently, normalises voice/cross-refs,
+assembles into the master manuscript. Joseph does the final voice pass.
+
+> The old `docs/framework-evolution/05-book-v2-outline.md` is superseded by this document.
