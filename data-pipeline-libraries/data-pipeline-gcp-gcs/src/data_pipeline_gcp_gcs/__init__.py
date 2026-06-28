@@ -7,7 +7,11 @@ Implements the cloud-neutral ``BlobStore`` Protocol from
 from __future__ import annotations
 
 from data_pipeline_gcp_gcs.blob_store import GcsBlobStore
+from data_pipeline_gcp_gcs.cost_tracker import GcsCostTracker
 
 __version__ = "0.1.0"
 
-__all__ = ["GcsBlobStore"]
+__all__ = [
+    "GcsBlobStore",
+    "GcsCostTracker",
+]
