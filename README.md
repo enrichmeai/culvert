@@ -4,7 +4,7 @@
 
 Culvert is a framework for building data pipelines that are **defined once against a language-neutral contract and implemented in the language that fits the job**. The same 16 contracts (Source, Sink, Transform, Pipeline, RuntimeContext, BlobStore, Warehouse, FinOpsSink, GovernancePolicy, …) are realised in both a Java library set and a Python library set; cloud specifics live behind adapters, so the core stays portable across clouds.
 
-> **Status — in progress.** The Java reactor has reached its v1.0 feature bar (all 16 contract interfaces have real adapters) and is **frozen at tag `java-1.0.0`**. It is **built and held, not yet published**: the release gate is **Java _and_ Python both ready**, then a single coordinated `1.0.0` to Maven Central (`com.enrichmeai.culvert:*`) and PyPI (`culvert`). Python parity is underway — contracts, core depth, and the GCP adapters have landed; `culvert` packaging and publish-from-git remain. **Nothing is on Maven Central or PyPI yet.** Authoritative plan: [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
+> **Status — in progress.** The Java reactor has reached its v1.0 feature bar (all 16 contract interfaces have real adapters) and is **frozen at tag `java-0.1.0`**. It is **built and held, not yet published**: the release gate is **Java _and_ Python both ready**, then a single coordinated `0.1.0` to Maven Central (`com.enrichmeai.culvert:*`) and PyPI (`culvert`). Python parity is underway — contracts, core depth, and the GCP adapters have landed; `culvert` packaging and publish-from-git remain. **Nothing is on Maven Central or PyPI yet.** Authoritative plan: [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
 
 > **Repo vs product.** The GitHub repo is `enrichmeai/culvert`; the working-tree folder is still `gcp-pipeline-reference`. The folder name is an operational identifier, not the product name.
 
@@ -76,10 +76,10 @@ The 16 contract interfaces are the heart of the framework. Read [`docs/CONTRACT.
 
 The framework is being completed in sprint waves; the authoritative plan is [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
 
-- ✅ **Java reactor 1.0.0** — all 16 contracts have adapters; frozen at `java-1.0.0`.
+- ✅ **Java reactor 0.1.0** — all 16 contracts have adapters; frozen at `java-0.1.0`.
 - ✅ **Python contracts + core depth** — Protocols reconciled to Java; `DefaultRuntimeContext`, data-quality, governance policies, FinOps cost model.
 - ✅ **Python GCP adapters** — secrets, observability, and per-service cost trackers; all auto-discoverable.
-- ⏳ **Packaging & coordinated release** — `culvert` PyPI distribution + publish-from-git, then a single `1.0.0` to Maven Central **and** PyPI.
+- ⏳ **Packaging & coordinated release** — `culvert` PyPI distribution + publish-from-git, then a single `0.1.0` to Maven Central **and** PyPI.
 
 Architecture: [`docs/framework-evolution/10-architecture.md`](docs/framework-evolution/10-architecture.md). Full series (audit, redesign, dev process, sprint plans): [`docs/framework-evolution/`](docs/framework-evolution/).
 

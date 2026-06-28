@@ -2,13 +2,13 @@
 
 **Status:** in progress. Wave A (S17, contract reconciliation) **merged to `main`**;
 Wave B (S18, core depth) **in PR #123**. Successor to the 9–16 Java block (Java
-reactor at `1.0.0` on `main`, frozen at tag `java-1.0.0`).
+reactor at `0.1.0` on `main`, frozen at tag `java-0.1.0`).
 
 **One-line:** Culvert is one polyglot, cloud-agnostic framework with GCP as its
-first implementation. Java is built to `1.0.0` but does **not** ship alone — the
+first implementation. Java is built to `0.1.0` but does **not** ship alone — the
 release gate is **Java *and* Python both ready**, then a single coordinated
 publish to Maven Central (`com.enrichmeai.culvert:*`) **and** PyPI (`culvert`).
-This epic closes the Python side and ships the coordinated `1.0.0`.
+This epic closes the Python side and ships the coordinated `0.1.0`.
 
 ---
 
@@ -32,13 +32,13 @@ scope** for this release (defer to a later block).
 ## 2. Release gate
 
 ```
-Java 1.0.0 (built, frozen)  ─┐
-                             ├─►  coordinated 1.0.0  ──►  Maven Central + PyPI (culvert), together
+Java 0.1.0 (built, frozen)  ─┐
+                             ├─►  coordinated 0.1.0  ──►  Maven Central + PyPI (culvert), together
 Python parity (this epic)  ──┘                       └─►  legacy gcp-pipeline-framework: deprecate-in-place
 ```
 
-- Java 1.0.0 is **built but held**. It does not publish to Maven Central on its
-  own. **Action: freeze it now** — tag/branch `java-1.0.0` so the coordinated
+- Java 0.1.0 is **built but held**. It does not publish to Maven Central on its
+  own. **Action: freeze it now** — tag/branch `java-0.1.0` so the coordinated
   release ships exactly what was tested, and the Java side can't silently drift
   under the epic and publish something un-re-verified.
 - Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
@@ -47,7 +47,7 @@ Python parity (this epic)  ──┘                       └─►  legacy gcp
 - **Irreversible.** PyPI version numbers can't be reused; Maven Central is
   immutable. The publish itself stays a Joseph-gated manual trigger.
 
-## 3. Current state — Python vs Java 1.0.0 (baseline content-verified 2026-06-14)
+## 3. Current state — Python vs Java 0.1.0 (baseline content-verified 2026-06-14)
 
 **Python already has more than a filename scan suggests.** Verified by grepping
 class definitions, not directory names. *This was the pre-Wave-A baseline; the
@@ -64,7 +64,7 @@ gap table below is annotated with what Waves A/B since closed.*
 - **Adapters**: `data-pipeline-gcp-bigquery`, `-gcs`, `-pubsub`,
   `-orchestration` (runtime), `-transform` (dbt), `-tester`, `-contract-tests`.
 
-### Gaps vs Java 1.0.0 (with Wave A/B status)
+### Gaps vs Java 0.1.0 (with Wave A/B status)
 | Gap | Kind | Status |
 |---|---|---|
 | `StageMetrics` / `StageMetricsHook` | **Contract** | ✅ **DONE** — Wave A (T17.1, #113). |
@@ -126,7 +126,7 @@ within ~30 min; worktrees pre-created off the sprint branch per `CLAUDE.md`).
   unreusable, breaks pinned dependents for zero benefit).
 
 **G. Docs / CHANGELOG**
-- G1: Reframe the `1.0.0` CHANGELOG entry — Java is **built and held for the
+- G1: Reframe the `0.1.0` CHANGELOG entry — Java is **built and held for the
   coordinated polyglot release**, not "done/shipped". Currently it reads as a
   Java-only milestone already complete, which is premature under the both-ready
   gate.
