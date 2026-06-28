@@ -41,9 +41,13 @@ Homepage = "https://github.com/enrichmeai/culvert"
 Repository = "https://github.com/enrichmeai/culvert"
 "Bug Tracker" = "https://github.com/enrichmeai/culvert/issues"
 
+[project.entry-points."data_pipeline_core.adapters"]
+warehouse = "data_pipeline_gcp_bigquery:BigQueryWarehouse"
+finops = "data_pipeline_gcp_bigquery:BigQueryFinOpsSink"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --import-mode=importlib"

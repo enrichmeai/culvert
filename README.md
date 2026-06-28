@@ -1,731 +1,101 @@
-# GCP Pipeline Reference Implementation
+# Culvert
 
-> The simplest production-ready GCP data pipeline framework. Composer + BigQuery + Beam + dbt, opinionated and ready to ship.
+> A cloud-neutral, polyglot data-pipeline framework. One contract, two languages (Java + Python), with Google Cloud as the first implementation.
 
-A **reference implementation** of a mainframe-to-GCP data pipeline, demonstrating standardised "paved path" patterns for the enterprise the enterprise platform. It consolidates what were previously separate applications (Application A and Application B) into a single **Generic** reference system, proving two distinct pipeline patterns simultaneously using a shared 3-unit deployment model.
+Culvert is a framework for building data pipelines that are **defined once against a language-neutral contract and implemented in the language that fits the job**. The same 16 contracts (Source, Sink, Transform, Pipeline, RuntimeContext, BlobStore, Warehouse, FinOpsSink, GovernancePolicy, …) are realised in both a Java library set and a Python library set; cloud specifics live behind adapters, so the core stays portable across clouds.
 
-> **Last Updated:** March 2026 | **Version:** 1.0.29 (libraries), 1.0.14 (reference packages)
+> **Status — in progress.** The Java reactor has reached its v1.0 feature bar (all 16 contract interfaces have real adapters) and is **frozen at tag `java-0.1.0`**. It is **built and held, not yet published**: the release gate is **Java _and_ Python both ready**, then a single coordinated `0.1.0` to Maven Central (`com.enrichmeai.culvert:*`) and PyPI (`culvert`). Python parity is underway — contracts, core depth, and the GCP adapters have landed; `culvert` packaging and publish-from-git remain. **Nothing is on Maven Central or PyPI yet.** Authoritative plan: [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
 
----
-
-## Quickstart
-
-New here? Start with **[QUICKSTART.md](./QUICKSTART.md)**. It walks through the standard Composer-based deployment end-to-end in under 30 minutes. Everything you need is there. Come back to this README for the broader reference once you are up and running.
+> **Repo vs product.** The GitHub repo is `enrichmeai/culvert`; the working-tree folder is still `gcp-pipeline-reference`. The folder name is an operational identifier, not the product name.
 
 ---
 
-## Standard deployment (Composer optional)
+## Why Culvert
 
-The standard path runs three independently deployed units — ingestion, transformation, and orchestration. Cloud Composer is optional; the framework's default does not provision it. Adopt Composer only if you need Apache Airflow's full feature set; otherwise the orchestration unit runs as Cloud Functions + Cloud Run Jobs at a fraction of the cost. Terraform provisions all infrastructure; GitHub Actions deploys on push to `main`.
+- **Contract-driven.** [`docs/CONTRACT.md`](docs/CONTRACT.md) is the language-neutral specification. Any team can implement it in any language; Java and Python are the two reference implementations.
+- **Cloud-neutral by design.** The core depends only on contracts. GCP is the first full implementation; AWS S3 and Azure Blob ship as adapter skeletons that prove the seam is real.
+- **Polyglot, not duplicated.** The two languages do not do the same job — see the division of labour below.
+- **No application framework in the core.** Plain Java (JDK 17, `ServiceLoader` auto-config) and plain Python (Protocols + entry-point auto-config), so the libraries compose into Beam pipelines, Airflow DAGs, or anything else without dragging in Spring/Quarkus.
 
-### One-time infrastructure setup
+## Division of labour
+
+| Layer | Strategy | Notes |
+|---|---|---|
+| **Contracts** | **Both** implement the same spec | 16 interfaces + the `StageMetrics` record. Java in `data-pipeline-core-java`; Python Protocols in `data-pipeline-core`. |
+| **dbt / transform** | **Reuse** (language-neutral) | dbt is SQL + macros — packaged in `data-pipeline-transform`; there is deliberately no Java transform module. |
+| **Dataflow / execution** | **Java** (Apache Beam) | `data-pipeline-gcp-dataflow-java`. Legacy Python Beam is not carried forward. |
+| **Orchestration** | **Reuse** — complementary | Python owns the Airflow runtime side; Java owns the cloud-neutral DAG model + renderers (`DagSpec`/`TaskSpec`, Airflow/Composer). |
+
+## Repository layout
+
+```
+data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (13 modules)
+  data-pipeline-core-java          # contracts + records + AutoConfig (ServiceLoader)
+  data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability,dataflow}-java
+  data-pipeline-{aws-s3,azure-blob}-java       # cloud-neutrality skeletons
+  data-pipeline-orchestration-java             # DagSpec/TaskSpec + Airflow/Composer renderers
+  data-pipeline-{contract-tests,tester,it-support}-java
+
+data-pipeline-libraries/        # Python library set (distributions currently named data-pipeline-*)
+  data-pipeline-core               # Protocols + records + AutoConfig (entry-points)
+  data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability}
+  data-pipeline-{orchestration,transform,tester,contract-tests}
+
+deployments/                    # reference example pipelines built on the framework
+docs/                           # documentation (see index below)
+docs/framework-evolution/       # canonical "why / what / when" for the redesign + sprints
+```
+
+> The legacy Python trees (`gcp-pipeline-libraries/`, the `gcp_pipeline_*` egg-info) belong to the predecessor framework and are being retired — see [Legacy](#legacy).
+
+## Build & test
+
+**Java** (JDK 17; the Maven toolchain is provisioned automatically):
 
 ```bash
-# 1. Set GCP project and authenticate
-gcloud config set project YOUR_PROJECT_ID
-gcloud auth login
-
-# 2. Create all infrastructure (one-time per environment)
-./scripts/gcp/01_enable_services.sh
-./scripts/gcp/02_create_state_bucket.sh
-./scripts/gcp/03_create_infrastructure.sh all
-
-# 3. Add required GitHub secrets
-gh secret set GCP_SA_KEY < /tmp/gcp-sa-key.json
-gh secret set GCP_PROJECT_ID --body 'YOUR_PROJECT_ID'
+mvn -f data-pipeline-libraries-java/pom.xml install        # build + unit tests, all modules
+mvn -f data-pipeline-libraries-java/pom.xml -P it verify   # integration tests (Testcontainers; needs Docker)
 ```
 
-### Deploy
+**Python** (each package is an independent distribution — install editable, then run pytest):
 
 ```bash
-# Push to main — CI/CD deploys all three units automatically
-git push origin main
-
-# Verify deployment
-gh run list --workflow=deploy-generic.yml --limit 3
-
-# Run end-to-end test
-./scripts/gcp/06_test_pipeline.sh generic
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e data-pipeline-libraries/data-pipeline-core pytest
+pip install -e data-pipeline-libraries/data-pipeline-gcp-bigquery   # plus whichever adapters you need
+pytest data-pipeline-libraries/data-pipeline-core/tests
 ```
 
-Changes in each deployment unit are detected automatically:
+Adapters self-register with the core — Python via entry-points under the `data_pipeline_core.adapters` group, Java via `ServiceLoader` — so `AutoConfig.discover()` finds every installed implementation.
 
-- `deployments/original-data-to-bigqueryload/**` → rebuilds and deploys the Dataflow Flex Template
-- `deployments/bigquery-to-mapped-product/**` → deploys dbt models to BigQuery
-- `deployments/data-pipeline-orchestrator/**` → uploads DAGs to Cloud Composer
-- `infrastructure/terraform/**` → applies Terraform changes
+## Contracts
 
-### Key scripts
+The 16 contract interfaces are the heart of the framework. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
 
-| Script | Purpose |
-|--------|---------|
-| `./scripts/gcp/01_enable_services.sh` | Enable required GCP APIs |
-| `./scripts/gcp/02_create_state_bucket.sh` | Create Terraform state bucket |
-| `./scripts/gcp/03_create_infrastructure.sh` | Create GCS, BigQuery, Pub/Sub resources |
-| `./scripts/gcp/05_verify_setup.sh` | Verify infrastructure is ready |
-| `./scripts/gcp/06_test_pipeline.sh` | Run single-entity pipeline test |
-| `./scripts/gcp/e2e_pipeline_test.sh` | Full E2E test (all entities, ODP + FDP verification) |
+## Status & roadmap
 
-### Manual trigger
+The framework is being completed in sprint waves; the authoritative plan is [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
 
-```bash
-# Trigger full Generic deployment manually
-gh workflow run deploy-generic.yml
+- ✅ **Java reactor 0.1.0** — all 16 contracts have adapters; frozen at `java-0.1.0`.
+- ✅ **Python contracts + core depth** — Protocols reconciled to Java; `DefaultRuntimeContext`, data-quality, governance policies, FinOps cost model.
+- ✅ **Python GCP adapters** — secrets, observability, and per-service cost trackers; all auto-discoverable.
+- ⏳ **Packaging & coordinated release** — `culvert` PyPI distribution + publish-from-git, then a single `0.1.0` to Maven Central **and** PyPI.
 
-# Check workflow status
-gh run list --workflow=deploy-generic.yml --limit 3
-```
+Architecture: [`docs/framework-evolution/10-architecture.md`](docs/framework-evolution/10-architecture.md). Full series (audit, redesign, dev process, sprint plans): [`docs/framework-evolution/`](docs/framework-evolution/).
 
-### Library publishing
+## Legacy
 
-```bash
-# Publish libraries to PyPI AND deploy in one step (canonical trigger per CLAUDE.md)
-git commit -m "chore: update version [publish:deploy]"
-git push
+Culvert replaces the predecessor PyPI framework `gcp-pipeline-framework` (last release `1.0.29`). That package is being **deprecated in place** — left installable for existing pins, with a final pointer release to Culvert — **not** deleted. Do not build new work against it.
 
-# Alternatively, publish libraries to PyPI only (no deploy), then deploy separately
-git commit -m "chore: update version [publish:pypi]"
-gh workflow run deploy-generic.yml
-```
+## Documentation index
 
-> **Note:** The canonical CI trigger for publishing libraries then deploying is `[publish:deploy]` (see CLAUDE.md). Use `[publish:pypi]` only when you want to publish libraries to PyPI without triggering a deployment.
+- [`docs/CONTRACT.md`](docs/CONTRACT.md) — the language-neutral contract spec.
+- [`docs/framework-evolution/`](docs/framework-evolution/) — canonical why/what/when (redesign rationale, dev process, sprint plans, parity/release plan).
+- Topic guides: [`docs/TECHNICAL_ARCHITECTURE.md`](docs/TECHNICAL_ARCHITECTURE.md), [`docs/FINOPS_STRATEGY.md`](docs/FINOPS_STRATEGY.md), [`docs/DATA_QUALITY_GUIDE.md`](docs/DATA_QUALITY_GUIDE.md), [`docs/OBSERVABILITY_SPEC.md`](docs/OBSERVABILITY_SPEC.md).
+- `deployments/*/` — worked example pipelines.
 
----
+> Many guides under `docs/` were written for the predecessor reference implementation and are mid-migration; where they disagree with `docs/framework-evolution/`, the latter is current.
 
-## CI (GitHub Actions)
+## License
 
-### Workflow: `.github/workflows/ci.yml`
-
-Introduced in T15.1 (#77). Triggers on `push` and `pull_request` to `sprint-15` and `main`.
-
-#### Jobs
-
-The CI pipeline is a two-tier structure: unit tests run first, then the emulator integration-test tier runs only if the unit tier is green.
-
-**Tier 1 — unit tests (fast, no Docker)**
-
-| Job | What it does |
-|-----|-------------|
-| `verify-module-list` | Diffs the workflow's explicit module list against `data-pipeline-libraries-java/pom.xml`. Fails if a module is missing — a gap is a visible red, not a silent pass. |
-| `java-build` | Matrix over all 13 Java reactor modules. Sets up JDK 21 (Temurin), caches `~/.m2`, runs `mvn --batch-mode -pl <module> -am test`. Integration tests (`*IT.java`) are excluded by surefire default. Needs `verify-module-list`. |
-| `python-tests` | Matrix over the three GCP adapter modules (`data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub`). Installs `data-pipeline-core` from local source first (it is not on PyPI yet), then the adapter. Runs pytest with coverage (`--cov`). Caches pip. |
-
-**Tier 2 — emulator integration tests (Docker required, added in T15.2)**
-
-| Job | What it does |
-|-----|-------------|
-| `java-it` | Runs the full reactor's `*IT.java` tests via `mvn --batch-mode -P it verify`. Needs `java-build` — only starts if all unit-test legs pass. Exercises BigQueryWarehouseIT + BigQueryAuditEventPublisherIT (goccy/bigquery-emulator), GcsBlobStoreIT (fsouza/fake-gcs-server), PubSubSinkIT + PubSubSourceIT (Pub/Sub emulator), SecretManagerProviderIT, and DefaultRuntimeContextWiringIT. No GCP credentials needed — all traffic goes to localhost Testcontainers ports. Docker is available on ubuntu-latest runners; no DinD or `services:` block is needed. |
-
-**Gate**
-
-| Job | What it does |
-|-----|-------------|
-| `ci-gate` | Required-status-check entry point. Fails if any of `java-build`, `python-tests`, or `java-it` fail. |
-
-**Job dependency graph:**
-
-```
-verify-module-list
-       │
-   java-build ──────────────┐
-   (matrix, 13 legs)        │ needs: java-build
-                            ↓
-                         java-it
-                            │
-                            └──────────┐
-                                       ↓
-python-tests ──────────────────────→ ci-gate
-(no upstream dep; runs in parallel
- with the entire Java chain)
-```
-
-`ci-gate` fans in from all three of `java-build`, `python-tests`, and `java-it`.
-
-#### Java reactor modules (all 13 enumerated)
-
-```
-data-pipeline-core-java
-data-pipeline-gcp-secrets-java
-data-pipeline-gcp-bigquery-java
-data-pipeline-gcp-gcs-java
-data-pipeline-gcp-pubsub-java
-data-pipeline-gcp-observability-java
-data-pipeline-gcp-dataflow-java
-data-pipeline-tester-java
-data-pipeline-it-support-java
-data-pipeline-contract-tests-java
-data-pipeline-aws-s3-java
-data-pipeline-azure-blob-java
-data-pipeline-orchestration-java
-```
-
-#### Adding a new Java module
-
-1. Add the module directory under `data-pipeline-libraries-java/`.
-2. Add a `<module>` entry to `data-pipeline-libraries-java/pom.xml`.
-3. Add the module name to the `matrix.module` list in `.github/workflows/ci.yml`.
-   The `verify-module-list` job will fail on the next CI run if you forget step 3.
-
-#### Known exclusions
-
-- `data-pipeline-orchestration` (Python) is excluded from CI pending tech-debt #88: `tests/unit/test_create_dags.py` references `airflow.providers.standard.operators.empty`, an Airflow-3.x-only import path that does not exist under the pinned Airflow 2.9.x. The file already carries a module-level `pytest.skip()` guard but the module is still unreliable to collect on a clean runner. Fix tracked in #88.
-- E2E / cloud-credential steps — tracked in T15.3.
-
-#### Running the emulator IT tier locally (Docker required)
-
-The `java-it` CI job runs `mvn -P it verify` on the reactor. To run the same locally:
-
-```bash
-# Requires a running Docker daemon
-cd data-pipeline-libraries-java
-mvn --batch-mode -P it verify
-```
-
-This activates the `it` Maven profile (defined in `data-pipeline-libraries-java/pom.xml`), which enables maven-failsafe to collect and run all `*IT.java` tests against Testcontainers-backed emulators. The emulator containers are pulled from Docker Hub automatically when the tests start; no GCP credentials are needed.
-
-To run a single module's ITs only:
-
-```bash
-cd data-pipeline-libraries-java
-mvn --batch-mode -P it -pl data-pipeline-gcp-bigquery-java -am verify
-```
-
-Day-to-day unit tests (no Docker needed):
-
-```bash
-cd data-pipeline-libraries-java
-mvn test                         # whole reactor, unit tests only
-mvn -pl data-pipeline-core-java -am test   # single module
-```
-
-#### Re-enabling CI
-
-The `ci.yml` workflow is committed but **disabled at the GitHub level** (intentional since Sprint 0 to avoid billable Actions minutes during development sprints). To enable:
-
-```bash
-gh workflow enable ci.yml
-```
-
-This is an **engineer trigger** — do not enable from an agent session.
-
-> **Legacy workflows retired (Sprint 15, T15.5).** The 10 pre-Culvert workflows
-> (`test.yml`, `deploy-generic.yml`, `publish-libraries.yml`, etc.) targeted the
-> old Python `gcp-pipeline-*` framework — several auto-deployed/published to PyPI
-> on push to `main`. They were **deleted** so that enabling Actions is exactly
-> "enable `ci.yml`", with no stale deploy/publish or red legacy-test runs.
-> `.github/workflows/` now contains only `ci.yml`. Deploy/publish workflows for
-> Culvert will be authored fresh in Sprint 16 (release prep) / v1.1, not salvaged
-> from the retired set.
-
----
-
-## Alternative deployments (advanced)
-
-These escape hatches exist for teams with specific constraints. They are not the default path.
-
-- **Self-managed Airflow on GKE (Helm)** — for teams that cannot use Composer due to regulatory, hybrid-estate, or extreme-scale requirements. See [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) and Chapter 14 of the book.
-- **Cloud Run / Workflows** — for teams running lightweight, event-driven workloads without a standing orchestrator. Not covered inline here; raise it as a discussion if you think you need it.
-
-If you are not sure which path applies, use Composer. The operational overhead of self-managing Kubernetes or Workflows is significant; Composer pays for itself quickly.
-
----
-
-## Install from PyPI and Reconstruct the Project
-
-All libraries, reference implementations, documentation, infrastructure-as-code, and CI/CD workflows are published to PyPI. You can reconstruct the entire project from packages — no access to the source repo required.
-
-### Option 1: Quick Reconstruction with `reconstruct.py`
-
-Download [`reconstruct.py`](./reconstruct.py) and run it — it creates a temp venv, installs everything from PyPI, and exports the full project layout:
-
-```bash
-# From public PyPI (latest version)
-python reconstruct.py
-
-# Specific version
-python reconstruct.py --version 1.0.29
-
-# From a private index (Nexus, Artifactory, etc.)
-python reconstruct.py --index-url https://nexus.internal/repository/pypi/simple/
-
-# Custom destination
-python reconstruct.py --dest /path/to/my-pipeline-project
-```
-
-This produces a ready-to-use project directory:
-```
-culvert/
-├── docs/                      # 34 documentation guides
-├── infrastructure/
-│   ├── terraform/             # All Terraform modules and tfvars
-│   └── k8s/                   # Helm charts for alternative self-managed deployment (advanced)
-├── .github/workflows/         # 11 CI/CD workflow definitions
-├── deployments/               # Dockerfiles, cloudbuild.yaml, pyproject.toml per deployment
-│   ├── original-data-to-bigqueryload/
-│   ├── bigquery-to-mapped-product/
-│   ├── data-pipeline-orchestrator/
-│   └── ...
-├── gcp-pipeline-libraries/    # Full library source code
-├── .gitignore, pyproject.toml, README.md
-```
-
-Push it to your internal repo:
-```bash
-cd culvert
-git init && git add -A && git commit -m "Import GCP Pipeline Reference from PyPI"
-git remote add origin <your-internal-repo-url>
-git push -u origin main
-```
-
-### Option 2: CLI Export (docs + infrastructure only)
-
-If you already have `gcp-pipeline-framework` installed:
-
-```bash
-pip install gcp-pipeline-framework
-
-# List all bundled docs
-gcp-pipeline-docs list
-
-# View a specific guide
-gcp-pipeline-docs show DEVELOPER_TESTING_GUIDE.md
-
-# Export just the docs
-gcp-pipeline-docs export-docs --dest docs
-
-# Export the full project structure (docs + infra + workflows + deployment configs)
-gcp-pipeline-docs export-project --dest my-project
-```
-
-### Option 3: Python API
-
-```python
-from gcp_pipeline_framework import list_docs, get_docs_path, export_project
-
-# List all documentation
-for doc in list_docs():
-    print(doc)
-
-# Read a specific guide
-content = (get_docs_path() / "DEVELOPER_TESTING_GUIDE.md").read_text()
-
-# Export everything to a directory
-export_project("my-project")
-```
-
-### What's Published to PyPI
-
-| Package | Contents |
-|---------|----------|
-| `gcp-pipeline-framework` | Umbrella + all docs, Terraform, Helm charts, workflows, deployment configs |
-| `gcp-pipeline-core` | Foundation library (audit, monitoring, error handling, job control) |
-| `gcp-pipeline-beam` | Apache Beam ingestion library |
-| `gcp-pipeline-orchestration` | Airflow operators and DAG utilities |
-| `gcp-pipeline-transform` | Shared dbt macros |
-| `gcp-pipeline-tester` | Test mocks, fixtures, base classes |
-| `gcp-pipeline-ref-ingestion` | Reference: GCS → BigQuery ODP ingestion source |
-| `gcp-pipeline-ref-transform` | Reference: ODP → FDP dbt models |
-| `gcp-pipeline-ref-orchestration` | Reference: Airflow DAGs for Cloud Composer |
-| `gcp-pipeline-ref-cdp` | Reference: FDP → CDP dbt models |
-| `gcp-pipeline-ref-segment-transform` | Reference: CDP → mainframe segment files |
-
----
-
-## Architecture Overview
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                    CLOUD COMPOSER (Managed Airflow)                          │
-│  ┌────────────────────────────────────────────────────────────────────────┐  │
-│  │  Airflow Scheduler + Webserver + Workers (Google-managed)              │  │
-│  │  DAGs: Trigger → Validate → Load → Transform                          │  │
-│  └────────────────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │ Orchestrates
-                    ┌──────────────────┴──────────────────┐
-                    ▼                                      ▼
-┌───────────────────────────────┐  ┌───────────────────────────────┐
-│         DATAFLOW              │  │         BIGQUERY              │
-│   (Google Managed)            │  │    (Google Managed)           │
-│  ┌─────────────────────────┐  │  │  ┌─────────────────────────┐  │
-│  │  Beam Ingestion Jobs    │  │  │  │  dbt Transformations    │  │
-│  │  GCS → ODP              │  │  │  │  ODP → FDP              │  │
-│  └─────────────────────────┘  │  │  └─────────────────────────┘  │
-└───────────────────────────────┘  └───────────────────────────────┘
-```
-
----
-
-## Why Use This Reference Implementation?
-
-### 1. Standards-Based, Production-Ready Patterns
-
-The framework abstracts enterprise-grade cross-cutting concerns into versioned, reusable libraries available on PyPI:
-
-- **Audit Trail:** Centralised tracking via `gcp-pipeline-core`.
-- **Ingestion Patterns:** Standardised Beam pipelines in `gcp-pipeline-beam`.
-- **Orchestration:** Reusable Airflow operators and DAG factories in `gcp-pipeline-orchestration`.
-- **Transformation Macros:** Shared dbt macros in `gcp-pipeline-transform`.
-- **Testing Utilities:** Base classes and mocks in `gcp-pipeline-tester`.
-
-Detailed information: [Technical Architecture Document](./docs/TECHNICAL_ARCHITECTURE.md).
-
-### 2. Two Proven Patterns in One Reference System
-
-The Generic system simultaneously demonstrates:
-
-- **JOIN pattern** (from Application A): 3 source entities (Customers, Accounts, Decision) → 3 ODP tables → 2 FDP tables. All 3 entities must complete before transformation triggers.
-- **MAP pattern** (from Application B): 1 source entity (Applications) → 1 ODP table → 1 FDP table. Transformation triggers immediately on ODP load.
-
-### 3. Reliability and Visibility
-
-- **Job Tracking:** Every run has a unique `run_id`, providing end-to-end lineage from source file to FDP row.
-- **FinOps & Cost Visibility:** Built-in cost estimation for BigQuery, GCS, and Pub/Sub, with automated labelling for precise cost allocation.
-- **Automatic Error Handling:** Exponential backoff at task level; failed files routed to error bucket with structured error report.
-- **Structured Logs:** Standardised JSON logging searchable in Cloud Logging.
-
-### Deployment Footprint
-
-By consolidating Application A and Application B into three unified deployment units, the reference implementation reduces infrastructure overhead significantly:
-
-| Unit | Entities Covered | Benefit |
-|------|-----------------|---------|
-| **Ingestion** (`original-data-to-bigqueryload`) | Customers, Accounts, Decision, Applications | Single Dataflow Flex Template image |
-| **Transformation** (`bigquery-to-mapped-product`) | All FDP models | Unified dbt project |
-| **Orchestration** (`data-pipeline-orchestrator`) | Full pipeline coordination | Single DAG set via Cloud Composer |
-
----
-
-## Getting Started
-
-### Local Environment Setup
-
-```bash
-# Set up the root venv for IDE resolution
-./scripts/setup_ide_context.sh
-source venv/bin/activate
-```
-
-- **PyCharm/IntelliJ:** Set project interpreter to `./venv`.
-- **VS Code:** The Python extension will usually auto-detect `./venv`.
-
-| Resource | Description |
-| :--- | :--- |
-| **[Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md)** | Step-by-step guide to adding a new system |
-| **[GCP Deployment Guide](./docs/GCP_DEPLOYMENT_GUIDE.md)** | Infrastructure setup and CI/CD reference |
-| **[Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md)** | Deep-dive into deployments, DAGs, and integration patterns |
-| **[Production Release Guide](./docs/PRODUCTION_RELEASE_GUIDE.md)** | Senior developer handover and release checklist |
-
----
-
-## Execution Guide
-
-### 1. Local Environment Setup
-
-Each deployment has its own isolated environment:
-
-```bash
-# Set up the ingestion deployment environment
-./scripts/setup_deployment_venv.sh original-data-to-bigqueryload
-source deployments/original-data-to-bigqueryload/venv/bin/activate
-```
-
-### 2. Running Tests
-
-#### Library Tests
-
-```bash
-./scripts/run_library_tests.sh
-```
-
-#### Deployment Tests
-
-```bash
-cd deployments/original-data-to-bigqueryload
-python -m pytest tests/unit/
-
-cd deployments/bigquery-to-mapped-product
-python -m pytest tests/unit/
-
-cd deployments/data-pipeline-orchestrator
-python -m pytest tests/unit/
-```
-
-### 3. Local Execution
-
-#### Running Ingestion Locally
-
-```bash
-cd deployments/original-data-to-bigqueryload
-python -m data_ingestion.pipeline.runner \
-    --source_file=path/to/local/file.csv \
-    --output_table=project:dataset.table \
-    --runner=DirectRunner \
-    --temp_location=/tmp/beam-temp
-```
-
-#### Running Transformation Locally
-
-```bash
-cd deployments/bigquery-to-mapped-product/dbt
-dbt run --profiles-dir . --target dev
-```
-
-### 4. Cloud Validation
-
-```bash
-# Simulate a file arrival for the generic ingestion pipeline
-./scripts/gcp/06_test_pipeline.sh generic
-```
-
-This script:
-1. Generates sample CSV data with valid HDR/TRL records.
-2. Uploads data files to the landing bucket.
-3. Uploads the `.ok` trigger file.
-4. Publishes a message to the `generic-file-notifications` Pub/Sub topic.
-
-Pipeline events (status, errors) are published to the `generic-pipeline-events` Pub/Sub topic.
-
----
-
-## Architecture
-
-### Library Stack (6 packages) (Published as `gcp-pipeline-framework`)
-
-Libraries are consumed from PyPI (`pip install gcp-pipeline-framework>=1.0.29`) and are **not embedded** in this repository.
-
-```
-gcp-pipeline-core (Foundation — no Beam, no Airflow)
-        |
-   ┌────┼────────────┐
-   ↓    ↓            ↓
-gcp-pipeline-beam    gcp-pipeline-orchestration    gcp-pipeline-transform
-(Ingestion — Beam)   (Control — Airflow)           (SQL — dbt macros)
-```
-
-Supplementary packages:
-- `gcp-pipeline-tester` — Testing utilities (mocks, fixtures, base classes)
-- `gcp-pipeline-framework` — Umbrella package that installs all libraries
-
-| Library | Purpose | Tests |
-|---------|---------|-------|
-| [`gcp-pipeline-framework`](https://pypi.org/project/gcp-pipeline-framework/) | Umbrella package — installs all libraries below | - |
-| `gcp-pipeline-core` | Audit, monitoring, FinOps, error handling, job control | 219 |
-| `gcp-pipeline-beam` | Beam pipelines, transforms, HDR/TRL parsing, file management | 359 |
-| `gcp-pipeline-orchestration` | Airflow DAGs, sensors, operators, DAG factory | 58 |
-| `gcp-pipeline-transform` | dbt macros for audit columns and PII masking | - |
-| `gcp-pipeline-tester` | Mocks, fixtures, base test classes | 101 |
-
-### 3-Unit Deployment Model
-
-| Unit | Deployment Folder | Covers |
-| :--- | :--- | :--- |
-| **Ingestion** | [`original-data-to-bigqueryload`](./deployments/original-data-to-bigqueryload/) | Dataflow Flex Template; reads HDR/TRL CSV files from GCS, loads to ODP |
-| **Transformation** | [`bigquery-to-mapped-product`](./deployments/bigquery-to-mapped-product/) | dbt models transforming ODP to FDP |
-| **Orchestration** | [`data-pipeline-orchestrator`](./deployments/data-pipeline-orchestrator/) | Airflow DAGs on Cloud Composer; Pub/Sub sensing, validation, coordination |
-
-Specialised patterns maintained in separate deployments (not part of the active Generic CI/CD):
-- **CDP:** [`fdp-to-consumable-product`](./deployments/fdp-to-consumable-product/) (code-complete)
-- **Mainframe Segment:** [`mainframe-segment-transform`](./deployments/mainframe-segment-transform/) (code-complete)
-- **Spanner:** [`spanner-to-bigquery-load`](./deployments/spanner-to-bigquery-load/) (reference)
-- **Postgres CDC:** [`postgres-cdc-streaming`](./deployments/postgres-cdc-streaming/) (reference)
-
----
-
-## End-to-End Flow
-
-```
-MAINFRAME           GCS LANDING         CLOUD COMPOSER       DATAFLOW            dbt
-─────────           ───────────         ──────────────       ────────            ───
-
-Extract     ───────►  .csv files   ──┐
-CSV files             + .ok file     │ OBJECT_FINALIZE
-(HDR/TRL)                            ▼ notification
-                                ┌─────────────┐
-                                │ Pub/Sub     │ generic-file-notifications
-                                │ Sensor      │
-                                └──────┬──────┘
-                                       │
-                                       ▼
-                                ┌─────────────┐
-                                │ Validate    │
-                                │ HDR/TRL     │
-                                │ DQ Checks   │
-                                └──────┬──────┘
-                                       │
-                                       ▼
-                                ┌─────────────┐     ┌─────────────┐
-                                │ Trigger     │────►│ Beam        │────► ODP Tables
-                                │ Dataflow    │     │ Pipeline    │      (BigQuery)
-                                └─────────────┘     └─────────────┘
-                                       │
-                                       ▼
-                                ┌─────────────┐     ┌─────────────┐
-                                │ Trigger     │────►│ dbt run     │────► FDP Tables
-                                │ dbt         │     │ Transform   │      (BigQuery)
-                                └─────────────┘     └─────────────┘
-```
-
-### File Format
-
-```
-HDR|Generic|CUSTOMERS|20260101           ← Header: System, Entity, Date
-customer_id,name,ssn,status              ← CSV column headers
-1001,John Doe,123-45-6789,ACTIVE         ← Data rows
-1002,Jane Smith,987-65-4321,ACTIVE
-TRL|RecordCount=2|Checksum=a1b2c3d4      ← Trailer: Count, Checksum
-```
-
-### Split File Handling
-
-Files > 25MB are split by the mainframe using the naming convention `customers_1.csv`, `customers_2.csv`. A single `.ok` file signals all splits are complete:
-
-```
-gs://{PROJECT_ID}-generic-{ENV}-landing/generic/customers/
-├── customers_1.csv
-├── customers_2.csv
-└── customers.csv.ok    ← Triggers processing of ALL splits
-```
-
----
-
-## Reference Implementations
-
-### JOIN Pattern (from Application A)
-
-| Aspect | Value |
-|--------|-------|
-| Source Entities | 3 (Customers, Accounts, Decision) |
-| ODP Tables | 3 (`odp_generic.customers`, `odp_generic.accounts`, `odp_generic.decision`) |
-| FDP Tables | 2 (`fdp_generic.event_transaction_excess`, `fdp_generic.portfolio_account_excess`) |
-| Dependency | All 3 JOIN entities must reach SUCCESS before FDP transformation triggers |
-
-### MAP Pattern (from Application B)
-
-| Aspect | Value |
-|--------|-------|
-| Source Entities | 1 (Applications) |
-| ODP Tables | 1 (`odp_generic.applications`) |
-| FDP Tables | 1 (`fdp_generic.portfolio_account_facility`) |
-| Dependency | Transformation triggers immediately after ODP load |
-
-### Spanner Transformation — FEDERATED Pattern
-
-| Aspect | Value |
-|--------|-------|
-| Source System | Cloud Spanner |
-| ODP Tables | 0 (bypassed) |
-| FDP Tables | 1 (`spanner_customer_summary`) |
-| Technology | dbt + `EXTERNAL_QUERY` |
-| Pattern | Low-friction federated transformation |
-
----
-
-## Project Structure
-
-```
-gcp-pipeline-libraries/                                    # Library source (published to PyPI)
-├── gcp-pipeline-core/                                     # Foundation
-├── gcp-pipeline-beam/                                     # Ingestion
-├── gcp-pipeline-orchestration/                            # Control
-├── gcp-pipeline-transform/                                # dbt macros
-├── gcp-pipeline-tester/                                   # Testing utilities
-└── gcp-pipeline-framework/                                # Umbrella package
-
-deployments/
-├── original-data-to-bigqueryload/                         # Generic Ingestion (Dataflow Flex Template)
-├── bigquery-to-mapped-product/                            # Generic Transformation (dbt)
-├── data-pipeline-orchestrator/                            # Generic Orchestration (Cloud Composer)
-├── fdp-to-consumable-product/                             # CDP Transformation (dbt, code-complete)
-├── mainframe-segment-transform/                           # Mainframe Segment (Beam, code-complete)
-├── postgres-cdc-streaming/                                # Postgres CDC (Beam streaming, reference)
-├── spanner-to-bigquery-load/                              # Spanner Federated (dbt, reference)
-
-infrastructure/terraform/
-└── systems/generic/
-    ├── ingestion/                                         # GCS, Pub/Sub, BQ ODP
-    ├── transformation/                                    # BigQuery FDP
-    └── orchestration/                                     # Service accounts, IAM, Composer
-```
-
----
-
-## Run All Tests
-
-```bash
-# Library tests (763 tests)
-cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -q
-cd ../gcp-pipeline-beam && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
-cd ../gcp-pipeline-orchestration && PYTHONPATH=src:../gcp-pipeline-core/src python -m pytest tests/unit/ -q
-cd ../gcp-pipeline-tester && PYTHONPATH=src python -m pytest tests/unit/ -q
-
-# Deployment tests
-cd ../../deployments/original-data-to-bigqueryload && python -m pytest tests/unit/ -q
-cd ../bigquery-to-mapped-product && python -m pytest tests/unit/ -q
-cd ../data-pipeline-orchestrator && python -m pytest tests/unit/ -q
-```
-
----
-
-## Test Summary
-
-| Component | Tests |
-|-----------|-------|
-| gcp-pipeline-core | 219 |
-| gcp-pipeline-beam | 359 |
-| gcp-pipeline-orchestration | 58 |
-| gcp-pipeline-tester | 101 |
-| original-data-to-bigqueryload | 26 |
-| **Total** | **763** |
-
----
-
-## Key Concepts
-
-| Term | Definition |
-|------|------------|
-| **ODP** | Original Data Product — raw 1:1 copy of mainframe data in BigQuery |
-| **FDP** | Foundation Data Product — transformed, business-ready data |
-| **HDR/TRL** | Header/Trailer records for file envelope validation |
-| **.ok file** | Signal file indicating all data file transfers are complete |
-| **Split Files** | Files > 25MB split by the mainframe; a single `.ok` covers all splits |
-| **JOIN pattern** | Multi-entity pipeline requiring all entities to load before FDP transform |
-| **MAP pattern** | Single-entity pipeline with immediate FDP trigger |
-| **run_id** | Unique correlation ID propagated across all layers for end-to-end lineage |
-
----
-
-## Documentation
-
-| Guide | Description |
-|-------|-------------|
-| [E2E Functional Flow](./docs/E2E_FUNCTIONAL_FLOW.md) | Complete end-to-end requirements and data flow |
-| [Technical Architecture](./docs/TECHNICAL_ARCHITECTURE.md) | Technical deep-dive into deployments, DAGs, and integration patterns |
-| [paved path Proposal](./docs/PAVED_PATH_PROPOSAL.md) | Enterprise paved path proposal for the the enterprise platform |
-| [GCP Deployment Guide](./docs/GCP_DEPLOYMENT_GUIDE.md) | Terraform and deployment guide |
-| [Production Release Guide](./docs/PRODUCTION_RELEASE_GUIDE.md) | Senior developer handover and release checklist |
-| [GKE Deployment Guide](./docs/GKE_DEPLOYMENT_GUIDE.md) | Advanced escape hatch: self-hosted Airflow on GKE (see "Alternative deployments" above) |
-| [Audit Integration](./docs/AUDIT_INTEGRATION_GUIDE.md) | Audit trail and reconciliation |
-| [Pub/Sub & KMS](./docs/PUBSUB_KMS_GUIDE.md) | Event-driven triggers with encryption |
-| [Error Handling](./docs/ERROR_HANDLING_GUIDE.md) | Error classification, retry, DLQ |
-| [Data Quality](./docs/DATA_QUALITY_GUIDE.md) | Validation and quality scoring |
-| [Creating New Deployment](./docs/CREATING_NEW_DEPLOYMENT_GUIDE.md) | How to add a new system migration |
-| [Standard Migration Tasks](./docs/STANDARD_MIGRATION_TASKS.md) | Ticket templates for new systems |
-
-**Wire contract:** See [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral specification of `audit_events`, `finops_usage`, `reconciliation_record`, and `EntitySchema`. Any team writing a non-Python emitter should implement to this spec.
-
----
-
-## Technology Stack
-
-| Layer | Technology | Documentation |
-|-------|------------|---------------|
-| **Storage** | [Google Cloud Storage (GCS)](https://cloud.google.com/storage) | [GCS Docs](https://cloud.google.com/storage/docs) |
-| **Messaging** | [Cloud Pub/Sub](https://cloud.google.com/pubsub) | [Pub/Sub Docs](https://cloud.google.com/pubsub/docs) |
-| **Security** | [Cloud KMS](https://cloud.google.com/kms) | [KMS Docs](https://cloud.google.com/kms/docs) |
-| **Processing** | [Apache Beam](https://beam.apache.org/) on [Cloud Dataflow](https://cloud.google.com/dataflow) | [Beam Docs](https://beam.apache.org/documentation/) |
-| **Orchestration** | [Apache Airflow](https://airflow.apache.org/) on [Cloud Composer](https://cloud.google.com/composer) | [Composer Docs](https://cloud.google.com/composer/docs) |
-| **Transformation** | [dbt (Data Build Tool)](https://www.getdbt.com/) | [dbt Docs](https://docs.getdbt.com/docs/introduction) |
-| **Data Warehouse** | [BigQuery](https://cloud.google.com/bigquery) | [BigQuery Docs](https://cloud.google.com/bigquery/docs) |
-| **Monitoring** | [Cloud Monitoring](https://cloud.google.com/monitoring) | [Operations Suite Docs](https://cloud.google.com/stackdriver/docs) |
-| **Infrastructure** | [Terraform](https://www.terraform.io/) | [Terraform GCP Provider](https://registry.terraform.io/providers/hashicorp/google/latest/docs) |
+MIT — see each module's `pom.xml` / `pyproject.toml`.

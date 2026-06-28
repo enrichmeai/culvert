@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 
 from data_pipeline_core.autoconfig import (
@@ -27,7 +29,13 @@ def test_discover_returns_autoconfig():
 
 
 def test_empty_registry_returns_empty_lists():
-    config = discover()
+    # Hermetic: simulate a bare classpath (no adapter entry-points) regardless
+    # of which adapter distributions are co-installed in the test env. Adapter
+    # packages now declare `data_pipeline_core.adapters` entry-points (Wave C),
+    # so a real `discover()` would find them — this test verifies the empty case.
+    with patch("data_pipeline_core.autoconfig.entry_points") as ep:
+        ep.return_value.select.return_value = []
+        config = discover()
     assert config.all("warehouse") == []
     assert config.first("warehouse") is None
 

@@ -1,4 +1,4 @@
-"""Tests for the dataquality package — T18.2 / issue #118.
+"""Tests for the dataquality package — T18.2 / issue #118; masking T19.4 / issue #127.
 
 Covers all five ported types: ViolationKind, NumericRange, FieldViolation,
 ValidationResult (ValidRow + InvalidRow), and DataQualityTransform.
@@ -21,6 +21,11 @@ from data_pipeline_core.dataquality import (
     ValidRow,
     ValidationResult,
     ViolationKind,
+)
+from data_pipeline_core.governance_api import (
+    MaskingPolicy,
+    MaskingStrategy,
+    PiiMaskingGovernancePolicy,
 )
 from data_pipeline_core.schema.entity import EntitySchema, SchemaField
 
@@ -413,27 +418,145 @@ class TestDataQualityTransformApply:
 
 
 # ---------------------------------------------------------------------------
-# GovernancePolicy masking — API parity flag
+# GovernancePolicy masking — end-to-end (T19.4 / issue #127)
+# Mirrors Java DataQualityTransform.java:247-256:
+#   governancePolicy.maskingFor(field, table) → Masker.mask(value, policy)
 # ---------------------------------------------------------------------------
 
-class TestMaskingApiParityFlag:
-    def test_masking_raises_not_implemented(self) -> None:
-        """governance_policy accepted but masking raises NotImplementedError (T18.2 flag)."""
-        mock_policy = MagicMock()
-        mock_policy.masking_for.return_value = MagicMock()  # non-None → triggers flag
+class TestMaskingEndToEnd:
+    """PII field masked end-to-end through the transform (T19.4 / #127)."""
 
-        dq: DataQualityTransform[Row] = DataQualityTransform(
-            schema=_make_schema(SchemaField("name", "STRING", mode="REQUIRED")),
-            row_accessor=_accessor,
-            governance_policy=mock_policy,
+    def _policy(self) -> PiiMaskingGovernancePolicy:
+        return PiiMaskingGovernancePolicy(
+            pii_columns={"email", "ssn"},
+            default_masking_policy=MaskingPolicy(
+                strategy=MaskingStrategy.FULL, replacement="***"
+            ),
         )
-        with pytest.raises(NotImplementedError, match="Masker"):
-            dq.validate({"name": "Alice"})
 
-    def test_no_masking_policy_no_error(self) -> None:
+    def _schema(self) -> EntitySchema:
+        return EntitySchema(
+            name="users",
+            fields=[
+                SchemaField("user_id", "STRING", mode="REQUIRED"),
+                SchemaField("email",   "STRING", mode="REQUIRED"),
+                SchemaField("ssn",     "STRING", mode="REQUIRED"),
+                SchemaField("age",     "INT64",  mode="REQUIRED"),
+            ],
+        )
+
+    def test_pii_field_masked_non_pii_unchanged(self) -> None:
+        """A classified field is masked in the output; non-PII fields are unchanged.
+
+        Input row has email + ssn (PII) and user_id + age (non-PII).
+        After validate() the row dict should have email/ssn replaced with
+        the policy replacement ('***') and user_id/age left intact.
+        Mirrors Java DataQualityTransform.java:247-256.
+        """
+        row: Row = {
+            "user_id": "u-001",
+            "email":   "alice@example.com",
+            "ssn":     "123-45-6789",
+            "age":     30,
+        }
         dq: DataQualityTransform[Row] = DataQualityTransform(
-            schema=_make_schema(SchemaField("name", "STRING", mode="REQUIRED")),
+            schema=self._schema(),
+            row_accessor=_accessor,
+            governance_policy=self._policy(),
+        )
+
+        result = dq.validate(row)
+
+        assert result.is_valid(), "valid row should pass all checks"
+        assert isinstance(result, ValidRow)
+        masked_row = result.row
+        # PII fields must be replaced with the policy replacement.
+        assert masked_row["email"] == "***", "email must be masked"
+        assert masked_row["ssn"] == "***", "ssn must be masked"
+        # Non-PII fields must be unchanged.
+        assert masked_row["user_id"] == "u-001"
+        assert masked_row["age"] == 30
+
+    def test_invalid_row_not_masked(self) -> None:
+        """Invalid rows are never masked — original values preserved for diagnosis.
+
+        Mirrors Java comment at lines 244-246: masking block is only reached
+        after the violations list is confirmed empty.
+        """
+        row: Row = {
+            "user_id": None,          # REQUIRED → MISSING_REQUIRED
+            "email":   "alice@example.com",
+            "ssn":     "123-45-6789",
+            "age":     30,
+        }
+        dq: DataQualityTransform[Row] = DataQualityTransform(
+            schema=self._schema(),
+            row_accessor=_accessor,
+            governance_policy=self._policy(),
+        )
+
+        result = dq.validate(row)
+
+        assert not result.is_valid(), "row with missing required field should be invalid"
+        assert isinstance(result, InvalidRow)
+        # Original PII values must be unmasked in the dead-letter row.
+        assert result.row["email"] == "alice@example.com"
+        assert result.row["ssn"] == "123-45-6789"
+
+    def test_no_masking_policy_no_side_effect(self) -> None:
+        """Without a governance_policy, row values are never mutated."""
+        row: Row = {"user_id": "u-001", "email": "alice@example.com", "ssn": "x", "age": 30}
+        dq: DataQualityTransform[Row] = DataQualityTransform(
+            schema=self._schema(),
             row_accessor=_accessor,
         )
-        result = dq.validate({"name": "Alice"})
+        result = dq.validate(row)
         assert result.is_valid()
+        assert result.row["email"] == "alice@example.com"
+
+    def test_masking_with_partial_strategy(self) -> None:
+        """PARTIAL strategy keeps last 4 chars — wired through the transform."""
+        policy = PiiMaskingGovernancePolicy(
+            pii_columns={"card_number"},
+            default_masking_policy=MaskingPolicy(
+                strategy=MaskingStrategy.PARTIAL, replacement="*"
+            ),
+        )
+        schema = EntitySchema(
+            name="payments",
+            fields=[SchemaField("card_number", "STRING", mode="REQUIRED")],
+        )
+        row: Row = {"card_number": "4111111111111234"}
+        dq: DataQualityTransform[Row] = DataQualityTransform(
+            schema=schema, row_accessor=_accessor, governance_policy=policy
+        )
+        result = dq.validate(row)
+        assert result.is_valid()
+        assert result.row["card_number"] == "************1234"
+
+    def test_masking_through_apply_iterator(self) -> None:
+        """Masking applied when consuming via apply() (lazy generator path)."""
+        ctx = _make_context()
+        row1: Row = {
+            "user_id": "u-001",
+            "email":   "alice@example.com",
+            "ssn":     "123-45-6789",
+            "age":     30,
+        }
+        row2: Row = {
+            "user_id": "u-002",
+            "email":   "bob@example.com",
+            "ssn":     "987-65-4321",
+            "age":     25,
+        }
+        dq: DataQualityTransform[Row] = DataQualityTransform(
+            schema=self._schema(),
+            row_accessor=_accessor,
+            governance_policy=self._policy(),
+        )
+        results = list(dq.apply(iter([row1, row2]), ctx))
+        assert all(r.is_valid() for r in results)
+        assert results[0].row["email"] == "***"
+        assert results[1].row["email"] == "***"
+        assert results[0].row["user_id"] == "u-001"
+        assert results[1].row["user_id"] == "u-002"

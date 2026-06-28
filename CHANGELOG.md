@@ -2,11 +2,11 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
-## [1.0.0] — 2026-06-13
+## [0.1.0] — unreleased
 
-**All 16 contract interfaces have real Java adapters. The Java v1.0 feature bar is met — built and HELD, not yet published.**
+**All 16 contract interfaces have real Java adapters. The feature bar for the first release is met — built and HELD, not yet published.**
 
-This spans Sprints 9–16: every contract interface defined in `data-pipeline-core-java` now has at least one concrete adapter under `com.enrichmeai.culvert:*`. The Java reactor is frozen at tag `java-1.0.0`, but it does **not** publish alone — the release gate is Java **and** Python both ready, then a coordinated `1.0.0` to Maven Central **and** PyPI (`culvert`). See `docs/framework-evolution/13-python-parity-release.md`. The Python parity work (Sprints 17+) is in progress.
+Culvert's first public release is **0.1.0** (a real first release, not yet API-frozen at 1.0). This spans Sprints 9–16: every contract interface defined in `data-pipeline-core-java` now has at least one concrete adapter under `com.enrichmeai.culvert:*`. The Java reactor is frozen at tag `java-0.1.0`, but it does **not** publish alone — the release gate is Java **and** Python both ready, then a coordinated `0.1.0` to Maven Central **and** PyPI (`culvert`). See `docs/framework-evolution/13-python-parity-release.md`. The Python parity work (Sprints 17+) is in progress. (The predecessor framework's `1.0.x` line — last `1.0.29` — is unrelated and deprecated; Culvert versions start fresh at 0.1.0.)
 
 ### Java libraries (`com.enrichmeai.culvert:*`) — Sprint 9–16 additions
 
@@ -19,7 +19,7 @@ This spans Sprints 9–16: every contract interface defined in `data-pipeline-co
 - **Sprint 15 (CI gate)** — `.github/workflows/ci.yml`: per-module parallel matrix (Java 21); integration-test stage (`-P it verify`); PR check suite blocking merge until all contract modules pass.
 - **Sprint 16 (hardening)** — Dataflow perf/load-test notes (`docs/PERF_TUNING.md`); security review (`docs/SECURITY_IAM.md`, `docs/SECURITY_CVE.md`); operational runbook (`docs/RUNBOOK.md`); SLO/alerting docs (`docs/SLO_ALERTING.md`); release dry-run (T16.4, this ticket).
 
-### Contract completion status at 1.0.0
+### Contract completion status at 0.1.0
 
 | Contract | Adapter(s) |
 |---|---|
@@ -40,7 +40,7 @@ This spans Sprints 9–16: every contract interface defined in `data-pipeline-co
 | `FinOpsSink` | `BigQueryFinOpsSink` |
 | `SecretProvider` | `SecretManagerProvider` |
 
-**Java reactor at 1.0.0: 13 modules, 478 tests (0 failures, 0 errors).**
+**Java reactor at 0.1.0: 13 modules, 478 tests (0 failures, 0 errors).**
 
 ### Not published in this release
 
@@ -50,9 +50,9 @@ This spans Sprints 9–16: every contract interface defined in `data-pipeline-co
 
 ---
 
-## [0.1.0] — unreleased
+### 0.1.0 foundation — the first feature-complete dev-cycle (Sprints 0–8)
 
-The framework's first feature-complete dev-cycle. **Not yet published to PyPI / Maven Central** — that step waits for explicit go.
+The earlier foundation of the same unreleased 0.1.0 (the Sprint 9–16 additions above build on this). **Not yet published to PyPI / Maven Central** — that step waits for explicit go.
 
 ### Java libraries (`com.enrichmeai.culvert:*`)
 

@@ -6,8 +6,13 @@ Implements the cloud-neutral ``Source`` and ``Sink`` Protocols from
 
 from __future__ import annotations
 
+from data_pipeline_gcp_pubsub.cost_tracker import PubSubCostTracker
 from data_pipeline_gcp_pubsub.io import PubSubSink, PubSubSource
 
 __version__ = "0.1.0"
 
-__all__ = ["PubSubSource", "PubSubSink"]
+__all__ = [
+    "PubSubSource",
+    "PubSubSink",
+    "PubSubCostTracker",
+]

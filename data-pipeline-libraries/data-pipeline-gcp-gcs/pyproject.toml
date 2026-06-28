@@ -33,9 +33,12 @@ test = ["pytest>=7.4", "pytest-cov>=4.1"]
 [project.urls]
 Homepage = "https://github.com/enrichmeai/culvert"
 
+[project.entry-points."data_pipeline_core.adapters"]
+blob_store = "data_pipeline_gcp_gcs:GcsBlobStore"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --import-mode=importlib"

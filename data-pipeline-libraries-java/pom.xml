@@ -20,7 +20,7 @@
 
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-libraries-parent</artifactId>
-    <version>1.0.0</version>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
 
     <name>Culvert :: data-pipeline-libraries (parent)</name>
