@@ -1,8 +1,9 @@
 # 13 — Python parity → coordinated polyglot release
 
-**Status:** in progress. Wave A (S17, contract reconciliation) **merged to `main`**;
-Wave B (S18, core depth) **in PR #123**. Successor to the 9–16 Java block (Java
-reactor at `0.1.0` on `main`, frozen at tag `java-0.1.0`).
+**Status:** in progress. Waves **A (S17, contracts), B (S18, core depth), and
+C (S19, adapter parity) are all merged to `main`**; **Wave D (packaging +
+coordinated release) is the remaining gate**. Successor to the 9–16 Java block
+(Java reactor at `0.1.0` on `main`, frozen at tag `java-0.1.0`).
 
 **One-line:** Culvert is one polyglot, cloud-agnostic framework with GCP as its
 first implementation. Java is built to `0.1.0` but does **not** ship alone — the
@@ -72,9 +73,9 @@ gap table below is annotated with what Waves A/B since closed.*
 | `DefaultRuntimeContext` | **Core depth** | ✅ **DONE** — Wave B (T18.1, #117). Caveat: worker-side registry rebuild deferred (#122). |
 | `dataquality` package | **Core depth** | ✅ **DONE** — Wave B (T18.2, #118). Masker wire deferred (#121). |
 | Concrete governance policies | **Core depth** | ✅ **DONE** — Wave B: `PiiMaskingGovernancePolicy` (T18.3, #119), `BudgetGovernancePolicy` (T18.4, #120). |
-| FinOps cost model | **Core depth** | ✅ **DONE** — Wave B (T18.4): `BudgetViolationMode`/`BudgetExceededException`; `CostMetrics`/`FinOpsTag` reconciled. Per-service `*CostTracker` still open → **Wave C**. |
-| `gcp-secrets` Python package | **Adapter** | ⏳ **Wave C** — no Python `SecretManagerProvider` (Protocol exists, adapter doesn't). |
-| `gcp-observability` Python package | **Adapter** | ⏳ **Wave C** — no Python CloudTrace/DataCatalog/CloudMonitoring impls. |
+| FinOps cost model | **Core depth** | ✅ **DONE** — Wave B (T18.4); per-service `*CostTracker` + `BigQueryFinOpsSink` landed in Wave C (T19.3, #126). |
+| `gcp-secrets` Python package | **Adapter** | ✅ **DONE** — Wave C (T19.1, #124): `SecretManagerProvider`, discoverable + contract-bound. |
+| `gcp-observability` Python package | **Adapter** | ✅ **DONE** — Wave C (T19.2, #125): CloudTrace/DataCatalog/CloudMonitoring + MDC populator, discoverable + bound. |
 | `culvert`-named distribution | **Packaging** | ⏳ **Wave D** — nothing ships as `culvert` yet; PyPI name is free. |
 | Python publish-from-git | **CI/release** | ⏳ **Wave D** — Actions PyPI job + trusted publishing not set up. |
 
