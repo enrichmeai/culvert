@@ -36,7 +36,7 @@
 
 - **System** — A logical grouping of entities sharing infrastructure. The reference implementation has one: `generic`.\index{system}
 
-- **Three-unit deployment model** — Ingestion, transformation, and orchestration as independently versioned, deployed, owned units.\index{three-unit deployment model}
+- **Three-unit deployment model** — the predecessor GCP reference implementation's split of ingestion, transformation, and orchestration into independently versioned, deployed units. Culvert generalises this behind contracts and adapters rather than mandating a fixed unit layout.\index{three-unit deployment model}
 
 - **Unit** — One of the three deployment units within a system.\index{unit}
 

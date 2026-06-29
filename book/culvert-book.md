@@ -7050,7 +7050,7 @@ The dry-run path in `BigQueryCostTracker.estimateDryRun()` (line 193–234) lets
 
 - **System** — A logical grouping of entities sharing infrastructure. The reference implementation has one: `generic`.\index{system}
 
-- **Three-unit deployment model** — Ingestion, transformation, and orchestration as independently versioned, deployed, owned units.\index{three-unit deployment model}
+- **Three-unit deployment model** — the predecessor GCP reference implementation's split of ingestion, transformation, and orchestration into independently versioned, deployed units. Culvert generalises this behind contracts and adapters rather than mandating a fixed unit layout.\index{three-unit deployment model}
 
 - **Unit** — One of the three deployment units within a system.\index{unit}
 
@@ -7264,7 +7264,7 @@ The **FinOps Foundation framework** (finops.org/framework) establishes the vocab
 
 ## Software architecture and engineering culture
 
-*Building Evolutionary Architectures* by Neal Ford, Rebecca Parsons, and Patrick Kua (O'Reilly) introduced the concept of fitness functions as architectural guardrails; it's the most useful framing for why the framework's structured tests exist as they do. *Accelerate* by Nicole Forsgren, Jez Humble, and Gene Kim (IT Revolution) provides the empirical basis for the deployment pipeline decisions in this book — if you need to justify trunk-based development and small, frequent releases to a sceptical stakeholder, the DORA metrics research it contains is your evidence. *A Philosophy of Software Design* by John Ousterhout (Yaknyam Press) is the book I wish I'd had in 2001; its treatment of deep vs. shallow modules is the clearest articulation I've read of why the framework's three-unit decomposition lands where it does. *Domain-Driven Design Distilled* by Vaughn Vernon (Addison-Wesley) condenses the bounded-context thinking that informs how the reference implementation draws its system and entity boundaries.
+*Building Evolutionary Architectures* by Neal Ford, Rebecca Parsons, and Patrick Kua (O'Reilly) introduced the concept of fitness functions as architectural guardrails; it's the most useful framing for why the framework's structured tests exist as they do. *Accelerate* by Nicole Forsgren, Jez Humble, and Gene Kim (IT Revolution) provides the empirical basis for the deployment pipeline decisions in this book — if you need to justify trunk-based development and small, frequent releases to a sceptical stakeholder, the DORA metrics research it contains is your evidence. *A Philosophy of Software Design* by John Ousterhout (Yaknyam Press) is the book I wish I'd had in 2001; its treatment of deep vs. shallow modules is the clearest articulation I've read of why Culvert's decomposition into a thin contract core and swappable adapters lands where it does. *Domain-Driven Design Distilled* by Vaughn Vernon (Addison-Wesley) condenses the bounded-context thinking that informs how Culvert draws its contract and module boundaries.
 
 ## Communities worth lurking in
 
