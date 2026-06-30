@@ -1,4 +1,6 @@
-# Book v2 outline — DRAFT
+# Book v2 outline — DRAFT (SUPERSEDED)
+
+> **Superseded (2026-06-27) by [`book/CULVERT_BOOK_OUTLINE.md`](../../book/CULVERT_BOOK_OUTLINE.md)**, the controlling outline for the Culvert book rewrite. v1 is not being published; the book is rewritten directly to Culvert. This file is kept for historical context only.
 
 **Status:** Draft outline. Joseph reviews / edits / accepts. Sprint-8 deliverable.
 
