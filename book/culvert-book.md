@@ -1389,6 +1389,90 @@ here.
 
 \newpage
 
+# Without Culvert vs With It
+
+We have spent five chapters on contracts, the contract set, and the polyglot split. Fair question at this point: what is all that abstraction actually *worth*? So let me do the thing I wish someone had done for me years ago — build the same small pipeline twice. Once the way most teams start, hand-wired straight against the cloud SDK. Once against Culvert's contracts. Same business outcome; wildly different amount of code you have to own, and — this is the part that matters — wildly different cost when something changes.
+
+## The scenario
+
+A file lands in object storage each morning. We need to read it, validate the rows against a schema, load the good rows into a warehouse table, and quarantine the bad ones. One entity, one job. Deliberately small, so the difference is about *shape*, not scale.
+
+## Version A — without the framework
+
+Straight against the GCP SDKs, the honest first draft looks like this (trimmed):
+
+```python
+from google.cloud import bigquery, storage
+
+def ingest(uri: str) -> None:
+    gcs = storage.Client()                 # bound to GCS, forever
+    bq = bigquery.Client()                 # bound to BigQuery, forever
+    blob = gcs.bucket(_bucket(uri)).blob(_key(uri))
+    rows = list(csv.DictReader(blob.download_as_text().splitlines()))
+    good, bad = [], []
+    for r in rows:
+        (good if _valid(r) else bad).append(r)
+    bq.load_table_from_json(good, "odp.customers").result()
+    if bad:
+        gcs.bucket("errors").blob(f"{_run_id()}.json").upload_from_string(json.dumps(bad))
+```
+
+It works. It also *is* GCP, top to bottom. `storage.Client` and `bigquery.Client` are welded into the business logic. To unit-test it you mock the Google SDKs. To run it against a second cloud you rewrite it. To add audit, cost tracking, or a governance check you thread more SDK calls through the same function until it is six hundred lines and nobody wants to touch it. I have maintained that function on call for three years. I do not recommend it.
+
+The cloud coupling is not a deliberate design choice here — it is a *habit*. Nobody decided the validator should know about BigQuery; it just ended up in the same file, and thin layers that are never named as thin layers become load-bearing walls.
+
+## Version B — with Culvert
+
+Now the same pipeline against the contracts. The business logic talks to `Source`, `Transform`, `Sink`, `Warehouse` — never to `google.cloud` anything.
+
+```python
+from data_pipeline_core.contracts.source import Source, Sink, Transform
+from data_pipeline_core.contracts.runtime import RuntimeContext
+
+class CustomerIngest(Transform):
+    def apply(self, records, context: RuntimeContext):
+        for r in records:
+            if _valid(r):
+                yield r
+            else:
+                context.get(Sink).write([r], context)   # quarantine sink
+```
+
+The pipeline is assembled from adapters the runtime supplies — it never names them:
+
+```python
+warehouse = context.get(Warehouse)            # BigQueryWarehouse on GCP…
+warehouse.load_from_uri(uri, "odp.customers", schema)   # …RedshiftWarehouse on AWS
+```
+
+Which `Warehouse` is in the context is decided once, at bootstrap, by whichever `culvert-gcp-*` (or, one day, `culvert-aws-*`) package is installed — resolved through `AutoConfig.discover()` (Chapter [Auto-Config and Discovery]). The call site does not change. This is the same move Spring made in 2003 with `spring-data`: the abstraction hosts any implementation, and you ship the one you have.
+
+The cross-cutting concerns you were bolting on by hand in Version A are contracts too, and they arrive the same way: `context.get(AuditEventPublisher)`, `context.finops`, `context.governance`, `context.observability`. Audit, cost, masking, tracing — call sites, not rewrites.
+
+## The side-by-side
+
+| | Version A (hand-wired) | Version B (Culvert) |
+|---|---|---|
+| Cloud coupling | GCP SDK in the business logic | none — behind `Warehouse`/`BlobStore`/`Source`/`Sink` |
+| Unit test | mock `google.cloud` | supply an in-memory adapter; assert on the contract |
+| Second cloud | rewrite the function | write a new adapter; call site unchanged |
+| Add audit/cost/governance | thread more SDK calls | `context.get(...)` — already there |
+| Who owns the plumbing | you, forever | the framework, once |
+
+Version A is fewer lines *today*. Version B is fewer lines *over the life of the pipeline*, which is the only measurement that has ever paid off for me. The abstraction is not free — you have to learn the contracts — but it is the cheapest insurance I know against the two things that actually happen to production pipelines: the cloud bill arriving, and the business asking for the thing you did not design for.
+
+\begin{takeaways}
+\textbf{Key takeaways}
+\begin{itemize}
+  \item Hand-wired pipelines couple business logic to a cloud SDK by \emph{habit}, not design; those thin layers become load-bearing walls.
+  \item Against Culvert, the business logic talks only to contracts (\texttt{Source}/\texttt{Sink}/\texttt{Transform}/\texttt{Warehouse}); the adapter is injected via \texttt{RuntimeContext} / \texttt{AutoConfig.discover()} and chosen once at bootstrap.
+  \item Cross-cutting concerns — audit, cost, governance, tracing — are contracts reached through the context, not SDK calls threaded by hand.
+  \item Version A wins on lines-of-code today; Version B wins on cost-of-change, which is the measurement that pays off over a pipeline's life.
+\end{itemize}
+\end{takeaways}
+
+\newpage
+
 # Chapter 7 — Storage and Messaging Adapters
 
 \index{adapter|textbf}
@@ -2538,6 +2622,44 @@ downstream.
   \item \texttt{DataflowPipeline} implements the scheduler-agnostic \texttt{Pipeline} contract and adds two utilities: \texttt{buildBeam()} (which topologically sorts stages and applies one \texttt{StageTransform} per stage) and \texttt{runOnDataflow()} (which sets \texttt{DataflowRunner}, builds, and submits). Declaration order is irrelevant; execution order derives from input/output edges.
   \item \texttt{StageTransform} bridges \texttt{PipelineStage} to Beam as a \texttt{PTransform<PBegin,PDone>}: a one-element \texttt{Create.of} trigger drives a single \texttt{DoFn\#processElement} call, invoking \texttt{execute()} exactly once. Element-level \texttt{PCollection} mapping -- bridging \texttt{Transform<V,W>} into a proper \texttt{DoFn<V,W>} -- is explicitly deferred.
   \item Every stage execution is automatically wrapped with MDC population (\texttt{run\_id}, \texttt{stage\_name}, \texttt{pipeline\_id}), a trace span via \texttt{ObservabilityHook}, and the three standard Culvert metrics (\texttt{rows\_processed}, \texttt{stage\_latency\_ms}, \texttt{error\_count}) via \texttt{StageMetricsHook}. No stage author has to wire any of this; it is invisible infrastructure.
+\end{itemize}
+\end{takeaways}
+
+\newpage
+
+# Streaming and Batch: Choosing the Mode
+
+One of the questions I get asked earliest and answer most often is: *should this be streaming or batch?* Teams reach for streaming because it sounds modern, then spend a year operating a real-time system to satisfy a report nobody reads before 9 a.m. So let me give you the framing I actually use — and the good news is that in Culvert the choice is smaller than it looks, because it lives at the *contract* level, not in your business logic.
+
+## The same contracts serve both
+
+A Culvert pipeline reads through a `Source`, transforms through `Transform`, and writes through a `Sink`. Those contracts (`data-pipeline-core-java/.../contracts/Source.java`, `Sink.java`, `Transform.java`; Python mirrors in `contracts/source.py`) say nothing about *when* records arrive. A `Source` yields records; whether it yields a bounded file this morning or an unbounded subscription forever is a property of the *adapter*, not the contract. That is the whole trick, and it is why the mode decision does not rewrite your transforms.
+
+- **Batch**, on GCP, is a bounded read: `GcsBlobStore` (`data-pipeline-gcp-gcs`) hands you an object; the pipeline runs to completion and stops.
+- **Streaming**, on GCP, is an unbounded read: `PubSubSource` (`data-pipeline-gcp-pubsub`) yields messages as they arrive; `PubSubSink` publishes them. The pipeline stays up.
+
+Both flow through the *same* `Transform`. If you wrote your validation and mapping against the contract — as Culvert pushes you to — swapping a batch source for a streaming one does not touch it. `DataflowPipeline` (`data-pipeline-gcp-dataflow-java`) runs either bounded or unbounded graphs on the same Beam model.
+
+## How to actually choose
+
+I decide on four questions, in order:
+
+1. **What does the consumer need?** If the downstream report, model, or decision is consumed daily, you need daily data. Latency you do not consume is latency you pay for and waste. Most enterprise data-to-BigQuery work is batch and should stay batch.
+2. **How does the source produce?** A mainframe that drops a file at 02:00 is batch at the source; wrapping it in streaming buys you nothing but a standing bill. An event bus that emits continuously is streaming at the source; forcing it into a nightly batch loses the point.
+3. **What is the cost curve?** Batch is cheap-per-run and idle the rest of the day. Streaming is a standing cost — workers up 24/7, per-message overhead. Culvert's `FinOpsSink` and the per-service cost trackers (Chapter [Cost and FinOps]) let you put a real number on both before you commit; do that, not a vibe.
+4. **What is the failure model you can live with?** Batch fails a run and you re-run it — simple, auditable, a clean `run_id` per attempt. Streaming fails a *record* and you need dead-letter handling, watermarks, and replay. That operational weight is the real price of streaming, more than the compute.
+
+## The honest default
+
+Start batch. Move to streaming only when a question above forces it — a genuinely continuous source, or a consumer that genuinely needs sub-hour latency. The contract seam means that migration, when it comes, is an adapter swap and an execution-mode change, not a rewrite. That is exactly the position you want to be in: the decision stays reversible.
+
+\begin{takeaways}
+\textbf{Key takeaways}
+\begin{itemize}
+  \item In Culvert the batch-vs-streaming choice lives in the \emph{adapter} and execution mode, not the business logic — the same \texttt{Source}/\texttt{Sink}/\texttt{Transform} contracts serve both.
+  \item GCP: batch = a bounded \texttt{GcsBlobStore} read; streaming = an unbounded \texttt{PubSubSource}. Both run on the same \texttt{DataflowPipeline}.
+  \item Choose on consumer need, source shape, cost curve, and failure model — in that order. Latency you do not consume is wasted spend.
+  \item Default to batch; move to streaming only when a real requirement forces it. The contract seam keeps that migration an adapter swap, not a rewrite.
 \end{itemize}
 \end{takeaways}
 
@@ -5510,6 +5632,59 @@ They cannot enforce the contract on adapters that do not subclass the base. The 
 
 \newpage
 
+# End-to-End Testing, Tracing, and the Developer Workflow
+
+The previous chapter was about the contract tests — the safety net that proves an adapter conforms. This one is about the loop you actually live in: build, test, run, trace, repeat. A framework is only as pleasant as its inner loop, and because Culvert is polyglot the loop has a Java half and a Python half that deliberately feel the same.
+
+## The inner loop
+
+**Java.** The reactor builds and unit-tests in one command (`README.md`):
+
+```bash
+mvn -f data-pipeline-libraries-java/pom.xml install        # build + unit tests, all modules
+mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-bigquery-java -am test   # one module
+```
+
+**Python.** Each package is an independent distribution; install it editable and run pytest:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e data-pipeline-libraries/data-pipeline-core pytest
+pytest data-pipeline-libraries/data-pipeline-core/tests
+```
+
+Unit tests need no cloud and no credentials — that is the point of the contract seam. You test business logic against in-memory adapters and never touch a real bucket.
+
+## The emulator tier
+
+Unit-green does not prove the adapters talk to their clouds correctly. That is what the integration tier is for. `data-pipeline-it-support-java` provides Testcontainers-backed GCP emulators (BigQuery, fake-GCS, the Pub/Sub emulator), and the `it` Maven profile runs the `*IT.java` tests against them:
+
+```bash
+mvn -f data-pipeline-libraries-java/pom.xml -P it verify   # needs a running Docker daemon
+```
+
+No GCP project, no service-account key — all traffic goes to localhost containers the tests start and stop. This is the tier that catches "my SQL was subtly wrong" without a cloud bill, and it is the one I insist runs before anything is called done.
+
+## Tracing a run end to end
+
+When a run misbehaves, you do not want to read six services' logs. Culvert threads a single `run_id` through the whole pipeline via `RuntimeContext`, and the `ObservabilityHook` contract (Cloud Trace on GCP, per Chapter [Observability and Lineage]) emits a span per stage keyed to it. One `run_id` gives you the end-to-end story: which stage, how many rows, where it failed — from the audit trail alone, which is exactly how you want to debug at 3 a.m.
+
+## Where CI fits
+
+The same two tiers are the CI gate (`.github/workflows/ci.yml`): a per-module Java matrix plus the Python tests run first; the emulator `java-it` tier runs only if they pass; a final gate fans in. The workflow is committed but **disabled at the GitHub level** during development (an engineer enables it deliberately) — the same commands you run locally are the ones CI runs, which is the property that keeps "works on my machine" honest.
+
+\begin{takeaways}
+\textbf{Key takeaways}
+\begin{itemize}
+  \item The inner loop is symmetric across languages: \texttt{mvn ... install} / \texttt{-pl ... test} for Java, \texttt{pip install -e} + \texttt{pytest} for Python. Unit tests need no cloud or credentials.
+  \item The emulator tier (\texttt{data-pipeline-it-support-java} + \texttt{mvn -P it verify}) exercises adapters against Testcontainers GCP emulators on localhost — no project, no keys.
+  \item A single \texttt{run\_id} threaded through \texttt{RuntimeContext} + the \texttt{ObservabilityHook} span-per-stage gives end-to-end tracing from the audit trail.
+  \item CI (\texttt{ci.yml}) runs the same two tiers; it is committed but disabled at GitHub level until an engineer enables it.
+\end{itemize}
+\end{takeaways}
+
+\newpage
+
 # Chapter 17 — CI/CD and the Coordinated Release
 
 \index{CI/CD}\index{coordinated release}\index{Maven Central}\index{PyPI}
@@ -5814,6 +5989,45 @@ automatic, and why it is mine to pull.
   \item \texttt{autoPublish=false} in the Maven \texttt{release} profile means the Central Portal upload requires a manual review and release click — there is no automatic flip to production.
   \item PyPI publish will use OIDC trusted publishing (Wave D) — no stored API token, no long-lived secret. The GPG passphrase and all credentials remain Joseph-only.
   \item Publishing is irreversible. That is not a footnote; it is the architectural reason the gate is manual.
+\end{itemize}
+\end{takeaways}
+
+\newpage
+
+# Operating Culvert on GCP
+
+Everything so far has been about the framework. This chapter is about *running its first implementation*. I want to be precise about the framing, because it matters to the whole thesis: GCP is Culvert's first cloud, not its only one. The operational specifics — the Terraform, the project layout, the choice of where to run the orchestrator — are properties of *the GCP implementation*, and they live here, in one place. Another cloud brings its own infrastructure-as-code and its own setup; the framework core does not change. Keeping the cloud-specific operations quarantined in one chapter is the same discipline that keeps `google.cloud` out of the contracts.
+
+## Infrastructure as code
+
+The GCP adapters need real resources: a GCS bucket for `GcsBlobStore`, BigQuery datasets for `BigQueryWarehouse` and the job-control ledger, Pub/Sub topics and subscriptions for the streaming source and sink, a Secret Manager secret for `SecretManagerProvider`, and the IAM to bind them to a service account. Provision these with Terraform, checked in and applied from CI — never by hand in the console, because hand-built infrastructure is infrastructure nobody can rebuild after an outage.
+
+The rule I hold to: the Terraform mirrors the adapters. If you install `culvert-gcp-pubsub`, the Terraform that stands up its topics lives next to it. Adding an adapter and adding its infrastructure are the same change, reviewed together — the operational echo of the auto-config principle.
+
+## Setting up the GCP environment
+
+Before the Terraform runs, you need the substrate: a project (or a project per environment — dev, staging, prod, cleanly separated), the APIs enabled, a network, and a service account with least-privilege roles for exactly the resources the adapters touch. The engineer skill set is worth naming honestly, because it is broader than "writes Python": you need enough GCP IAM to reason about who can read a bucket, enough networking to place a private worker, and enough Terraform to review a plan. Culvert does not remove that requirement; it *contains* it — the cloud knowledge you need is bounded by the adapters you actually install.
+
+## Where to run the orchestrator
+
+Culvert's orchestration is cloud-neutral by design: a `DagSpec`/`TaskSpec` model plus renderers (Chapter [Orchestration]). *Where you run the rendered DAG* is a deployment choice, and on GCP you have two honest options:
+
+- **Cloud Composer** — managed Airflow. The `ComposerDagRenderer` targets it. You pay for a standing environment; you get Google operating the scheduler. This is the right default for most teams: the operational overhead you avoid is worth more than the money you save self-hosting.
+- **Self-hosted Airflow on GKE** — for teams that cannot use Composer for regulatory, hybrid-estate, or extreme-scale reasons. The `AirflowDagRenderer` produces standard DAGs that run on any Airflow, including one you operate on your own Kubernetes cluster. This is a real escape hatch, not the recommended path — running Airflow on Kubernetes is a standing operational commitment, and you should adopt it only when a constraint forces you off the managed option.
+
+Because the DAG model is cloud-neutral and the renderer is swappable, that Composer-vs-GKE decision is reversible: it changes the renderer and the deployment target, not the pipeline.
+
+## A word on cost
+
+Everything here has a bill attached — a Composer environment, a GKE cluster, standing Pub/Sub, BigQuery slots. Put real numbers on it with the cost model (Appendix C) before you provision, not after the invoice. The single most expensive mistake I see is a pipeline that works and then costs twelve thousand dollars a month because nobody modelled it. Culvert gives you the `FinOpsSink` to measure it; use it from day one.
+
+\begin{takeaways}
+\textbf{Key takeaways}
+\begin{itemize}
+  \item GCP is Culvert's first implementation, not its only one; its operational specifics (Terraform, project setup, orchestrator placement) live in this one chapter, keeping the core cloud-neutral.
+  \item Provision the resources the GCP adapters need with checked-in Terraform applied from CI; the infrastructure mirrors the installed adapters and is reviewed with them.
+  \item Separate projects per environment, least-privilege service accounts, and a bounded-but-real GCP skill set (IAM, networking, Terraform) — Culvert contains the cloud knowledge you need, it does not abolish it.
+  \item Orchestrator placement is a reversible deployment choice: Cloud Composer (managed, the default) via \texttt{ComposerDagRenderer}, or self-hosted Airflow on GKE (an escape hatch) via \texttt{AirflowDagRenderer}. Model the cost before provisioning.
 \end{itemize}
 \end{takeaways}
 
