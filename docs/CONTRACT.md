@@ -1,13 +1,13 @@
-# GCP Pipeline Framework — Wire Contract Specification
+# Culvert — Wire Contract Specification
 
-**CONTRACT_VERSION:** `1.0.0`
-**Audience:** Engineers implementing a non-Python emitter, satellite tool, or contract-conformance test suite for the framework.
+**CONTRACT_VERSION:** `1.0.0`  *(the wire contract's own version, independent of the framework release, which is 0.1.0)*
+**Audience:** Engineers implementing a non-Python emitter, satellite tool, or contract-conformance test suite for Culvert.
 
 ---
 
 ## 1. Purpose
 
-This document is the authoritative, language-neutral specification for every record the GCP Pipeline Framework emits. It defines the exact shape of EntitySchema definitions, the BigQuery table schemas for audit events, FinOps usage, and reconciliation records, plus the cross-cutting concerns of run ID format, Pub/Sub trace propagation, and error classification. Any team can implement to this spec in any language and produce records that are indistinguishable from those produced by the Python framework. **Changing this document is a breaking or additive contract change and must follow the versioning policy below.** Treat it accordingly — a field renamed here requires a coordinated migration across every producer and consumer.
+This document is the authoritative, language-neutral specification for every record Culvert emits. It defines the exact shape of EntitySchema definitions, the BigQuery table schemas for audit events, FinOps usage, and reconciliation records, plus the cross-cutting concerns of run ID format, Pub/Sub trace propagation, and error classification. Any team can implement to this spec in any language and produce records that are indistinguishable from those produced by Culvert's own libraries. **Changing this document is a breaking or additive contract change and must follow the versioning policy below.** Treat it accordingly — a field renamed here requires a coordinated migration across every producer and consumer.
 
 ---
 
@@ -265,13 +265,13 @@ A library is conformant with version `1.0.x` of this contract if it satisfies al
 3. **No extra columns in well-known tables.** Do not add columns directly to `audit_events`, `finops_usage`, or `reconciliation_record`. Any emitter-specific data goes inside the `payload` or `details` JSON column.
 4. **Run ID format honoured.** Every `run_id` value matches the regex `^\d{8}T\d{6}Z-[0-9a-f]{4}$`.
 5. **Error classification respected.** `validation` errors are never retried; `integration` and `resource` errors emit `RETRY_ATTEMPTED` before each retry attempt.
-6. **Conformance test suite passes.** The Python framework ships a reference test suite at `tests/contract/`. To validate a non-Python emitter:
+6. **Conformance test suite passes.** Culvert ships a reference test suite at `tests/contract/`. To validate a non-Python emitter:
    - Run your emitter against the canonical input fixtures in `tests/contract/fixtures/`.
    - Export the rows it writes to the three `job_control.*` tables as JSON Lines.
    - Run `pytest tests/contract/` — the suite asserts column-level byte-equality against expected fixture outputs.
    - All assertions must pass with zero failures.
 
-The same fixture set is used by the Python framework's own CI; any non-Python implementor achieves interoperability by passing the same suite against their emitter's output.
+The same fixture set is used by Culvert's own CI; any non-Python implementor achieves interoperability by passing the same suite against their emitter's output.
 
 ---
 
