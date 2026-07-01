@@ -32,16 +32,26 @@ scope** for this release (defer to a later block).
 
 ## 2. Release gate
 
+**Nothing publishes — libraries or book — until the full deploy-and-validate chain
+is green** (Joseph, 2026-07):
+
 ```
-Java 0.1.0 (built, frozen)  ─┐
-                             ├─►  coordinated 0.1.0  ──►  Maven Central + PyPI (culvert), together
-Python parity (this epic)  ──┘                       └─►  legacy gcp-pipeline-framework: deprecate-in-place
+1. Deploy the reference deployments to GCP
+2. Test them end-to-end (real deploy, real run)
+3. Libraries tested + validated (unit + emulator IT + real-deploy exercise)
+4. Publish libraries → PyPI (culvert) + Maven Central (com.enrichmeai.culvert), coordinated
+5. THEN publish the book / declare the 0.1.0 release
 ```
 
-- Java 0.1.0 is **built but held**. It does not publish to Maven Central on its
-  own. **Action: freeze it now** — tag/branch `java-0.1.0` so the coordinated
-  release ships exactly what was tested, and the Java side can't silently drift
-  under the epic and publish something un-re-verified.
+Java 0.1.0 and the Python parity are **built and frozen** (`java-0.1.0`), but neither
+publishes on its own and the book does not ship ahead of the libraries. Steps 1–3
+are a real deploy-and-test phase, not a paperwork gate — the deployment guides under
+`docs/` support it and are kept/updated (not retired) for that reason. Legacy
+`gcp-pipeline-framework` is deprecate-in-place throughout.
+
+- Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
+  Maven Central via the existing `release` profile (gpg + central-publishing),
+  PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
 - Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
   Maven Central via the existing `release` profile (gpg + central-publishing),
   PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
