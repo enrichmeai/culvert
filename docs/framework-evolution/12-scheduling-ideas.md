@@ -122,6 +122,6 @@ concrete consumer that validates the whole chain.
 
 ## Guardrail
 
-None of this is in the 9–16 block (GCP-Java depth → CI → v1.0.0 release prep).
+None of this is in the 9–16 block (GCP-Java depth → CI → v0.1.0 release prep).
 These are v1.1 themes. Capturing them here keeps the current sprint plan
 undisturbed while preserving the direction.

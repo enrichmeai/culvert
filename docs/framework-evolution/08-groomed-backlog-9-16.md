@@ -114,17 +114,17 @@ Uses 2 of 4 agents — Java + Python tracks run in parallel; under-utilizes 2 ag
 
 ---
 
-## Sprint 16 — Hardening + GCP v1.0.0 release prep (epic #51)
+## Sprint 16 — Hardening + GCP v0.1.0 release prep (epic #51)
 
 | Ticket | Scope | Module | Dep | Agent/wave |
 |---|---|---|---|---|
 | T16.2 | Security + secrets-handling review (no secret logging, IAM notes, CVE scan) | all | ⟂ | **[A1] wave1** |
 | T16.3 | Operational runbook + SLO/alerting doc | docs | ⟵T15.3 | **[A2] wave1** |
-| T16.4 | Version-bump GCP-complete modules → 1.0.0 + CHANGELOG + `mvn -P release` signed-artifact DRY-RUN (no deploy) | all | ⟵all | **[A1] wave2** |
+| T16.4 | Version-bump GCP-complete modules → 0.1.0 + CHANGELOG + `mvn -P release` signed-artifact DRY-RUN (no deploy) | all | ⟵all | **[A1] wave2** |
 | T16.1 | **needs-engineer**: Dataflow perf/load test config + tuning notes (agent preps; **Joseph runs** the real benchmark — costs money) | deployments | ⟵T15.3 | **[A3] wave1** (prep only) |
 
 **Wave plan:** wave1 = T16.2 ∥ T16.3 ∥ T16.1-prep (3 agents). wave2 = T16.4.
-**Exit:** GCP stack documented, security-reviewed, signed 1.0.0 dry-run builds locally.
+**Exit:** GCP stack documented, security-reviewed, signed 0.1.0 dry-run builds locally.
 Hand to Joseph for the publish trigger + the real perf benchmark.
 
 ---
