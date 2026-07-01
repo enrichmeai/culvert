@@ -152,7 +152,7 @@ on and gate on the full E2E flow.
 
 ---
 
-## Sprint 16 — Production-readiness hardening + GCP v1.0.0 release prep
+## Sprint 16 — Production-readiness hardening + GCP v0.1.0 release prep
 
 **Why:** Close the block by making the GCP stack shippable (prep only — no
 publish; that's Joseph's trigger).
@@ -162,10 +162,10 @@ publish; that's Joseph's trigger).
 | **T16.1** | **(`needs-engineer`)** Performance/load test of the reference pipeline + Dataflow autoscaling config + tuning notes. Agent prepares the perf-test config + tuning notes; **Joseph runs the actual benchmark** — real Dataflow jobs cost money and need live GCP, so this is not an autonomous-agent step. | T15.3 |
 | **T16.2** | Security + secrets-handling review across all adapters (no secret logging, least-priv IAM notes, dependency CVE scan). | — |
 | **T16.3** | Operational runbook + SLO/alerting doc for the GCP stack. | T15.3 |
-| **T16.4** | Version bump GCP-complete modules → 1.0.0, CHANGELOG, validate the `release` profile builds signed artifacts (dry-run, no deploy). | all of 9-15 |
+| **T16.4** | Version bump GCP-complete modules → 0.1.0, CHANGELOG, validate the `release` profile builds signed artifacts (dry-run, no deploy). | all of 9-15 |
 
 **Dependency graph:** `T16.1 ⟵ T15.3`; `T16.3 ⟵ T15.3`; `T16.4 ⟵ all`; `T16.2` independent.
-**Exit gate:** GCP stack is documented, perf-tested, security-reviewed, and one `mvn -P release` dry-run produces signed 1.0.0 artifacts locally. Hand back to Joseph for the publish trigger.
+**Exit gate:** GCP stack is documented, perf-tested, security-reviewed, and one `mvn -P release` dry-run produces signed 0.1.0 artifacts locally. Hand back to Joseph for the publish trigger.
 
 ---
 
