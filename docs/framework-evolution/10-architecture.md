@@ -34,7 +34,7 @@ deliberate test-scope exception — see §4).
 | 13 | #48 | FinOps depth (cost tracking + budgets) | ⬜ #69–72, 81 |
 | 14 | #49 | Data quality + error handling | ⬜ #73–76, 82, 95 |
 | 15 | #50 | CI re-enable + E2E gating | ⬜ #77–79, 83 |
-| 16 | #51 | Hardening + v1.0.0 release prep | ⬜ epic only |
+| 16 | #51 | Hardening + v0.1.0 release prep | ⬜ epic only |
 
 Earlier blocks (Sprints 0–8): cloud-neutral kernel, GCP adapter set, auto-config,
 contract-test bases, WireMock UAT, AWS/Azure skeletons, book v1.
@@ -72,7 +72,7 @@ contract-test bases, WireMock UAT, AWS/Azure skeletons, book v1.
                                  │ defines
 ┌───────────────────────────────▼─────────────────────────────────────┐
 │ CONTRACTS  (data-pipeline-core-java)  — the cloud-neutral seam        │
-│   17 interfaces (see §5)                                              │
+│   16 interfaces + StageMetrics record (see §5)                                              │
 └───────────────────────────────┬─────────────────────────────────────┘
         ┌───────────┬────────────┼───────────┬────────────┬──────────┐
         ▼           ▼            ▼           ▼            ▼          ▼
@@ -126,7 +126,7 @@ transient-registry fix.
 | `GovernancePolicy` | StaticGovernancePolicy default only | 🔴 → S14 #76 (PiiMasking) |
 | `AuditEventPublisher` | — | 🔴 → S14 #95 (BigQuery) |
 
-**After Sprint 14, all 17 contracts have a real adapter → that's the v1.0.0 bar.**
+**After Sprint 14, all 16 contract interfaces have a real adapter → that's the v0.1.0 bar.**
 
 ---
 
