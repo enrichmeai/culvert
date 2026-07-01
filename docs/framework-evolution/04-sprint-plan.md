@@ -143,7 +143,7 @@ branch is `feature/issue-N-<slug>` PR'd into `sprint-2`. Single
 - Publish book PDF/EPUB (Leanpub or direct via website)
 - Rename GitHub repo `culvert` → `culvert-framework` (engineer decision: confirm exact name before doing it)
 - Update all READMEs / docs links / Maven SCM URLs to point at the new repo name
-- Publish v1.0.0 of the `data-pipeline-*` Python distributions to PyPI
+- Publish v0.1.0 of the `data-pipeline-*` Python distributions to PyPI
 - Publish 0.1.0 of `com.enrichmeai.culvert:data-pipeline-*` artefacts to Maven Central (via the existing `release` profile)
 
 **Exit criteria:** Anyone can install the framework via `pip` or Maven, follow the book's first chapter, and run a pipeline.

@@ -109,7 +109,7 @@ any build: is the existing mapping mechanism reusable, or has it diverged?
 | Emulator ITs (Cloud SQL via Testcontainers) | **test** | new fixture in it-support |
 
 **Sequencing:** this is post-current-block (Sprints 17+). It does NOT fit the
-9–16 plan (which is GCP-Java depth → CI → v1.0.0 release prep). The transactional
+9–16 plan (which is GCP-Java depth → CI → v0.1.0 release prep). The transactional
 control store is the long-pole and should lead.
 
 ---
@@ -123,7 +123,7 @@ control store is the long-pole and should lead.
 3. **Spanner vs Cloud SQL** for the control store — the PDF says "Cloud SQL for
    PostgreSQL; Spanner at scale." Adapter targets one first (Cloud SQL/PG is the
    lower-risk start, mirrors the dialect in the PDF's DDL).
-4. **Relationship to v1.0.0** — is this a v1.0.0 deliverable or a v1.1 theme?
+4. **Relationship to v0.1.0** — is this a v0.1.0 deliverable or a v1.1 theme?
    (Recommend v1.1: the 9–16 block + release prep should land first.)
 
 ---
