@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gcp-pipeline-ref-fdp-trigger"
-version = "1.0.0"
+name = "data-pipeline-ref-fdp-trigger"
+version = "0.1.0"
 description = "GCP Pipeline Reference: FDP readiness poller and Dataflow trigger (Cloud Run)"
 readme = "README.md"
 requires-python = ">=3.9"
