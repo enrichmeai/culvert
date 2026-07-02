@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "gcp-pipeline-ref-transform"
+name = "data-pipeline-ref-transform"
 version = "1.0.29"
 description = "GCP Pipeline Reference: Generic FDP Transformation — dbt models for ODP to FDP (JOIN + MAP patterns)"
 readme = "README.md"
@@ -21,8 +21,7 @@ classifiers = [
 ]
 dependencies = [
     "dbt-bigquery>=1.5.0",
-    "gcp-pipeline-core==1.0.29",
-    "data-pipeline-transform>=1.0.0",
+    "data-pipeline-transform>=0.1.0",
 ]
 
 [project.urls]

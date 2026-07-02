@@ -1,5 +1,11 @@
 # Project Context
 
+> **SUPERSEDED (2026-07).** This document describes the **predecessor** framework
+> (`gcp-pipeline-framework`) as if current. The project is now **Culvert** — see
+> [`README.md`](README.md) for the current state and
+> [`docs/framework-evolution/`](docs/framework-evolution/) for the canonical plan.
+> Kept as a historical record only; do not update.
+
 ## Overview
 
 GCP Pipeline Reference is a standardized legacy-to-GCP data migration framework using a **Generic Engine** model. Common infrastructure lives in reusable libraries; system-specific behaviour is driven entirely by deployment configuration (`config/system.yaml`). The framework is published to PyPI as `gcp-pipeline-framework` and used across multiple teams.
