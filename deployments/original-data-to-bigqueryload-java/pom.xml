@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Standalone deployment pom — NOT a child of data-pipeline-libraries-parent.
+        No <modules> entry is needed in that parent. Pattern matches
+        deployments/reference-e2e-gcp/pom.xml and
+        deployments/mainframe-segment-transform-java/pom.xml.
+
+        T20.5 (issue #140): Java/Dataflow port of the Python reference
+        deployment deployments/original-data-to-bigqueryload/. Ports the
+        HDR/TRL-enveloped CSV -> BigQuery ODP ingestion behaviour (parse
+        envelope, parse+validate rows, load valid rows, quarantine invalid
+        rows, reconcile counts, job-control status). The Python deployment
+        is NOT deleted — this is parity work; retirement is a later, separate
+        step after sign-off.
+    -->
+
+    <groupId>com.enrichmeai.culvert.deployments</groupId>
+    <artifactId>original-data-to-bigqueryload-java</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: deployment :: original-data-to-bigqueryload (Java)</name>
+    <description>
+        Java Dataflow-ready port of the Python original-data-to-bigqueryload
+        reference pipeline: HDR/TRL-enveloped CSV lands in GCS, is parsed and
+        schema-validated, valid rows are bulk-loaded into a BigQuery ODP
+        table, invalid rows are quarantined to the error bucket, the loaded
+        count is reconciled against the envelope's declared record count, and
+        job-control status is updated throughout. T20.5, issue #140.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
+
+        <!-- Pin to same versions as data-pipeline-libraries-java parent / reference-e2e-gcp. -->
+        <culvert.version>0.1.0</culvert.version>
+        <beam.version>2.55.0</beam.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <junit.version>5.10.2</junit.version>
+        <assertj.version>3.25.3</assertj.version>
+    </properties>
+
+    <dependencies>
+        <!-- Culvert framework libraries (must be installed: mvn -pl ... install) -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-dataflow</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-gcs</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <!-- Test-only: PipelineToDagSpec/DagSpec, used by IngestionStageTest to prove
+             the topology translates to a well-formed scheduler-agnostic DAG. -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-orchestration</artifactId>
+            <version>${culvert.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>2.10.1</version>
+        </dependency>
+
+        <!-- Beam SDK + DirectRunner (topology proof + local run — DataflowRunner for prod). -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-direct-java</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-google-cloud-dataflow-java</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+
+        <!-- SLF4J: bring a binding so Beam/SLF4J warnings are silent during tests/runs. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                    <!--
+                        No -Werror here: this is a deployment, not a library.
+                        Deployments opt out of the parent's -Xlint:all -Werror
+                        by NOT inheriting the parent pom (see reference-e2e-gcp).
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <mainClass>com.enrichmeai.culvert.deployments.ingestion.IngestionMain</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

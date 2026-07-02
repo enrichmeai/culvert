@@ -20,17 +20,15 @@ RUN pip install --upgrade pip
 
 RUN pip install --no-cache-dir dbt-bigquery
 
-# Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
-RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir data-pipeline-framework; \
-    else \
-        pip install --no-cache-dir "data-pipeline-framework==${LIBRARY_VERSION}"; \
-    fi
+# Install the Culvert transform library from local source (nothing is on PyPI
+# yet — the coordinated 0.1.0 publish is pending; switch to a pinned PyPI
+# install of `culvert`/`data-pipeline-transform` after the release).
+COPY data-pipeline-libraries/data-pipeline-transform /tmp/data-pipeline-transform
+RUN pip install --no-cache-dir /tmp/data-pipeline-transform
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
-    pip show data-pipeline-framework | grep Version && \
-    pip show gcp-pipeline-core | grep Version
+    pip show data-pipeline-transform | grep Version
 
 # Copy deployment code
 COPY deployments/bigquery-to-mapped-product /app/deployments/bigquery-to-mapped-product
@@ -39,7 +37,7 @@ RUN pip install /app/deployments/bigquery-to-mapped-product
 WORKDIR /app/deployments/bigquery-to-mapped-product/dbt
 
 # Copy shared macros from pip-installed data-pipeline-transform into dbt project
-RUN TRANSFORM_PKG=$(python -c "import gcp_pipeline_transform; import os; print(os.path.dirname(gcp_pipeline_transform.__file__))") && \
+RUN TRANSFORM_PKG=$(python -c "import data_pipeline_transform; import os; print(os.path.dirname(data_pipeline_transform.__file__))") && \
     cp -r "$TRANSFORM_PKG/dbt_shared/macros" /app/deployments/bigquery-to-mapped-product/dbt/shared_macros
 
 # Install dbt package dependencies (e.g. dbt_utils from packages.yml)

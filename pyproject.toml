@@ -21,7 +21,6 @@ where = [
     "gcp-pipeline-libraries/gcp-pipeline-framework/src",
     "deployments/original-data-to-bigqueryload/src",
     "deployments/data-pipeline-orchestrator",
-    "deployments/mainframe-segment-transform/src",
 ]
 
 [tool.pytest.ini_options]
