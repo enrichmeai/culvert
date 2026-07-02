@@ -1,5 +1,17 @@
 # GKE Deployment Guide — Alternative Orchestration Pattern
 
+> **Culvert deployment guide.** The reference deployments live under `deployments/`:
+> Java Dataflow pipelines (`original-data-to-bigqueryload-java`,
+> `postgres-cdc-streaming-java`, `mainframe-segment-transform-java`,
+> `reference-e2e-gcp`), dbt transforms (`bigquery-to-mapped-product`,
+> `fdp-to-consumable-product`, `spanner-to-bigquery-load`), and the config-driven
+> orchestrator (`data-pipeline-orchestrator`, built on the `data-pipeline-orchestration`
+> library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
+> **first-implementation** operations; the deploy→test→validate→publish gate is in
+> [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
+> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
+> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+
 > **Pattern:** Alternative | **Primary pattern:** [Cloud Composer (deploy-generic.yml)](../. github/workflows/deploy-generic.yml)
 
 This guide demonstrates deploying the **same three-unit Generic pipeline** using **GKE-hosted Airflow** as the orchestration runtime instead of Cloud Composer. The Dataflow ingestion and dbt transformation units are identical between both patterns — only the orchestration runtime differs.
