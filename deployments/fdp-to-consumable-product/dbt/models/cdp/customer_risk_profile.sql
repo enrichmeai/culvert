@@ -30,7 +30,7 @@
   - JOINs are aligned on _extract_date to enable partition pruning on sources
   - require_partition_filter prevents accidental full table scans by consumers
 
-  Framework integration (gcp-pipeline-transform shared macros):
+  Framework integration (data-pipeline-transform shared macros):
   - PII masking: ssn_masked arrives pre-masked from FDP layer via mask_pii()
   - Audit columns: _run_id lineage from ingestion, _cdp_transformed_at
   - Data quality: validated via cdp_quality_checks macros (segment, completeness, PII)
