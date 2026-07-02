@@ -1,8 +1,21 @@
-# Generic Orchestration
+# Generic Orchestration (Culvert)
 
-**Unit 3 of Generic 3-Unit Deployment**
+Airflow DAGs for pipeline coordination and scheduling, built on Culvert.
 
-Airflow DAGs for pipeline coordination and scheduling.
+> **Culvert-native (T20.2).** DAG-building lives in the `data-pipeline-orchestration`
+> library (`DagFactory` + Dataflow operators + Pub/Sub sensors + error-handling
+> callbacks + the JOIN/MAP `EntityDependencyChecker`), driven from
+> `config/system.yaml`. Airflow discovers the DAGs via `dags/culvert_dags.py`,
+> which loads the factory and publishes:
+> one ingestion DAG per entity (Pub/Sub sense → Dataflow → reconcile), one
+> transformation DAG per FDP model (dependency gate → dbt), plus the pub/sub
+> trigger, error-handling, and status DAGs. Ingestion targets the Java Dataflow
+> deployment `original-data-to-bigqueryload-java`.
+>
+> This replaces the predecessor's ~8,000-line `generate_dags.py` + generated
+> static DAGs, which baked the old framework's bespoke observability/audit stack
+> into string templates. Nothing is on PyPI yet — the library is installed from
+> source until the coordinated 0.1.0 release.
 
 ---
 
