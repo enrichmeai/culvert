@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Standalone deployment pom — NOT a child of data-pipeline-libraries-parent.
+        No <modules> entry needed there. Pattern matches
+        deployments/mainframe-segment-transform-java/pom.xml and
+        deployments/reference-e2e-gcp/pom.xml.
+
+        T20.6 (issue #141): Java/Dataflow port of the Python Beam streaming
+        deployment at deployments/postgres-cdc-streaming/. Behaviour is
+        grounded in that source (cdc_parser.py, transforms.py, runner.py,
+        windows.py) — see README.md for the parity notes and the honest
+        streaming-semantics caveats where the current Culvert Dataflow
+        adapter (StageTransform / DataflowPipeline) does not yet model
+        element-level, windowed Beam translation.
+    -->
+
+    <groupId>com.enrichmeai.culvert.deployments</groupId>
+    <artifactId>postgres-cdc-streaming-java</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: deployment :: postgres-cdc-streaming (Java)</name>
+    <description>
+        Java Dataflow (streaming) port of the Python Beam postgres-cdc-streaming
+        reference deployment. Reads Debezium CDC change events from Pub/Sub,
+        parses/classifies insert/update/delete/snapshot operations, applies
+        them to a BigQuery ODP target via the Culvert BigQueryWarehouse
+        contract, and routes invalid/unparseable events to a Pub/Sub
+        dead-letter topic. T20.6, issue #141.
+    </description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.release>17</maven.compiler.release>
+
+        <!-- Pin to same versions as data-pipeline-libraries-java parent. -->
+        <culvert.version>0.1.0</culvert.version>
+        <beam.version>2.55.0</beam.version>
+        <jackson.version>2.15.2</jackson.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <junit.version>5.10.2</junit.version>
+        <assertj.version>3.25.3</assertj.version>
+    </properties>
+
+    <dependencies>
+        <!-- Culvert framework libraries (must be installed: mvn install on data-pipeline-libraries-java). -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-dataflow</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-pubsub</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-gcs</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+
+        <!-- JSON parsing for Debezium CDC event envelopes. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Beam SDK + DirectRunner. DataflowRunner is pulled transitively via
+             data-pipeline-gcp-dataflow's dependency on beam-runners-google-cloud-dataflow-java. -->
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-sdks-java-core</artifactId>
+            <version>${beam.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.beam</groupId>
+            <artifactId>beam-runners-direct-java</artifactId>
+            <version>${beam.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- SLF4J -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>17</release>
+                    <!-- No -Werror: this is a deployment, not a library (see reference-e2e-gcp/pom.xml). -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.2</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
