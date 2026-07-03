@@ -58,9 +58,6 @@ are a real deploy-and-test phase, not a paperwork gate — the deployment guides
 - Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
   Maven Central via the existing `release` profile (gpg + central-publishing),
   PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
-- Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
-  Maven Central via the existing `release` profile (gpg + central-publishing),
-  PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
 - **Irreversible.** PyPI version numbers can't be reused; Maven Central is
   immutable. The publish itself stays a Joseph-gated manual trigger.
 
