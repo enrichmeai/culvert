@@ -1,0 +1,16 @@
+# Sprint-21 T21.6 (#150): CloudWatchStageMetricsHook exposes a no-arg
+# constructor (ServiceLoader entry point). It builds a default
+# CloudWatchClient via CloudWatchClient.create() (default AWS region /
+# credential provider chains) and resolves the CloudWatch namespace from:
+#   1. System property culvert.aws.cloudwatch.namespace
+#   2. Environment variable CULVERT_AWS_CLOUDWATCH_NAMESPACE
+#   3. Default "Culvert"
+#
+# ServiceLoader.load(StageMetricsHook.class).findFirst() resolves a real
+# CloudWatchStageMetricsHook on any classpath with default AWS credentials
+# resolvable.
+#
+# For explicit wiring (tests or custom credentials) use:
+#   CloudWatchClient client = CloudWatchClient.create();
+#   StageMetricsHook hook = new CloudWatchStageMetricsHook(client, "my-namespace");
+com.enrichmeai.culvert.aws.cloudwatch.CloudWatchStageMetricsHook
