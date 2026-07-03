@@ -16,16 +16,28 @@
 
     <name>Culvert :: data-pipeline-aws-athena (Java)</name>
     <description>
-        AWS athena adapter for the Culvert framework. Sprint-21 module (epic #144)
-        pre-registered as a coordination seam; implementation lands via its
-        sprint ticket.
+        AWS Athena adapter for the Culvert framework. Sprint-21 module (epic
+        #144, T21.5, issue #149). Implements the Warehouse contract over AWS
+        Athena (SDK v2): query/execute via StartQueryExecution + polling +
+        paginated GetQueryResults, tableExists via GetTableMetadata, copy via
+        CTAS. merge() and loadFromUri() are honestly unimplemented for this
+        sprint (no MERGE support in Athena pre-Iceberg; see class Javadoc).
     </description>
+
+    <properties>
+        <aws.sdk.version>2.25.31</aws.sdk.version>
+    </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.enrichmeai.culvert</groupId>
             <artifactId>data-pipeline-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>athena</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -46,5 +58,50 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Sprint-21 (T21.5): abstract contract-test base. Test-scope dep,
+            mirrors data-pipeline-aws-s3-java's wiring of
+            data-pipeline-contract-tests.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Mirrors sibling AWS modules: avoids "no processor
+                         claimed any of these annotations" warnings-as-errors
+                         from stray annotation processors dragged onto the
+                         classpath by JUnit/Mockito. We don't use annotation
+                         processing here. -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
