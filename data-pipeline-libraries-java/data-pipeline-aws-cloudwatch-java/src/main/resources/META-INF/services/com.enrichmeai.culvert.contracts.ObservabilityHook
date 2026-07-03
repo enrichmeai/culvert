@@ -1,0 +1,18 @@
+# Sprint-21 T21.6 (#150): CloudWatchObservabilityHook exposes a no-arg
+# constructor (ServiceLoader entry point). It builds a default
+# CloudWatchClient via CloudWatchClient.create() (default AWS region /
+# credential provider chains) and resolves the CloudWatch namespace from:
+#   1. System property culvert.aws.cloudwatch.namespace
+#   2. Environment variable CULVERT_AWS_CLOUDWATCH_NAMESPACE
+#   3. Default "Culvert"
+#
+# ServiceLoader.load(ObservabilityHook.class).findFirst() resolves a real
+# CloudWatchObservabilityHook on any classpath with default AWS credentials
+# resolvable (or throws if the SDK's default chain finds none — the no-arg
+# ctor itself never throws, but CloudWatchClient.create() defers credential
+# resolution to first use, mirroring the AWS SDK's lazy-credentials model).
+#
+# For explicit wiring (tests or custom credentials) use:
+#   CloudWatchClient client = CloudWatchClient.create();
+#   ObservabilityHook hook = new CloudWatchObservabilityHook(client, "my-namespace");
+com.enrichmeai.culvert.aws.cloudwatch.CloudWatchObservabilityHook
