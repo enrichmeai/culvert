@@ -126,7 +126,7 @@ Along the way I contributed to the Java standards as a member of the JSR 255\ind
 
 The platforms keep changing. Oracle SOA Suite. JBoss EAP. WebLogic. Spring. Dropwizard. AWS EKS. GCP. Kubernetes. The hard parts never do. Audit trails. Cost tracking. Error classification. Schema drift. Reconciliation. The stuff that makes a pipeline trustworthy rather than merely functional.
 
-Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I started with GCP — a single real cloud, a concrete target, no hand-waving. The framework that emerged was `gcp-pipeline-framework`. Then something interesting happened: when I looked hard at what I'd built, most of the code was already cloud-neutral. The contracts — the language-neutral interfaces that every adapter implements — were the seam. Extract those, and the GCP implementation becomes the *first* implementation rather than the only one. That extraction became **Culvert**. The reference repo — the one this book is a tour of — is `culvert`, built at 0.1.0 and held; `gcp-pipeline-framework` is deprecated in place, its story now the origin arc of what you are reading.
+Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I started with GCP — a single real cloud, a concrete target, no hand-waving. Then something interesting happened: when I looked hard at what I'd built, most of the code was already cloud-neutral. The contracts — the language-neutral interfaces that every adapter implements — were the seam. Extract those, and the GCP implementation becomes the *first* implementation rather than the only one. That extraction became **Culvert**. The repo this book is a tour of is `culvert`, built at 0.1.0 and held; the GCP-only first iteration is retired, its lessons now the origin arc of what you are reading.
 
 The design language was deliberate. I had spent a decade on Spring projects and watched what Spring Framework had done for the JVM: a small framework-agnostic core, opinionated modules clipped on around it, conventions over configuration, escape hatches when you needed them. The result was an industry. Culvert borrows that DNA without apology. There is a Spring-shaped framework hiding underneath the dbt models and the Beam jobs, and I think it deserves to be called that.
 
@@ -178,7 +178,7 @@ The underlying cause is not laziness. The underlying cause is that the scaffoldi
 
 ## What I actually built
 
-The predecessor was called `gcp-pipeline-framework`. By the time I stopped calling it that, I had:
+The first version was GCP-only, by design and by name. By the time I retired it, I had:
 
 - A **foundation library** that does not depend on Beam or Airflow — audit trails, cost tracking, quality scoring, lineage, error classification, schema types. Drop it into a Dataflow job, a Cloud Function, an Airflow DAG, or a random script on your laptop.
 - An **ingestion layer** with Apache Beam transforms for HDR/TRL parsing, split-file reassembly, schema-driven validation, and error quarantine.
@@ -244,7 +244,7 @@ Culvert is **built and held**. The Java reactor has reached its `0.1.0` feature 
 
 What remains is packaging and the coordinated release: renaming the Python distributions from `data-pipeline-*` to `culvert-*`, setting up the PyPI publish workflow, and pulling the joint trigger — Maven Central for `com.enrichmeai.culvert:*` and PyPI for `culvert` — at the same moment (`docs/framework-evolution/13-python-parity-release.md:9–12`).
 
-**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. When they do, the predecessor `gcp-pipeline-framework` gets a final deprecation pointer release and is left installable for existing pins — not deleted, because deletion is irreversible and breaks pinned dependents for zero benefit.
+**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. The GCP-only first iteration is simply retired — Culvert is the framework.
 
 This is not a product pitch for something that might ship. It is a practitioner's account of something that is built, honest about where the last seam is.
 
@@ -346,7 +346,7 @@ There is a fourth reason, which the first three obscure, and it is the reason Cu
 
 The teams that *do* build internal frameworks build them against one cloud. Naturally — the project is on GCP, the engineers know GCP, the company has GCP credits. The framework embeds GCP assumptions at every layer: it calls `google.cloud.bigquery` directly from the schema-validation code; the cost tracker references Dataflow slot prices as module-level constants; the audit-trail publisher is hard-wired to Pub/Sub. The framework solves the eight gaps above. But it has now created a ninth gap: **portability**. When the company acquires a division that runs on AWS, or when GCP's BigQuery pricing becomes inconvenient, or when a client demands an Azure deployment, the framework cannot move. You rewrite it or you abandon it.
 
-I know this because I helped build that framework on GCP — what became the `gcp-pipeline-framework` library — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
+I know this because I built that framework on GCP myself — Culvert's own first iteration — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
 
 The redesign document we wrote when this became clear (`docs/framework-evolution/02-redesign.md:1`) captures the commitment we made:
 
@@ -388,7 +388,7 @@ Culvert is **not published**. The coordinated release — Java to Maven Central 
 
 Culvert has **AWS and Azure skeletons, not implementations**. `data-pipeline-aws-s3-java` and `data-pipeline-azure-blob-java` exist as reserved slots that prove the design is cloud-neutral: an `S3BlobStore` implements the `BlobStore` contract and compiles cleanly. Neither has been tested against a real S3 bucket. The Python cloud-neutral skeletons are out of scope for the `0.1.0` release (`docs/framework-evolution/13-python-parity-release.md:30`). The AWS and Azure slots tell you what the framework *can* do, not what it currently does.
 
-The predecessor — `gcp-pipeline-framework` — is deprecated in place: its README will carry a deprecation banner pointing to `culvert`, and its releases will be yanked so new `pip install` resolution skips them. Existing pinned dependents keep working. The code is not deleted; it is the origin story.
+The GCP-only iteration Culvert grew from is retired. Culvert is the framework; the earlier code's only public legacy is the lessons in this book.
 
 ## The framework as the answer
 
@@ -5689,7 +5689,7 @@ The same two tiers are the CI gate (`.github/workflows/ci.yml`): a per-module Ja
 
 \index{CI/CD}\index{coordinated release}\index{Maven Central}\index{PyPI}
 
-The predecessor framework — `gcp-pipeline-framework` — had a pleasantly simple
+Culvert's first internal iteration had a pleasantly simple
 publishing model: tag, push, watch the GitHub Actions `publish-libraries.yml`
 fire, and ten minutes later six new packages appeared on PyPI. I will not pretend
 that wasn't convenient. But it came with a sting I only properly felt after the
@@ -7106,7 +7106,7 @@ Abstract pytest contract tests that every Culvert adapter implementation must pa
 ### Umbrella
 
 **`data-pipeline-framework`** (`data-pipeline-libraries/data-pipeline-framework/pyproject.toml`)
-Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own. Renamed successor of `gcp-pipeline-framework`.
+Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own.
 
 ---
 
@@ -7218,7 +7218,7 @@ culvert/                              # repo root (codename; customer brand: Val
     ├── gcp-pipeline-orchestration
     ├── gcp-pipeline-transform
     ├── gcp-pipeline-tester
-    └── gcp-pipeline-framework        # predecessor umbrella
+    └── gcp-pipeline-framework        # earlier internal iteration — being removed
 ```
 
 ## A note on the legacy tree

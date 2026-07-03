@@ -88,7 +88,7 @@ culvert/                              # repo root (codename; customer brand: Val
     ├── gcp-pipeline-orchestration
     ├── gcp-pipeline-transform
     ├── gcp-pipeline-tester
-    └── gcp-pipeline-framework        # predecessor umbrella
+    └── gcp-pipeline-framework        # earlier internal iteration — being removed
 ```
 
 ## A note on the legacy tree

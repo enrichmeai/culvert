@@ -48,7 +48,7 @@ docs/                           # documentation (see index below)
 docs/framework-evolution/       # canonical "why / what / when" for the redesign + sprints
 ```
 
-> The legacy Python trees (`gcp-pipeline-libraries/`, the `gcp_pipeline_*` egg-info) belong to the predecessor framework and are being retired — see [Legacy](#legacy).
+> The legacy Python trees (`gcp-pipeline-libraries/`, the `gcp_pipeline_*` egg-info) belong to an earlier internal iteration and are being removed — see [Legacy](#legacy).
 
 ## Build & test
 
@@ -88,7 +88,7 @@ Architecture: [`docs/framework-evolution/10-architecture.md`](docs/framework-evo
 
 ## Legacy
 
-Culvert replaces the predecessor PyPI framework `gcp-pipeline-framework` (last release `1.0.29`). That package is being **deprecated in place** — left installable for existing pins, with a final pointer release to Culvert — **not** deleted. Do not build new work against it.
+Culvert grew out of an earlier GCP-only internal iteration; that code is retired and its remaining trees in this repo (`gcp-pipeline-libraries/`, the `gcp_pipeline_*` egg-info) are being removed. Build against Culvert only.
 
 ## Documentation index
 

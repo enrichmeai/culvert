@@ -22,7 +22,7 @@ The underlying cause is not laziness. The underlying cause is that the scaffoldi
 
 ## What I actually built
 
-The predecessor was called `gcp-pipeline-framework`. By the time I stopped calling it that, I had:
+The first version was GCP-only, by design and by name. By the time I retired it, I had:
 
 - A **foundation library** that does not depend on Beam or Airflow — audit trails, cost tracking, quality scoring, lineage, error classification, schema types. Drop it into a Dataflow job, a Cloud Function, an Airflow DAG, or a random script on your laptop.
 - An **ingestion layer** with Apache Beam transforms for HDR/TRL parsing, split-file reassembly, schema-driven validation, and error quarantine.
@@ -88,7 +88,7 @@ Culvert is **built and held**. The Java reactor has reached its `0.1.0` feature 
 
 What remains is packaging and the coordinated release: renaming the Python distributions from `data-pipeline-*` to `culvert-*`, setting up the PyPI publish workflow, and pulling the joint trigger — Maven Central for `com.enrichmeai.culvert:*` and PyPI for `culvert` — at the same moment (`docs/framework-evolution/13-python-parity-release.md:9–12`).
 
-**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. When they do, the predecessor `gcp-pipeline-framework` gets a final deprecation pointer release and is left installable for existing pins — not deleted, because deletion is irreversible and breaks pinned dependents for zero benefit.
+**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. The GCP-only first iteration is simply retired — Culvert is the framework.
 
 This is not a product pitch for something that might ship. It is a practitioner's account of something that is built, honest about where the last seam is.
 

@@ -2,7 +2,7 @@
 
 \index{CI/CD}\index{coordinated release}\index{Maven Central}\index{PyPI}
 
-The predecessor framework — `gcp-pipeline-framework` — had a pleasantly simple
+Culvert's first internal iteration had a pleasantly simple
 publishing model: tag, push, watch the GitHub Actions `publish-libraries.yml`
 fire, and ten minutes later six new packages appeared on PyPI. I will not pretend
 that wasn't convenient. But it came with a sting I only properly felt after the

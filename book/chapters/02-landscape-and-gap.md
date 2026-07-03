@@ -55,7 +55,7 @@ There is a fourth reason, which the first three obscure, and it is the reason Cu
 
 The teams that *do* build internal frameworks build them against one cloud. Naturally — the project is on GCP, the engineers know GCP, the company has GCP credits. The framework embeds GCP assumptions at every layer: it calls `google.cloud.bigquery` directly from the schema-validation code; the cost tracker references Dataflow slot prices as module-level constants; the audit-trail publisher is hard-wired to Pub/Sub. The framework solves the eight gaps above. But it has now created a ninth gap: **portability**. When the company acquires a division that runs on AWS, or when GCP's BigQuery pricing becomes inconvenient, or when a client demands an Azure deployment, the framework cannot move. You rewrite it or you abandon it.
 
-I know this because I helped build that framework on GCP — what became the `gcp-pipeline-framework` library — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
+I know this because I built that framework on GCP myself — Culvert's own first iteration — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
 
 The redesign document we wrote when this became clear (`docs/framework-evolution/02-redesign.md:1`) captures the commitment we made:
 
@@ -97,7 +97,7 @@ Culvert is **not published**. The coordinated release — Java to Maven Central 
 
 Culvert has **AWS and Azure skeletons, not implementations**. `data-pipeline-aws-s3-java` and `data-pipeline-azure-blob-java` exist as reserved slots that prove the design is cloud-neutral: an `S3BlobStore` implements the `BlobStore` contract and compiles cleanly. Neither has been tested against a real S3 bucket. The Python cloud-neutral skeletons are out of scope for the `0.1.0` release (`docs/framework-evolution/13-python-parity-release.md:30`). The AWS and Azure slots tell you what the framework *can* do, not what it currently does.
 
-The predecessor — `gcp-pipeline-framework` — is deprecated in place: its README will carry a deprecation banner pointing to `culvert`, and its releases will be yanked so new `pip install` resolution skips them. Existing pinned dependents keep working. The code is not deleted; it is the origin story.
+The GCP-only iteration Culvert grew from is retired. Culvert is the framework; the earlier code's only public legacy is the lessons in this book.
 
 ## The framework as the answer
 
