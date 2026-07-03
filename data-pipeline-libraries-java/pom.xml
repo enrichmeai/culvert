@@ -88,6 +88,17 @@
         <module>data-pipeline-aws-s3-java</module>
         <module>data-pipeline-azure-blob-java</module>
         <!--
+            Sprint-21: AWS adapter family (epic #144) — skeleton to real family.
+            Pre-registered so the wave agents each fill in their own module
+            without contending on this file. Same coordination-seam pattern as
+            sprints 1-2.
+        -->
+        <module>data-pipeline-aws-secrets-java</module>
+        <module>data-pipeline-aws-sqs-java</module>
+        <module>data-pipeline-aws-dynamodb-java</module>
+        <module>data-pipeline-aws-athena-java</module>
+        <module>data-pipeline-aws-cloudwatch-java</module>
+        <!--
             Sprint-11: scheduler-agnostic orchestration layer (epic #46, T11.1
             / issue #61). Cloud-neutral DAG model (DagSpec/TaskSpec) +
             Pipeline->DagSpec translator. Renderers (Airflow/Composer) come in
