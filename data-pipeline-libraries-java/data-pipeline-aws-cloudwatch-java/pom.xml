@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-aws-cloudwatch</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-aws-cloudwatch (Java)</name>
+    <description>
+        AWS CloudWatch adapter for the Culvert framework. Sprint-21 module
+        (epic #144, T21.6). Implements CloudWatchObservabilityHook
+        (ObservabilityHook) and CloudWatchStageMetricsHook (StageMetricsHook)
+        over software.amazon.awssdk.services.cloudwatch.CloudWatchClient's
+        PutMetricData API. Registered via java.util.ServiceLoader so
+        consumers can wire either without compile-time coupling beyond this
+        module.
+    </description>
+
+    <properties>
+        <!-- Matches data-pipeline-aws-dynamodb-java's pinned SDK version
+             (the most recent pin in the sprint-21 AWS adapter family) so the
+             cloudwatch jar's transitive core/regions/auth/http deps line up
+             with what the sibling modules already resolve. -->
+        <aws.sdk.version>2.25.31</aws.sdk.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>cloudwatch</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- LocalStack IT (CloudWatchLocalStackIT) — compiled by `mvn test`
+             but only executed under `mvn -P it verify`. Versions managed by
+             the parent's testcontainers-bom; do not pin here. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        The AWS SDK v2 transitively brings in annotation
+                        processors that don't claim our JUnit / Mockito
+                        annotations. Under the parent's -Xlint:all + -Werror
+                        this triggers a "No processor claimed any of these
+                        annotations" warning that fails the build. We don't
+                        use annotation processors here, so disable processing
+                        explicitly. Mirrors aws-sqs-java / aws-secrets-java.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
