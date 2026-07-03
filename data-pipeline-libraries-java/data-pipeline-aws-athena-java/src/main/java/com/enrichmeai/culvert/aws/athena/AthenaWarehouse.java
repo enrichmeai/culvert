@@ -66,6 +66,14 @@ import java.util.Objects;
  *       {@link UnsupportedOperationException} rather than faking a partial
  *       implementation. Tracked for a future sprint alongside real-AWS
  *       validation (see below).</li>
+ *   <li>{@link #query} / {@link #execute}: the {@code params} named-binding
+ *       argument is rejected (throws {@link IllegalArgumentException}) when
+ *       non-empty. Athena's {@code StartQueryExecution} has no named-parameter
+ *       binding analogous to BigQuery's {@code QueryParameterValue} — only
+ *       positional {@code executionParameters} against a prepared statement
+ *       created via a separate {@code CreatePreparedStatement} call, which is
+ *       out of sprint-21 scope. Silently discarding caller-supplied bindings
+ *       would be a correctness/injection risk, so this fails loudly instead.</li>
  * </ul>
  *
  * <h2>Real-AWS validation pending</h2>
@@ -138,6 +146,7 @@ public final class AthenaWarehouse implements Warehouse {
     @Override
     public Iterator<Map<String, Object>> query(String sql, Map<String, Object> params) {
         Objects.requireNonNull(sql, "sql must not be null");
+        rejectUnsupportedParams(params);
         String queryExecutionId = submitAndWait(sql);
         return streamRows(queryExecutionId);
     }
@@ -145,7 +154,29 @@ public final class AthenaWarehouse implements Warehouse {
     @Override
     public void execute(String sql, Map<String, Object> params) {
         Objects.requireNonNull(sql, "sql must not be null");
+        rejectUnsupportedParams(params);
         submitAndWait(sql);
+    }
+
+    /**
+     * Athena has no named-parameter binding analogous to BigQuery's
+     * {@code QueryParameterValue} — {@code StartQueryExecution} only supports
+     * positional {@code executionParameters} paired with a prepared
+     * statement created via a separate {@code CreatePreparedStatement} call,
+     * which is out of sprint-21 scope. Rather than silently discard
+     * caller-supplied bindings (a correctness / injection risk if a caller
+     * assumes they're applied), fail loudly on any non-empty {@code params}.
+     */
+    private static void rejectUnsupportedParams(Map<String, Object> params) {
+        if (params != null && !params.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "AthenaWarehouse does not support named parameter bindings (params must be empty). "
+                            + "Athena's StartQueryExecution only supports positional executionParameters "
+                            + "against a prepared statement, which is out of scope for this sprint — inline "
+                            + "values into the SQL string yourself, or use execute(String, Map) with an "
+                            + "explicit PREPARE/EXECUTE pair. Tracked at "
+                            + "https://github.com/enrichmeai/culvert/issues/149");
+        }
     }
 
     @Override
@@ -214,12 +245,12 @@ public final class AthenaWarehouse implements Warehouse {
     @Override
     public boolean tableExists(String fqtn) {
         Objects.requireNonNull(fqtn, "fqtn must not be null");
-        String tableName = unqualify(fqtn);
+        String[] parsed = parseFqtn(fqtn);
         try {
             client.getTableMetadata(GetTableMetadataRequest.builder()
                     .catalogName(catalog)
-                    .databaseName(database)
-                    .tableName(tableName)
+                    .databaseName(parsed[0])
+                    .tableName(parsed[1])
                     .build());
             return true;
         } catch (MetadataException e) {
@@ -359,20 +390,23 @@ public final class AthenaWarehouse implements Warehouse {
     }
 
     /**
-     * Strip a {@code database.table} qualifier down to the bare table name
-     * Athena's {@code GetTableMetadata} expects (database is a separate
-     * request field, unlike BigQuery's {@code TableId}).
+     * Parse a fully-qualified table name into {@code [database, table]}.
+     * Athena's {@code GetTableMetadata} takes database and table as separate
+     * request fields (unlike BigQuery's single {@code TableId}), so the fqtn
+     * must be split rather than passed through whole.
      *
-     * <p>Accepts a bare {@code table} name too (falls back to the
-     * warehouse's configured {@link #database}).
+     * <p>Accepts a bare {@code table} name too, in which case the database
+     * falls back to this warehouse's configured {@link #database} — mirrors
+     * {@code BigQueryWarehouse#parseFqtn}'s "unqualified defaults to the
+     * configured project" behaviour.
      */
-    private String unqualify(String fqtn) {
+    private String[] parseFqtn(String fqtn) {
         String[] parts = fqtn.split("\\.");
         if (parts.length == 1) {
-            return parts[0];
+            return new String[] {database, parts[0]};
         }
         if (parts.length == 2) {
-            return parts[1];
+            return parts;
         }
         throw new IllegalArgumentException(
                 "Invalid Athena fqtn (expected 'table' or 'database.table'): " + fqtn);
