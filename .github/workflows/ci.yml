@@ -3,7 +3,7 @@
 #
 # Replaces the legacy gcp-pipeline-libraries Python-only CI with a polyglot
 # workflow that covers:
-#   1. Java reactor  — 13 modules under data-pipeline-libraries-java/
+#   1. Java reactor  — 18 modules under data-pipeline-libraries-java/
 #   2. Python (Culvert adapters) — 3 GCP adapter modules under
 #      data-pipeline-libraries/  (bigquery, gcs, pubsub)
 #   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check all 13 modules are enumerated
+      - name: Check all 18 modules are enumerated
         run: |
           set -euo pipefail
           # Authoritative list from pom.xml (order-independent)
@@ -94,7 +94,12 @@ jobs:
 
           # Workflow's explicit matrix list (must match POM exactly)
           WORKFLOW_MODULES=$(cat <<'MODEOF'
+          data-pipeline-aws-athena-java
+          data-pipeline-aws-cloudwatch-java
+          data-pipeline-aws-dynamodb-java
           data-pipeline-aws-s3-java
+          data-pipeline-aws-secrets-java
+          data-pipeline-aws-sqs-java
           data-pipeline-azure-blob-java
           data-pipeline-contract-tests-java
           data-pipeline-core-java
@@ -121,11 +126,11 @@ jobs:
             echo "$DIFF"
             exit 1
           fi
-          echo "OK: all 13 modules are enumerated"
+          echo "OK: all 18 modules are enumerated"
 
 # ============================================================================
 # ── Job 2: Java reactor build + unit tests ──────────────────────────────────
-# Runs the full reactor (all 13 modules) via -pl <module> -am so each module
+# Runs the full reactor (all 18 modules) via -pl <module> -am so each module
 # only builds the modules it depends on, making individual matrix legs fast.
 # The surefire default excludes *IT.java (integration tests) — Testcontainers
 # jobs come in T15.2.
@@ -149,7 +154,12 @@ jobs:
           - data-pipeline-tester-java
           - data-pipeline-it-support-java
           - data-pipeline-contract-tests-java
+          - data-pipeline-aws-athena-java
+          - data-pipeline-aws-cloudwatch-java
+          - data-pipeline-aws-dynamodb-java
           - data-pipeline-aws-s3-java
+          - data-pipeline-aws-secrets-java
+          - data-pipeline-aws-sqs-java
           - data-pipeline-azure-blob-java
           - data-pipeline-orchestration-java
 
