@@ -161,6 +161,16 @@ class AthenaWarehouseTest {
     }
 
     @Test
+    void queryRejectsNonEmptyParams() {
+        // Athena has no named-parameter binding analogous to BigQuery's;
+        // silently dropping caller-supplied bindings would be a correctness
+        // risk, so non-empty params must fail loudly rather than be ignored.
+        assertThatThrownBy(() -> warehouse.query("SELECT :id", Map.of("id", 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("named parameter");
+    }
+
+    @Test
     void queryFailurePropagatesAsAthenaQueryFailedException() {
         when(client.startQueryExecution(any(StartQueryExecutionRequest.class)))
                 .thenReturn(StartQueryExecutionResponse.builder().queryExecutionId(QUERY_EXECUTION_ID).build());
@@ -254,6 +264,13 @@ class AthenaWarehouseTest {
     }
 
     @Test
+    void executeRejectsNonEmptyParams() {
+        assertThatThrownBy(() -> warehouse.execute("INSERT INTO t VALUES (:id)", Map.of("id", 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("named parameter");
+    }
+
+    @Test
     void executeUsesConfiguredWorkGroupWhenSet() {
         AthenaWarehouse withWorkGroup =
                 new AthenaWarehouse(client, DATABASE, OUTPUT_LOCATION, "AwsDataCatalog", "my-workgroup");
@@ -322,7 +339,7 @@ class AthenaWarehouseTest {
     }
 
     @Test
-    void tableExistsAcceptsDatabaseQualifiedName() {
+    void tableExistsAcceptsDatabaseQualifiedNameMatchingConfiguredDatabase() {
         when(client.getTableMetadata(any(GetTableMetadataRequest.class)))
                 .thenReturn(GetTableMetadataResponse.builder()
                         .tableMetadata(TableMetadata.builder().name("customers").build())
@@ -333,6 +350,24 @@ class AthenaWarehouseTest {
         ArgumentCaptor<GetTableMetadataRequest> captor = ArgumentCaptor.forClass(GetTableMetadataRequest.class);
         verify(client).getTableMetadata(captor.capture());
         assertThat(captor.getValue().tableName()).isEqualTo("customers");
+        assertThat(captor.getValue().databaseName()).isEqualTo(DATABASE);
+    }
+
+    @Test
+    void tableExistsHonoursDifferentDatabaseQualifierThanConfigured() {
+        // Regression guard: the fqtn's own database component must be used,
+        // not silently overridden by the warehouse's configured `database`.
+        when(client.getTableMetadata(any(GetTableMetadataRequest.class)))
+                .thenReturn(GetTableMetadataResponse.builder()
+                        .tableMetadata(TableMetadata.builder().name("orders").build())
+                        .build());
+
+        assertThat(warehouse.tableExists("otherdb.orders")).isTrue();
+
+        ArgumentCaptor<GetTableMetadataRequest> captor = ArgumentCaptor.forClass(GetTableMetadataRequest.class);
+        verify(client).getTableMetadata(captor.capture());
+        assertThat(captor.getValue().databaseName()).isEqualTo("otherdb");
+        assertThat(captor.getValue().tableName()).isEqualTo("orders");
     }
 
     @Test
