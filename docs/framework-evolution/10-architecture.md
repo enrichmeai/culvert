@@ -167,6 +167,6 @@ transient-registry fix.
 ## 8. Known boundaries (intentional, not gaps)
 
 - **Python is behind by design** — has core/bigquery/gcs/pubsub/orchestration/transform/tester, but NO DefaultRuntimeContext, observability, or cost trackers. Parity is Sprints 17+.
-- **Multi-cloud is BlobStore-only** — AWS/Azure are proof-of-cloud-neutrality skeletons; full parity is out-of-block.
+- **Multi-cloud: AWS is a real adapter family, Azure is BlobStore-only** — as of Sprint 21 (epic #144), AWS implements `BlobStore` (S3), `SecretProvider` (Secrets Manager), `Source`/`Sink` (SQS), and `JobControlRepository` (DynamoDB), with `Warehouse` (Athena) and observability hooks (CloudWatch) in progress; no AWS execution layer (Beam is runner-portable — EMR/Flink is a future runner story). Azure remains a proof-of-cloud-neutrality skeleton (`BlobStore.exists()` only). Full AWS/Azure parity across all 16 contracts is still out-of-block.
 - **Legacy `deployments/` dirs** (mainframe-segment-transform, spanner-to-bigquery-load, etc.) belong to the OLD framework being replaced — only `reference-e2e-gcp` is new-world.
 - **Live cloud emission** (real Cloud Monitoring/Trace, terraform IAM) is `needs-engineer` / Joseph-run — the framework is tested against emulators + recording hooks.
