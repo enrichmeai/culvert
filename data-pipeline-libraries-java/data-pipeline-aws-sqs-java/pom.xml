@@ -16,16 +16,34 @@
 
     <name>Culvert :: data-pipeline-aws-sqs (Java)</name>
     <description>
-        AWS sqs adapter for the Culvert framework. Sprint-21 module (epic #144)
-        pre-registered as a coordination seam; implementation lands via its
-        sprint ticket.
+        AWS SQS adapter for the Culvert framework. Provides SqsSource
+        (Source implementation wrapping an SqsClient for synchronous
+        receive + eager delete) and SqsSink (Sink implementation wrapping
+        an SqsClient for batched sendMessageBatch calls). Registered via
+        java.util.ServiceLoader so consumers can wire it without
+        compile-time coupling beyond this module. Sprint-21 deliverable
+        (T21.3, epic #144).
     </description>
+
+    <properties>
+        <!--
+            AWS SDK v2 version. Mirrors data-pipeline-aws-s3-java's
+            dep pattern (pinned property, not a BOM import) for consistency
+            across the sprint-21 AWS adapter family.
+        -->
+        <aws.sdk.version>2.25.31</aws.sdk.version>
+    </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.enrichmeai.culvert</groupId>
             <artifactId>data-pipeline-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sqs</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -46,5 +64,68 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Integration-test support (*IT.java, run via failsafe in the
+            parent's `it` profile). SQS has no Testcontainers built-in
+            module the way Pub/Sub does (PubSubEmulatorContainer) or GCS
+            does via data-pipeline-it-support; instead we use Testcontainers'
+            generic `localstack` module directly, which the testcontainers-bom
+            in the parent's dependencyManagement already versions. Do NOT
+            pin versions here.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        The AWS SDK v2 transitively brings in annotation
+                        processors that don't claim our JUnit / Mockito
+                        annotations. Under the parent's -Xlint:all + -Werror
+                        this triggers a "No processor claimed any of these
+                        annotations" warning that fails the build. We don't
+                        use annotation processors here, so disable processing
+                        explicitly. Mirrors pubsub-java / bigquery-java.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
