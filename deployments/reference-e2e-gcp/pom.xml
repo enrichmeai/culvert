@@ -103,9 +103,9 @@
             <groupId>org.apache.beam</groupId>
             <artifactId>beam-runners-direct-java</artifactId>
             <version>${beam.version}</version>
-            <!-- Runtime scope: the DirectRunner is only needed at test/run time.
-                 A future prod deployment would swap to DataflowRunner. -->
-            <scope>runtime</scope>
+            <!-- Compile scope: ReferenceE2EMain offers a "runner=direct" mode
+                 (local smoke, no cloud cost), so DirectRunner is referenced
+                 from src/main. The Dataflow path uses DataflowRunner. -->
         </dependency>
 
         <!-- SLF4J: bring a binding so Beam/SLF4J warnings are silent during tests. -->
