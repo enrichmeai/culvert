@@ -24,7 +24,7 @@
     </description>
 
     <properties>
-        <aws.sdk.version>2.25.64</aws.sdk.version>
+        <aws.sdk.version>2.25.31</aws.sdk.version>
     </properties>
 
     <dependencies>

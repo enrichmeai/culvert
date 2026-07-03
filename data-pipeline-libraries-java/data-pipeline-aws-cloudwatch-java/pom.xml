@@ -30,7 +30,7 @@
              (the most recent pin in the sprint-21 AWS adapter family) so the
              cloudwatch jar's transitive core/regions/auth/http deps line up
              with what the sibling modules already resolve. -->
-        <aws.sdk.version>2.25.64</aws.sdk.version>
+        <aws.sdk.version>2.25.31</aws.sdk.version>
     </properties>
 
     <dependencies>
