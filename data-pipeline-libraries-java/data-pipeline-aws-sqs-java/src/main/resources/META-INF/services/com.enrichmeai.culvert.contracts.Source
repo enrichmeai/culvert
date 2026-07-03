@@ -1,0 +1,8 @@
+# Pre-registered for future auto-config. The implementation does NOT
+# expose a no-arg constructor — SqsSource needs an SqsClient and a queue
+# URL at construction time, which exceeds the pilot's "no-arg only if <=2
+# env vars of state" rule. Direct ServiceLoader.load(Source.class)
+# lookups will fail with ServiceConfigurationError until a config-driven
+# constructor lands. Until then, instantiate explicitly with
+# `new SqsSource(client, queueUrl)`.
+com.enrichmeai.culvert.aws.sqs.SqsSource

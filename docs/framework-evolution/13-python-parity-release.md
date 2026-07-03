@@ -25,10 +25,16 @@ shared seam; each runtime owns the layers it's best at.
 | **Dataflow / execution** | **Java** (Beam) | `data-pipeline-gcp-dataflow-java` = `DataflowPipeline` + `StageTransform`. Legacy Python Beam is **not** being ported. |
 | **Orchestration** | **Reuse** — complementary, not duplicate | Python owns the runtime side (`operators/ sensors/ hooks/ routing/ factories/`); Java owns the cloud-neutral model + renderers (`DagSpec`/`TaskSpec`, `AirflowDagRenderer`/`ComposerDagRenderer`). |
 
-**Cloud-agnostic by contract; GCP is the first implementation.** AWS/Azure
-exist as Java skeletons (`data-pipeline-aws-s3-java`, `data-pipeline-azure-blob-java`)
-to prove the design is cloud-neutral; Python cloud-neutral skeletons are **out of
-scope** for this release (defer to a later block).
+**Cloud-agnostic by contract; GCP is the first implementation.** AWS has grown
+into a real Java adapter family as of Sprint 21 (epic #144): `S3BlobStore`
+(`data-pipeline-aws-s3-java`, all 8 `BlobStore` methods), `AwsSecretsManagerProvider`
+(`data-pipeline-aws-secrets-java`), `SqsSource`/`SqsSink`
+(`data-pipeline-aws-sqs-java`), and a transactional `DynamoDbJobControlRepository`
+(`data-pipeline-aws-dynamodb-java`); Athena (`Warehouse`) and CloudWatch
+observability hooks are in progress. Azure remains a Java skeleton
+(`data-pipeline-azure-blob-java`, `BlobStore.exists()` only). Python cloud-neutral
+adapters (AWS or Azure) are **out of scope** for this release (defer to a later
+block) — this block is GCP-only on the Python side.
 
 ## 2. Release gate
 
@@ -49,9 +55,6 @@ are a real deploy-and-test phase, not a paperwork gate — the deployment guides
 `docs/` support it and are kept/updated (not retired) for that reason. Legacy
 `gcp-pipeline-framework` is deprecate-in-place throughout.
 
-- Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
-  Maven Central via the existing `release` profile (gpg + central-publishing),
-  PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
 - Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
   Maven Central via the existing `release` profile (gpg + central-publishing),
   PyPI via Actions (OIDC / trusted publishing preferred — no long-lived token).
