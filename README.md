@@ -13,7 +13,7 @@ Culvert is a framework for building data pipelines that are **defined once again
 ## Why Culvert
 
 - **Contract-driven.** [`docs/CONTRACT.md`](docs/CONTRACT.md) is the language-neutral specification. Any team can implement it in any language; Java and Python are the two reference implementations.
-- **Cloud-neutral by design.** The core depends only on contracts. GCP is the first full implementation; AWS S3 and Azure Blob ship as adapter skeletons that prove the seam is real.
+- **Cloud-neutral by design.** The core depends only on contracts. GCP is the first full implementation; AWS is now a real (Java) adapter family — `BlobStore` (S3), `SecretProvider` (Secrets Manager), `Source`/`Sink` (SQS), and a transactional `JobControlRepository` (DynamoDB), with `Warehouse` (Athena) and observability hooks (CloudWatch) in progress. Azure Blob remains a single-method adapter skeleton.
 - **Polyglot, not duplicated.** The two languages do not do the same job — see the division of labour below.
 - **No application framework in the core.** Plain Java (JDK 17, `ServiceLoader` auto-config) and plain Python (Protocols + entry-point auto-config), so the libraries compose into Beam pipelines, Airflow DAGs, or anything else without dragging in Spring/Quarkus.
 
@@ -29,10 +29,12 @@ Culvert is a framework for building data pipelines that are **defined once again
 ## Repository layout
 
 ```
-data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (13 modules)
+data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (18 modules)
   data-pipeline-core-java          # contracts + records + AutoConfig (ServiceLoader)
   data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability,dataflow}-java
-  data-pipeline-{aws-s3,azure-blob}-java       # cloud-neutrality skeletons
+  data-pipeline-aws-{s3,secrets,sqs,dynamodb}-java   # real AWS adapter family (BlobStore, SecretProvider, Source/Sink, JobControlRepository)
+  data-pipeline-aws-{athena,cloudwatch}-java         # in progress (Warehouse, observability hooks)
+  data-pipeline-azure-blob-java                      # cloud-neutrality skeleton (BlobStore, exists() only)
   data-pipeline-orchestration-java             # DagSpec/TaskSpec + Airflow/Composer renderers
   data-pipeline-{contract-tests,tester,it-support}-java
 
@@ -79,6 +81,7 @@ The framework is being completed in sprint waves; the authoritative plan is [`do
 - ✅ **Java reactor 0.1.0** — all 16 contracts have adapters; frozen at `java-0.1.0`.
 - ✅ **Python contracts + core depth** — Protocols reconciled to Java; `DefaultRuntimeContext`, data-quality, governance policies, FinOps cost model.
 - ✅ **Python GCP adapters** — secrets, observability, and per-service cost trackers; all auto-discoverable.
+- 🟡 **AWS adapter family (Sprint 21, epic #144)** — `S3BlobStore` (all 8 `BlobStore` methods), `AwsSecretsManagerProvider`, `SqsSource`/`SqsSink`, and a transactional `DynamoDbJobControlRepository` (conditional writes closing a real gap in BigQuery's job-control story) are done, unit- and LocalStack-IT-tested. Athena (`Warehouse`) and CloudWatch observability hooks are in progress. Out of scope for this block: an AWS execution layer (Beam is runner-portable; EMR/Flink is a future runner story) and AWS parity on the Python side. Azure remains a `BlobStore`-only skeleton.
 - ⏳ **Packaging & coordinated release** — `culvert` PyPI distribution + publish-from-git, then a single `0.1.0` to Maven Central **and** PyPI.
 
 Architecture: [`docs/framework-evolution/10-architecture.md`](docs/framework-evolution/10-architecture.md). Full series (audit, redesign, dev process, sprint plans): [`docs/framework-evolution/`](docs/framework-evolution/).
