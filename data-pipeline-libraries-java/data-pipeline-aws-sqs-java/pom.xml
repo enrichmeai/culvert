@@ -11,19 +11,26 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>data-pipeline-aws-s3</artifactId>
+    <artifactId>data-pipeline-aws-sqs</artifactId>
     <packaging>jar</packaging>
 
-    <name>Culvert :: data-pipeline-aws-s3 (Java)</name>
+    <name>Culvert :: data-pipeline-aws-sqs (Java)</name>
     <description>
-        AWS S3 adapter for the Culvert framework. Implements the same
-        BlobStore contract as data-pipeline-gcp-gcs over AWS S3 (AWS SDK v2).
-        Sprint-8 shipped the skeleton (exists() only); Sprint-21 (T21.1,
-        issue #145) completed the remaining six methods (get, openInput,
-        openOutput, put, list, delete, copy).
+        AWS SQS adapter for the Culvert framework. Provides SqsSource
+        (Source implementation wrapping an SqsClient for synchronous
+        receive + eager delete) and SqsSink (Sink implementation wrapping
+        an SqsClient for batched sendMessageBatch calls). Registered via
+        java.util.ServiceLoader so consumers can wire it without
+        compile-time coupling beyond this module. Sprint-21 deliverable
+        (T21.3, epic #144).
     </description>
 
     <properties>
+        <!--
+            AWS SDK v2 version. Mirrors data-pipeline-aws-s3-java's
+            dep pattern (pinned property, not a BOM import) for consistency
+            across the sprint-21 AWS adapter family.
+        -->
         <aws.sdk.version>2.25.31</aws.sdk.version>
     </properties>
 
@@ -35,7 +42,7 @@
         </dependency>
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
-            <artifactId>s3</artifactId>
+            <artifactId>sqs</artifactId>
             <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
@@ -62,31 +69,16 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
         <!--
-            Sprint-21 (T21.1): abstract contract-test bases. The module ships
-            these as compile-scope deps (it IS a test library), so bringing it
-            as test scope here is correct — the abstract classes end up on our
-            test compile and test-run classpaths only. Mirrors
-            data-pipeline-gcp-gcs-java's GcsBlobStoreContractTest wiring.
+            Integration-test support (*IT.java, run via failsafe in the
+            parent's `it` profile). SQS has no Testcontainers built-in
+            module the way Pub/Sub does (PubSubEmulatorContainer) or GCS
+            does via data-pipeline-it-support; instead we use Testcontainers'
+            generic `localstack` module directly, which the testcontainers-bom
+            in the parent's dependencyManagement already versions. Do NOT
+            pin versions here.
         -->
-        <dependency>
-            <groupId>com.enrichmeai.culvert</groupId>
-            <artifactId>data-pipeline-contract-tests</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <!--
-            Sprint-21 (T21.1): emulator-backed integration tests (*IT.java,
-            run under the parent's `it` profile via failsafe). LocalStack
-            provides a local S3-compatible endpoint; testcontainers +
-            junit-jupiter versions are managed by the testcontainers-bom in
-            the parent's dependencyManagement — do NOT pin versions here.
-        -->
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>localstack</artifactId>
-            <scope>test</scope>
-        </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>testcontainers</artifactId>
@@ -97,6 +89,11 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -105,6 +102,15 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
+                    <!--
+                        The AWS SDK v2 transitively brings in annotation
+                        processors that don't claim our JUnit / Mockito
+                        annotations. Under the parent's -Xlint:all + -Werror
+                        this triggers a "No processor claimed any of these
+                        annotations" warning that fails the build. We don't
+                        use annotation processors here, so disable processing
+                        explicitly. Mirrors pubsub-java / bigquery-java.
+                    -->
                     <proc>none</proc>
                 </configuration>
             </plugin>
