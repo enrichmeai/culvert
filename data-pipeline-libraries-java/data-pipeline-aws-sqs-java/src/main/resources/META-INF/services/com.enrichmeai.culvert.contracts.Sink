@@ -1,0 +1,7 @@
+# Pre-registered for future auto-config. The implementation does NOT
+# expose a no-arg constructor — SqsSink wraps an SqsClient and requires a
+# queue URL at construction time. Direct ServiceLoader.load(Sink.class)
+# lookups will fail with ServiceConfigurationError until a config-driven
+# constructor lands. Until then, instantiate explicitly with
+# `new SqsSink(client, queueUrl)`.
+com.enrichmeai.culvert.aws.sqs.SqsSink
