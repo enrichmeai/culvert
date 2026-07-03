@@ -16,13 +16,11 @@
 
     <name>Culvert :: data-pipeline-aws-s3 (Java)</name>
     <description>
-        AWS S3 adapter SKELETON for the Culvert framework. Sprint-8
-        deliverable — proves the cloud-neutral design by implementing the
-        same BlobStore contract as data-pipeline-gcp-gcs over AWS S3.
-
-        One method implemented (exists); the rest throw
-        UnsupportedOperationException with a clear TODO for the
-        post-sprint-8 work.
+        AWS S3 adapter for the Culvert framework. Implements the same
+        BlobStore contract as data-pipeline-gcp-gcs over AWS S3 (AWS SDK v2).
+        Sprint-8 shipped the skeleton (exists() only); Sprint-21 (T21.1,
+        issue #145) completed the remaining six methods (get, openInput,
+        openOutput, put, list, delete, copy).
     </description>
 
     <properties>
@@ -62,6 +60,41 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Sprint-21 (T21.1): abstract contract-test bases. The module ships
+            these as compile-scope deps (it IS a test library), so bringing it
+            as test scope here is correct — the abstract classes end up on our
+            test compile and test-run classpaths only. Mirrors
+            data-pipeline-gcp-gcs-java's GcsBlobStoreContractTest wiring.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Sprint-21 (T21.1): emulator-backed integration tests (*IT.java,
+            run under the parent's `it` profile via failsafe). LocalStack
+            provides a local S3-compatible endpoint; testcontainers +
+            junit-jupiter versions are managed by the testcontainers-bom in
+            the parent's dependencyManagement — do NOT pin versions here.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
