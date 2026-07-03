@@ -16,16 +16,32 @@
 
     <name>Culvert :: data-pipeline-aws-secrets (Java)</name>
     <description>
-        AWS secrets adapter for the Culvert framework. Sprint-21 module (epic #144)
-        pre-registered as a coordination seam; implementation lands via its
-        sprint ticket.
+        AWS Secrets Manager adapter for the Culvert framework. Sprint-21
+        deliverable (epic #144, T21.2): AwsSecretsManagerProvider, a
+        SecretProvider implementation that wraps
+        software.amazon.awssdk.services.secretsmanager.SecretsManagerClient.
+        Registered via java.util.ServiceLoader so consumers can wire it
+        without compile-time coupling to the AWS SDK.
     </description>
+
+    <properties>
+        <!-- Matches data-pipeline-aws-s3-java's pinned SDK version so the
+             reactor carries a single AWS SDK v2 family, and so the
+             secretsmanager jar's transitive core/regions/auth/http deps
+             line up with what aws-s3 already resolves. -->
+        <aws.sdk.version>2.25.31</aws.sdk.version>
+    </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.enrichmeai.culvert</groupId>
             <artifactId>data-pipeline-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>${aws.sdk.version}</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -46,5 +62,78 @@
             <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Sprint-15 (T15.4) style contract-test base, bound here for
+            AwsSecretsManagerProvider (T21.2). Compile-scope on its own POM,
+            test-scope here so the abstract class only lands on our test
+            classpath.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            LocalStack provides a real Secrets Manager emulator (unlike GCP,
+            which has none — see data-pipeline-gcp-secrets-java's
+            SECRETS_IT_NOTES.md), so unlike that module this one DOES start
+            a Testcontainers LocalStack container in its IT. Versions are
+            managed by the parent's testcontainers-bom; do not pin here.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!--
+                        Mirrors data-pipeline-gcp-gcs-java / gcp-secrets-java:
+                        pulling AWS SDK + testcontainers onto the test
+                        classpath can drag in annotation processors that
+                        claim none of our JUnit/Mockito annotations, which
+                        under the parent's -Xlint:all -Werror would
+                        otherwise fail the build.
+                    -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>
