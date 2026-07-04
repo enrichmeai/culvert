@@ -51,21 +51,17 @@ import java.util.Objects;
  *       "matched rows are updated" semantics), this method throws
  *       {@link UnsupportedOperationException}, matching the sprint-scope
  *       decision documented on {@code BigQueryWarehouse#merge}.</li>
- *   <li>{@link #loadFromUri}: Athena has no bulk-load API analogous to
- *       BigQuery's {@code LoadJobConfiguration} — Athena only ever reads data
- *       that already lives at a table's registered S3 location (via Glue
- *       Catalog metadata). A same-cloud "load" would require either (a)
- *       registering a temporary external table over {@code uri} and then
- *       {@code CREATE TABLE AS SELECT} into {@code targetTable} (CTAS), which
- *       needs a schema-to-DDL translation step and a throwaway-table cleanup
- *       contract not present anywhere else in this module, or (b) physically
- *       copying/moving objects into the target table's existing S3 prefix,
- *       which conflates this Warehouse adapter with BlobStore responsibilities.
- *       Both expand this method's scope well beyond "match the pilot's
- *       adaptation patterns" for one sprint ticket, so this throws
- *       {@link UnsupportedOperationException} rather than faking a partial
- *       implementation. Tracked for a future sprint alongside real-AWS
- *       validation (see below).</li>
+ *   <li>{@link #loadFromUri} (implemented Sprint 22): Athena has no bulk-load
+ *       API analogous to BigQuery's {@code LoadJobConfiguration}, so the load
+ *       is the native Athena idiom — a run-scoped all-string external table
+ *       (OpenCSVSerde) registered over the staging prefix, a typed
+ *       {@code INSERT INTO target SELECT CAST(...)} projection, a
+ *       {@code COUNT(*)} for the loaded-row count, and a {@code DROP TABLE}
+ *       in a finally block. The DROP is best-effort: if cleanup fails, the
+ *       orphaned staging table is Glue metadata only (the staged data at
+ *       {@code uri} is never owned by it) and is logged-and-swallowed rather
+ *       than masking the load result. CSV only, headerless staged objects —
+ *       mirroring {@code BigQueryWarehouse#loadFromUri}.</li>
  *   <li>{@link #query} / {@link #execute}: the {@code params} named-binding
  *       argument is rejected (throws {@link IllegalArgumentException}) when
  *       non-empty. Athena's {@code StartQueryExecution} has no named-parameter
@@ -184,19 +180,189 @@ public final class AthenaWarehouse implements Warehouse {
         Objects.requireNonNull(uri, "uri must not be null");
         Objects.requireNonNull(targetTable, "targetTable must not be null");
         Objects.requireNonNull(schema, "schema must not be null");
-        // See the class Javadoc "Honest limitations" section: a same-cloud
-        // load requires either a CTAS-over-external-table translation step or
-        // conflating this adapter with BlobStore responsibilities. Neither
-        // fits sprint-21 scope, so this is an honest UnsupportedOperationException
-        // rather than a faked partial implementation.
-        throw new UnsupportedOperationException(
-                "loadFromUri() is not supported by AthenaWarehouse: Athena has no bulk-load API "
-                        + "analogous to BigQuery's LoadJobConfiguration — it only reads data already "
-                        + "registered at a table's Glue Catalog S3 location. Use a CTAS "
-                        + "(CREATE TABLE ... AS SELECT ... FROM <external table over the uri>) via "
-                        + "execute(String, Map) if you control the schema translation, or load the "
-                        + "object via a BlobStore + register/ALTER TABLE ADD PARTITION out of band. "
-                        + "Tracked at https://github.com/enrichmeai/culvert/issues/149");
+
+        // Athena has no bulk-load API analogous to BigQuery's
+        // LoadJobConfiguration — it only reads data already registered at an
+        // S3 location. The native load idiom (implemented here, Sprint 22) is:
+        //   1. CREATE EXTERNAL TABLE over the staging prefix that contains the
+        //      object at {@code uri} — SerDe chosen by suffix, mirroring
+        //      BigQueryWarehouse#guessFormat: .csv/.csv.gz -> all-string
+        //      OpenCSVSerde (typed via CAST in step 2); anything else,
+        //      including the ingestion runner's .ndjson staging files,
+        //      -> typed columns + JsonSerDe (the pilot's default is JSON too);
+        //   2. INSERT INTO target SELECT — CAST projection for the CSV path,
+        //      direct column projection for the JSON path;
+        //   3. COUNT(*) on the staging table for the loaded-row count (Athena's
+        //      QueryExecutionStatistics carries no row count — same follow-up
+        //      pattern as copy());
+        //   4. DROP the staging table in a finally block.
+        String location = toDirectoryLocation(uri);
+        String stagingTable = stagingTableName(targetTable);
+        String qualifiedStaging = database + "." + stagingTable;
+        boolean csv = isCsv(uri);
+
+        submitAndWait(csv
+                ? buildExternalTableDdl(qualifiedStaging, schema, location)
+                : buildJsonExternalTableDdl(qualifiedStaging, schema, location));
+        try {
+            submitAndWait(csv
+                    ? buildTypedInsert(targetTable, qualifiedStaging, schema)
+                    : buildDirectInsert(targetTable, qualifiedStaging, schema));
+
+            String countSql = "SELECT COUNT(*) AS row_count FROM " + qualifiedStaging;
+            Iterator<Map<String, Object>> countRows = streamRows(submitAndWait(countSql));
+            if (!countRows.hasNext()) {
+                return 0L;
+            }
+            Object value = countRows.next().get("row_count");
+            return value == null ? 0L : Long.parseLong(value.toString());
+        } finally {
+            // Best-effort cleanup: a failed DROP must not mask the load result
+            // (or the original failure) — the staging table is external, so
+            // dropping it never touches the staged data at {@code uri}.
+            try {
+                submitAndWait("DROP TABLE IF EXISTS " + qualifiedStaging);
+            } catch (RuntimeException cleanupFailure) {
+                // Deliberately swallowed; the orphaned staging table is
+                // metadata-only and harmless. Documented in the class Javadoc.
+            }
+        }
+    }
+
+    /**
+     * Athena external tables take a directory {@code LOCATION}, not a single
+     * object key. If {@code uri} names an object ({@code .../file.csv}), the
+     * containing prefix is used — the ingestion pipeline stages exactly one
+     * object per run-scoped prefix, so the prefix and the object are
+     * equivalent. A trailing-slash URI is used as-is.
+     */
+    private static String toDirectoryLocation(String uri) {
+        if (uri.endsWith("/")) {
+            return uri;
+        }
+        int lastSlash = uri.lastIndexOf('/');
+        // s3://bucket/key... — the last slash of a bare bucket URI is the
+        // scheme's; keep the URI whole in that case.
+        if (lastSlash <= "s3://".length()) {
+            return uri.endsWith("/") ? uri : uri + "/";
+        }
+        return uri.substring(0, lastSlash + 1);
+    }
+
+    /** Run-scoped staging table name derived from the target's simple name. */
+    private static String stagingTableName(String targetTable) {
+        String simple = targetTable.substring(targetTable.lastIndexOf('.') + 1);
+        return simple + "_load_" + Long.toUnsignedString(System.nanoTime(), 36);
+    }
+
+    /** Suffix-driven format detection, mirroring BigQueryWarehouse#guessFormat. */
+    private static boolean isCsv(String uri) {
+        String lower = uri.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".csv") || lower.endsWith(".csv.gz");
+    }
+
+    /**
+     * Typed external table + JsonSerDe for NDJSON staging files (the
+     * ingestion runner's format and, mirroring the pilot, the default for
+     * unknown suffixes). JsonSerDe maps JSON values onto the declared column
+     * types directly, so no CAST projection is needed.
+     */
+    private static String buildJsonExternalTableDdl(
+            String qualifiedStaging, EntitySchema schema, String location) {
+        StringBuilder ddl = new StringBuilder("CREATE EXTERNAL TABLE ")
+                .append(qualifiedStaging).append(" (");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                ddl.append(", ");
+            }
+            ddl.append('`').append(schema.fields().get(i).name()).append("` ")
+                    .append(toAthenaType(schema.fields().get(i).type()));
+        }
+        ddl.append(") ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe' ")
+                .append("LOCATION '").append(location).append('\'');
+        return ddl.toString();
+    }
+
+    /** Direct column projection for the typed (JSON) staging table. */
+    private static String buildDirectInsert(
+            String targetTable, String qualifiedStaging, EntitySchema schema) {
+        StringBuilder insert = new StringBuilder("INSERT INTO ").append(targetTable)
+                .append(" SELECT ");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                insert.append(", ");
+            }
+            insert.append('`').append(schema.fields().get(i).name()).append('`');
+        }
+        insert.append(" FROM ").append(qualifiedStaging);
+        return insert.toString();
+    }
+
+    /**
+     * All-string external table over the staging location. OpenCSVSerde is the
+     * quoting-safe CSV SerDe but reads every column as {@code string}; the
+     * typed projection happens in {@link #buildTypedInsert}.
+     */
+    private static String buildExternalTableDdl(
+            String qualifiedStaging, EntitySchema schema, String location) {
+        StringBuilder ddl = new StringBuilder("CREATE EXTERNAL TABLE ")
+                .append(qualifiedStaging).append(" (");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                ddl.append(", ");
+            }
+            ddl.append('`').append(schema.fields().get(i).name()).append("` string");
+        }
+        ddl.append(") ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.OpenCSVSerde' ")
+                .append("LOCATION '").append(location).append('\'');
+        return ddl.toString();
+    }
+
+    /** Typed INSERT INTO target from the all-string staging table. */
+    private static String buildTypedInsert(
+            String targetTable, String qualifiedStaging, EntitySchema schema) {
+        StringBuilder insert = new StringBuilder("INSERT INTO ").append(targetTable)
+                .append(" SELECT ");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                insert.append(", ");
+            }
+            String name = '`' + schema.fields().get(i).name() + '`';
+            String athenaType = toAthenaType(schema.fields().get(i).type());
+            if ("varchar".equals(athenaType)) {
+                insert.append(name);
+            } else {
+                insert.append("CAST(").append(name).append(" AS ").append(athenaType).append(')');
+            }
+        }
+        insert.append(" FROM ").append(qualifiedStaging);
+        return insert.toString();
+    }
+
+    /**
+     * Wire-type → Athena SQL type for the typed projection. The wire types are
+     * the contract's ({@code docs/CONTRACT.md} EntitySchema): STRING, INT64,
+     * FLOAT64, BOOL, DATE, TIMESTAMP. Unknown types degrade to varchar rather
+     * than failing the load — the DataQualityTransform upstream is the schema
+     * enforcement point, not this projection.
+     */
+    private static String toAthenaType(String wireType) {
+        switch (wireType == null ? "" : wireType.toUpperCase(java.util.Locale.ROOT)) {
+            case "INT64":
+                return "bigint";
+            case "FLOAT64":
+                return "double";
+            case "BOOL":
+            case "BOOLEAN":
+                return "boolean";
+            case "DATE":
+                return "date";
+            case "TIMESTAMP":
+                return "timestamp";
+            case "STRING":
+            default:
+                return "varchar";
+        }
     }
 
     @Override

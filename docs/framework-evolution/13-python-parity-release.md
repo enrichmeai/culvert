@@ -52,8 +52,9 @@ is green** (Joseph, 2026-07):
 Java 0.1.0 and the Python parity are **built and frozen** (`java-0.1.0`), but neither
 publishes on its own and the book does not ship ahead of the libraries. Steps 1–3
 are a real deploy-and-test phase, not a paperwork gate — the deployment guides under
-`docs/` support it and are kept/updated (not retired) for that reason. Legacy
-`gcp-pipeline-framework` is deprecate-in-place throughout.
+`docs/` support it and are kept/updated (not retired) for that reason. The earlier
+GCP-only iteration is **quietly retired** (decision 2026-07): no cross-referencing
+from Culvert's public materials — one brand, one story.
 
 - Publish is **from git / GitHub Actions** for both ecosystems (per Joseph):
   Maven Central via the existing `release` profile (gpg + central-publishing),
@@ -132,12 +133,16 @@ within ~30 min; worktrees pre-created off the sprint branch per `CLAUDE.md`).
 - E3: Coordinated-release runbook update in `RELEASE.md` (Maven + PyPI in one
   procedure).
 
-**F. Legacy disposition (deprecate-in-place — NOT delete)**
-- F1: Final `gcp-pipeline-framework` release: README = deprecation banner
-  pointing to `culvert`, "no further updates".
-- F2: Yank legacy releases so new `pip install` resolution skips them; existing
-  pins keep working. **Do not hard-delete** (irreversible, version numbers
-  unreusable, breaks pinned dependents for zero benefit).
+**F. Legacy disposition (QUIET RETIREMENT — revised 2026-07)**
+- The earlier GCP-only iteration is dropped from the public story entirely: **no
+  final pointer release, no deprecation banner naming Culvert** (either would
+  publicly link the two brands, contradicting the one-brand decision). The old
+  PyPI packages are left as-is to age out; existing pins keep working.
+- F1: Remove its remaining trees from this repo (`gcp-pipeline-libraries/`,
+  the `gcp_pipeline_*` egg-info, the bundled copies inside
+  `data-pipeline-framework/src/`) as part of the legacy cleanup.
+- **Do not hard-delete from PyPI** (irreversible, version numbers unreusable,
+  breaks pinned dependents for zero benefit). Quiet is the point.
 
 **G. Docs / CHANGELOG**
 - G1: Reframe the `0.1.0` CHANGELOG entry — Java is **built and held for the

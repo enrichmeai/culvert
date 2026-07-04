@@ -21,7 +21,7 @@
 
     <groupId>com.enrichmeai.culvert.deployments</groupId>
     <artifactId>original-data-to-bigqueryload-java</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <name>Culvert :: deployment :: original-data-to-bigqueryload (Java)</name>
@@ -43,6 +43,7 @@
 
         <!-- Pin to same versions as data-pipeline-libraries-java parent / reference-e2e-gcp. -->
         <culvert.version>0.1.0</culvert.version>
+        <testcontainers.version>1.19.8</testcontainers.version>
         <beam.version>2.55.0</beam.version>
         <slf4j.version>2.0.13</slf4j.version>
         <junit.version>5.10.2</junit.version>
@@ -69,6 +70,24 @@
         <dependency>
             <groupId>com.enrichmeai.culvert</groupId>
             <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <!-- AWS adapter family for the cloud=aws switch (Sprint 22): the SAME
+             IngestionRunner runs against S3/Athena/DynamoDB, which is the
+             cloud-agnostic seam this deployment exists to demonstrate. -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-s3</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-athena</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-dynamodb</artifactId>
             <version>${culvert.version}</version>
         </dependency>
         <!-- Test-only: PipelineToDagSpec/DagSpec, used by IngestionStageTest to prove
@@ -127,6 +146,22 @@
             <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Cross-cloud IT: the same IngestionRunner against REAL S3 + REAL
+             DynamoDB via LocalStack (Athena has no community-LocalStack
+             emulation; that leg is covered by AthenaWarehouseTest + a
+             recording warehouse here). Runs under the `it` profile only. -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>localstack</artifactId>
+            <version>${testcontainers.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -165,10 +200,49 @@
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <mainClass>com.enrichmeai.culvert.deployments.ingestion.IngestionMain</mainClass>
+                            <!-- AWS SDK jars are signed; their signature files
+                                 are invalid in a fat jar and must be stripped
+                                 (standard shade signature exclusion). -->
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- Mirrors the reactor's `it` profile: *IT.java runs only under
+             `mvn -P it verify` (Docker required for LocalStack). -->
+        <profile>
+            <id>it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.2.5</version>
+                        <executions>
+                            <execution>
+                                <id>integration-tests</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
