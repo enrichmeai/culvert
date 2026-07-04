@@ -24,7 +24,7 @@
 
     <groupId>com.enrichmeai.culvert.deployments</groupId>
     <artifactId>reference-e2e-gcp</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0</version>
     <packaging>jar</packaging>
 
     <name>Culvert :: deployment :: reference-e2e-gcp (skeleton)</name>

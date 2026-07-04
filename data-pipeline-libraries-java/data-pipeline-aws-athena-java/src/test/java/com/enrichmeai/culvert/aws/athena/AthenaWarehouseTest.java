@@ -460,6 +460,42 @@ class AthenaWarehouseTest {
     }
 
     @Test
+    void loadFromUriUsesTypedJsonSerdeForNdjsonStagingFiles() {
+        // The ingestion runner stages .ndjson (IngestionRunner: stagingUri =
+        // prefix/entity/runId.ndjson) — mirroring BigQueryWarehouse#guessFormat,
+        // non-CSV suffixes take the JSON path: typed columns + JsonSerDe,
+        // direct (uncast) projection.
+        stubStartAndSucceed();
+        when(client.getQueryResults(any(GetQueryResultsRequest.class)))
+                .thenReturn(singlePageResult("row_count", "2"));
+        EntitySchema schema = EntitySchema.of("customer", List.of(
+                com.enrichmeai.culvert.schema.SchemaField.nullable("customer_id", "INT64"),
+                com.enrichmeai.culvert.schema.SchemaField.nullable("full_name", "STRING")));
+
+        long loaded = warehouse.loadFromUri(
+                "s3://staging-bucket/staging/customers/run-1.ndjson", "odp.customers", schema);
+
+        assertThat(loaded).isEqualTo(2L);
+        ArgumentCaptor<StartQueryExecutionRequest> captor =
+                ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
+        verify(client, times(4)).startQueryExecution(captor.capture());
+        String ddl = captor.getAllValues().get(0).queryString();
+        String insert = captor.getAllValues().get(1).queryString();
+        assertThat(ddl).contains("`customer_id` bigint, `full_name` varchar")
+                .contains("org.openx.data.jsonserde.JsonSerDe")
+                .contains("LOCATION 's3://staging-bucket/staging/customers/'");
+        assertThat(insert)
+                .isEqualTo("INSERT INTO odp.customers SELECT `customer_id`, `full_name` "
+                        + "FROM analytics." + stagingNameFrom(insert));
+        assertThat(insert).doesNotContain("CAST(");
+    }
+
+    private static String stagingNameFrom(String insert) {
+        int from = insert.indexOf("analytics.") + "analytics.".length();
+        return insert.substring(from);
+    }
+
+    @Test
     void loadFromUriUsesTrailingSlashUriAsLocationDirectly() {
         stubStartAndSucceed();
         when(client.getQueryResults(any(GetQueryResultsRequest.class)))
