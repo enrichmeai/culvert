@@ -119,3 +119,4 @@ docs/COPILOT_NEXT_SESSION_PROMPT.md
 venv*/
 .venv*/
 infrastructure/terraform/systems/generic/.terraform.lock.hcl
+dependency-reduced-pom.xml
