@@ -184,23 +184,30 @@ public final class AthenaWarehouse implements Warehouse {
         // Athena has no bulk-load API analogous to BigQuery's
         // LoadJobConfiguration — it only reads data already registered at an
         // S3 location. The native load idiom (implemented here, Sprint 22) is:
-        //   1. CREATE EXTERNAL TABLE (all columns string, OpenCSVSerde) over
-        //      the staging prefix that contains the object at {@code uri};
-        //   2. INSERT INTO target SELECT CAST(...) — the typed projection is
-        //      where the wire types are enforced (OpenCSVSerde reads strings);
+        //   1. CREATE EXTERNAL TABLE over the staging prefix that contains the
+        //      object at {@code uri} — SerDe chosen by suffix, mirroring
+        //      BigQueryWarehouse#guessFormat: .csv/.csv.gz -> all-string
+        //      OpenCSVSerde (typed via CAST in step 2); anything else,
+        //      including the ingestion runner's .ndjson staging files,
+        //      -> typed columns + JsonSerDe (the pilot's default is JSON too);
+        //   2. INSERT INTO target SELECT — CAST projection for the CSV path,
+        //      direct column projection for the JSON path;
         //   3. COUNT(*) on the staging table for the loaded-row count (Athena's
         //      QueryExecutionStatistics carries no row count — same follow-up
         //      pattern as copy());
         //   4. DROP the staging table in a finally block.
-        // Mirrors BigQueryWarehouse#loadFromUri semantics: staged objects are
-        // headerless data rows (the pilot sets no skipLeadingRows), CSV only.
         String location = toDirectoryLocation(uri);
         String stagingTable = stagingTableName(targetTable);
         String qualifiedStaging = database + "." + stagingTable;
+        boolean csv = isCsv(uri);
 
-        submitAndWait(buildExternalTableDdl(qualifiedStaging, schema, location));
+        submitAndWait(csv
+                ? buildExternalTableDdl(qualifiedStaging, schema, location)
+                : buildJsonExternalTableDdl(qualifiedStaging, schema, location));
         try {
-            submitAndWait(buildTypedInsert(targetTable, qualifiedStaging, schema));
+            submitAndWait(csv
+                    ? buildTypedInsert(targetTable, qualifiedStaging, schema)
+                    : buildDirectInsert(targetTable, qualifiedStaging, schema));
 
             String countSql = "SELECT COUNT(*) AS row_count FROM " + qualifiedStaging;
             Iterator<Map<String, Object>> countRows = streamRows(submitAndWait(countSql));
@@ -246,6 +253,49 @@ public final class AthenaWarehouse implements Warehouse {
     private static String stagingTableName(String targetTable) {
         String simple = targetTable.substring(targetTable.lastIndexOf('.') + 1);
         return simple + "_load_" + Long.toUnsignedString(System.nanoTime(), 36);
+    }
+
+    /** Suffix-driven format detection, mirroring BigQueryWarehouse#guessFormat. */
+    private static boolean isCsv(String uri) {
+        String lower = uri.toLowerCase(java.util.Locale.ROOT);
+        return lower.endsWith(".csv") || lower.endsWith(".csv.gz");
+    }
+
+    /**
+     * Typed external table + JsonSerDe for NDJSON staging files (the
+     * ingestion runner's format and, mirroring the pilot, the default for
+     * unknown suffixes). JsonSerDe maps JSON values onto the declared column
+     * types directly, so no CAST projection is needed.
+     */
+    private static String buildJsonExternalTableDdl(
+            String qualifiedStaging, EntitySchema schema, String location) {
+        StringBuilder ddl = new StringBuilder("CREATE EXTERNAL TABLE ")
+                .append(qualifiedStaging).append(" (");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                ddl.append(", ");
+            }
+            ddl.append('`').append(schema.fields().get(i).name()).append("` ")
+                    .append(toAthenaType(schema.fields().get(i).type()));
+        }
+        ddl.append(") ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe' ")
+                .append("LOCATION '").append(location).append('\'');
+        return ddl.toString();
+    }
+
+    /** Direct column projection for the typed (JSON) staging table. */
+    private static String buildDirectInsert(
+            String targetTable, String qualifiedStaging, EntitySchema schema) {
+        StringBuilder insert = new StringBuilder("INSERT INTO ").append(targetTable)
+                .append(" SELECT ");
+        for (int i = 0; i < schema.fields().size(); i++) {
+            if (i > 0) {
+                insert.append(", ");
+            }
+            insert.append('`').append(schema.fields().get(i).name()).append('`');
+        }
+        insert.append(" FROM ").append(qualifiedStaging);
+        return insert.toString();
     }
 
     /**
