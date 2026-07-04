@@ -118,26 +118,33 @@ architectural difference between the two backends, and the difference resolved i
 DynamoDB's favour for this one property. That is exactly what a contract-driven
 design is supposed to surface.
 
-## Where AWS still isn't done
+## The same pipeline, two clouds
 
-Two AWS modules are registered but empty: `data-pipeline-aws-athena-java` and
-`data-pipeline-aws-cloudwatch-java`. Both exist in the reactor's `pom.xml` as
-pre-registered coordination seams — the same pattern used for every wave of
-GCP modules in this book — and both are in progress in parallel with the rest of
-Sprint 21, not yet landed as this chapter goes to print.
+The claim this chapter has been building towards is now executable. The
+ingestion deployment's launcher takes a `--cloud` flag: `gcp` (the default)
+wires `GcsBlobStore` + `BigQueryWarehouse` + `BigQueryJobControlRepository`;
+`--cloud=aws` wires `S3BlobStore` + `AthenaWarehouse` +
+`DynamoDbJobControlRepository`. The `IngestionStage` and `IngestionRunner`
+underneath — envelope parse, validate, stage, load, quarantine, reconcile,
+job control — are byte-identical on both paths. Swapping clouds changes which
+constructors run in `main()`. Nothing else.
 
-`Warehouse` against Athena is the harder of the two, for a boring infrastructure
-reason: unlike S3, SQS, Secrets Manager, and DynamoDB, there is no mature
-community LocalStack implementation of Athena to integration-test against. The
-adapter is being built and mock-tested against the AWS SDK client directly; real-AWS
-validation is still pending. That is a meaningfully different confidence level than
-`S3BlobStoreLocalStackIT` or `SqsLocalStackIT` running against a real (if emulated)
-service, and I am not going to blur that distinction in the text.
-
-CloudWatch hooks — the `ObservabilityHook`/`StageMetricsHook` analog of
-`CloudMonitoringMetricsHook`/`CloudTraceObservabilityHook` — are the more
-mechanical of the two remaining pieces; the mapping is closer to one-for-one with
-the GCP observability module.
+And that is not a diagram claim; it is a test.
+`CrossCloudIngestionLocalStackIT` runs the *same* `IngestionRunner` the GCP
+deployment uses against a **real** S3 API and a **real** DynamoDB (LocalStack):
+the HDR/TRL source file is seeded through `S3BlobStore` itself, the staged
+NDJSON really lands in an S3 bucket, and the job-control transitions — with
+DynamoDB's conditional writes enforcing them atomically — are read back
+through the same repository that wrote them. The `Warehouse` leg uses a
+recording stand-in there, because community LocalStack has no Athena; the
+Athena load path itself (a run-scoped external table over the staging prefix,
+a typed `INSERT INTO ... SELECT`, a `COUNT(*)`, and a best-effort `DROP` —
+suffix-driven between OpenCSVSerde for CSV and JsonSerDe for the runner's
+NDJSON staging files, mirroring the pilot's format detection) is covered by
+its own mocked-client suite, with real-AWS validation reserved for the cloud
+deploy phase. I am not going to blur those two confidence levels — but the
+architectural claim, *same pipeline, adapter swap*, runs green on both clouds
+today.
 
 Also explicitly out of scope for Sprint 21, and worth stating plainly rather than
 letting it be assumed: an AWS execution layer. Apache Beam is runner-portable by
@@ -162,10 +169,11 @@ fifteen are:
 `Warehouse`. (There is also `StageMetrics`, which is a value type carried through the
 pipeline, not an adapter contract — the seam is sixteen.)
 
-AWS now implements five of those sixteen: `BlobStore` (S3), `SecretProvider`
-(Secrets Manager), `Source` and `Sink` (SQS), and `JobControlRepository`
-(DynamoDB) — with `Warehouse` (Athena) and the observability pair (CloudWatch)
-in progress, which would bring the count to eight. Azure implements one:
+AWS now implements eight of those sixteen: `BlobStore` (S3), `SecretProvider`
+(Secrets Manager), `Source` and `Sink` (SQS), `JobControlRepository`
+(DynamoDB), `Warehouse` (Athena, including the external-table load path), and
+`ObservabilityHook` + `StageMetricsHook` (CloudWatch, same metric names and
+label schema as the GCP hooks). Azure implements one:
 `BlobStore`, and at one of its eight methods. The GCP family covers the
 cloud-specific seams in full: six adapter modules implementing `BlobStore` (GCS),
 `Warehouse` + `AuditEventPublisher` + `FinOpsSink` + `JobControlRepository`
@@ -204,7 +212,7 @@ slot-aware cost predicates — live in
 `data-pipeline-gcp-bigquery-java/.../BigQueryWarehouse.java` and are not in
 `Warehouse`\index{Warehouse}. The `Warehouse` contract covers the lowest common
 denominator that any serious data warehouse supports, and nothing more — and that
-same discipline is what the in-progress `AthenaWarehouse` adapter is being held to.
+same discipline is what the `AthenaWarehouse` adapter is held to.
 
 The non-goal is a lowest-common-denominator warehouse. If you need BigQuery's
 materialised views or partition pruning, you call `BigQueryWarehouse` directly and
@@ -243,9 +251,7 @@ then some — the conditional-write control plane described above is the
 architectural payoff the estimate anticipated, delivered as a genuine improvement
 rather than a like-for-like port.
 
-What is left for a *complete* AWS family: `Warehouse` (Athena — in progress, mock-tested,
-real-AWS validation pending), the observability pair (CloudWatch — in progress),
-`AuditEventPublisher` and `FinOpsSink` (not yet started; likely SNS/SQS and an
+What is left for a *complete* AWS family: real-AWS validation of the Athena leg (mock-tested today — no community LocalStack), `AuditEventPublisher` and `FinOpsSink` (not yet started; likely SNS/SQS and an
 S3 `put` respectively, similarly scoped to what shipped this sprint), and an
 execution adapter — Beam on EMR or an equivalent runner — which remains the
 heaviest piece and is explicitly out of scope for this block. A complete AWS
@@ -316,25 +322,28 @@ today. The abstraction held: no leak surfaced that required revising the
 `AwsSecretsManagerProvider` follow the same handshake pattern against their own
 contract test bases.
 
-`DynamoDbJobControlRepository` is presently unit- and mocked-client-tested rather
-than run against a LocalStack-backed `JobControlRepositoryContractTest`; a
-DynamoDB LocalStack IT is tracked as in-progress alongside the Athena and
-CloudWatch work, the same way the S3 and SQS LocalStack ITs preceded this
-chapter's rewrite. The `WarehouseContractTest` and `SecretProviderContractTest`
-in the same module follow the same extend-provide-run pattern once
-`AthenaWarehouse` lands.
+`DynamoDbJobControlRepository` has its own LocalStack integration suite
+(`DynamoDbJobControlLocalStackIT`) proving the conditional-write guarantees
+against real DynamoDB semantics — duplicate creates and transitions-on-missing
+are rejected atomically, not just in a mock's imagination.
+`AthenaWarehouseContractTest` and `AwsSecretManagerContractTest` bind the shared
+`WarehouseContractTest`/`SecretProviderContractTest` suites the same
+extend-provide-run way.
 
 ## The honest summary
 
-AWS is no longer "one skeleton class." It is a real adapter family covering five
+AWS is no longer "one skeleton class." It is a real adapter family covering eight
 of sixteen contracts — `BlobStore` (S3, all eight methods), `SecretProvider`
-(Secrets Manager), `Source`/`Sink` (SQS), and `JobControlRepository` (DynamoDB,
-with a transactional control plane BigQuery cannot structurally match) — built,
-unit-tested, and partially LocalStack-integration-tested in Sprint 21 (epic #144).
-Two more contracts, `Warehouse` (Athena) and the observability pair (CloudWatch),
-are in progress in the same sprint; Athena in particular is mock-tested only, for
-the honest reason that no mature community LocalStack Athena implementation
-exists yet to validate against. An AWS execution layer and Python-side AWS parity
+(Secrets Manager), `Source`/`Sink` (SQS), `JobControlRepository` (DynamoDB,
+with a transactional control plane BigQuery cannot structurally match),
+`Warehouse` (Athena, including the external-table load path), and
+`ObservabilityHook`/`StageMetricsHook` (CloudWatch) — built, unit-tested, and
+LocalStack-integration-tested where community LocalStack reaches (S3, SQS,
+Secrets Manager, DynamoDB, CloudWatch); Athena is mock-tested only, for the
+honest reason that no community LocalStack Athena exists to validate against,
+and its real-AWS validation is reserved for the cloud deploy phase. The same
+ingestion pipeline runs on both clouds via an adapter swap, and a LocalStack
+integration test proves it. An AWS execution layer and Python-side AWS parity
 are explicitly out of scope for this block.
 
 Azure is exactly where it was: a single skeleton class, one of eight `BlobStore`
@@ -387,26 +396,29 @@ sentences are true and none of them cancels the others.
         \texttt{BlobStore.exists()}; the remaining seven methods throw
         \texttt{UnsupportedOperationException}. It remains proof that the seam
         compiles across clouds, not a production adapter.
-  \item \textbf{Two AWS contracts are in progress, not done}: \texttt{Warehouse}
-        via Athena (mock-tested only — no mature community LocalStack Athena
-        exists, so real-AWS validation is still pending) and the observability
-        pair via CloudWatch. An AWS execution layer (Beam on EMR/Flink) and
-        Python-side AWS parity are explicitly out of scope for this block.
+  \item \textbf{The same pipeline runs on both clouds} — the ingestion
+        launcher's \texttt{--cloud} flag swaps the adapter family
+        (GCS/BigQuery vs S3/Athena/DynamoDB) under a byte-identical
+        \texttt{IngestionRunner}, and \texttt{CrossCloudIngestionLocalStackIT}
+        proves the AWS path against real S3 and real DynamoDB. The one honest
+        caveat: the Athena leg is mock-tested (no community LocalStack Athena);
+        its real-AWS validation lands with the cloud deploy phase. An AWS
+        execution layer (Beam on EMR/Flink) and Python-side AWS parity are
+        explicitly out of scope for this block; \textbf{Azure is explicitly
+        later}.
   \item There are \textbf{sixteen contracts} in
         \texttt{data-pipeline-core-java/.../contracts/}. The cloud-specific seams
-        have a full GCP family across six modules. AWS now covers five of the
-        eleven cloud-specific contracts (soon seven); Azure covers one, at one
-        of eight methods. The cloud-neutral contracts
-        (\texttt{GovernancePolicy}, \texttt{RuntimeContext}) have core
+        have a full GCP family across six modules. AWS now covers eight of
+        sixteen; Azure covers one, at one of eight methods. The cloud-neutral
+        contracts (\texttt{GovernancePolicy}, \texttt{RuntimeContext}) have core
         implementations that work on any cloud.
-  \item The Sprint-21 AWS build \textbf{validated the first edition's estimates}:
+  \item The AWS build \textbf{validated the first edition's estimates}:
         days for \texttt{SecretProvider}, about a week for the remaining
         \texttt{BlobStore} methods, "architectural, not mechanical" for
         DynamoDB's \texttt{JobControlRepository}. The contract test harness
-        (\texttt{BlobStoreContractTest}, and in progress,
-        \texttt{JobControlRepositoryContractTest} against DynamoDB) validated
-        the new adapters against the same behavioural specification GCP
-        adapters pass today.
+        (\texttt{BlobStoreContractTest}, \texttt{WarehouseContractTest},
+        \texttt{SecretProviderContractTest}) validated the new adapters against
+        the same behavioural specification the GCP adapters pass today.
   \item \textbf{Enabled, built, and published are three different states.}
         \texttt{AutoConfig} discovers installed adapters at boot via Java
         \texttt{ServiceLoader} — register an impl under

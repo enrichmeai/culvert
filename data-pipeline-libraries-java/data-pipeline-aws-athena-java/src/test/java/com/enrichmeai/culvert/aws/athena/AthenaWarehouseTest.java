@@ -400,11 +400,116 @@ class AthenaWarehouseTest {
     }
 
     @Test
-    void loadFromUriThrowsUnsupportedOperationException() {
-        EntitySchema schema = EntitySchema.of("customer", List.of());
-        assertThatThrownBy(() -> warehouse.loadFromUri("s3://bucket/data.parquet", "t", schema))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("bulk-load");
+    void loadFromUriRunsExternalTableInsertCountDropSequence() {
+        stubStartAndSucceed();
+        when(client.getQueryResults(any(GetQueryResultsRequest.class)))
+                .thenReturn(singlePageResult("row_count", "7"));
+        EntitySchema schema = EntitySchema.of("customer", List.of(
+                com.enrichmeai.culvert.schema.SchemaField.nullable("customer_id", "INT64"),
+                com.enrichmeai.culvert.schema.SchemaField.nullable("full_name", "STRING")));
+
+        long loaded = warehouse.loadFromUri(
+                "s3://landing/staging/run-1/customers.csv", "odp.customers", schema);
+
+        assertThat(loaded).isEqualTo(7L);
+        ArgumentCaptor<StartQueryExecutionRequest> captor =
+                ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
+        verify(client, times(4)).startQueryExecution(captor.capture());
+        String ddl = captor.getAllValues().get(0).queryString();
+        String insert = captor.getAllValues().get(1).queryString();
+        String count = captor.getAllValues().get(2).queryString();
+        String drop = captor.getAllValues().get(3).queryString();
+        // 1. All-string external table over the CONTAINING PREFIX (not the object).
+        assertThat(ddl).startsWith("CREATE EXTERNAL TABLE analytics.customers_load_")
+                .contains("`customer_id` string, `full_name` string")
+                .contains("OpenCSVSerde")
+                .contains("LOCATION 's3://landing/staging/run-1/'");
+        // 2. Typed projection: INT64 -> CAST bigint; STRING passes through uncast.
+        assertThat(insert).startsWith("INSERT INTO odp.customers SELECT ")
+                .contains("CAST(`customer_id` AS bigint)")
+                .contains(", `full_name` FROM analytics.customers_load_");
+        // 3+4. Row count then best-effort cleanup.
+        assertThat(count).startsWith("SELECT COUNT(*) AS row_count FROM analytics.customers_load_");
+        assertThat(drop).startsWith("DROP TABLE IF EXISTS analytics.customers_load_");
+    }
+
+    @Test
+    void loadFromUriDropsStagingTableEvenWhenInsertFails() {
+        // CREATE succeeds; INSERT fails; DROP must still run and the original
+        // failure must propagate (not be masked by cleanup).
+        stubStartAndSucceed();
+        when(client.startQueryExecution(any(StartQueryExecutionRequest.class)))
+                .thenReturn(StartQueryExecutionResponse.builder()
+                        .queryExecutionId(QUERY_EXECUTION_ID).build())     // CREATE EXTERNAL
+                .thenThrow(new RuntimeException("insert exploded"))        // INSERT
+                .thenReturn(StartQueryExecutionResponse.builder()
+                        .queryExecutionId(QUERY_EXECUTION_ID).build());    // DROP
+        EntitySchema schema = EntitySchema.of("customer",
+                List.of(com.enrichmeai.culvert.schema.SchemaField.nullable("id", "INT64")));
+
+        assertThatThrownBy(() ->
+                warehouse.loadFromUri("s3://landing/run-2/x.csv", "odp.t", schema))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("insert exploded");
+
+        ArgumentCaptor<StartQueryExecutionRequest> captor =
+                ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
+        verify(client, times(3)).startQueryExecution(captor.capture());
+        assertThat(captor.getAllValues().get(2).queryString())
+                .startsWith("DROP TABLE IF EXISTS ");
+    }
+
+    @Test
+    void loadFromUriUsesTypedJsonSerdeForNdjsonStagingFiles() {
+        // The ingestion runner stages .ndjson (IngestionRunner: stagingUri =
+        // prefix/entity/runId.ndjson) — mirroring BigQueryWarehouse#guessFormat,
+        // non-CSV suffixes take the JSON path: typed columns + JsonSerDe,
+        // direct (uncast) projection.
+        stubStartAndSucceed();
+        when(client.getQueryResults(any(GetQueryResultsRequest.class)))
+                .thenReturn(singlePageResult("row_count", "2"));
+        EntitySchema schema = EntitySchema.of("customer", List.of(
+                com.enrichmeai.culvert.schema.SchemaField.nullable("customer_id", "INT64"),
+                com.enrichmeai.culvert.schema.SchemaField.nullable("full_name", "STRING")));
+
+        long loaded = warehouse.loadFromUri(
+                "s3://staging-bucket/staging/customers/run-1.ndjson", "odp.customers", schema);
+
+        assertThat(loaded).isEqualTo(2L);
+        ArgumentCaptor<StartQueryExecutionRequest> captor =
+                ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
+        verify(client, times(4)).startQueryExecution(captor.capture());
+        String ddl = captor.getAllValues().get(0).queryString();
+        String insert = captor.getAllValues().get(1).queryString();
+        assertThat(ddl).contains("`customer_id` bigint, `full_name` varchar")
+                .contains("org.openx.data.jsonserde.JsonSerDe")
+                .contains("LOCATION 's3://staging-bucket/staging/customers/'");
+        assertThat(insert)
+                .isEqualTo("INSERT INTO odp.customers SELECT `customer_id`, `full_name` "
+                        + "FROM analytics." + stagingNameFrom(insert));
+        assertThat(insert).doesNotContain("CAST(");
+    }
+
+    private static String stagingNameFrom(String insert) {
+        int from = insert.indexOf("analytics.") + "analytics.".length();
+        return insert.substring(from);
+    }
+
+    @Test
+    void loadFromUriUsesTrailingSlashUriAsLocationDirectly() {
+        stubStartAndSucceed();
+        when(client.getQueryResults(any(GetQueryResultsRequest.class)))
+                .thenReturn(singlePageResult("row_count", "0"));
+        EntitySchema schema = EntitySchema.of("customer",
+                List.of(com.enrichmeai.culvert.schema.SchemaField.nullable("id", "STRING")));
+
+        warehouse.loadFromUri("s3://landing/staging/run-3/", "odp.t", schema);
+
+        ArgumentCaptor<StartQueryExecutionRequest> captor =
+                ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
+        verify(client, times(4)).startQueryExecution(captor.capture());
+        assertThat(captor.getAllValues().get(0).queryString())
+                .contains("LOCATION 's3://landing/staging/run-3/'");
     }
 
     @Test
