@@ -82,13 +82,7 @@ culvert/                              # repo root (codename; customer brand: Val
 ├── scripts/                          # bootstrap and helper scripts
 ├── templates/                        # DAG, dbt, Dockerfile starters
 ├── test_data/                        # CSV fixtures (HDR/TRL envelope pattern)
-└── gcp-pipeline-libraries/           # LEGACY — predecessor Python framework (being retired)
-    ├── gcp-pipeline-core
-    ├── gcp-pipeline-beam
-    ├── gcp-pipeline-orchestration
-    ├── gcp-pipeline-transform
-    ├── gcp-pipeline-tester
-    └── gcp-pipeline-framework        # predecessor umbrella
+└── gcp-pipeline-libraries/           # earlier GCP-only iteration — retired, being removed
 ```
 
 ## A note on the legacy tree

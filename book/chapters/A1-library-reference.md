@@ -139,7 +139,7 @@ Abstract pytest contract tests that every Culvert adapter implementation must pa
 ### Umbrella
 
 **`data-pipeline-framework`** (`data-pipeline-libraries/data-pipeline-framework/pyproject.toml`)
-Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own. Renamed successor of `gcp-pipeline-framework`.
+Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own.
 
 ---
 

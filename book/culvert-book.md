@@ -126,7 +126,7 @@ Along the way I contributed to the Java standards as a member of the JSR 255\ind
 
 The platforms keep changing. Oracle SOA Suite. JBoss EAP. WebLogic. Spring. Dropwizard. AWS EKS. GCP. Kubernetes. The hard parts never do. Audit trails. Cost tracking. Error classification. Schema drift. Reconciliation. The stuff that makes a pipeline trustworthy rather than merely functional.
 
-Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I started with GCP — a single real cloud, a concrete target, no hand-waving. The framework that emerged was `gcp-pipeline-framework`. Then something interesting happened: when I looked hard at what I'd built, most of the code was already cloud-neutral. The contracts — the language-neutral interfaces that every adapter implements — were the seam. Extract those, and the GCP implementation becomes the *first* implementation rather than the only one. That extraction became **Culvert**. The reference repo — the one this book is a tour of — is `culvert`, built at 0.1.0 and held; `gcp-pipeline-framework` is deprecated in place, its story now the origin arc of what you are reading.
+Around year fifteen I noticed something embarrassing: every team I joined was rebuilding the same scaffolding. Different language, different cloud, same scaffolding. By year twenty I was tired enough of writing it from scratch that I sat down and built a proper framework. I started with GCP — a single real cloud, a concrete target, no hand-waving. Then something interesting happened: when I looked hard at what I'd built, most of the code was already cloud-neutral. The contracts — the language-neutral interfaces that every adapter implements — were the seam. Extract those, and the GCP implementation becomes the *first* implementation rather than the only one. That extraction became **Culvert** — a cloud-agnostic data-pipeline framework, which is the idea this whole book exists to argue: the same pipeline, defined once against contracts, running today on GCP and AWS, with Azure on the roadmap. The repo this book is a tour of is `culvert`, built at 0.1.0 and held; the GCP-only first iteration is retired, its lessons now the origin arc of what you are reading.
 
 The design language was deliberate. I had spent a decade on Spring projects and watched what Spring Framework had done for the JVM: a small framework-agnostic core, opinionated modules clipped on around it, conventions over configuration, escape hatches when you needed them. The result was an industry. Culvert borrows that DNA without apology. There is a Spring-shaped framework hiding underneath the dbt models and the Beam jobs, and I think it deserves to be called that.
 
@@ -178,7 +178,7 @@ The underlying cause is not laziness. The underlying cause is that the scaffoldi
 
 ## What I actually built
 
-The predecessor was called `gcp-pipeline-framework`. By the time I stopped calling it that, I had:
+The first iteration was GCP-only, by design and by name. By the time I retired it, I had:
 
 - A **foundation library** that does not depend on Beam or Airflow — audit trails, cost tracking, quality scoring, lineage, error classification, schema types. Drop it into a Dataflow job, a Cloud Function, an Airflow DAG, or a random script on your laptop.
 - An **ingestion layer** with Apache Beam transforms for HDR/TRL parsing, split-file reassembly, schema-driven validation, and error quarantine.
@@ -244,7 +244,7 @@ Culvert is **built and held**. The Java reactor has reached its `0.1.0` feature 
 
 What remains is packaging and the coordinated release: renaming the Python distributions from `data-pipeline-*` to `culvert-*`, setting up the PyPI publish workflow, and pulling the joint trigger — Maven Central for `com.enrichmeai.culvert:*` and PyPI for `culvert` — at the same moment (`docs/framework-evolution/13-python-parity-release.md:9–12`).
 
-**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. When they do, the predecessor `gcp-pipeline-framework` gets a final deprecation pointer release and is left installable for existing pins — not deleted, because deletion is irreversible and breaks pinned dependents for zero benefit.
+**Nothing is on Maven Central or PyPI yet.** The release gate is both languages ready; neither publishes alone. The GCP-only first iteration is simply retired — Culvert is the framework, and there is only one public story.
 
 This is not a product pitch for something that might ship. It is a practitioner's account of something that is built, honest about where the last seam is.
 
@@ -346,7 +346,7 @@ There is a fourth reason, which the first three obscure, and it is the reason Cu
 
 The teams that *do* build internal frameworks build them against one cloud. Naturally — the project is on GCP, the engineers know GCP, the company has GCP credits. The framework embeds GCP assumptions at every layer: it calls `google.cloud.bigquery` directly from the schema-validation code; the cost tracker references Dataflow slot prices as module-level constants; the audit-trail publisher is hard-wired to Pub/Sub. The framework solves the eight gaps above. But it has now created a ninth gap: **portability**. When the company acquires a division that runs on AWS, or when GCP's BigQuery pricing becomes inconvenient, or when a client demands an Azure deployment, the framework cannot move. You rewrite it or you abandon it.
 
-I know this because I helped build that framework on GCP — what became the `gcp-pipeline-framework` library — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
+I know this because I built exactly that framework on GCP — Culvert's first, GCP-only iteration — and the rewrite question arrived faster than I expected. The cloud-specific assumptions were not deliberate design choices; they were habits. Nobody on the team had thought carefully about which parts of the framework were about *data pipelines* and which parts were about *GCP*. It turned out most of the code was about data pipelines. The GCP parts were a thin layer on the outside. But thin layers that are not identified as thin layers become load-bearing walls.
 
 The redesign document we wrote when this became clear (`docs/framework-evolution/02-redesign.md:1`) captures the commitment we made:
 
@@ -386,9 +386,9 @@ Culvert is **built**. The contracts exist. The GCP adapters exist — `GCSBlobSt
 
 Culvert is **not published**. The coordinated release — Java to Maven Central as `com.enrichmeai.culvert:*` and Python to PyPI as `culvert` — is Wave D, gated on both languages being fully ready and on a Joseph-triggered publish (`docs/framework-evolution/13-python-parity-release.md:36`). Nothing auto-publishes; a version number on Maven Central or PyPI is irreversible, and we are not in a hurry to own that.
 
-Culvert has **AWS and Azure skeletons, not implementations**. `data-pipeline-aws-s3-java` and `data-pipeline-azure-blob-java` exist as reserved slots that prove the design is cloud-neutral: an `S3BlobStore` implements the `BlobStore` contract and compiles cleanly. Neither has been tested against a real S3 bucket. The Python cloud-neutral skeletons are out of scope for the `0.1.0` release (`docs/framework-evolution/13-python-parity-release.md:30`). The AWS and Azure slots tell you what the framework *can* do, not what it currently does.
+Culvert now runs on **two clouds**. GCP is the first full implementation; AWS is a real Java adapter family — S3 (`BlobStore`), Secrets Manager (`SecretProvider`), SQS (`Source`/`Sink`), DynamoDB (`JobControlRepository`, with the transactional conditional writes BigQuery's implementation cannot give you), Athena (`Warehouse`, including the external-table load path), and CloudWatch (observability) — proven locally against LocalStack, with the same ingestion pipeline running on both clouds via an adapter swap (Chapter [Cross-Cloud]). **Azure is explicitly later**: `data-pipeline-azure-blob-java` remains a single-method skeleton that proves the seam compiles, and I am not going to pretend otherwise. Python adapters beyond GCP are also later. Two clouds proven, one on the roadmap — that is the honest state.
 
-The predecessor — `gcp-pipeline-framework` — is deprecated in place: its README will carry a deprecation banner pointing to `culvert`, and its releases will be yanked so new `pip install` resolution skips them. Existing pinned dependents keep working. The code is not deleted; it is the origin story.
+The GCP-only iteration Culvert grew out of is retired. Culvert is the framework; there is one public story, and this book is it.
 
 ## The framework as the answer
 
@@ -5689,7 +5689,7 @@ The same two tiers are the CI gate (`.github/workflows/ci.yml`): a per-module Ja
 
 \index{CI/CD}\index{coordinated release}\index{Maven Central}\index{PyPI}
 
-The predecessor framework — `gcp-pipeline-framework` — had a pleasantly simple
+Culvert's GCP-only first iteration had a pleasantly simple
 publishing model: tag, push, watch the GitHub Actions `publish-libraries.yml`
 fire, and ten minutes later six new packages appeared on PyPI. I will not pretend
 that wasn't convenient. But it came with a sting I only properly felt after the
@@ -6153,26 +6153,33 @@ architectural difference between the two backends, and the difference resolved i
 DynamoDB's favour for this one property. That is exactly what a contract-driven
 design is supposed to surface.
 
-## Where AWS still isn't done
+## The same pipeline, two clouds
 
-Two AWS modules are registered but empty: `data-pipeline-aws-athena-java` and
-`data-pipeline-aws-cloudwatch-java`. Both exist in the reactor's `pom.xml` as
-pre-registered coordination seams — the same pattern used for every wave of
-GCP modules in this book — and both are in progress in parallel with the rest of
-Sprint 21, not yet landed as this chapter goes to print.
+The claim this chapter has been building towards is now executable. The
+ingestion deployment's launcher takes a `--cloud` flag: `gcp` (the default)
+wires `GcsBlobStore` + `BigQueryWarehouse` + `BigQueryJobControlRepository`;
+`--cloud=aws` wires `S3BlobStore` + `AthenaWarehouse` +
+`DynamoDbJobControlRepository`. The `IngestionStage` and `IngestionRunner`
+underneath — envelope parse, validate, stage, load, quarantine, reconcile,
+job control — are byte-identical on both paths. Swapping clouds changes which
+constructors run in `main()`. Nothing else.
 
-`Warehouse` against Athena is the harder of the two, for a boring infrastructure
-reason: unlike S3, SQS, Secrets Manager, and DynamoDB, there is no mature
-community LocalStack implementation of Athena to integration-test against. The
-adapter is being built and mock-tested against the AWS SDK client directly; real-AWS
-validation is still pending. That is a meaningfully different confidence level than
-`S3BlobStoreLocalStackIT` or `SqsLocalStackIT` running against a real (if emulated)
-service, and I am not going to blur that distinction in the text.
-
-CloudWatch hooks — the `ObservabilityHook`/`StageMetricsHook` analog of
-`CloudMonitoringMetricsHook`/`CloudTraceObservabilityHook` — are the more
-mechanical of the two remaining pieces; the mapping is closer to one-for-one with
-the GCP observability module.
+And that is not a diagram claim; it is a test.
+`CrossCloudIngestionLocalStackIT` runs the *same* `IngestionRunner` the GCP
+deployment uses against a **real** S3 API and a **real** DynamoDB (LocalStack):
+the HDR/TRL source file is seeded through `S3BlobStore` itself, the staged
+NDJSON really lands in an S3 bucket, and the job-control transitions — with
+DynamoDB's conditional writes enforcing them atomically — are read back
+through the same repository that wrote them. The `Warehouse` leg uses a
+recording stand-in there, because community LocalStack has no Athena; the
+Athena load path itself (a run-scoped external table over the staging prefix,
+a typed `INSERT INTO ... SELECT`, a `COUNT(*)`, and a best-effort `DROP` —
+suffix-driven between OpenCSVSerde for CSV and JsonSerDe for the runner's
+NDJSON staging files, mirroring the pilot's format detection) is covered by
+its own mocked-client suite, with real-AWS validation reserved for the cloud
+deploy phase. I am not going to blur those two confidence levels — but the
+architectural claim, *same pipeline, adapter swap*, runs green on both clouds
+today.
 
 Also explicitly out of scope for Sprint 21, and worth stating plainly rather than
 letting it be assumed: an AWS execution layer. Apache Beam is runner-portable by
@@ -6197,10 +6204,11 @@ fifteen are:
 `Warehouse`. (There is also `StageMetrics`, which is a value type carried through the
 pipeline, not an adapter contract — the seam is sixteen.)
 
-AWS now implements five of those sixteen: `BlobStore` (S3), `SecretProvider`
-(Secrets Manager), `Source` and `Sink` (SQS), and `JobControlRepository`
-(DynamoDB) — with `Warehouse` (Athena) and the observability pair (CloudWatch)
-in progress, which would bring the count to eight. Azure implements one:
+AWS now implements eight of those sixteen: `BlobStore` (S3), `SecretProvider`
+(Secrets Manager), `Source` and `Sink` (SQS), `JobControlRepository`
+(DynamoDB), `Warehouse` (Athena, including the external-table load path), and
+`ObservabilityHook` + `StageMetricsHook` (CloudWatch, same metric names and
+label schema as the GCP hooks). Azure implements one:
 `BlobStore`, and at one of its eight methods. The GCP family covers the
 cloud-specific seams in full: six adapter modules implementing `BlobStore` (GCS),
 `Warehouse` + `AuditEventPublisher` + `FinOpsSink` + `JobControlRepository`
@@ -6239,7 +6247,7 @@ slot-aware cost predicates — live in
 `data-pipeline-gcp-bigquery-java/.../BigQueryWarehouse.java` and are not in
 `Warehouse`\index{Warehouse}. The `Warehouse` contract covers the lowest common
 denominator that any serious data warehouse supports, and nothing more — and that
-same discipline is what the in-progress `AthenaWarehouse` adapter is being held to.
+same discipline is what the `AthenaWarehouse` adapter is held to.
 
 The non-goal is a lowest-common-denominator warehouse. If you need BigQuery's
 materialised views or partition pruning, you call `BigQueryWarehouse` directly and
@@ -6278,9 +6286,7 @@ then some — the conditional-write control plane described above is the
 architectural payoff the estimate anticipated, delivered as a genuine improvement
 rather than a like-for-like port.
 
-What is left for a *complete* AWS family: `Warehouse` (Athena — in progress, mock-tested,
-real-AWS validation pending), the observability pair (CloudWatch — in progress),
-`AuditEventPublisher` and `FinOpsSink` (not yet started; likely SNS/SQS and an
+What is left for a *complete* AWS family: real-AWS validation of the Athena leg (mock-tested today — no community LocalStack), `AuditEventPublisher` and `FinOpsSink` (not yet started; likely SNS/SQS and an
 S3 `put` respectively, similarly scoped to what shipped this sprint), and an
 execution adapter — Beam on EMR or an equivalent runner — which remains the
 heaviest piece and is explicitly out of scope for this block. A complete AWS
@@ -6351,25 +6357,28 @@ today. The abstraction held: no leak surfaced that required revising the
 `AwsSecretsManagerProvider` follow the same handshake pattern against their own
 contract test bases.
 
-`DynamoDbJobControlRepository` is presently unit- and mocked-client-tested rather
-than run against a LocalStack-backed `JobControlRepositoryContractTest`; a
-DynamoDB LocalStack IT is tracked as in-progress alongside the Athena and
-CloudWatch work, the same way the S3 and SQS LocalStack ITs preceded this
-chapter's rewrite. The `WarehouseContractTest` and `SecretProviderContractTest`
-in the same module follow the same extend-provide-run pattern once
-`AthenaWarehouse` lands.
+`DynamoDbJobControlRepository` has its own LocalStack integration suite
+(`DynamoDbJobControlLocalStackIT`) proving the conditional-write guarantees
+against real DynamoDB semantics — duplicate creates and transitions-on-missing
+are rejected atomically, not just in a mock's imagination.
+`AthenaWarehouseContractTest` and `AwsSecretManagerContractTest` bind the shared
+`WarehouseContractTest`/`SecretProviderContractTest` suites the same
+extend-provide-run way.
 
 ## The honest summary
 
-AWS is no longer "one skeleton class." It is a real adapter family covering five
+AWS is no longer "one skeleton class." It is a real adapter family covering eight
 of sixteen contracts — `BlobStore` (S3, all eight methods), `SecretProvider`
-(Secrets Manager), `Source`/`Sink` (SQS), and `JobControlRepository` (DynamoDB,
-with a transactional control plane BigQuery cannot structurally match) — built,
-unit-tested, and partially LocalStack-integration-tested in Sprint 21 (epic #144).
-Two more contracts, `Warehouse` (Athena) and the observability pair (CloudWatch),
-are in progress in the same sprint; Athena in particular is mock-tested only, for
-the honest reason that no mature community LocalStack Athena implementation
-exists yet to validate against. An AWS execution layer and Python-side AWS parity
+(Secrets Manager), `Source`/`Sink` (SQS), `JobControlRepository` (DynamoDB,
+with a transactional control plane BigQuery cannot structurally match),
+`Warehouse` (Athena, including the external-table load path), and
+`ObservabilityHook`/`StageMetricsHook` (CloudWatch) — built, unit-tested, and
+LocalStack-integration-tested where community LocalStack reaches (S3, SQS,
+Secrets Manager, DynamoDB, CloudWatch); Athena is mock-tested only, for the
+honest reason that no community LocalStack Athena exists to validate against,
+and its real-AWS validation is reserved for the cloud deploy phase. The same
+ingestion pipeline runs on both clouds via an adapter swap, and a LocalStack
+integration test proves it. An AWS execution layer and Python-side AWS parity
 are explicitly out of scope for this block.
 
 Azure is exactly where it was: a single skeleton class, one of eight `BlobStore`
@@ -6422,26 +6431,29 @@ sentences are true and none of them cancels the others.
         \texttt{BlobStore.exists()}; the remaining seven methods throw
         \texttt{UnsupportedOperationException}. It remains proof that the seam
         compiles across clouds, not a production adapter.
-  \item \textbf{Two AWS contracts are in progress, not done}: \texttt{Warehouse}
-        via Athena (mock-tested only — no mature community LocalStack Athena
-        exists, so real-AWS validation is still pending) and the observability
-        pair via CloudWatch. An AWS execution layer (Beam on EMR/Flink) and
-        Python-side AWS parity are explicitly out of scope for this block.
+  \item \textbf{The same pipeline runs on both clouds} — the ingestion
+        launcher's \texttt{--cloud} flag swaps the adapter family
+        (GCS/BigQuery vs S3/Athena/DynamoDB) under a byte-identical
+        \texttt{IngestionRunner}, and \texttt{CrossCloudIngestionLocalStackIT}
+        proves the AWS path against real S3 and real DynamoDB. The one honest
+        caveat: the Athena leg is mock-tested (no community LocalStack Athena);
+        its real-AWS validation lands with the cloud deploy phase. An AWS
+        execution layer (Beam on EMR/Flink) and Python-side AWS parity are
+        explicitly out of scope for this block; \textbf{Azure is explicitly
+        later}.
   \item There are \textbf{sixteen contracts} in
         \texttt{data-pipeline-core-java/.../contracts/}. The cloud-specific seams
-        have a full GCP family across six modules. AWS now covers five of the
-        eleven cloud-specific contracts (soon seven); Azure covers one, at one
-        of eight methods. The cloud-neutral contracts
-        (\texttt{GovernancePolicy}, \texttt{RuntimeContext}) have core
+        have a full GCP family across six modules. AWS now covers eight of
+        sixteen; Azure covers one, at one of eight methods. The cloud-neutral
+        contracts (\texttt{GovernancePolicy}, \texttt{RuntimeContext}) have core
         implementations that work on any cloud.
-  \item The Sprint-21 AWS build \textbf{validated the first edition's estimates}:
+  \item The AWS build \textbf{validated the first edition's estimates}:
         days for \texttt{SecretProvider}, about a week for the remaining
         \texttt{BlobStore} methods, "architectural, not mechanical" for
         DynamoDB's \texttt{JobControlRepository}. The contract test harness
-        (\texttt{BlobStoreContractTest}, and in progress,
-        \texttt{JobControlRepositoryContractTest} against DynamoDB) validated
-        the new adapters against the same behavioural specification GCP
-        adapters pass today.
+        (\texttt{BlobStoreContractTest}, \texttt{WarehouseContractTest},
+        \texttt{SecretProviderContractTest}) validated the new adapters against
+        the same behavioural specification the GCP adapters pass today.
   \item \textbf{Enabled, built, and published are three different states.}
         \texttt{AutoConfig} discovers installed adapters at boot via Java
         \texttt{ServiceLoader} — register an impl under
@@ -7106,7 +7118,7 @@ Abstract pytest contract tests that every Culvert adapter implementation must pa
 ### Umbrella
 
 **`data-pipeline-framework`** (`data-pipeline-libraries/data-pipeline-framework/pyproject.toml`)
-Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own. Renamed successor of `gcp-pipeline-framework`.
+Metapackage: installs the full reference stack (core + tester + transform + orchestration). Bundles deployment templates, Terraform modules, and CI workflow templates as embedded assets. No public API of its own.
 
 ---
 
@@ -7212,13 +7224,7 @@ culvert/                              # repo root (codename; customer brand: Val
 ├── scripts/                          # bootstrap and helper scripts
 ├── templates/                        # DAG, dbt, Dockerfile starters
 ├── test_data/                        # CSV fixtures (HDR/TRL envelope pattern)
-└── gcp-pipeline-libraries/           # LEGACY — predecessor Python framework (being retired)
-    ├── gcp-pipeline-core
-    ├── gcp-pipeline-beam
-    ├── gcp-pipeline-orchestration
-    ├── gcp-pipeline-transform
-    ├── gcp-pipeline-tester
-    └── gcp-pipeline-framework        # predecessor umbrella
+└── gcp-pipeline-libraries/           # earlier GCP-only iteration — retired, being removed
 ```
 
 ## A note on the legacy tree
