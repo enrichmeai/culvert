@@ -25,14 +25,19 @@ import java.util.UUID;
 /**
  * CLI launcher for the {@code original-data-to-bigqueryload} Java deployment.
  *
- * <p>Wires real GCP adapters ({@link GcsBlobStore}, {@link BigQueryWarehouse},
- * {@link BigQueryJobControlRepository}) onto a {@link DefaultRuntimeContext},
- * builds the single-stage {@link IngestionPipelines#of pipeline}, and runs it
- * either on Beam's {@link DirectRunner} (local) or on Cloud Dataflow
- * ({@code --runner=DataflowRunner}), mirroring the Python reference's
- * {@code python -m data_ingestion.pipeline.run --entity=... --source_file=...}
- * entry point
- * ({@code deployments/original-data-to-bigqueryload/src/data_ingestion/pipeline/runner.py}).
+ * <p>Wires the selected cloud's adapter family onto a
+ * {@link DefaultRuntimeContext} — GCP (default): {@link GcsBlobStore},
+ * {@link BigQueryWarehouse}, {@link BigQueryJobControlRepository}; AWS
+ * ({@code --cloud=aws}): {@code S3BlobStore}, {@code AthenaWarehouse},
+ * {@code DynamoDbJobControlRepository} — builds the single-stage
+ * {@link IngestionPipelines#of pipeline}, and runs it either on Beam's
+ * {@link DirectRunner} (local) or on Cloud Dataflow
+ * ({@code --runner=DataflowRunner}, GCP).
+ *
+ * <p><strong>This class is the cloud-agnostic thesis in one file:</strong> the
+ * {@code IngestionStage}/{@code IngestionRunner} business logic below the
+ * adapter wiring is byte-identical on both clouds. Swapping clouds changes
+ * which constructors run in {@code main()} — nothing else.
  *
  * <h2>Args</h2>
  * <pre>
@@ -49,6 +54,9 @@ import java.util.UUID;
  *   --runner=DirectRunner|DataflowRunner   (default: DirectRunner)
  *   --region=us-central1                   (DataflowRunner only)
  *   --stagingLocation=gs://bucket/dataflow-staging  (DataflowRunner only)
+ *   --cloud=gcp|aws                        (default: gcp — selects the adapter family)
+ *   --athenaDatabase=analytics                          (aws only, required)
+ *   --athenaOutputLocation=s3://bucket/athena-results/  (aws only, required)
  * </pre>
  *
  * <p><strong>Honest status:</strong> the {@link DirectRunner} path and the unit
@@ -76,13 +84,35 @@ public final class IngestionMain {
         String jobControlTable = argMap.getOrDefault("jobControlTable", "pipeline_jobs");
         String runId = argMap.getOrDefault("runId", "generic-" + entity + "-" + UUID.randomUUID());
         String runner = argMap.getOrDefault("runner", "DirectRunner");
+        String cloud = normalizeCloud(argMap.getOrDefault("cloud", "gcp"));
 
-        BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
-
-        BlobStore blobStore = new GcsBlobStore();
-        Warehouse warehouse = new BigQueryWarehouse(project, bigQuery);
-        JobControlRepository jobControlRepository =
-                new BigQueryJobControlRepository(bigQuery, project, jobControlDataset, jobControlTable);
+        // The cloud-agnostic seam in one screenful: the SAME IngestionStage /
+        // IngestionRunner / pipeline below runs on either cloud — the only
+        // thing that changes is which adapter family gets constructed here.
+        BlobStore blobStore;
+        Warehouse warehouse;
+        JobControlRepository jobControlRepository;
+        if ("aws".equals(cloud)) {
+            software.amazon.awssdk.services.s3.S3Client s3 =
+                    software.amazon.awssdk.services.s3.S3Client.create();
+            software.amazon.awssdk.services.athena.AthenaClient athena =
+                    software.amazon.awssdk.services.athena.AthenaClient.create();
+            software.amazon.awssdk.services.dynamodb.DynamoDbClient dynamo =
+                    software.amazon.awssdk.services.dynamodb.DynamoDbClient.create();
+            blobStore = new com.enrichmeai.culvert.aws.s3.S3BlobStore(s3);
+            warehouse = new com.enrichmeai.culvert.aws.athena.AthenaWarehouse(
+                    athena,
+                    require(argMap, "athenaDatabase"),
+                    require(argMap, "athenaOutputLocation"));
+            jobControlRepository = new com.enrichmeai.culvert.aws.dynamodb.DynamoDbJobControlRepository(
+                    dynamo, jobControlTable);
+        } else {
+            BigQuery bigQuery = BigQueryOptions.getDefaultInstance().getService();
+            blobStore = new GcsBlobStore();
+            warehouse = new BigQueryWarehouse(project, bigQuery);
+            jobControlRepository =
+                    new BigQueryJobControlRepository(bigQuery, project, jobControlDataset, jobControlTable);
+        }
 
         RuntimeContext context = DefaultRuntimeContext.builder(runId, argMap.getOrDefault("environment", "dev"))
                 .config(Map.of("entity", entity, "project", project))
@@ -134,5 +164,27 @@ public final class IngestionMain {
             throw new IllegalArgumentException("Missing required argument: --" + key);
         }
         return value;
+    }
+
+    /**
+     * Normalizes and validates {@code --cloud}. Package-private for tests.
+     * Azure is named explicitly so the error message states the roadmap
+     * honestly rather than pretending the flag doesn't exist.
+     */
+    static String normalizeCloud(String cloud) {
+        String normalized = cloud == null ? "gcp" : cloud.trim().toLowerCase(java.util.Locale.ROOT);
+        switch (normalized) {
+            case "gcp":
+            case "aws":
+                return normalized;
+            case "azure":
+                throw new IllegalArgumentException(
+                        "--cloud=azure is not available yet: the Azure adapter family is a "
+                                + "BlobStore-only skeleton (data-pipeline-azure-blob-java). "
+                                + "GCP and AWS are supported today; Azure is on the roadmap.");
+            default:
+                throw new IllegalArgumentException(
+                        "Unknown --cloud value '" + cloud + "': supported values are gcp (default) and aws.");
+        }
     }
 }
