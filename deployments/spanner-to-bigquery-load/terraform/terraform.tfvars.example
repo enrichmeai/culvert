@@ -1,0 +1,6 @@
+gcp_project_id        = "my-culvert-demo"
+gcp_region            = "us-central1"
+environment           = "demo"
+target_dataset        = "fdp_spanner"
+# BigQuery external connection to Spanner, as location.connection_id:
+spanner_connection_id = "us.spanner-conn"

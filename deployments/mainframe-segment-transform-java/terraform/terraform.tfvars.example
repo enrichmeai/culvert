@@ -1,0 +1,8 @@
+gcp_project_id       = "my-culvert-demo"
+gcp_region           = "us-central1"
+environment          = "demo"
+target_dataset       = "odp_generic"
+landing_bucket       = "my-culvert-demo-generic-landing"
+staging_bucket       = "my-culvert-demo-generic-temp"
+enable_cloud_run_job = "true"
+image_uri            = "us-central1-docker.pkg.dev/my-culvert-demo/culvert/mainframe-segment-transform:0.1.0"

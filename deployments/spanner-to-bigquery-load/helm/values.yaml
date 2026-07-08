@@ -1,0 +1,15 @@
+pipeline-dbt-runner:
+  image:
+    repository: pipeline-dbt-runner
+    tag: "0.1.0"
+  dbt:
+    project: spanner_transformation
+    target: prod
+  schedule:
+    transformation: "0 4 * * *"
+  serviceAccount:
+    create: false
+    name: spanner-bq-dbt
+    gcpSaEmail: ""
+  gcs:
+    targetProject: ""

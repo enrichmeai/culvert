@@ -1,0 +1,2 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed.
+Wraps pipeline-dbt-runner (dbt CronJob). Reads Spanner via a BigQuery connection.
