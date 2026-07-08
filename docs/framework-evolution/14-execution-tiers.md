@@ -58,30 +58,75 @@ network, real data shapes.
 
 ### Tier 3 — full cloud end-to-end (CI or local script)
 
-The real thing, and the same invocation whether a human or CI runs it.
+The real thing, and the same invocation whether a human or CI runs it. Tier 3
+has **two profiles**, and the demo profile is the default for the public repo.
 
-- **Data plane:** the production-shaped GCP project.
+#### Tier 3a — demo cloud (Cloud Run, scale-to-zero, ~£0) — DEFAULT
+
+The profile the open-source demo env runs on. Proves the pipeline end-to-end on
+**real GCP** without a standing bill.
+
+- **Data plane:** a real GCP demo project — BigQuery/GCS/Pub-Sub within the
+  always-free tier at demo volumes.
+- **Execution:** **Cloud Run** runs the pipeline container (Beam `DirectRunner`
+  inside the container — the worker is a Cloud Run task, not a managed Dataflow
+  fleet). Cloud Run scales to zero, so between runs the cost is nothing; a demo
+  run is a handful of vCPU-seconds within the free tier. This reuses the
+  container/Cloud-Run pattern already in the repo (`fdp_trigger`,
+  `google_cloud_run_v2_service` in `systems/generic`).
+- **Orchestration:** **Composer is OFF by default** (`enable_composer = false`).
+  The demo triggers runs via Cloud Scheduler → Cloud Run (the existing
+  `fdp_trigger` seam) or local Airflow. No Composer environment is provisioned,
+  so no standing orchestration cost.
+- **What it proves:** the real GCP data plane, real IAM/credentials, and the
+  full pipeline e2e — at demo scale, for ~£0.
+- **Honest limit:** Cloud Run runs the pipeline as a container (single task /
+  DirectRunner). It demonstrates correctness end-to-end; it is **not** the
+  autoscaling, TB-scale path. That is Tier 3b.
+
+#### Tier 3b — production cloud (Dataflow + Composer, metered)
+
+The production execution path, exercised deliberately — not on every push.
+
 - **Execution:** Cloud Dataflow (`--runner=DataflowRunner --region=…
-  --stagingLocation=gs://…`).
-- **Orchestration:** Cloud Composer (validated **once**, then torn down — see
+  --stagingLocation=gs://…`) — managed, autoscaling Beam.
+- **Orchestration:** Cloud Composer — validated **once** before publish to prove
+  the `ComposerDagRenderer`/runtime on real Composer, then **torn down**
+  (`enable_composer = true` only for that window; see
   [13 §2a](13-python-parity-release.md)).
-- **Driver:** one script, invoked identically from a **local shell** or a
-  **GitHub Actions** workflow (keyless via Workload Identity Federation on the
-  public repo). CI and local runs must not diverge — the script is the source of
-  truth; CI just calls it.
-- **What it proves:** the managed-runner path, autoscaling, the Composer
-  renderer/runtime on real Composer, and the end-to-end SLA. This is the tier
-  that costs money, so it runs behind `/finops-estimate` and is exercised
-  deliberately, not on every push.
+- **What it proves:** the managed-runner path, autoscaling, real Composer, and
+  the end-to-end SLA. Costs money, so it runs behind `/finops-estimate`.
+
+**Both profiles share one driver.** A single script runs the whole thing,
+invoked identically from a **local shell** or a **GitHub Actions** workflow
+(keyless via Workload Identity Federation on the public repo). The profile is a
+flag/var (`--runner` + `enable_composer`), not a different codepath — CI and
+local runs must not diverge; the script is the source of truth and CI just calls
+it.
+
+> **Terraform note (2026-07).** The demo profile above is the target; the IaC is
+> mid-consolidation. The modern `systems/generic` layer already has
+> `var.enable_composer` (count-guarded) and the Cloud Run service pattern. The
+> legacy flat `infrastructure/terraform/main.tf` still declares Composer
+> **unconditionally** (`main.tf:408`) with a DAG-deploy `null_resource` — so an
+> apply of that layer would incur Composer cost. Delivering Tier 3a means:
+> (1) make `systems/generic` the canonical demo env and retire/guard the flat
+> layer's Composer; (2) add a Cloud Run **pipeline-executor** resource (today's
+> Cloud Run is only the `fdp_trigger`); (3) containerise the deployment (no
+> `Dockerfile`/jib yet). Tracked as its own sprint.
 
 ## The levers (already in `main`)
 
 The launcher (`IngestionMain`, and the same pattern in the other Java
 deployments) exposes exactly the switches the tiers need:
 
-- `--runner=DirectRunner|DataflowRunner` — Tier 1/2 vs Tier 3 execution.
+- `--runner=DirectRunner|DataflowRunner` — Tier 1/2 and 3a (DirectRunner, incl.
+  in the Cloud Run container) vs Tier 3b (managed Dataflow) execution.
 - `--cloud=gcp|aws` — selects the adapter family (GCS/BigQuery/DynamoDB vs
   S3/Athena/DynamoDB); `azure` is rejected with the roadmap message.
+- `var.enable_composer` (Terraform) — orchestration is Cloud Scheduler → Cloud
+  Run when `false` (Tier 3a default, no standing cost), Cloud Composer when
+  `true` (Tier 3b, the deliberate pre-publish validation window).
 - Endpoint/credentials come from the environment (emulator env vars, ADC, or
   the CI-provided WIF identity) — so Tier 1→2→3 is a wiring change at the edge,
   never a code change.
