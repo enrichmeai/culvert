@@ -123,3 +123,6 @@ dependency-reduced-pom.xml
 
 # Helm vendored subchart tarballs (Chart.lock is the source of truth)
 deployments/*/helm/charts/*.tgz
+
+# Per-deployment terraform provider lock (single-platform; regenerated on init)
+**/.terraform.lock.hcl
