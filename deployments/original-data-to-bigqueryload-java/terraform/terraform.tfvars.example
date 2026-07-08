@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in. Shared substrate values come from the
+# system-level Terraform outputs (infrastructure/terraform/systems/generic).
+gcp_project_id = "my-culvert-demo"
+gcp_region     = "us-central1"
+environment    = "demo"
+
+odp_dataset_id = "odp_generic"
+landing_bucket = "my-culvert-demo-generic-landing"
+staging_bucket = "my-culvert-demo-generic-temp"
+
+# Tier-3a demo executor on Cloud Run (scale-to-zero). Set false to skip it and
+# launch Dataflow (Tier-3b) from the jar instead.
+enable_cloud_run_job = "true"
+image_uri            = "us-central1-docker.pkg.dev/my-culvert-demo/culvert/original-data-to-bigqueryload:0.1.0"

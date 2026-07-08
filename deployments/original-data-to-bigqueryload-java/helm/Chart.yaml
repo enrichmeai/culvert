@@ -1,0 +1,14 @@
+apiVersion: v2
+name: original-data-to-bigqueryload
+description: >-
+  Per-deployment Helm chart for the original-data-to-bigqueryload ingestion
+  pipeline. Wraps the shared pipeline-beam-runner (Flink-on-GKE) chart with this
+  deployment's values — it does not re-implement the runner. This is the GKE
+  execution path; Cloud Run (Tier 3a) and Dataflow (Tier 3b) are Terraform-side.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: pipeline-beam-runner
+    version: ">= 1.0.0"
+    repository: "file://../../../infrastructure/k8s/charts/pipeline-beam-runner"

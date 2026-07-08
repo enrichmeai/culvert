@@ -120,3 +120,6 @@ venv*/
 .venv*/
 infrastructure/terraform/systems/generic/.terraform.lock.hcl
 dependency-reduced-pom.xml
+
+# Helm vendored subchart tarballs (Chart.lock is the source of truth)
+deployments/*/helm/charts/*.tgz

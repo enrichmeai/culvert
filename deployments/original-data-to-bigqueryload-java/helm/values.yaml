@@ -1,0 +1,19 @@
+# Deployment-specific overrides for the pipeline-beam-runner subchart.
+# Everything not set here inherits the central chart's defaults.
+pipeline-beam-runner:
+  image:
+    repository: original-data-to-bigqueryload
+    tag: "0.1.0"
+  parallelism:
+    default: 4
+  gcs:
+    # Dataflow/Flink staging + checkpoint bucket (shared temp bucket).
+    bucket: ""
+  checkpointing:
+    enabled: true
+  serviceAccount:
+    create: false
+    # Bind to the runner SA that this deployment's Terraform provisions
+    # (terraform output runner_service_account).
+    name: orig-data-bqload-runner
+    gcpSaEmail: ""
