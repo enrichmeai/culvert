@@ -81,8 +81,13 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
      * {@code job_control}/{@code pipeline_jobs}), via {@link BigQueryDefaults}.
      */
     public BigQueryJobControlRepository() {
-        this(BigQueryDefaults.client(), BigQueryDefaults.project(),
+        this(gateAndClient(), BigQueryDefaults.project(),
                 BigQueryDefaults.jobControlDataset(), BigQueryDefaults.jobControlTable());
+    }
+
+    private static com.google.cloud.bigquery.BigQuery gateAndClient() {
+        BigQueryDefaults.requireGcpSelected();
+        return BigQueryDefaults.client();
     }
 
     @Override

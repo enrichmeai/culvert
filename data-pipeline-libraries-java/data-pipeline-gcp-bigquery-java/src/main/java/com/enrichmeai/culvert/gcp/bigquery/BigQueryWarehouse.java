@@ -104,7 +104,12 @@ public final class BigQueryWarehouse implements Warehouse {
      * where a specific client is required.
      */
     public BigQueryWarehouse() {
-        this(BigQueryDefaults.project(), BigQueryDefaults.client());
+        this(gateAndProject(), BigQueryDefaults.client());
+    }
+
+    private static String gateAndProject() {
+        BigQueryDefaults.requireGcpSelected();
+        return BigQueryDefaults.project();
     }
 
     @Override

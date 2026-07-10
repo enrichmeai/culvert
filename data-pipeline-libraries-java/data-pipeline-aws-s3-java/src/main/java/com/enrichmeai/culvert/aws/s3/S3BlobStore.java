@@ -68,6 +68,30 @@ public final class S3BlobStore implements BlobStore {
         this.client = Objects.requireNonNull(client, "client must not be null");
     }
 
+    /**
+     * No-arg constructor for worker-side auto-config reconstruction, gated on
+     * {@code CULVERT_CLOUD=aws}: fat jars can carry both cloud families and
+     * the worker registry rebuild takes the first ServiceLoader-constructable
+     * impl per contract — the selector makes that deterministic (mirror of
+     * the GCP family's {@code BigQueryDefaults.requireGcpSelected()}).
+     * Region/credentials come from the AWS default chains.
+     */
+    public S3BlobStore() {
+        this(gatedDefaultClient());
+    }
+
+    private static S3Client gatedDefaultClient() {
+        String cloud = System.getenv("CULVERT_CLOUD");
+        if (cloud == null || cloud.isBlank()) {
+            cloud = System.getProperty("culvert.cloud");
+        }
+        if (cloud == null || !cloud.equalsIgnoreCase("aws")) {
+            throw new IllegalStateException(
+                    "AWS adapters are gated to CULVERT_CLOUD=aws; current selector: " + cloud);
+        }
+        return S3Client.create();
+    }
+
     @Override
     public boolean exists(String uri) {
         Objects.requireNonNull(uri, "uri must not be null");

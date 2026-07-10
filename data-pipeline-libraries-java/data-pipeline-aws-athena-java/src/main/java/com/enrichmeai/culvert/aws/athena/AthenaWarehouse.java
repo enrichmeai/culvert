@@ -119,6 +119,28 @@ public final class AthenaWarehouse implements Warehouse {
     }
 
     /**
+     * No-arg constructor for worker-side auto-config reconstruction, gated on
+     * {@code CULVERT_CLOUD=aws} (see {@link AthenaDefaults} and the GCP
+     * family's {@code BigQueryWarehouse()} for the worker-rebuild rationale).
+     * Database and output location come from {@code ATHENA_DATABASE} /
+     * {@code ATHENA_OUTPUT_LOCATION}; client/region/credentials from the AWS
+     * default chains.
+     */
+    public AthenaWarehouse() {
+        this(gateAndClient(), AthenaDefaults.database(), AthenaDefaults.outputLocation());
+    }
+
+    private static AthenaClient gateAndClient() {
+        AthenaDefaults.requireAwsSelected();
+        // Validate required config BEFORE building a client: a missing
+        // ATHENA_DATABASE must surface as the actionable error, not be masked
+        // by an SDK region/credential failure from client construction.
+        AthenaDefaults.database();
+        AthenaDefaults.outputLocation();
+        return AthenaDefaults.client();
+    }
+
+    /**
      * Full constructor for callers that need a non-default Glue catalog or a
      * workgroup (e.g. one with query-result reuse or cost controls enabled).
      *

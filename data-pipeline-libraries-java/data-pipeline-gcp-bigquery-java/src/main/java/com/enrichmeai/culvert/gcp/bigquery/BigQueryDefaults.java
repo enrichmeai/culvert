@@ -32,6 +32,26 @@ final class BigQueryDefaults {
     private BigQueryDefaults() {
     }
 
+    /**
+     * Cloud-selection gate for worker-side reconstruction. Fat jars can carry
+     * BOTH the GCP and AWS adapter families, and the worker registry rebuild
+     * takes the first ServiceLoader-constructable impl per contract — so each
+     * family's no-arg constructors are gated on the {@code CULVERT_CLOUD}
+     * selector ({@code culvert.cloud} system property as the test hook).
+     * GCP adapters construct when the selector is unset or {@code gcp}
+     * (backward-compatible default); any other value throws, which AutoConfig
+     * treats as "skip this impl" — turning skip-on-failure into deterministic
+     * cloud selection.
+     */
+    static void requireGcpSelected() {
+        String cloud = resolve("CULVERT_CLOUD", "culvert.cloud");
+        if (cloud != null && !cloud.equalsIgnoreCase("gcp")) {
+            throw new IllegalStateException(
+                    "BigQuery adapters are gated to CULVERT_CLOUD=gcp (or unset); current selector: "
+                            + cloud);
+        }
+    }
+
     static String project() {
         String p = resolve("GCP_PROJECT", "gcp.project");
         if (p == null) {
