@@ -6,7 +6,7 @@ version: 2
 sources:
   - name: fdp_generic
     description: "Generic Foundation Data Product tables (transformed from ODP)"
-    database: "{{ var('gcp_project_id') }}"
+    database: "{{ env_var('GCP_PROJECT_ID', target.project) }}"
     schema: fdp_generic
     tables:
       - name: event_transaction_excess
