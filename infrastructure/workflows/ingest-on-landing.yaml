@@ -26,6 +26,7 @@ main:
           - object: ${event.data.name}
           - ingestion_job: "ingestion-generic"
           - dbt_job: "dbt-mapped-product"
+          - cdp_job: "dbt-consumable-product"
     - skip_non_csv:
         switch:
           - condition: '${not text.match_regex(object, "^generic/[^/]+/.+\\.csv$")}'
@@ -64,11 +65,17 @@ main:
         args:
           name: ${"projects/" + project + "/locations/" + region + "/jobs/" + dbt_job}
         result: dbt_execution
+    - run_cdp:
+        call: googleapis.run.v2.projects.locations.jobs.run
+        args:
+          name: ${"projects/" + project + "/locations/" + region + "/jobs/" + cdp_job}
+        result: cdp_execution
     - done:
         return:
           entity: ${entity}
           extract_date: ${extract_date}
           ingestion: ${ingestion_execution.name}
           dbt: ${dbt_execution.name}
+          cdp: ${cdp_execution.name}
     - skipped:
         return: '${"skipped non-entity object. " + object}'
