@@ -73,10 +73,17 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         this.fqtn = "`" + projectId + "." + dataset + "." + table + "`";
     }
 
-    // TODO sprint-4 auto-config: no-arg constructor reading GCP_PROJECT,
-    // JOB_CONTROL_DATASET, JOB_CONTROL_TABLE from env. Skipped here because
-    // the (client, projectId, dataset, table) bootstrap exceeds the pilot's
-    // "no-arg only if <=2 env vars" rule.
+    /**
+     * No-arg constructor for worker-side auto-config reconstruction (see
+     * {@link BigQueryWarehouse#BigQueryWarehouse()}). Project + region from
+     * {@code GCP_PROJECT}/{@code GCP_LOCATION}; dataset/table from
+     * {@code JOB_CONTROL_DATASET}/{@code JOB_CONTROL_TABLE} (defaults
+     * {@code job_control}/{@code pipeline_jobs}), via {@link BigQueryDefaults}.
+     */
+    public BigQueryJobControlRepository() {
+        this(BigQueryDefaults.client(), BigQueryDefaults.project(),
+                BigQueryDefaults.jobControlDataset(), BigQueryDefaults.jobControlTable());
+    }
 
     @Override
     public void createJob(PipelineJob job) {
