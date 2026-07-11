@@ -29,7 +29,7 @@ dependencies = [
     "google-cloud-storage",
     "google-cloud-pubsub",
     "PyYAML>=6.0",
-    "gcp-pipeline-core",
+    "google-cloud-bigquery>=3.11.0",
 ]
 
 [project.optional-dependencies]

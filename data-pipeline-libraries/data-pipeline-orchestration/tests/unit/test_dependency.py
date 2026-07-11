@@ -41,8 +41,8 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_get_loaded_entities(self):
         """Test getting loaded entities from job repo."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
-            {"entity_type": "ACCOUNTS", "status": "SUCCESS", "run_id": "run_002"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
+            {"entity_type": "ACCOUNTS", "status": "succeeded", "run_id": "run_002"},
             {"entity_type": "DECISION", "status": "RUNNING", "run_id": "run_003"},
         ]
 
@@ -58,9 +58,9 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_all_entities_loaded_true(self):
         """Test all entities loaded returns True."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
-            {"entity_type": "ACCOUNTS", "status": "SUCCESS", "run_id": "run_002"},
-            {"entity_type": "DECISION", "status": "SUCCESS", "run_id": "run_003"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
+            {"entity_type": "ACCOUNTS", "status": "succeeded", "run_id": "run_002"},
+            {"entity_type": "DECISION", "status": "succeeded", "run_id": "run_003"},
         ]
 
         result = self.checker.all_entities_loaded(date(2026, 1, 1))
@@ -70,7 +70,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_all_entities_loaded_false(self):
         """Test all entities loaded returns False when missing."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
             # accounts and decision missing
         ]
 
@@ -88,7 +88,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
         )
 
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "APPLICATIONS", "status": "SUCCESS", "run_id": "run_001"},
+            {"entity_type": "APPLICATIONS", "status": "succeeded", "run_id": "run_001"},
         ]
 
         result = application2_checker.all_entities_loaded(date(2026, 1, 1))
@@ -98,7 +98,7 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_get_missing_entities(self):
         """Test getting list of missing entities."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
         ]
 
         missing = self.checker.get_missing_entities(date(2026, 1, 1))
@@ -110,9 +110,9 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_get_missing_entities_none_missing(self):
         """Test get_missing_entities returns empty when all loaded."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
-            {"entity_type": "ACCOUNTS", "status": "SUCCESS", "run_id": "run_002"},
-            {"entity_type": "DECISION", "status": "SUCCESS", "run_id": "run_003"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
+            {"entity_type": "ACCOUNTS", "status": "succeeded", "run_id": "run_002"},
+            {"entity_type": "DECISION", "status": "succeeded", "run_id": "run_003"},
         ]
 
         missing = self.checker.get_missing_entities(date(2026, 1, 1))
@@ -122,8 +122,8 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_get_loaded_count(self):
         """Test getting count of loaded entities."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
-            {"entity_type": "ACCOUNTS", "status": "SUCCESS", "run_id": "run_002"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
+            {"entity_type": "ACCOUNTS", "status": "succeeded", "run_id": "run_002"},
         ]
 
         count = self.checker.get_loaded_count(date(2026, 1, 1))
@@ -133,8 +133,8 @@ class TestEntityDependencyChecker(unittest.TestCase):
     def test_get_status_summary(self):
         """Test getting detailed status summary."""
         self.mock_repo.get_entity_status.return_value = [
-            {"entity_type": "CUSTOMERS", "status": "SUCCESS", "run_id": "run_001"},
-            {"entity_type": "ACCOUNTS", "status": "SUCCESS", "run_id": "run_002"},
+            {"entity_type": "CUSTOMERS", "status": "succeeded", "run_id": "run_001"},
+            {"entity_type": "ACCOUNTS", "status": "succeeded", "run_id": "run_002"},
         ]
 
         status = self.checker.get_status_summary(date(2026, 1, 1))

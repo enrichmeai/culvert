@@ -504,10 +504,10 @@ class TestPipelineStatusCallables:
         context = _make_context(ds_nodash="20260317")
 
         statuses = [
-            {"entity_type": "customers", "status": "SUCCESS", "run_id": "r1"},
-            {"entity_type": "accounts", "status": "SUCCESS", "run_id": "r2"},
-            {"entity_type": "event_transaction_excess", "status": "SUCCESS", "run_id": "r3"},
-            {"entity_type": "portfolio_account_excess", "status": "SUCCESS", "run_id": "r4"},
+            {"entity_type": "customers", "status": "succeeded", "run_id": "r1"},
+            {"entity_type": "accounts", "status": "succeeded", "run_id": "r2"},
+            {"entity_type": "event_transaction_excess", "status": "succeeded", "run_id": "r3"},
+            {"entity_type": "portfolio_account_excess", "status": "succeeded", "run_id": "r4"},
         ]
 
         with patch("data_pipeline_orchestration.factories.dag_factory.JobControlRepository") as mock_repo_cls:
@@ -524,9 +524,9 @@ class TestPipelineStatusCallables:
 
         # customers missing from results
         statuses = [
-            {"entity_type": "accounts", "status": "SUCCESS", "run_id": "r1"},
-            {"entity_type": "event_transaction_excess", "status": "SUCCESS", "run_id": "r2"},
-            {"entity_type": "portfolio_account_excess", "status": "SUCCESS", "run_id": "r3"},
+            {"entity_type": "accounts", "status": "succeeded", "run_id": "r1"},
+            {"entity_type": "event_transaction_excess", "status": "succeeded", "run_id": "r2"},
+            {"entity_type": "portfolio_account_excess", "status": "succeeded", "run_id": "r3"},
         ]
 
         with patch("data_pipeline_orchestration.factories.dag_factory.JobControlRepository") as mock_repo_cls:
@@ -543,9 +543,9 @@ class TestPipelineStatusCallables:
 
         statuses = [
             {"entity_type": "customers", "status": "FAILED", "run_id": "r1"},
-            {"entity_type": "accounts", "status": "SUCCESS", "run_id": "r2"},
-            {"entity_type": "event_transaction_excess", "status": "SUCCESS", "run_id": "r3"},
-            {"entity_type": "portfolio_account_excess", "status": "SUCCESS", "run_id": "r4"},
+            {"entity_type": "accounts", "status": "succeeded", "run_id": "r2"},
+            {"entity_type": "event_transaction_excess", "status": "succeeded", "run_id": "r3"},
+            {"entity_type": "portfolio_account_excess", "status": "succeeded", "run_id": "r4"},
         ]
 
         with patch("data_pipeline_orchestration.factories.dag_factory.JobControlRepository") as mock_repo_cls:
@@ -562,8 +562,8 @@ class TestPipelineStatusCallables:
 
         # All ODP entities present but FDP models missing
         statuses = [
-            {"entity_type": "customers", "status": "SUCCESS", "run_id": "r1"},
-            {"entity_type": "accounts", "status": "SUCCESS", "run_id": "r2"},
+            {"entity_type": "customers", "status": "succeeded", "run_id": "r1"},
+            {"entity_type": "accounts", "status": "succeeded", "run_id": "r2"},
         ]
 
         with patch("data_pipeline_orchestration.factories.dag_factory.JobControlRepository") as mock_repo_cls:
@@ -579,10 +579,10 @@ class TestPipelineStatusCallables:
         context = _make_context(ds_nodash="20260317")
 
         statuses = [
-            {"entity_type": "customers", "status": "SUCCESS", "run_id": "r1"},
-            {"entity_type": "accounts", "status": "SUCCESS", "run_id": "r2"},
+            {"entity_type": "customers", "status": "succeeded", "run_id": "r1"},
+            {"entity_type": "accounts", "status": "succeeded", "run_id": "r2"},
             {"entity_type": "event_transaction_excess", "status": "FAILED", "run_id": "r3"},
-            {"entity_type": "portfolio_account_excess", "status": "SUCCESS", "run_id": "r4"},
+            {"entity_type": "portfolio_account_excess", "status": "succeeded", "run_id": "r4"},
         ]
 
         with patch("data_pipeline_orchestration.factories.dag_factory.JobControlRepository") as mock_repo_cls:
