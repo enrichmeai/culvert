@@ -1,24 +1,21 @@
 # =============================================================================
-# GCP Pipeline Reference — Terraform Root Configuration (Generic System)
+# DEPRECATED — legacy flat Terraform root (Generic System)
 # =============================================================================
 #
-# This is the complete infrastructure for the Generic data pipeline:
-#   - GCS buckets (landing, archive, error, temp)
-#   - BigQuery datasets (ODP, FDP, job_control)
-#   - Pub/Sub (file notifications + dead letter)
-#   - Cloud Composer (Airflow orchestration)
-#   - Service accounts (dataflow, dbt, composer)
-#   - IAM bindings (least-privilege per service account)
-#   - Entity folder scaffolding in landing bucket
+# SUPERSEDED BY infrastructure/terraform/systems/generic (canonical: layered
+# ingestion/transformation/orchestration, Composer-optional, Cloud Run). Do NOT
+# apply this layer for new work — use:
+#   cd infrastructure/terraform/systems/generic/ingestion && terraform apply ...
 #
-# Usage:
-#   cd infrastructure/terraform
-#   terraform init
-#   terraform plan -var="gcp_project_id=<your-project>"
-#   terraform apply -var="gcp_project_id=<your-project>"
-#
-# Destroy:
-#   terraform destroy -var="gcp_project_id=<your-project>" -var="force_destroy=true"
+# This file is retained only until its KMS keys (security.tf) are confirmed
+# covered by systems/generic, then it is retired. Two safety changes were made
+# so a stray apply can't cost money or fail:
+#   - Cloud Composer is now gated by var.enable_composer (default FALSE) — no
+#     standing ~£8-12/day environment unless explicitly enabled.
+#   - Fixed a pre-existing dangling reference (generic_notifications ->
+#     generic_file_notifications_sub) that meant this layer never planned.
+# NOTE: the Composer block still pins predecessor pypi packages; that is dead
+# config on a deprecated, off-by-default resource and is removed at retirement.
 # =============================================================================
 
 terraform {
@@ -406,9 +403,10 @@ resource "google_pubsub_subscription_iam_member" "generic_composer_subscriber" {
 # =============================================================================
 
 resource "google_composer_environment" "generic_composer" {
-  name    = "${local.prefix}-composer"
-  region  = local.region
-  labels  = local.common_labels
+  count  = var.enable_composer ? 1 : 0
+  name   = "${local.prefix}-composer"
+  region = local.region
+  labels = local.common_labels
 
   config {
     environment_size = "ENVIRONMENT_SIZE_SMALL"
@@ -417,9 +415,9 @@ resource "google_composer_environment" "generic_composer" {
       image_version = "composer-2-airflow-2"
 
       pypi_packages = {
-        gcp-pipeline-core                 = "==1.0.26"
-        gcp-pipeline-orchestration        = "==1.0.26"
-        apache-airflow-providers-google   = ">=10.0.0"
+        gcp-pipeline-core               = "==1.0.26"
+        gcp-pipeline-orchestration      = "==1.0.26"
+        apache-airflow-providers-google = ">=10.0.0"
       }
 
       airflow_config_overrides = {
@@ -451,35 +449,36 @@ resource "google_composer_environment" "generic_composer" {
 # =============================================================================
 
 resource "null_resource" "airflow_variables" {
+  count      = var.enable_composer ? 1 : 0
   depends_on = [google_composer_environment.generic_composer]
 
   provisioner "local-exec" {
     command = <<-EOT
-      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+      gcloud composer environments run ${google_composer_environment.generic_composer[0].name} \
         --location=${local.region} \
         variables set -- gcp_project_id ${local.project_id}
 
-      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+      gcloud composer environments run ${google_composer_environment.generic_composer[0].name} \
         --location=${local.region} \
         variables set -- gcp_region ${local.region}
 
-      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+      gcloud composer environments run ${google_composer_environment.generic_composer[0].name} \
         --location=${local.region} \
         variables set -- environment ${local.environment}
 
-      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+      gcloud composer environments run ${google_composer_environment.generic_composer[0].name} \
         --location=${local.region} \
         variables set -- dataflow_templates_bucket ${google_storage_bucket.temp.name}
 
-      gcloud composer environments run ${google_composer_environment.generic_composer.name} \
+      gcloud composer environments run ${google_composer_environment.generic_composer[0].name} \
         --location=${local.region} \
-        variables set -- generic_pubsub_subscription ${google_pubsub_subscription.generic_notifications.name}
+        variables set -- generic_pubsub_subscription ${google_pubsub_subscription.generic_file_notifications_sub.name}
     EOT
   }
 
   triggers = {
     # Re-run if Composer environment changes
-    composer_id = google_composer_environment.generic_composer.id
+    composer_id = google_composer_environment.generic_composer[0].id
   }
 }
 
