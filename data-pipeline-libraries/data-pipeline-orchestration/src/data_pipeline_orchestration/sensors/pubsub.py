@@ -278,7 +278,9 @@ class PubSubCompletionSensor(BasePubSubPullSensor):
     def __init__(
         self,
         *args,
-        expected_status: str = "SUCCESS",
+        # Culvert wire value (JobStatus.SUCCEEDED); completion publishers
+        # write lowercase statuses.
+        expected_status: str = "succeeded",
         **kwargs
     ):
         super().__init__(*args, **kwargs)

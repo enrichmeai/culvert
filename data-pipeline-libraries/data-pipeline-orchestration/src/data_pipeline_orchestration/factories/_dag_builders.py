@@ -117,11 +117,10 @@ def _system_tags(cfg: Dict[str, Any]) -> List[str]:
 def _failure_callback():
     """Return the global ``on_failure_callback`` (DLQ/quarantine router).
 
-    Imported lazily inside the builder body so that ``dag_factory`` and this
-    module stay import-safe without ``gcp_pipeline_core`` at module load time
-    (``callbacks.dlq`` imports ``gcp_pipeline_core`` at its top level). When the
-    callbacks package cannot be imported, returns ``None`` so DAG construction
-    still succeeds (the DAG simply carries no failure callback).
+    Imported lazily inside the builder body so DAG construction stays
+    import-light. When the callbacks package cannot be imported, returns
+    ``None`` so DAG construction still succeeds (the DAG simply carries no
+    failure callback).
     """
     try:
         from data_pipeline_orchestration.callbacks import on_failure_callback
@@ -728,9 +727,9 @@ def build_error_handling_dag(factory_config: dict) -> "Any":  # noqa: ANN401
             project_id = Variable.get(
                 "gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", "")
             )
-            from gcp_pipeline_core.job_control import JobControlRepository, FailureStage  # type: ignore
+            from .._job_control import BigQueryJobControl  # noqa: PLC0415
             today = datetime.now(tz=timezone.utc).date()
-            repo = JobControlRepository(project_id=project_id)
+            repo = BigQueryJobControl(project_id)
             failed = repo.get_failed_jobs(system_id, today)
         except Exception as exc:
             log.warning("Could not scan failed jobs (non-fatal): %s", exc)
@@ -740,8 +739,11 @@ def build_error_handling_dag(factory_config: dict) -> "Any":  # noqa: ANN401
             return "no_errors"
 
         critical, retryable, manual = [], [], []
-        _critical_stages = {"FILE_DISCOVERY", "FDP_DEPENDENCY"}
-        _retryable_stages = {"ODP_LOAD", "RECONCILIATION", "FDP_MODEL", "FDP_STAGING", "FDP_TEST"}
+        # Culvert FailureStage wire values (lowercase — FailureStage.getValue()).
+        # validation failures are critical (bad source file; a retry cannot
+        # help); execution-side stages are retryable up to the max.
+        _critical_stages = {"validation"}
+        _retryable_stages = {"ingestion", "load", "reconciliation", "transformation"}
 
         for job in failed:
             stage = job.get("stage", "UNKNOWN")
@@ -863,9 +865,9 @@ def build_status_dag(factory_config: dict) -> "Any":  # noqa: ANN401
             project_id = Variable.get(
                 "gcp_project_id", default_var=os.environ.get("GCP_PROJECT_ID", "")
             )
-            from gcp_pipeline_core.job_control import JobControlRepository  # type: ignore
+            from .._job_control import BigQueryJobControl  # noqa: PLC0415
             date_obj = datetime.strptime(today, "%Y%m%d").date()
-            repo = JobControlRepository(project_id=project_id)
+            repo = BigQueryJobControl(project_id)
             statuses = repo.get_entity_status(system_id, date_obj)
             status_map = {s["entity_type"]: s["status"] for s in statuses}
         except Exception as exc:
@@ -875,11 +877,11 @@ def build_status_dag(factory_config: dict) -> "Any":  # noqa: ANN401
         issues = []
         for entity in entities:
             status = status_map.get(entity)
-            if status != "SUCCESS":
+            if status != "succeeded":
                 issues.append(f"ODP {entity}: {status or 'NOT LOADED'}")
         for model in fdp_models:
             status = status_map.get(model)
-            if status != "SUCCESS":
+            if status != "succeeded":
                 issues.append(f"FDP {model}: {status or 'NOT RUN'}")
 
         if issues:

@@ -27,13 +27,10 @@ from datetime import date
 from typing import Any, List, Optional
 
 # ---------------------------------------------------------------------------
-# gcp_pipeline_core coupling REMOVED (T11.2b)
+# Job-control coupling (T11.2b — CLOSED for the 0.1.0 publish)
 #
-# Legacy code imported:
-#   from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
-#
-# Target Culvert seam (TODO — T11.2b follow-up, out of scope for config/DAG
-# factory agents #84/#86/#87):
+# The default reader is Culvert's own ``._job_control.BigQueryJobControl``
+# (lazy google-cloud-bigquery). Injectable seam:
 #   - Repository protocol:
 #       data_pipeline_core.contracts.job_control.JobControlRepository
 #       (runtime_checkable Protocol, 11 methods, no GCP-type leakage)
@@ -58,10 +55,9 @@ from typing import Any, List, Optional
 #      is responsible for injecting a concrete implementation.
 # ---------------------------------------------------------------------------
 
-# SUCCESS status string — matches gcp_pipeline_core.job_control.types.JobStatus.SUCCESS
-# When migrating to Culvert contracts, update to "succeeded" AND ensure the
-# concrete adapter returns that value from get_entity_status().
-_SUCCESS_STATUS: str = "SUCCESS"
+# SUCCESS status string — Culvert wire value (JobStatus.SUCCEEDED in both the
+# Java and Python cores; the Java BigQueryJobControlRepository stores this).
+_SUCCESS_STATUS: str = "succeeded"
 
 logger = logging.getLogger(__name__)
 
@@ -81,13 +77,9 @@ class EntityDependencyChecker:
     ``data_pipeline_core.contracts.job_control.JobControlRepository``
     (a ``runtime_checkable`` Protocol).  Callers inject the concrete
     BigQuery-backed adapter; the library itself does not import
-    ``google-cloud-bigquery`` or ``gcp_pipeline_core`` at module load
-    time.
-
-    TODO (T11.2b follow-up): once the concrete ``BigQueryJobControlRepository``
-    adapter migrates from gcp_pipeline_core to data_pipeline_core, add a
-    type annotation here:
-        job_repo: Optional[data_pipeline_core.contracts.job_control.JobControlRepository]
+    ``google-cloud-bigquery`` at module load time (the default
+    ``._job_control.BigQueryJobControl`` reader imports it lazily on first
+    query).
 
     Example:
         >>> checker = EntityDependencyChecker(
@@ -136,13 +128,10 @@ class EntityDependencyChecker:
             # Lazy import — keeps google-cloud-bigquery out of module load
             # time while preserving the original constructor contract for
             # callers that don't supply a repo (DAG factory, deployments).
-            # TODO (T11.2b follow-up): replace with the Culvert adapter once
-            # gcp_pipeline_core migrates to satisfy
-            # data_pipeline_core.contracts.job_control.JobControlRepository.
-            # Note: that migration must also normalise the status value
-            # (SUCCESS -> succeeded) before returning from get_entity_status().
-            from gcp_pipeline_core.job_control import JobControlRepository  # noqa: PLC0415
-            job_repo = JobControlRepository(
+            # T11.2b closed for the 0.1.0 publish: the default reader is
+            # Culvert's own (_job_control), not the predecessor's.
+            from ._job_control import BigQueryJobControl  # noqa: PLC0415
+            job_repo = BigQueryJobControl(
                 project_id,
                 dataset=job_control_dataset,
                 table=job_control_table,
