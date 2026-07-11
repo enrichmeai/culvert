@@ -91,12 +91,26 @@ public final class BigQueryWarehouse implements Warehouse {
         this.client = Objects.requireNonNull(client, "client must not be null");
     }
 
-    // TODO sprint-4 auto-config: introduce a no-arg constructor that reads
-    // GCP_PROJECT + GCP_LOCATION from the environment and constructs a
-    // default BigQueryOptions.getDefaultInstance().getService() client, so
-    // ServiceLoader.load(Warehouse.class) can resolve this without explicit
-    // wiring. Skipped here because the (BigQuery, projectId, location)
-    // bootstrap exceeds the pilot's "no-arg only if <=2 env vars" rule.
+    /**
+     * No-arg constructor for worker-side auto-config reconstruction.
+     *
+     * <p>When the pipeline's {@code RuntimeContext} crosses to a Beam worker its
+     * adapter registry is rebuilt via {@code ServiceLoader}, which needs a
+     * no-arg constructor. Project and dataset region come from the worker
+     * environment ({@code GCP_PROJECT}/{@code GCP_LOCATION}) via
+     * {@link BigQueryDefaults}; the BigQuery client is the Application Default
+     * one (the worker runs as the pipeline's service account). Explicit
+     * driver-side {@code new BigQueryWarehouse(project, client)} is preferred
+     * where a specific client is required.
+     */
+    public BigQueryWarehouse() {
+        this(gateAndProject(), BigQueryDefaults.client());
+    }
+
+    private static String gateAndProject() {
+        BigQueryDefaults.requireGcpSelected();
+        return BigQueryDefaults.project();
+    }
 
     @Override
     public Iterator<Map<String, Object>> query(String sql, Map<String, Object> params) {

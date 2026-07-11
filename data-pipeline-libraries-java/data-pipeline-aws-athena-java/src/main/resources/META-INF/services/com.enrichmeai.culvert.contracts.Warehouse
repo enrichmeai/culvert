@@ -1,0 +1,4 @@
+# Auto-config registration. AthenaWarehouse's no-arg constructor is gated on
+# CULVERT_CLOUD=aws (AthenaDefaults) so mixed-cloud fat jars resolve
+# deterministically; config from ATHENA_DATABASE / ATHENA_OUTPUT_LOCATION.
+com.enrichmeai.culvert.aws.athena.AthenaWarehouse
