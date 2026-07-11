@@ -39,8 +39,11 @@ jobs:
       - name: Clean-venv smoke (wheel[gcp] — all 9 adapters loadable)
         run: |
           python -m venv /tmp/v2
-          WHL=$(ls python-culvert/dist/*.whl)
-          /tmp/v2/bin/pip install --quiet "culvert[gcp] @ file://${WHL}"
+          # Install the local wheel WITH the [gcp] extra. Use the path[extra]
+          # form (an absolute path) — NOT a "name @ file://<relative>" URI,
+          # which pip rejects because file:// requires an absolute path.
+          WHL=$(python -c "import glob,os;print(os.path.abspath(glob.glob('python-culvert/dist/*.whl')[0]))")
+          /tmp/v2/bin/pip install --quiet "${WHL}[gcp]"
           /tmp/v2/bin/python -c "
           from data_pipeline_core import autoconfig
           cfg = autoconfig.discover()
