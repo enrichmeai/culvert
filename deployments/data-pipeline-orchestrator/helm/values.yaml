@@ -1,0 +1,16 @@
+# Deployment-specific overrides for the upstream Apache Airflow chart (aliased
+# pipeline-airflow). Mirrors infrastructure/k8s/airflow/values.yaml; only the
+# orchestrator-specific bits are set here.
+pipeline-airflow:
+  executor: KubernetesExecutor
+  serviceAccount:
+    create: false
+    # Bind to the SA this deployment's Terraform provisions
+    # (terraform output orchestrator_service_account).
+    name: orchestrator-sa
+  # culvert_dags.py builds the DAGs from config/system.yaml via DagFactory.
+  dags:
+    gitSync:
+      enabled: false
+    persistence:
+      enabled: true

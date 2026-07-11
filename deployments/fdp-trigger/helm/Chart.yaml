@@ -1,0 +1,12 @@
+apiVersion: v2
+name: fdp-trigger
+description: >-
+  Per-deployment Helm chart for fdp-trigger — the GKE alternative to its
+  Cloud Run service (terraform/). fdp-trigger is Cloud-Run-native; there is no
+  central runtime chart to wrap for a plain request-driven service, so this
+  chart carries its own minimal Deployment + Service + ServiceAccount. Use it
+  when running the trigger on GKE instead of Cloud Run; the Cloud Run path
+  (terraform/) is the default.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

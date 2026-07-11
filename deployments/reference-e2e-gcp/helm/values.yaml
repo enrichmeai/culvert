@@ -1,0 +1,14 @@
+pipeline-beam-runner:
+  image:
+    repository: reference-e2e-gcp
+    tag: "0.1.0"
+  parallelism:
+    default: 4
+  gcs:
+    bucket: ""
+  checkpointing:
+    enabled: true
+  serviceAccount:
+    create: false
+    name: ref-e2e-runner
+    gcpSaEmail: ""

@@ -1,0 +1,6 @@
+dependencies:
+- name: pipeline-dbt-runner
+  repository: file://../../../infrastructure/k8s/charts/pipeline-dbt-runner
+  version: 1.0.0
+digest: sha256:4c860c0be3671fae01ce5fe9395f68506ed322d9e0df9d7369e4c613cf78c802
+generated: "2026-07-08T13:28:04.193995+01:00"

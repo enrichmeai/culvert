@@ -1,0 +1,2 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed on Kubernetes.
+This is the GKE alternative to the Cloud Run service in ../terraform.

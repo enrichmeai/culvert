@@ -1,0 +1,13 @@
+apiVersion: v2
+name: fdp-to-consumable-product
+description: >-
+  Per-deployment Helm chart for the fdp-to-consumable-product dbt
+  transformation. Wraps the shared pipeline-dbt-runner (CronJob) chart with this
+  deployment's values; it does not re-implement the runner.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: pipeline-dbt-runner
+    version: ">= 1.0.0"
+    repository: "file://../../../infrastructure/k8s/charts/pipeline-dbt-runner"

@@ -1,0 +1,22 @@
+image:
+  repository: fdp-trigger
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+replicaCount: 1
+serviceAccount:
+  # Bind to the SA this deployment's Terraform provisions when running on GKE
+  # with Workload Identity (terraform output runner_service_account).
+  name: fdp-trigger
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+env:
+  GCP_PROJECT: ""
+  FDP_DATASET: fdp_generic
+  FDP_TABLES: ""
+service:
+  port: 8080

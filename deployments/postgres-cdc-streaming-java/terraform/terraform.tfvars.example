@@ -1,0 +1,7 @@
+gcp_project_id       = "my-culvert-demo"
+gcp_region           = "us-central1"
+environment          = "demo"
+odp_dataset_id       = "odp_generic"
+cdc_subscription     = "projects/my-culvert-demo/subscriptions/generic-cdc-events-sub"
+enable_cloud_run_job = "true"
+image_uri            = "us-central1-docker.pkg.dev/my-culvert-demo/culvert/postgres-cdc-streaming:0.1.0"
