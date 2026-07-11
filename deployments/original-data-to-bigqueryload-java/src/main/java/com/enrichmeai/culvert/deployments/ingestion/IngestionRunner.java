@@ -213,12 +213,26 @@ public final class IngestionRunner {
             }
         }
 
-        // 5. Stage valid rows to NDJSON and bulk-load into BigQuery.
+        // 5. Stage valid rows to NDJSON and bulk-load into BigQuery — with the
+        // audit columns the downstream dbt models contract on. The Python
+        // reference injects these via AddAuditColumnsDoFn (transforms.py:107);
+        // the FDP staging/join models read _run_id/_extract_date/_processed_at,
+        // so omitting them loads rows that silently never join (caught by the
+        // first real e2e on GCP, 2026-07-10).
         long loadedCount = 0L;
         if (!validRows.isEmpty()) {
+            String extractDateIso = java.time.LocalDate.parse(
+                    request.extractDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE).toString();
+            String processedAt = java.time.Instant.now().toString();
+            for (Map<String, Object> row : validRows) {
+                row.put("_run_id", runId);
+                row.put("_extract_date", extractDateIso);
+                row.put("_processed_at", processedAt);
+            }
+            EntitySchema auditedSchema = withAuditColumns(schema);
             String stagingUri = stagingPathPrefix + "/" + entity + "/" + runId + ".ndjson";
             blobStore.put(stagingUri, toNdjson(validRows));
-            loadedCount = warehouse.loadFromUri(stagingUri, request.targetTable(), schema);
+            loadedCount = warehouse.loadFromUri(stagingUri, request.targetTable(), auditedSchema);
         }
 
         // 6. Quarantine invalid rows (schema violations + CSV parse errors).
@@ -261,6 +275,20 @@ public final class IngestionRunner {
             sb.append(GSON.toJson(row)).append('\n');
         }
         return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    /**
+     * The entity schema plus the audit columns every ODP row carries
+     * ({@code _run_id}, {@code _extract_date}, {@code _processed_at}) — the
+     * downstream dbt staging/FDP models join and filter on these, mirroring
+     * the Python reference's {@code AddAuditColumnsDoFn}.
+     */
+    private static EntitySchema withAuditColumns(EntitySchema schema) {
+        List<com.enrichmeai.culvert.schema.SchemaField> fields = new ArrayList<>(schema.fields());
+        fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_run_id", "STRING"));
+        fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_extract_date", "DATE"));
+        fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_processed_at", "TIMESTAMP"));
+        return EntitySchema.of(schema.name(), fields);
     }
 
     private static List<String> splitLines(String content) {

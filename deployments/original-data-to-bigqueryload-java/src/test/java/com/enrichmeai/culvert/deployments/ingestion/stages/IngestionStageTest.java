@@ -121,17 +121,27 @@ class IngestionStageTest {
         Pipeline beam = pipeline.buildBeam(opts, context);
 
         // DirectRunner executes eagerly inside run() itself (not lazily on
-        // waitUntilFinish()). Fails inside the DoFn because Warehouse isn't
-        // worker-side-resolvable — this is the documented boundary, not a bug.
-        // The important assertion is that the failure comes from *inside*
-        // stage.execute() (proving Beam really invoked it), not from pipeline
-        // construction/validation.
-        org.assertj.core.api.Assertions.assertThatThrownBy(beam::run)
-                .as("DirectRunner must reach IngestionStage.execute(); it fails there because "
-                        + "Warehouse is not ServiceLoader-discoverable worker-side (see class Javadoc)")
-                .isInstanceOf(org.apache.beam.sdk.Pipeline.PipelineExecutionException.class)
-                .cause()
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("Warehouse");
+        // waitUntilFinish()). Since the worker-side auto-config fix,
+        // BigQueryWarehouse/BigQueryJobControlRepository ARE ServiceLoader-
+        // reconstructable on the worker (no-arg ctors via BigQueryDefaults) —
+        // execution now proceeds INTO the stage and fails only at the real
+        // BigQuery RPC (no live dataset in a unit test). gcp.project pins the
+        // client to a fake project so no real ADC project is ever touched.
+        // The assertion's spirit is unchanged: the failure must come from
+        // *inside* stage.execute() (proving Beam invoked it and the worker
+        // rebuilt its adapters), not from construction or adapter resolution.
+        System.setProperty("gcp.project", "unit-test-no-such-project");
+        System.setProperty("gcp.location", "europe-west2");
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(beam::run)
+                    .as("DirectRunner must reach IngestionStage.execute(); adapters resolve "
+                            + "worker-side now, so the failure is the BigQuery RPC itself")
+                    .isInstanceOf(org.apache.beam.sdk.Pipeline.PipelineExecutionException.class)
+                    .cause()
+                    .isInstanceOf(com.google.cloud.bigquery.BigQueryException.class);
+        } finally {
+            System.clearProperty("gcp.project");
+            System.clearProperty("gcp.location");
+        }
     }
 }

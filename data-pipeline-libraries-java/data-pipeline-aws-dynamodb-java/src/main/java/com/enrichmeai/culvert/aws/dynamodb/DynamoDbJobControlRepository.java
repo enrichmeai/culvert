@@ -159,11 +159,36 @@ public final class DynamoDbJobControlRepository implements JobControlRepository 
         this.tableName = Objects.requireNonNull(tableName, "tableName must not be null");
     }
 
-    // TODO sprint-future auto-config: no-arg constructor reading
-    // AWS_REGION / JOB_CONTROL_TABLE from env, mirroring the BigQuery
-    // adapter's TODO. Skipped here for the same "no-arg only if <=2 env vars"
-    // reason — a bootstrapped DynamoDbClient needs a region resolved from
-    // more than two knobs in the general case.
+    /**
+     * No-arg constructor for worker-side auto-config reconstruction, gated on
+     * {@code CULVERT_CLOUD=aws} (see {@code S3BlobStore()} / the GCP family's
+     * {@code BigQueryWarehouse()} for the worker-rebuild rationale). Table
+     * from {@code JOB_CONTROL_TABLE} (default {@code pipeline_jobs});
+     * region/credentials from the AWS default chains.
+     */
+    public DynamoDbJobControlRepository() {
+        this(gatedDefaultClient(), resolveTable());
+    }
+
+    private static DynamoDbClient gatedDefaultClient() {
+        String cloud = System.getenv("CULVERT_CLOUD");
+        if (cloud == null || cloud.isBlank()) {
+            cloud = System.getProperty("culvert.cloud");
+        }
+        if (cloud == null || !cloud.equalsIgnoreCase("aws")) {
+            throw new IllegalStateException(
+                    "AWS adapters are gated to CULVERT_CLOUD=aws; current selector: " + cloud);
+        }
+        return DynamoDbClient.create();
+    }
+
+    private static String resolveTable() {
+        String t = System.getenv("JOB_CONTROL_TABLE");
+        if (t == null || t.isBlank()) {
+            t = System.getProperty("aws.jobControlTable");
+        }
+        return (t == null || t.isBlank()) ? "pipeline_jobs" : t;
+    }
 
     @Override
     public void createJob(PipelineJob job) {
