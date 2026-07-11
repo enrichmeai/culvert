@@ -23,31 +23,31 @@ variable "required_services" {
     # ==========================================================================
     # Compute Services
     # ==========================================================================
-    "container.googleapis.com",            # GKE (for Airflow)
-    "dataflow.googleapis.com",             # Dataflow (for Beam pipelines)
-    "compute.googleapis.com",              # Compute Engine (for GKE nodes)
+    "container.googleapis.com", # GKE (for Airflow)
+    "dataflow.googleapis.com",  # Dataflow (for Beam pipelines)
+    "compute.googleapis.com",   # Compute Engine (for GKE nodes)
 
     # ==========================================================================
     # Build & Deploy Services
     # ==========================================================================
-    "cloudbuild.googleapis.com",           # Cloud Build
-    "containerregistry.googleapis.com",    # Container Registry (GCR)
-    "artifactregistry.googleapis.com",     # Artifact Registry
+    "cloudbuild.googleapis.com",        # Cloud Build
+    "containerregistry.googleapis.com", # Container Registry (GCR)
+    "artifactregistry.googleapis.com",  # Artifact Registry
 
     # ==========================================================================
     # Monitoring & Observability
     # ==========================================================================
-    "monitoring.googleapis.com",           # Cloud Monitoring
-    "logging.googleapis.com",              # Cloud Logging
-    "cloudtrace.googleapis.com",           # Cloud Trace
-    "clouderrorreporting.googleapis.com",  # Error Reporting
+    "monitoring.googleapis.com",          # Cloud Monitoring
+    "logging.googleapis.com",             # Cloud Logging
+    "cloudtrace.googleapis.com",          # Cloud Trace
+    "clouderrorreporting.googleapis.com", # Error Reporting
 
     # ==========================================================================
     # Security Services
     # ==========================================================================
-    "secretmanager.googleapis.com",        # Secret Manager
-    "cloudkms.googleapis.com",             # Cloud KMS (encryption)
-    "iamcredentials.googleapis.com",       # IAM Credentials
+    "secretmanager.googleapis.com",  # Secret Manager
+    "cloudkms.googleapis.com",       # Cloud KMS (encryption)
+    "iamcredentials.googleapis.com", # IAM Credentials
 
     # ==========================================================================
     # Optional Services (uncomment if needed)

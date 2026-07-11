@@ -88,12 +88,12 @@ output "composer_service_account_email" {
 # ============================================================================
 
 output "composer_airflow_uri" {
-  value       = google_composer_environment.generic_composer.config[0].airflow_uri
+  value       = one(google_composer_environment.generic_composer[*].config[0].airflow_uri)
   description = "Airflow web UI URL"
 }
 
 output "composer_dag_gcs_prefix" {
-  value       = google_composer_environment.generic_composer.config[0].dag_gcs_prefix
+  value       = one(google_composer_environment.generic_composer[*].config[0].dag_gcs_prefix)
   description = "GCS path for DAG uploads"
 }
 
@@ -133,9 +133,9 @@ output "deployment_summary" {
       file_notifications_sub   = google_pubsub_subscription.generic_file_notifications_sub.name
     }
     composer = {
-      environment = google_composer_environment.generic_composer.name
-      airflow_uri = google_composer_environment.generic_composer.config[0].airflow_uri
-      dag_gcs     = google_composer_environment.generic_composer.config[0].dag_gcs_prefix
+      environment = one(google_composer_environment.generic_composer[*].name)
+      airflow_uri = one(google_composer_environment.generic_composer[*].config[0].airflow_uri)
+      dag_gcs     = one(google_composer_environment.generic_composer[*].config[0].dag_gcs_prefix)
     }
   }
   description = "Summary of all deployed resources"
