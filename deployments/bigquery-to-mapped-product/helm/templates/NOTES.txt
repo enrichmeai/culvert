@@ -1,0 +1,3 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed.
+Wraps pipeline-dbt-runner (dbt CronJob). Bind the runner SA from Terraform:
+  terraform -chdir=../terraform output -raw runner_service_account

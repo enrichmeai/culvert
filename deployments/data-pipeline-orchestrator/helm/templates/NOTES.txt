@@ -1,0 +1,3 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed.
+Wraps pipeline-airflow (Airflow on Kubernetes) — the Composer-off orchestration
+path. DAGs are built by culvert_dags.py from config/system.yaml.

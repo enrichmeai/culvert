@@ -1,0 +1,12 @@
+apiVersion: v2
+name: postgres-cdc-streaming-java
+description: >-
+  Per-deployment Helm chart for postgres-cdc-streaming-java. Wraps the shared pipeline-beam-runner
+  (Flink-on-GKE) chart with this deployment's values; it does not fork the runner.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: pipeline-beam-runner
+    version: ">= 1.0.0"
+    repository: "file://../../../infrastructure/k8s/charts/pipeline-beam-runner"

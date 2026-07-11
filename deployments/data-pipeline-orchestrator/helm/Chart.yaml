@@ -1,0 +1,19 @@
+apiVersion: v2
+name: data-pipeline-orchestrator
+description: >-
+  Per-deployment Helm chart for the data-pipeline-orchestrator. Wraps the
+  official Apache Airflow chart (aliased pipeline-airflow) with this
+  deployment's values — the Kubernetes/self-hosted-Airflow orchestration path
+  and the alternative to Cloud Composer. Runs the same culvert_dags.py the
+  Composer path would (built from config/system.yaml via DagFactory). On GCP the
+  demo default is Composer OFF (Terraform enable_composer=false), so this chart
+  is how the demo orchestrates without standing Composer cost.
+  Values overlay reference: infrastructure/k8s/airflow/values.yaml.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: airflow
+    alias: pipeline-airflow
+    version: "1.22.0"
+    repository: "https://airflow.apache.org"

@@ -1,0 +1,6 @@
+gcp_project_id = "my-culvert-demo"
+gcp_region     = "us-central1"
+environment    = "demo"
+# Tier-3a demo default: no Composer, no standing cost. Flip to "true" only for
+# the one-off Tier-3b pre-publish validation, then tear it down.
+enable_composer = "false"

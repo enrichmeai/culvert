@@ -1,0 +1,13 @@
+apiVersion: v2
+name: spanner-to-bigquery-load
+description: >-
+  Per-deployment Helm chart for the spanner-to-bigquery-load dbt project
+  (spanner_transformation). Wraps the shared pipeline-dbt-runner CronJob chart
+  with this deployment's values; does not fork the runner.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+dependencies:
+  - name: pipeline-dbt-runner
+    version: ">= 1.0.0"
+    repository: "file://../../../infrastructure/k8s/charts/pipeline-dbt-runner"

@@ -1,0 +1,17 @@
+# Deployment-specific overrides for the pipeline-dbt-runner subchart.
+pipeline-dbt-runner:
+  image:
+    repository: pipeline-dbt-runner
+    tag: "0.1.0"
+  dbt:
+    project: fdp-to-consumable-product
+    target: prod
+  schedule:
+    transformation: "0 3 * * *"
+  serviceAccount:
+    create: false
+    # Bind to the SA this deployment's Terraform provisions.
+    name: fdp-consumable-dbt
+    gcpSaEmail: ""
+  gcs:
+    targetProject: ""
