@@ -126,3 +126,6 @@ deployments/*/helm/charts/*.tgz
 
 # Per-deployment terraform provider lock (single-platform; regenerated on init)
 **/.terraform.lock.hcl
+
+# culvert distribution build artifacts
+python-culvert/dist/
