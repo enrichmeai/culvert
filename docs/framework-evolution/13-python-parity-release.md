@@ -62,6 +62,29 @@ from Culvert's public materials — one brand, one story.
 - **Irreversible.** PyPI version numbers can't be reused; Maven Central is
   immutable. The publish itself stays a Joseph-gated manual trigger.
 
+### 2a. Deploy-phase cost discipline (near-zero, decided 2026-07)
+
+This is an open-source project on a **public** repo, so the "from git" leg is
+free and the GCP data plane fits the always-free tier at our test volumes. The
+deploy phase (gate steps 1–3) is engineered to cost **£0–~£15**, not a standing
+Composer bill:
+
+- **CI / deploy from git:** GitHub Actions (unlimited free minutes on public
+  repos) + **Workload Identity Federation** (keyless OIDC to GCP — no stored
+  service-account key, and it doubles as the Wave D publish plumbing).
+- **Always-free at our scale:** BigQuery (1 TB query + 10 GB storage/mo), GCS,
+  Pub/Sub, Secret Manager.
+- **Dataflow** (no free tier): 2–3 minimal-worker runs of ingestion + e2e —
+  pennies to a few pounds. Runs behind `/finops-estimate`.
+- **Cloud Composer** is the only standing cost (~£8–12/day). Decision:
+  **test it exactly once**, immediately before the PyPI/Maven publish — a
+  single one-day validation of the orchestrator DAGs on a real Composer env,
+  **torn down the same day**. Day-to-day orchestration validation uses local
+  Airflow (docker-compose) driving `culvert_dags.py` against the real GCP data
+  plane; Composer is only to prove the Composer renderer/runtime once on the
+  real thing. A fresh billing account's ~$300 90-day trial credit covers the
+  whole phase, Composer included.
+
 ## 3. Current state — Python vs Java 0.1.0 (baseline content-verified 2026-06-14)
 
 **Python already has more than a filename scan suggests.** Verified by grepping
