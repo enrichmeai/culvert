@@ -1,68 +1,101 @@
-# Release procedure
+# Release procedure — coordinated 0.1.0 (Java + Python)
 
-Internal procedure for publishing Culvert framework releases. **Not automated.** Joseph triggers each step manually.
+Joseph triggers every publishing step manually. **Publishing is irreversible**:
+PyPI version numbers can never be reused and Maven Central artifacts are
+immutable. Nothing in this repo auto-publishes.
 
-## Prerequisites (one-time)
+The release gate (authoritative:
+[`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md) §2):
+deploy → test end-to-end → validate libraries → **publish both ecosystems
+together** → only then the book / release announcement.
 
-- **PyPI:** Create an API token at https://pypi.org/manage/account/token/. Store as the `PYPI_TOKEN` env var or in `~/.pypirc`.
-- **Maven Central / Sonatype Central:** Create an account at https://central.sonatype.com/. Register the `com.enrichmeai.culvert` namespace (verification via DNS TXT on `enrichmeai.com`). Generate a user token. Set up GPG: `gpg --gen-key`, `gpg --export-secret-keys --armor <KEY_ID>` and add to `~/.m2/settings.xml` under the `central` server.
-- **Re-enable GitHub Actions workflows** (see #14): `for id in 243664542 243664544 ...; do gh workflow enable $id; done`. The workflows themselves are wired and just disabled.
+---
 
-## Publishing Python packages to PyPI
+## 0. State of the gate (update as steps complete)
 
-For each `data-pipeline-*` directory under `data-pipeline-libraries/`:
+| Step | Status |
+|---|---|
+| Reference deployments on real GCP (cloudrun-only) | ✅ 2026-07-10 — full ODP→FDP→CDP chain, event-driven |
+| Libraries validated (unit + emulator IT + real-deploy exercise) | ✅ (the deploy caught 8 prod-only bugs; all fixed) |
+| Composer one-day validation (the deliberate pre-publish spend) | ⬜ see §4 |
+| PyPI publish | ⬜ §2 |
+| Maven Central publish | ⬜ §3 |
+| Book / announcement | ⬜ after both publishes |
+
+## 1. Prerequisites (one-time, Joseph)
+
+- **PyPI — trusted publishing (NO tokens).** A *pending publisher* for project
+  `culvert` is registered (✅ 2026-07): owner `enrichmeai`, repo `culvert`,
+  workflow `publish-pypi.yml`, environment `pypi`. Optional second gate:
+  repo Settings → Environments → `pypi` → required reviewers → yourself.
+- **Maven Central (Sonatype Central).** Account at central.sonatype.com;
+  namespace `com.enrichmeai.culvert` verified; user token in
+  `~/.m2/settings.xml` (server id `central`); GPG key generated and its public
+  key published to a keyserver. These are Joseph's secrets — never in the
+  repo, never handled by agents.
+- **PyPI organization (optional, later).** The community-org `enrichmeai`
+  request can proceed in parallel; transfer the `culvert` project into it when
+  approved. Does not block 0.1.0.
+
+## 2. Publish `culvert` to PyPI
+
+The distribution is `python-culvert/` (single dist + extras — the D1
+decision; all ten library import packages ship inside one wheel).
+
+1. Confirm `main` is green and contains everything intended for 0.1.0.
+2. GitHub → Actions → **publish-pypi** → *Run workflow* → type
+   `publish-culvert` in the confirm box.
+3. The `verify` job re-runs the full validation (build → `twine check` →
+   clean-venv wheel install → `[gcp]` adapter-discovery smoke → sdist
+   round-trip). The `publish` job only runs after verify is green, inside the
+   protected `pypi` environment, via OIDC.
+4. Post-publish check: `pip install culvert[gcp]` in a fresh venv from the
+   real index; confirm `culvert.__version__` and that the project page
+   renders.
+
+If a broken release ships anyway: **yank** it on PyPI (never delete), fix,
+release `0.1.1`.
+
+## 3. Publish the Java reactor to Maven Central
+
+From the release state of `main` (the reactor freeze is tagged
+`java-0.1.0`; tag `v0.1.0` on the release commit):
 
 ```bash
-cd data-pipeline-libraries/<package>
-python3 -m pip install --upgrade build twine
-python3 -m build  # produces dist/*.whl and dist/*.tar.gz
-python3 -m twine upload --repository pypi dist/*
+mvn -f data-pipeline-libraries-java/pom.xml -P release clean deploy
 ```
 
-Order matters because of inter-package dependencies:
+- The `release` profile signs with GPG and uploads via
+  `central-publishing-maven-plugin` with `autoPublish=false`.
+- Sonatype Central holds the bundle in **validation** — review it at
+  https://central.sonatype.com/, then confirm release. That confirmation is
+  the Java point-of-no-return.
+- Post-publish check: artifacts visible under `com.enrichmeai.culvert`; a
+  scratch Maven project resolves `data-pipeline-core:0.1.0`.
 
-1. `data-pipeline-core` (no deps inside the framework)
-2. `data-pipeline-contract-tests` (depends on core)
-3. `data-pipeline-tester` (depends on core)
-4. `data-pipeline-gcp-bigquery`, `data-pipeline-gcp-gcs`, `data-pipeline-gcp-pubsub` (depend on core)
-5. `data-pipeline-transform`, `data-pipeline-framework`, `data-pipeline-orchestration` (renamed legacy)
-6. The deprecation-shim `gcp-pipeline-*` distributions (depend on renamed packages)
+## 4. Pre-publish Composer validation (one day, then teardown)
 
-## Publishing Java artefacts to Maven Central
+The single deliberate Composer spend (doc 13 §2a): apply
+`infrastructure/terraform/systems/generic` with `enable_composer=true`,
+deploy `deployments/data-pipeline-orchestrator/dags/culvert_dags.py`, verify
+the DAGs parse and one ingestion DAG runs green on real Composer, capture
+evidence, then re-apply with `enable_composer=false` — **same day**.
+Everything else already runs cloudrun-only (no Airflow).
 
-From `data-pipeline-libraries-java/`:
+## 5. Coordinated order
 
-```bash
-# Validates GPG + Sonatype credentials before deploying.
-mvn -P release clean deploy
-```
+1. §4 Composer validation (the last evidence for the gate)
+2. §2 PyPI and §3 Maven Central in the same sitting — PyPI first (it has the
+   stronger automated pre-verify); announce nothing between the two
+3. Tag `v0.1.0` (`git tag v0.1.0 && git push --tags`); update
+   [CHANGELOG.md](CHANGELOG.md) to a dated release; GitHub release notes with
+   the honest status (two clouds: GCP full, AWS Java adapter family, Azure
+   roadmap)
+4. Book + Medium launch pieces follow the release, never precede it
 
-The `release` profile is already configured in the parent POM:
-- Signs all artefacts with GPG.
-- Uploads via `central-publishing-maven-plugin` to the central staging repo.
-- `autoPublish=false` means a manual close+release step at https://central.sonatype.com/ after upload completes.
+## 6. Version discipline
 
-To publish a single module:
-
-```bash
-mvn -P release -pl data-pipeline-gcp-bigquery-java -am clean deploy
-```
-
-## Versioning
-
-Currently all artefacts are version `0.1.0`. Bumps happen via:
-
-- **Java:** `mvn versions:set -DnewVersion=0.2.0 -DgenerateBackupPoms=false` from `data-pipeline-libraries-java/`. Commit and push before deploy.
-- **Python:** Edit each `pyproject.toml`'s `version = "..."`. Or use `bumpver` / `hatch version` if you adopt one.
-
-The two languages currently version in lockstep; that may change post-1.0.
-
-## Post-release checklist
-
-- Tag the release: `git tag v0.1.0 && git push --tags`.
-- Update [CHANGELOG.md](CHANGELOG.md) to move the `[0.1.0] — unreleased` heading to a dated release.
-- Announce: GitHub release notes, blog post, book chapter linking the published artefacts.
-
-## What CANNOT be automated until the rename happens
-
-Maven artefact `groupId` is `com.enrichmeai.culvert` — that's stable. PyPI package names are `data-pipeline-*` — also stable. The GitHub repo name `culvert` is misleading post-Stage-2; see [REPO_RENAME.md](REPO_RENAME.md). The repo rename does NOT block publishing.
+- Reactor, Python dist, deployments and docs all say **0.1.0** before the
+  trigger; verify with grep, not memory.
+- After release, bump `main` in one PR: `mvn versions:set -DnewVersion=0.2.0-SNAPSHOT`
+  (Java) and `version = "0.2.0.dev0"` in `python-culvert/pyproject.toml`.
