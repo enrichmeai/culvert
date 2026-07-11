@@ -1,0 +1,6 @@
+dependencies:
+- name: pipeline-beam-runner
+  repository: file://../../../infrastructure/k8s/charts/pipeline-beam-runner
+  version: 1.0.0
+digest: sha256:55d88a5b5d30b0cf0a8976ae60ca097a401ea6130d0ae7526602c48a05667f98
+generated: "2026-07-08T12:21:09.624432+01:00"

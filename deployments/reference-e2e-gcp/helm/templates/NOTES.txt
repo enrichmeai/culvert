@@ -1,0 +1,2 @@
+{{ .Chart.Name }} {{ .Chart.Version }} deployed.
+Wraps pipeline-beam-runner (Flink-on-GKE). Bind the runner SA from Terraform.

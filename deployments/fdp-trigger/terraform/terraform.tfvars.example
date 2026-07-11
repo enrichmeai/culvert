@@ -1,0 +1,7 @@
+gcp_project_id            = "my-culvert-demo"
+gcp_region                = "us-central1"
+environment               = "demo"
+image_uri                 = "us-central1-docker.pkg.dev/my-culvert-demo/culvert/fdp-trigger:0.1.0"
+fdp_dataset               = "fdp_generic"
+fdp_tables                = ["portfolio_account_excess", "portfolio_account_facility"]
+scheduler_service_account = ""

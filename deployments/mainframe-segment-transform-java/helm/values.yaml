@@ -1,0 +1,14 @@
+pipeline-beam-runner:
+  image:
+    repository: mainframe-segment-transform
+    tag: "0.1.0"
+  parallelism:
+    default: 4
+  gcs:
+    bucket: ""
+  checkpointing:
+    enabled: true
+  serviceAccount:
+    create: false
+    name: mf-segment-runner
+    gcpSaEmail: ""
