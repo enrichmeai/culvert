@@ -4,13 +4,14 @@ DLQ (Dead Letter Queue) Publishing Utilities.
 Functions for publishing error messages to Pub/Sub DLQ.
 """
 
+import json
+import logging
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-from gcp_pipeline_core.utilities.logging import get_logger
 
 from .types import ErrorHandlerConfig, ErrorType, get_default_config
 
-logger = get_logger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def _get_project_id(
@@ -120,7 +121,9 @@ def publish_to_dlq(
         return None
 
     try:
-        from gcp_pipeline_core.clients.pubsub_client import PubSubClient
+        # google-cloud-pubsub is a declared dependency; imported lazily so the
+        # callbacks package stays import-light (mirrors the lazy-Airflow rule).
+        from google.cloud import pubsub_v1  # noqa: PLC0415
 
         project_id = _get_project_id(context, cfg)
         if not project_id:
@@ -139,14 +142,15 @@ def publish_to_dlq(
         # Use provided topic or default from config
         dlq_topic = topic or cfg.dlq_topic
 
-        # Publish to DLQ
-        client = PubSubClient(project=project_id)
-        message_id = client.publish_event(
-            topic=dlq_topic,
-            message=error_payload,
-            error_type=error_type,
-            dag_id=error_payload.get("dag_id", "unknown"),
-        )
+        # Publish to DLQ (JSON payload; error_type/dag_id as attributes so
+        # subscribers can filter without decoding the body).
+        publisher = pubsub_v1.PublisherClient()
+        message_id = publisher.publish(
+            publisher.topic_path(project_id, dlq_topic),
+            json.dumps(error_payload).encode("utf-8"),
+            error_type=str(error_type),
+            dag_id=str(error_payload.get("dag_id", "unknown")),
+        ).result(timeout=30)
 
         logger.info(
             f"Published error to DLQ: message_id={message_id}, "
@@ -155,7 +159,7 @@ def publish_to_dlq(
         return message_id
 
     except ImportError:
-        logger.error("Could not import PubSubClient - DLQ publishing not available")
+        logger.error("google-cloud-pubsub not installed - DLQ publishing not available")
         return None
     except Exception as e:
         logger.error(f"Failed to publish to DLQ: {e}")

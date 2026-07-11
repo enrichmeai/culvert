@@ -37,25 +37,30 @@ class TestFailureRoutesToDLQ(unittest.TestCase):
     """A failed task's on_failure_callback publishes to the DLQ topic."""
 
     @patch("data_pipeline_orchestration.callbacks.dlq._get_project_id", return_value="proj-123")
-    @patch("gcp_pipeline_core.clients.pubsub_client.PubSubClient")
+    @patch("google.cloud.pubsub_v1.PublisherClient")
     def test_failure_callback_publishes_to_dlq_topic(self, mock_client_cls, _proj):
+        import json
+
         stub_client = MagicMock()
-        stub_client.publish_event.return_value = "msg-id-987"
+        stub_client.topic_path.side_effect = (
+            lambda project, topic: f"projects/{project}/topics/{topic}")
+        stub_client.publish.return_value.result.return_value = "msg-id-987"
         mock_client_cls.return_value = stub_client
 
         cfg = ErrorHandlerConfig(dlq_topic="generic-dlq")
         ctx = _fake_context(exc=ValueError("dataflow boom"))
 
-        # on_failure_callback → publish_to_dlq → PubSubClient.publish_event
+        # on_failure_callback → publish_to_dlq → PublisherClient.publish
         on_failure_callback(ctx, cfg)
 
-        stub_client.publish_event.assert_called_once()
-        kwargs = stub_client.publish_event.call_args.kwargs
-        self.assertEqual(kwargs["topic"], "generic-dlq")
-        self.assertEqual(kwargs["error_type"], ErrorType.TASK_FAILURE)
-        self.assertIn("dataflow boom", kwargs["message"]["error_message"])
+        stub_client.publish.assert_called_once()
+        args = stub_client.publish.call_args
+        self.assertEqual(args.args[0], "projects/proj-123/topics/generic-dlq")
+        payload = json.loads(args.args[1].decode("utf-8"))
+        self.assertIn("dataflow boom", payload["error_message"])
+        self.assertEqual(args.kwargs["error_type"], str(ErrorType.TASK_FAILURE))
 
-    @patch("gcp_pipeline_core.clients.pubsub_client.PubSubClient")
+    @patch("google.cloud.pubsub_v1.PublisherClient")
     def test_disabled_dlq_does_not_publish(self, mock_client_cls):
         cfg = ErrorHandlerConfig(enable_dlq=False)
         on_failure_callback(_fake_context(exc=RuntimeError("x")), cfg)

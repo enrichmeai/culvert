@@ -1,0 +1,75 @@
+# Publish the `culvert` distribution to PyPI via OIDC trusted publishing.
+#
+# JOSEPH-GATED: manual workflow_dispatch only, and the job runs in the `pypi`
+# environment — protect that environment (required reviewers) in repo settings
+# for a second gate. No tokens anywhere: PyPI trusts this exact repo + workflow
+# + environment via the pending publisher registered 2026-07.
+#
+# Publish is IRREVERSIBLE (version numbers are burned forever). The verify job
+# is the TestPyPI substitute: build → twine check → clean-venv install (wheel,
+# wheel[gcp], sdist) → import + discovery smoke. Publish only runs if verify
+# is green AND the confirm input is exactly "publish-culvert".
+name: publish-pypi
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "publish-culvert" to confirm the irreversible PyPI publish'
+        required: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --quiet build twine
+          python -m build python-culvert
+      - name: twine check
+        run: python -m twine check python-culvert/dist/*
+      - name: Clean-venv smoke (wheel, core-only)
+        run: |
+          python -m venv /tmp/v1 && /tmp/v1/bin/pip install --quiet python-culvert/dist/*.whl
+          /tmp/v1/bin/python -c "import culvert; from data_pipeline_core import autoconfig; autoconfig.discover(); print('core-only ok', culvert.__version__)"
+      - name: Clean-venv smoke (wheel[gcp] — all 9 adapters loadable)
+        run: |
+          python -m venv /tmp/v2
+          WHL=$(ls python-culvert/dist/*.whl)
+          /tmp/v2/bin/pip install --quiet "culvert[gcp] @ file://${WHL}"
+          /tmp/v2/bin/python -c "
+          from data_pipeline_core import autoconfig
+          cfg = autoconfig.discover()
+          eps = ['blob_store','warehouse','finops','source','sink','secrets','observability','stage_metrics','lineage']
+          missing = [n for n in eps if cfg.first(n) is None]
+          assert not missing, f'unloadable adapters: {missing}'
+          print('all 9 adapters loadable')"
+      - name: Clean-venv smoke (sdist round-trip)
+        run: |
+          python -m venv /tmp/v3 && /tmp/v3/bin/pip install --quiet python-culvert/dist/*.tar.gz
+          /tmp/v3/bin/python -c "import culvert; print('sdist ok', culvert.__version__)"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: python-culvert/dist/
+
+  publish:
+    needs: verify
+    if: github.event.inputs.confirm == 'publish-culvert'
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # OIDC trusted publishing — no token, no secret
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

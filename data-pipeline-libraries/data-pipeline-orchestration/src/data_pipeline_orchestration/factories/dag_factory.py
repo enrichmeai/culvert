@@ -27,8 +27,8 @@ reachable via :class:`DagFactory.error_handling_dag` but is intentionally NOT
 wired into ``create_dags`` — #87's acceptance gate is the 4-type set above
 (the 2 ingestion-side types from #86 plus transformation + pipeline_status).
 
-This module is import-safe **without** Airflow installed and **without** the
-legacy ``gcp_pipeline_core`` package: the heavy lifting is delegated to
+This module is import-safe **without** Airflow installed: the heavy
+lifting is delegated to
 :mod:`data_pipeline_orchestration.factories._dag_builders`, whose builders
 lazy-import Airflow inside the function body and raise a clear ``ImportError``
 when it is absent.
@@ -58,7 +58,7 @@ logger = logging.getLogger(__name__)
 
 
 # =============================================================================
-# Helpers (pure; no Airflow / no gcp_pipeline_core)
+# Helpers (pure; no Airflow, no cloud SDKs)
 # =============================================================================
 
 def _entity_names(config: Dict[str, Any]) -> List[str]:
