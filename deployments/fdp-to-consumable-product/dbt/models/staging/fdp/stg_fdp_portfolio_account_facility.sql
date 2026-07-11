@@ -11,7 +11,6 @@ with source as (
 
 staged as (
     select
-        facility_key,
         application_id,
         customer_id,
         loan_amount,

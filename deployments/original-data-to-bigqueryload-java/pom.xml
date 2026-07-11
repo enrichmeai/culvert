@@ -198,8 +198,10 @@
                         <configuration>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.enrichmeai.culvert.deployments.ingestion.IngestionMain</mainClass>
+                                </transformer>
                             </transformers>
-                            <mainClass>com.enrichmeai.culvert.deployments.ingestion.IngestionMain</mainClass>
                             <!-- AWS SDK jars are signed; their signature files
                                  are invalid in a fat jar and must be stripped
                                  (standard shade signature exclusion). -->

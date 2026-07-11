@@ -605,28 +605,38 @@ resource "google_bigquery_table" "pipeline_jobs" {
   }
   clustering = ["system_id", "entity_type", "status"]
 
+  # Schema mirrors BigQueryJobControlRepository#createJob's INSERT column list —
+  # the code is authoritative (data-pipeline-gcp-bigquery-java/.../
+  # BigQueryJobControlRepository.java). The previous schema here was the
+  # predecessor-era shape (source_files REPEATED, total_records, max_retries,
+  # parent_run_ids, dbt_model_name; no pipeline_name/record_count/FinOps
+  # columns) — the first real deploy failed with "Column pipeline_name is not
+  # present" (2026-07-10). Only run_id is REQUIRED: the adapter binds every
+  # other column as a nullable named parameter.
   schema = jsonencode([
     { name = "run_id", type = "STRING", mode = "REQUIRED" },
-    { name = "system_id", type = "STRING", mode = "REQUIRED" },
-    { name = "entity_type", type = "STRING", mode = "REQUIRED" },
-    { name = "extract_date", type = "DATE", mode = "REQUIRED" },
-    { name = "status", type = "STRING", mode = "REQUIRED" },
-    { name = "started_at", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "completed_at", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "failed_at", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "source_files", type = "STRING", mode = "REPEATED" },
-    { name = "total_records", type = "INTEGER", mode = "NULLABLE" },
+    { name = "system_id", type = "STRING", mode = "NULLABLE" },
+    { name = "pipeline_name", type = "STRING", mode = "NULLABLE" },
+    { name = "extract_date", type = "DATE", mode = "NULLABLE" },
+    { name = "status", type = "STRING", mode = "NULLABLE" },
+    { name = "job_type", type = "STRING", mode = "NULLABLE" },
+    { name = "entity_type", type = "STRING", mode = "NULLABLE" },
+    { name = "source_file", type = "STRING", mode = "NULLABLE" },
+    { name = "target_table", type = "STRING", mode = "NULLABLE" },
+    { name = "record_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "error_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "retry_count", type = "INTEGER", mode = "NULLABLE" },
+    { name = "failure_stage", type = "STRING", mode = "NULLABLE" },
     { name = "error_code", type = "STRING", mode = "NULLABLE" },
     { name = "error_message", type = "STRING", mode = "NULLABLE" },
     { name = "error_file_path", type = "STRING", mode = "NULLABLE" },
-    { name = "failure_stage", type = "STRING", mode = "NULLABLE" },
-    { name = "created_at", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "estimated_cost_usd", type = "FLOAT", mode = "NULLABLE" },
+    { name = "billed_bytes_scanned", type = "INTEGER", mode = "NULLABLE" },
+    { name = "billed_bytes_written", type = "INTEGER", mode = "NULLABLE" },
+    { name = "created_at", type = "TIMESTAMP", mode = "NULLABLE" },
     { name = "updated_at", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "job_type", type = "STRING", mode = "NULLABLE" },
-    { name = "retry_count", type = "INTEGER", mode = "NULLABLE" },
-    { name = "max_retries", type = "INTEGER", mode = "NULLABLE" },
-    { name = "parent_run_ids", type = "STRING", mode = "REPEATED" },
-    { name = "dbt_model_name", type = "STRING", mode = "NULLABLE" }
+    { name = "started_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "completed_at", type = "TIMESTAMP", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels

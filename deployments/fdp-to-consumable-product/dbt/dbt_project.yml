@@ -31,7 +31,6 @@ models:
 
 vars:
   # GCP project
-  gcp_project_id: "{{ env_var('GCP_PROJECT_ID') }}"
 
   # Datasets
   fdp_dataset: "fdp_generic"
