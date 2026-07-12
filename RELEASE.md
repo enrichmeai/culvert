@@ -29,10 +29,24 @@ together** → only then the book / release announcement.
   workflow `publish-pypi.yml`, environment `pypi`. Optional second gate:
   repo Settings → Environments → `pypi` → required reviewers → yourself.
 - **Maven Central (Sonatype Central).** Account at central.sonatype.com;
-  namespace `com.enrichmeai.culvert` verified; user token in
-  `~/.m2/settings.xml` (server id `central`); GPG key generated and its public
-  key published to a keyserver. These are Joseph's secrets — never in the
-  repo, never handled by agents.
+  namespace `com.enrichmeai.culvert` verified; a portal user token; a GPG key
+  whose **public** key is on a keyserver (`gpg --keyserver
+  keyserver.ubuntu.com --send-keys <KEY_ID>`). Maven Central has **no OIDC**, so
+  — unlike PyPI — publishing from git needs four **GitHub Actions secrets**
+  (repo Settings → Secrets and variables → Actions). Add them yourself; agents
+  never see them:
+
+  | Secret | Value |
+  |---|---|
+  | `MAVEN_GPG_PRIVATE_KEY` | `gpg --export-secret-keys --armor <KEY_ID>` (the full ASCII block) |
+  | `MAVEN_GPG_PASSPHRASE` | the key's passphrase |
+  | `CENTRAL_USERNAME` | Sonatype portal token — username half |
+  | `CENTRAL_PASSWORD` | Sonatype portal token — password half |
+
+  Optional second gate: repo Settings → Environments → `maven-central` →
+  required reviewers → yourself. Publishing locally instead needs no GitHub
+  secret — put the token in `~/.m2/settings.xml` (server id `central`) and use
+  §3's local command.
 - **PyPI organization (optional, later).** The community-org `enrichmeai`
   request can proceed in parallel; transfer the `culvert` project into it when
   approved. Does not block 0.1.0.
@@ -58,18 +72,26 @@ release `0.1.1`.
 
 ## 3. Publish the Java reactor to Maven Central
 
-From the release state of `main` (the reactor freeze is tagged
-`java-0.1.0`; tag `v0.1.0` on the release commit):
+**From git (preferred), once the §1 secrets are added:** GitHub → Actions →
+**publish-maven** → *Run workflow* → type `publish-maven`. The `verify` job
+builds the reactor and asserts every module carries main+sources+javadoc; the
+`deploy` job (protected `maven-central` environment) imports the GPG key, signs,
+and runs `mvn -P release deploy`.
+
+**Locally (alternative, no GitHub secret):**
 
 ```bash
 mvn -f data-pipeline-libraries-java/pom.xml -P release clean deploy
 ```
 
-- The `release` profile signs with GPG and uploads via
-  `central-publishing-maven-plugin` with `autoPublish=false`.
+Either way:
+
+- The `release` profile signs with GPG (loopback pinentry for headless CI) and
+  uploads via `central-publishing-maven-plugin` with `autoPublish=false`.
 - Sonatype Central holds the bundle in **validation** — review it at
-  https://central.sonatype.com/, then confirm release. That confirmation is
-  the Java point-of-no-return.
+  https://central.sonatype.com/, then click **Publish**. That portal
+  confirmation is the Java point-of-no-return (a second human gate beyond the
+  workflow trigger).
 - Post-publish check: artifacts visible under `com.enrichmeai.culvert`; a
   scratch Maven project resolves `data-pipeline-core:0.1.0`.
 
