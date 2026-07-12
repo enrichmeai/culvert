@@ -18,7 +18,7 @@ together** → only then the book / release announcement.
 | Reference deployments on real GCP (cloudrun-only) | ✅ 2026-07-10 — full ODP→FDP→CDP chain, event-driven |
 | Libraries validated (unit + emulator IT + real-deploy exercise) | ✅ (the deploy caught 8 prod-only bugs; all fixed) |
 | Composer one-day validation (the deliberate pre-publish spend) | ⬜ see §4 |
-| PyPI publish | ⬜ §2 |
+| PyPI publish | ✅ 2026-07-11 — culvert 0.1.0 live, verified from the index |
 | Maven Central publish | ⬜ §3 |
 | Book / announcement | ⬜ after both publishes |
 
