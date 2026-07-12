@@ -4,7 +4,7 @@
 
 Culvert is a framework for building data pipelines that are **defined once against a language-neutral contract and implemented in the language that fits the job**. The same 16 contracts (Source, Sink, Transform, Pipeline, RuntimeContext, BlobStore, Warehouse, FinOpsSink, GovernancePolicy, …) are realised in both a Java library set and a Python library set; cloud specifics live behind adapters, so the core stays portable across clouds.
 
-> **Status — in progress.** The Java reactor has reached its v1.0 feature bar (all 16 contract interfaces have real adapters) and is **frozen at tag `java-0.1.0`**. It is **built and held, not yet published**: the release gate is **Java _and_ Python both ready**, then a single coordinated `0.1.0` to Maven Central (`com.enrichmeai.culvert:*`) and PyPI (`culvert`). Python parity is underway — contracts, core depth, and the GCP adapters have landed; `culvert` packaging and publish-from-git remain. **Nothing is on Maven Central or PyPI yet.** Authoritative plan: [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
+> **Status — Python released; Java pending.** The Python side is **live on PyPI as [`culvert` 0.1.0](https://pypi.org/project/culvert/)** — `pip install culvert[gcp]` and the GCP adapters auto-discover. It was published only after the reference deployments ran end-to-end on a real GCP project (Cloud Run, BigQuery, Pub/Sub, event-driven). The Java reactor is at the same feature bar (all 16 contract interfaces have adapters), frozen at tag `java-0.1.0` and verified Maven-Central-ready, but **not yet on Maven Central** — that publish (`com.enrichmeai.culvert:*`) is the remaining half of the coordinated `0.1.0`. Authoritative plan: [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md).
 
 > **Repo vs product.** The GitHub repo is `enrichmeai/culvert`; the working-tree folder is still `gcp-pipeline-reference`. The folder name is an operational identifier, not the product name.
 
@@ -49,6 +49,27 @@ docs/framework-evolution/       # canonical "why / what / when" for the redesign
 ```
 
 > The legacy Python trees (`gcp-pipeline-libraries/`, the `gcp_pipeline_*` egg-info) belong to the predecessor framework and are being retired — see [Legacy](#legacy).
+
+## Install (Python)
+
+`culvert` is on PyPI. Install the core contracts, then the extras for the
+clouds/roles you need:
+
+```bash
+pip install culvert                 # core contracts only (no cloud SDKs)
+pip install culvert[gcp]            # + BigQuery, GCS, Pub/Sub, Secret Manager, observability
+pip install culvert[orchestration]  # + Airflow-side DAG factory, operators, sensors
+pip install culvert[transform]      # + dbt integration
+pip install culvert[all]
+```
+
+```python
+from data_pipeline_core import autoconfig
+blob_store = autoconfig.discover().first("blob_store")   # GcsBlobStore with culvert[gcp]
+```
+
+The Java libraries (`com.enrichmeai.culvert:*`) are not on Maven Central yet;
+build them from source per **Build & test** below until that release lands.
 
 ## Build & test
 
