@@ -1,8 +1,10 @@
 # 13 — Python parity → coordinated polyglot release
 
-**Status:** in progress. Waves **A (S17, contracts), B (S18, core depth), and
-C (S19, adapter parity) are all merged to `main`**; **Wave D (packaging +
-coordinated release) is the remaining gate**. Successor to the 9–16 Java block
+**Status:** Python **RELEASED** — `culvert` 0.1.0 live on PyPI (2026-07-11),
+verified from the index (`pip install culvert[gcp]`, all 9 adapters discover).
+Waves A–D (contracts → core depth → adapter parity → packaging) merged. The
+remaining half is the **Java publish to Maven Central** (`com.enrichmeai.culvert:*`);
+the coordinated release became Python-first in practice. Successor to the 9–16 Java block
 (Java reactor at `0.1.0` on `main`, frozen at tag `java-0.1.0`).
 
 **One-line:** Culvert is one polyglot, cloud-agnostic framework with GCP as its

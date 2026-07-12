@@ -2,11 +2,24 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
-## [0.1.0] — unreleased
+## [0.1.0]
 
-**All 16 contract interfaces have real Java adapters. The feature bar for the first release is met — built and HELD, not yet published.**
+**Python: released to PyPI as `culvert` 0.1.0 (2026-07-11). Java: built and
+Maven-Central-ready, publish pending.**
 
-Culvert's first public release is **0.1.0** (a real first release, not yet API-frozen at 1.0). This spans Sprints 9–16: every contract interface defined in `data-pipeline-core-java` now has at least one concrete adapter under `com.enrichmeai.culvert:*`. The Java reactor is frozen at tag `java-0.1.0`, but it does **not** publish alone — the release gate is Java **and** Python both ready, then a coordinated `0.1.0` to Maven Central **and** PyPI (`culvert`). See `docs/framework-evolution/13-python-parity-release.md`. The Python parity work (Sprints 17+) is in progress. (The predecessor framework's `1.0.x` line — last `1.0.29` — is unrelated and deprecated; Culvert versions start fresh at 0.1.0.)
+Culvert's first public release. Every contract interface in the core has at
+least one concrete adapter; the Python distribution `culvert` (one wheel with
+`[gcp]`/`[orchestration]`/`[transform]`/`[all]` extras, all nine GCP adapters
+auto-discoverable) is **live on PyPI** — published only after the reference
+deployments ran end-to-end on a real GCP project (Cloud Run + BigQuery +
+Pub/Sub, event-driven), which caught eight production-only bugs that every
+local/emulator test had passed. The Java reactor is at the same feature bar,
+frozen at tag `java-0.1.0` and verified Maven-Central-ready (all 18 modules
+carry sources+javadoc; POM metadata complete); its publish to
+`com.enrichmeai.culvert:*` is the remaining half of the coordinated release.
+See `docs/framework-evolution/13-python-parity-release.md` and `RELEASE.md`.
+(The predecessor framework's `1.0.x` line is unrelated and retired; Culvert
+versions start fresh at 0.1.0.)
 
 ### Java libraries (`com.enrichmeai.culvert:*`) — Sprint 9–16 additions
 
