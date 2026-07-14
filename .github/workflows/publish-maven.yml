@@ -1,0 +1,77 @@
+# Publish the Java reactor to Maven Central from git.
+#
+# JOSEPH-GATED: manual workflow_dispatch only + typed confirm phrase + the
+# `maven-central` environment (protect it with required reviewers for a second
+# gate). Unlike PyPI, Maven Central has NO OIDC keyless publishing — this job
+# needs your GPG private key and Sonatype token as GitHub SECRETS (added by you
+# in repo Settings → Secrets and variables → Actions; agents never handle them):
+#
+#   MAVEN_GPG_PRIVATE_KEY   ASCII-armored secret key:
+#                             gpg --export-secret-keys --armor <KEY_ID>
+#   MAVEN_GPG_PASSPHRASE    the key's passphrase
+#   CENTRAL_USERNAME        Sonatype Central portal token — username half
+#   CENTRAL_PASSWORD        Sonatype Central portal token — password half
+#
+# The release profile uses central-publishing-maven-plugin with
+# autoPublish=false, so this uploads the signed bundle to Central's VALIDATION
+# stage and stops. You then review and click "Publish" at
+# https://central.sonatype.com/ — the actual irreversible release. Publishing a
+# version is permanent; Maven Central artifacts cannot be changed or deleted.
+name: publish-maven
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "publish-maven" to upload the signed bundle to Maven Central validation'
+        required: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build + sources + javadoc (no secrets — proves the bundle assembles)
+        run: mvn -B -f data-pipeline-libraries-java/pom.xml clean install -DskipTests
+      - name: Assert every module has main + sources + javadoc
+        run: |
+          cd data-pipeline-libraries-java
+          missing=0
+          for m in */ ; do
+            [ -f "$m/pom.xml" ] || continue
+            grep -q '<packaging>pom</packaging>' "$m/pom.xml" && continue
+            for suffix in "" "-sources" "-javadoc"; do
+              ls "$m"target/*-0.1.0${suffix}.jar >/dev/null 2>&1 || { echo "MISSING ${suffix:-main} jar in $m"; missing=1; }
+            done
+          done
+          [ "$missing" = 0 ] && echo "all modules carry main+sources+javadoc"
+          exit $missing
+
+  deploy:
+    needs: verify
+    if: github.event.inputs.confirm == 'publish-maven'
+    runs-on: ubuntu-latest
+    environment: maven-central
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+          server-id: central
+          server-username: MAVEN_USERNAME
+          server-password: MAVEN_PASSWORD
+          gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Deploy to Maven Central (validation stage; you confirm in the portal)
+        run: mvn -B -f data-pipeline-libraries-java/pom.xml -P release clean deploy -DskipTests
+        env:
+          MAVEN_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          MAVEN_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
