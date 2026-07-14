@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Culvert — cloud-agnostic data-pipeline framework</title>
+<meta name="description" content="Culvert: data pipelines defined once against a language-neutral contract set, with adapters per cloud. Java and Python. pip install culvert.">
+<style>
+  :root{
+    --ground:#E8EBEF; --surface:#F4F6F8; --raise:#FFFFFF;
+    --ink:#191C21; --muted:#59616D; --line:#CFD6DE;
+    --accent:#B25E12; --accent-ink:#8A480C; --flow:#0F6E78;
+    --font-display:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-body:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,"SF Mono","Cascadia Code","JetBrains Mono",Menlo,Consolas,monospace;
+    --measure:66ch;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --ground:#14171B; --surface:#1A1E23; --raise:#20252B;
+      --ink:#EAEDF1; --muted:#98A2AE; --line:#2A313A;
+      --accent:#E39149; --accent-ink:#F0A967; --flow:#3BA9B3;
+    }
+  }
+  :root[data-theme="light"]{
+    --ground:#E8EBEF; --surface:#F4F6F8; --raise:#FFFFFF;
+    --ink:#191C21; --muted:#59616D; --line:#CFD6DE;
+    --accent:#B25E12; --accent-ink:#8A480C; --flow:#0F6E78;
+  }
+  :root[data-theme="dark"]{
+    --ground:#14171B; --surface:#1A1E23; --raise:#20252B;
+    --ink:#EAEDF1; --muted:#98A2AE; --line:#2A313A;
+    --accent:#E39149; --accent-ink:#F0A967; --flow:#3BA9B3;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--ground); color:var(--ink);
+    font-family:var(--font-body); font-size:17px; line-height:1.6;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+  a{color:inherit}
+  ::selection{background:var(--accent);color:var(--ground)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  .rule{border:0;border-top:1px solid var(--line)}
+  .mono{font-family:var(--font-mono)}
+  .eyebrow{
+    font-family:var(--font-mono); font-size:12px; letter-spacing:.16em;
+    text-transform:uppercase; color:var(--muted);
+  }
+  .accent{color:var(--accent)}
+
+  /* ---- top bar ---- */
+  header.bar{
+    position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--ground) 86%,transparent);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .bar .wrap{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+  .brand{display:flex;align-items:center;gap:11px;font-family:var(--font-mono);font-weight:600;letter-spacing:-.01em}
+  .brand .glyph{width:26px;height:14px;flex:0 0 auto}
+  .brand b{font-weight:700}
+  .navlinks{display:flex;align-items:center;gap:22px;font-family:var(--font-mono);font-size:13px;color:var(--muted)}
+  .navlinks a{text-decoration:none}
+  .navlinks a:hover{color:var(--ink)}
+  .navlinks a.pill{
+    color:var(--ink);border:1px solid var(--line);border-radius:2px;
+    padding:6px 11px;background:var(--surface)
+  }
+  .navlinks a.pill:hover{border-color:var(--accent);color:var(--accent)}
+  .themebtn{
+    font-family:var(--font-mono);font-size:12px;color:var(--muted);
+    background:transparent;border:1px solid var(--line);border-radius:2px;
+    padding:6px 9px;cursor:pointer
+  }
+  .themebtn:hover{border-color:var(--accent);color:var(--accent)}
+  @media(max-width:720px){.navlinks a:not(.pill){display:none}}
+
+  /* ---- hero ---- */
+  .hero{position:relative;padding:76px 0 30px;overflow:hidden}
+  .hero .grid-tick{position:absolute;inset:0;pointer-events:none;
+    background-image:linear-gradient(var(--line) 1px,transparent 1px);
+    background-size:100% 112px;opacity:.35;mask-image:linear-gradient(180deg,transparent,#000 40%,#000 60%,transparent)}
+  .hero-inner{position:relative;z-index:2}
+  h1{
+    font-family:var(--font-display); font-weight:800; letter-spacing:-.028em;
+    line-height:1.02; text-wrap:balance; margin:16px 0 0;
+    font-size:clamp(40px,6.4vw,74px);
+  }
+  h1 .soft{color:var(--muted)}
+  .lede{max-width:60ch;margin:22px 0 0;font-size:clamp(17px,2vw,20px);color:var(--muted)}
+  .lede b{color:var(--ink);font-weight:600}
+
+  .cmd{
+    margin-top:30px;display:inline-flex;align-items:stretch;gap:0;
+    border:1px solid var(--line);border-radius:3px;background:var(--raise);
+    font-family:var(--font-mono);overflow:hidden;max-width:100%;
+  }
+  .cmd .prompt{padding:14px 10px 14px 16px;color:var(--accent);user-select:none}
+  .cmd code{padding:14px 8px;font-size:15px;white-space:nowrap;overflow-x:auto}
+  .cmd button{
+    border:0;border-left:1px solid var(--line);background:var(--surface);
+    color:var(--muted);font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;
+    text-transform:uppercase;padding:0 16px;cursor:pointer
+  }
+  .cmd button:hover{color:var(--accent)}
+  .cmd button.copied{color:var(--flow)}
+
+  /* ---- channel canvas ---- */
+  .channel{position:relative;margin:44px 0 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    background:var(--surface)}
+  .channel canvas{display:block;width:100%;height:172px}
+  .channel .terrain{position:absolute;left:0;right:0;display:flex;justify-content:space-between;
+    font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    padding:0 16px;pointer-events:none}
+  .channel .terrain.top{top:9px}.channel .terrain.bot{bottom:9px}
+  .channel .terrain .dim{opacity:.5}
+
+  /* ---- sections ---- */
+  section{padding:64px 0}
+  .sechead{display:flex;align-items:baseline;gap:16px;margin-bottom:30px}
+  .sechead .num{font-family:var(--font-mono);font-size:13px;color:var(--accent)}
+  h2{font-family:var(--font-display);font-weight:750;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.02em;text-wrap:balance}
+  .prose{max-width:var(--measure);color:var(--muted);font-size:18px}
+  .prose p+p{margin-top:16px}
+  .prose b{color:var(--ink);font-weight:600}
+  .prose code{font-family:var(--font-mono);font-size:.86em;background:var(--surface);border:1px solid var(--line);
+    border-radius:3px;padding:1px 5px;color:var(--ink)}
+
+  /* division of labour cards */
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);
+    border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+  .card{background:var(--surface);padding:22px 22px 24px}
+  .card .k{font-family:var(--font-mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
+  .card h3{font-family:var(--font-display);font-weight:700;font-size:19px;margin:8px 0 6px;letter-spacing:-.01em}
+  .card p{color:var(--muted);font-size:15px}
+  @media(max-width:680px){.cards{grid-template-columns:1fr}}
+
+  /* install block */
+  .code{background:var(--raise);border:1px solid var(--line);border-radius:5px;overflow:hidden;margin-top:8px}
+  .code .head{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);
+    font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
+  .code pre{margin:0;padding:18px 16px;overflow-x:auto;font-family:var(--font-mono);font-size:14px;line-height:1.75}
+  .code .c{color:var(--muted)}
+  .code .k{color:var(--accent)}
+  .code .s{color:var(--flow)}
+
+  /* status spec table */
+  .spec{border:1px solid var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+  .spec .row{display:grid;grid-template-columns:220px 1fr;gap:0;border-top:1px solid var(--line)}
+  .spec .row:first-child{border-top:0}
+  .spec .lab{font-family:var(--font-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+    padding:15px 18px;background:var(--surface);border-right:1px solid var(--line)}
+  .spec .val{padding:15px 18px;font-size:15.5px}
+  .spec .val .tag{font-family:var(--font-mono);font-size:11px;padding:2px 7px;border-radius:2px;border:1px solid var(--line);
+    color:var(--muted);margin-left:2px}
+  .spec .val .live{color:var(--flow);border-color:color-mix(in srgb,var(--flow) 45%,var(--line))}
+  .spec .val .soon{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+  @media(max-width:620px){.spec .row{grid-template-columns:1fr}.spec .lab{border-right:0;border-bottom:1px solid var(--line)}}
+
+  /* honesty pull-quote */
+  .creed{border-left:3px solid var(--accent);padding:6px 0 6px 24px;margin-top:8px;max-width:60ch}
+  .creed p{font-family:var(--font-display);font-weight:600;font-size:clamp(20px,2.6vw,26px);letter-spacing:-.015em;line-height:1.34}
+  .creed .by{margin-top:14px;font-family:var(--font-mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
+
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:44px 0 60px;color:var(--muted)}
+  .foot{display:flex;flex-wrap:wrap;gap:24px 40px;align-items:flex-start;justify-content:space-between}
+  .foot .cols{display:flex;gap:56px;flex-wrap:wrap}
+  .foot h4{font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);margin-bottom:12px}
+  .foot a{display:block;text-decoration:none;color:var(--muted);font-size:14px;padding:3px 0}
+  .foot a:hover{color:var(--accent)}
+  .foot .meta{font-family:var(--font-mono);font-size:12px;line-height:1.9;text-align:right}
+  @media(max-width:620px){.foot .meta{text-align:left}}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <span class="brand">
+      <svg class="glyph" viewBox="0 0 52 28" aria-hidden="true" fill="none">
+        <rect x="1" y="1" width="50" height="26" rx="2" stroke="var(--line)"/>
+        <path d="M1 14 H51" stroke="var(--flow)" stroke-dasharray="4 5" stroke-width="1.5"/>
+        <circle cx="14" cy="14" r="2.4" fill="var(--accent)"/>
+        <circle cx="30" cy="14" r="2.4" fill="var(--accent)"/>
+        <circle cx="44" cy="14" r="2.4" fill="var(--accent)"/>
+      </svg>
+      <b>culvert</b>
+    </span>
+    <nav class="navlinks">
+      <a href="#idea">The idea</a>
+      <a href="#install">Install</a>
+      <a href="#status">Status</a>
+      <a class="pill" href="https://github.com/enrichmeai/culvert">GitHub ↗</a>
+      <button class="themebtn" id="theme" aria-label="Toggle colour theme">◐ theme</button>
+    </nav>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="grid-tick"></div>
+  <div class="wrap hero-inner">
+    <span class="eyebrow">Cloud-agnostic · polyglot · open source</span>
+    <h1>There was no <span class="accent">Spring</span> for data pipelines.<br><span class="soft">So I built one.</span></h1>
+    <p class="lede">Culvert is a framework for pipelines <b>defined once against a language-neutral contract set</b> — then run on any cloud by swapping adapters, not rewriting logic. Sixteen contracts, realised in <b>Java and Python</b>. GCP today, AWS alongside it, Azure on the way.</p>
+    <div class="cmd">
+      <span class="prompt">$</span>
+      <code id="pipcmd">pip install culvert[gcp]</code>
+      <button id="copybtn" aria-label="Copy install command">Copy</button>
+    </div>
+  </div>
+  <div class="channel" aria-hidden="true">
+    <div class="terrain top"><span>GCP · live</span><span class="dim">AWS · Java family</span><span class="dim">Azure · roadmap</span></div>
+    <canvas id="flow"></canvas>
+    <div class="terrain bot"><span class="dim">source</span><span>— the contract carries the flow —</span><span class="dim">warehouse</span></div>
+  </div>
+</div>
+
+<main>
+  <section id="idea">
+    <div class="wrap">
+      <div class="sechead"><span class="num">01</span><h2>Contracts are the portability boundary</h2></div>
+      <div class="prose">
+        <p>Engines like Beam, Airflow and dbt are magnificent — but an engine is not a framework. Nobody had drawn the line that says <i>this</i> part of your pipeline is about data engineering and <i>that</i> part is about the cloud you happen to be renting this year. So every team welds its business logic to one vendor's SDK by habit, and the thin cloud layer quietly becomes a load-bearing wall.</p>
+        <p>Culvert draws that line where Spring drew its: a small, honest core of <b>contracts</b> — <code>BlobStore</code>, <code>Warehouse</code>, <code>Source</code>, <code>Sink</code>, <code>JobControlRepository</code>, and eleven more. Business logic depends only on the contracts. Adapters implement them per cloud, and a shared conformance suite every adapter must pass keeps the promise honest.</p>
+      </div>
+      <div class="cards">
+        <div class="card"><span class="k">Contracts</span><h3>Both languages, one spec</h3><p>16 interfaces + a metrics record, realised as Java interfaces and Python Protocols. Same seam, either runtime.</p></div>
+        <div class="card"><span class="k">Execution</span><h3>Java owns Beam</h3><p>The Dataflow/Beam execution layer is Java. Legacy Python Beam is not carried forward — the languages don't do the same job.</p></div>
+        <div class="card"><span class="k">Transform</span><h3>dbt, reused</h3><p>Transformation is SQL + macros, not “Java” or “Python”. Packaged once; there is deliberately no Java transform module.</p></div>
+        <div class="card"><span class="k">Local-first</span><h3>Runs on your laptop</h3><p>The whole stack runs against emulators with no cloud account. Cloud is where you prove and ship, not where you develop.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section id="install">
+    <div class="wrap">
+      <div class="sechead"><span class="num">02</span><h2>Install the core, add the clouds you need</h2></div>
+      <div class="prose"><p>One package, extras for the adapters and roles you want. Core installs with no cloud SDKs at all.</p></div>
+      <div class="code">
+        <div class="head"><span>shell</span><span>Python ≥ 3.10</span></div>
+<pre><span class="c"># core contracts only — no cloud SDKs</span>
+<span class="k">pip</span> install culvert
+
+<span class="c"># + BigQuery, GCS, Pub/Sub, Secret Manager, observability</span>
+<span class="k">pip</span> install <span class="s">culvert[gcp]</span>
+
+<span class="c"># + Airflow-side DAG factory / operators / sensors, or dbt</span>
+<span class="k">pip</span> install <span class="s">culvert[orchestration]</span>
+<span class="k">pip</span> install <span class="s">culvert[transform]</span></pre>
+      </div>
+      <div class="code" style="margin-top:18px">
+        <div class="head"><span>python</span><span>auto-discovery</span></div>
+<pre><span class="k">from</span> data_pipeline_core <span class="k">import</span> autoconfig
+
+blob_store = autoconfig.discover().first(<span class="s">"blob_store"</span>)
+<span class="c"># -> GcsBlobStore, discovered via entry points when culvert[gcp] is installed</span></pre>
+      </div>
+    </div>
+  </section>
+
+  <hr class="rule">
+
+  <section id="status">
+    <div class="wrap">
+      <div class="sechead"><span class="num">03</span><h2>What's real — stated plainly</h2></div>
+      <div class="prose"><p>This project has a rule: nothing is announced before it has run on real infrastructure. So here is the honest state, not the roadmap in disguise.</p></div>
+      <div class="spec">
+        <div class="row"><div class="lab">Python</div><div class="val">Released — <code style="font-family:var(--font-mono)">culvert 0.1.0</code> on PyPI <span class="tag live">live</span></div></div>
+        <div class="row"><div class="lab">Java</div><div class="val">Built &amp; Maven-Central-ready — <code style="font-family:var(--font-mono)">com.enrichmeai.culvert:*</code> <span class="tag soon">publish pending</span></div></div>
+        <div class="row"><div class="lab">Clouds</div><div class="val">GCP — full implementation <span class="tag live">live</span> · AWS — Java adapter family <span class="tag">S3 · Athena · SQS · DynamoDB · CloudWatch</span> · Azure <span class="tag soon">roadmap</span></div></div>
+        <div class="row"><div class="lab">Proof</div><div class="val">Ran end-to-end on a real GCP project — Cloud Run → BigQuery, event-driven — <b>before</b> release. It caught eight production-only bugs every local test had passed.</div></div>
+        <div class="row"><div class="lab">Licence</div><div class="val">MIT</div></div>
+      </div>
+
+      <div class="creed" style="margin-top:40px">
+        <p>“The Java libraries aren't on Maven Central yet — and this page tells you so. That honesty is the point, not a caveat.”</p>
+        <div class="by">— the release gate, in one sentence</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <div class="cols">
+      <div>
+        <h4>Get it</h4>
+        <a href="https://pypi.org/project/culvert/">PyPI — pip install culvert ↗</a>
+        <a href="https://github.com/enrichmeai/culvert">GitHub — source ↗</a>
+        <a href="https://github.com/enrichmeai/culvert/blob/main/docs/CONTRACT.md">The contract spec ↗</a>
+      </div>
+      <div>
+        <h4>Read it</h4>
+        <a href="https://github.com/enrichmeai/culvert/tree/main/docs">Documentation ↗</a>
+        <a href="https://github.com/enrichmeai/culvert/blob/main/CONTRIBUTING.md">Contributing ↗</a>
+        <a href="https://github.com/enrichmeai/culvert/blob/main/RELEASE.md">Release process ↗</a>
+      </div>
+    </div>
+    <div class="meta">
+      culvert 0.1.0 · MIT<br>
+      built in the open<br>
+      EnrichMeAI · Joseph Aruja
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  // theme toggle — stamps data-theme, overriding the media query both ways
+  var root=document.documentElement, btn=document.getElementById('theme');
+  btn.addEventListener('click',function(){
+    var cur=root.getAttribute('data-theme');
+    if(!cur){cur=matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';}
+    root.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  });
+
+  // copy install command
+  var cbtn=document.getElementById('copybtn'), cmd=document.getElementById('pipcmd');
+  cbtn.addEventListener('click',function(){
+    navigator.clipboard&&navigator.clipboard.writeText(cmd.textContent).then(function(){
+      cbtn.textContent='Copied'; cbtn.classList.add('copied');
+      setTimeout(function(){cbtn.textContent='Copy'; cbtn.classList.remove('copied');},1400);
+    });
+  });
+
+  // the flow: data particles carried through a concrete channel
+  var cv=document.getElementById('flow'), ctx=cv.getContext('2d');
+  var reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var W,H,DPR,parts=[];
+  function css(v){return getComputedStyle(root).getPropertyValue(v).trim();}
+  function size(){
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    W=cv.clientWidth; H=cv.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  function seed(){
+    parts=[]; var n=Math.max(26,Math.round(W/26));
+    for(var i=0;i<n;i++){parts.push(mk(Math.random()*W));}
+  }
+  function mk(x){
+    var lanes=5, lane=Math.floor(Math.random()*lanes);
+    var pad=42, band=H-pad*2;
+    return {x:x, y:pad+ (lane+ .5)*(band/lanes) + (Math.random()*6-3),
+            v:.35+Math.random()*1.15, w:6+Math.random()*16, a:.25+Math.random()*.6};
+  }
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    var accent=css('--accent'), flow=css('--flow'), line=css('--line');
+    // channel guide lines
+    ctx.strokeStyle=line; ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(0,34.5);ctx.lineTo(W,34.5);
+    ctx.moveTo(0,H-34.5);ctx.lineTo(W,H-34.5);ctx.stroke();
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i];
+      p.x+=p.v; if(p.x-p.w>W){p.x=-p.w; p.y=mk(0).y;}
+      var c = (i%7===0)? flow : accent;
+      ctx.globalAlpha=p.a;
+      ctx.fillStyle=c;
+      roundRect(p.x,p.y-1.4,p.w,2.8,1.4); ctx.fill();
+      ctx.globalAlpha=p.a*.5;
+      ctx.fillRect(p.x-p.w*.7,p.y-.5,p.w*.7,1); // trail
+    }
+    ctx.globalAlpha=1;
+    if(!reduce) raf=requestAnimationFrame(frame);
+  }
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);
+    ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  var raf;
+  function boot(){size();seed();cancelAnimationFrame(raf);frame();}
+  window.addEventListener('resize',function(){clearTimeout(window.__rt);window.__rt=setTimeout(boot,150);});
+  boot();
+})();
+</script>
+</body>
+</html>
