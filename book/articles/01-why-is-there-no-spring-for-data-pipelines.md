@@ -46,7 +46,7 @@ And the payoff isn't only cross-*cloud*. The same seam is what lets a pipeline r
 
 For the last while I have been building it, in the open — contracts first, Java and Python implementations, GCP as the first cloud (a concrete target keeps you honest), AWS as the proof the seam is real. The repository is public, the mistakes are in the commit history, and the framework is called Culvert — the unglamorous pipe under the road that just works, which is the whole ambition.
 
-I am not here to sell it to you today; nothing is published yet, and I have strong opinions about not announcing things that haven't survived a real deployment. (That story — what happened when eleven hundred green tests met an actual cloud project — is the next article, and it is humbling.)
+I am not here to sell it to you — but I will tell you it is real: as of this month `pip install culvert` works, and the Java twin is on Maven Central, both released only after the whole thing had survived a real cloud deployment. I have strong opinions about not announcing things before they have earned it. (That story — what happened when eleven hundred green tests met an actual cloud project — is the next article, and it is humbling.)
 
 I am here for the argument: **data engineering deserves its Spring.** A small honest core, swappable cloud modules, contracts enforced by tests rather than intentions. Twenty-five years of rebuilt scaffolding says the demand is there.
 
