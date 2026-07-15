@@ -19,8 +19,8 @@ together** → only then the book / release announcement.
 | Libraries validated (unit + emulator IT + real-deploy exercise) | ✅ (the deploy caught 8 prod-only bugs; all fixed) |
 | Composer one-day validation (the deliberate pre-publish spend) | ⬜ see §4 |
 | PyPI publish | ✅ 2026-07-11 — culvert 0.1.0 live, verified from the index |
-| Maven Central publish | ⬜ §3 |
-| Book / announcement | ⬜ after both publishes |
+| Maven Central publish | ✅ 2026-07-15 — 19 artifacts live on repo1, stranger-resolve verified |
+| Book / announcement | 🟢 UNBLOCKED — both ecosystems published |
 
 ## 1. Prerequisites (one-time, Joseph)
 
