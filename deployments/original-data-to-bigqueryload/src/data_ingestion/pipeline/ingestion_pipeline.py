@@ -1,5 +1,5 @@
 """
-Generic (Excess Management) - Apache Beam/Dataflow Pipeline
+Generic (Application A (the multi-entity JOIN system)) - Apache Beam/Dataflow Pipeline
 =======================================================
 
 Purpose:
@@ -102,7 +102,7 @@ ENTITY_CONFIG = {
 
 class GenericPipeline(BasePipeline):
     """
-    Generic (Excess Management) ODP Load Pipeline.
+    Generic (Application A (the multi-entity JOIN system)) ODP Load Pipeline.
     Refactored to use library BasePipeline for enhanced maturity features.
     """
 

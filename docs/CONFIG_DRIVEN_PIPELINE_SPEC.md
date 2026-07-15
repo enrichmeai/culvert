@@ -14,7 +14,7 @@
 
 ## Purpose
 
-Enable teams to adopt the Golden Path pipeline by copying the project and editing YAML configuration only — no Python or DAG code changes required.
+Enable teams to adopt the paved path pipeline by copying the project and editing YAML configuration only — no Python or DAG code changes required.
 
 ## Design Principle
 

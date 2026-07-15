@@ -617,7 +617,7 @@ Enable Composer via `deploy_composer=true` in the workflow. The Composer DAG can
 - [FINOPS_STRATEGY.md](FINOPS_STRATEGY.md) -- Section 4.3 covers cost rationale
 - [INFRASTRUCTURE_REQUIREMENTS.md](INFRASTRUCTURE_REQUIREMENTS.md) -- Composer marked as opt-in
 - [deployments/mainframe-segment-transform/docs/TEMPLATE_GUIDE.md](../deployments/mainframe-segment-transform/docs/TEMPLATE_GUIDE.md) -- How to author segment templates with the FDP JOIN pattern
-- [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) -- Original Golden Path architecture (predates this proposal)
+- [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md) -- Original paved path architecture (predates this proposal)
 
 ---
 

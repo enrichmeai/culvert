@@ -23,7 +23,7 @@ WITH source_data AS (
 
 SELECT
     *,
-    -- Audit columns required by Golden Path governance
+    -- Audit columns required by paved path governance
     '{{ var("run_id") }}' as _run_id,
     CURRENT_TIMESTAMP() as _transformed_at
 FROM source_data

@@ -4,7 +4,7 @@
 
 This is a **standardized legacy-to-GCP data migration framework** (the "Generic Engine" model). It uses a library-first architecture to migrate data from mainframe systems into BigQuery data products (ODP and FDP). 
 
-The platform is officially supported by multiple teams across the **Credit Platform** and enforces a strict separation between reusable infrastructure (libraries) and system-specific configuration (deployments).
+The platform is officially supported by multiple teams across the **the enterprise platform** and enforces a strict separation between reusable infrastructure (libraries) and system-specific configuration (deployments).
 
 ### Tech Stack
 - **Runtime**: Python 3.9+

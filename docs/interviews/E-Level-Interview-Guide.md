@@ -34,7 +34,7 @@ We have one hour per candidate. Six primary questions, ~7 minutes each, plus 10 
 | Block | Duration | Lead |
 |---|---|---|
 | Welcome + intro | 3 min | PO |
-| **Q1** — ODP/FDP pipeline from fixed-width GCS file (incl. "no golden path" probe) | 9 min | Joseph |
+| **Q1** — ODP/FDP pipeline from fixed-width GCS file (incl. "no paved path" probe) | 9 min | Joseph |
 | **Q2** — Data remediation steps | 7 min | PO |
 | **Q3** — Prevent and recover from duplication in dbt FDP (Q3 + Q7 merged) | 7 min | Peer engineer |
 | **Q5** — dbt auth dev vs prod | 5 min | Peer engineer |
@@ -95,7 +95,7 @@ These two questions test whether the candidate can think architecturally about a
 
 **Follow-up probes (pick 1–2 if time):**
 
-- **"What if there's no golden path in place for this — say you're the first team to build a CDP off this CDS, and there's no precedent. Where do you start?"** ← (PO's specific ask: tests whether the candidate can architect from scratch, not just follow a template.)
+- **"What if there's no paved path in place for this — say you're the first team to build a CDP off this CDS, and there's no precedent. Where do you start?"** ← (PO's specific ask: tests whether the candidate can architect from scratch, not just follow a template.)
 - "What's the failure mode if the Dataflow job crashes after writing half the rows to BigQuery?"
 - "How would you keep CDP consumers safe when an upstream FDP schema changes?"
 - "Show me where you'd put audit columns and what's in them."
@@ -521,7 +521,7 @@ Score each question 1–5. Add notes per candidate. Calibrate after both candida
 
 | # | Question | Candidate A | Candidate B | Notes |
 |---|---|---|---|---|
-| 1 | ODP/FDP from fixed-width GCS file (+ "no golden path" probe) |   |   |   |
+| 1 | ODP/FDP from fixed-width GCS file (+ "no paved path" probe) |   |   |   |
 | 2 | Data remediation steps |   |   |   |
 | 3 | Prevent **and recover from** duplication in dbt FDP |   |   |   |
 | 5 | dbt auth dev vs prod |   |   |   |

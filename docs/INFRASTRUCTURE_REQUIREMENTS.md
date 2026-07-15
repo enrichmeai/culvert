@@ -53,7 +53,7 @@ This document provides a complete reference for all GCP infrastructure required 
 | **bigquery-to-mapped-product** | dbt transformations — ODP → FDP | BigQuery (native SQL) | `generic-transformation` |
 | **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) -- **opt-in only, ~$300-500/month** | `generic-dag-validator` |
 
-### Extended Golden Path (full mainframe round-trip)
+### Extended paved path (full mainframe round-trip)
 
 | Deployment | Purpose | Runtime | Docker Image |
 |------------|---------|---------|--------------|
