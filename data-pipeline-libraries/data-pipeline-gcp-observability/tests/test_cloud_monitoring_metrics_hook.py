@@ -203,3 +203,32 @@ class TestLifecycle:
         h = CloudMonitoringMetricsHook(client, "proj")
         # Should not raise
         h.close()
+
+
+def test_series_builders_survive_real_monitoring_v3():
+    """Regression: the series builders must import against the REAL client lib.
+
+    The mocked tests above never evaluate ``monitoring_v3`` attributes, which
+    is how ``monitoring_v3.MetricDescriptor`` (removed by client 2.31) shipped
+    broken in 0.1.0 — the hook's swallow-on-error masked it in production and
+    only the Sprint-25 real-GCP read-back smoke caught it. This test builds
+    both series with the real import so an enum relocation fails loudly.
+    """
+    import pytest
+
+    monitoring_v3 = pytest.importorskip("google.cloud.monitoring_v3")
+    from google.api import metric_pb2 as ga_metric
+
+    from data_pipeline_gcp_observability.cloud_monitoring_metrics_hook import (
+        CloudMonitoringMetricsHook,
+    )
+
+    interval = monitoring_v3.TimeInterval()
+    s1 = CloudMonitoringMetricsHook._cumulative_int64_series(
+        "custom.googleapis.com/culvert/rows_processed", {"run_id": "t"}, interval, 1)
+    s2 = CloudMonitoringMetricsHook._gauge_double_series(
+        "custom.googleapis.com/culvert/stage_latency_ms", {"run_id": "t"}, interval, 1.0)
+    assert s1.metric_kind == ga_metric.MetricDescriptor.MetricKind.CUMULATIVE
+    assert s1.value_type == ga_metric.MetricDescriptor.ValueType.INT64
+    assert s2.metric_kind == ga_metric.MetricDescriptor.MetricKind.GAUGE
+    assert s2.value_type == ga_metric.MetricDescriptor.ValueType.DOUBLE
