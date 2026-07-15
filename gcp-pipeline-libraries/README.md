@@ -41,7 +41,7 @@ Each deployment has its own `config/system.yaml` containing **only** the configu
 
 Reference packages are published to PyPI: `gcp-pipeline-ref-ingestion`, `gcp-pipeline-ref-transform`, `gcp-pipeline-ref-orchestration`, `gcp-pipeline-ref-cdp`.
 
-See [PAVED_PATH_PROPOSAL.md](../docs/PAVED_PATH_PROPOSAL.md) for the full architecture and [DBT_CONFIG_DRIVEN_SPEC.md](../docs/DBT_CONFIG_DRIVEN_SPEC.md) for the config-driven dbt specification.
+See [ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the full architecture and [DBT_CONFIG_DRIVEN_SPEC.md](../docs/DBT_CONFIG_DRIVEN_SPEC.md) for the config-driven dbt specification.
 
 ---
 

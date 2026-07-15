@@ -1,7 +1,7 @@
 """
 Generic Configuration Module.
 
-System-specific configuration for the Generic (Application A) pipeline.
+System-specific configuration for the Generic (Application A (the multi-entity JOIN system)) pipeline.
 """
 
 from .settings import (

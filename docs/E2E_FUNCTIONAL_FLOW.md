@@ -29,8 +29,8 @@
    - [Technical Architecture Summary](#technical-architecture-summary)
 2. [Complete Data Flow Diagram](#complete-data-flow-diagram)
 3. [Source Systems](#source-systems)
-   - [JOIN Pattern: Generic (Application A)](#join-pattern-generic-excess-management)
-   - [MAP Pattern: Generic (Application B Application)](#map-pattern-generic-loan-origination-application)
+   - [JOIN Pattern: Generic (Application A (the multi-entity JOIN system))](#join-pattern-generic-excess-management)
+   - [MAP Pattern: Generic (Application B (the single-entity MAP system) Application)](#map-pattern-generic-loan-origination-application)
 4. [End-to-End Processing Flow](#end-to-end-processing-flow)
    - [Stage 1: File Landing & Detection](#stage-1-file-landing--detection)
    - [Stage 2: Orchestration & Validation](#stage-2-orchestration--validation)
@@ -54,8 +54,8 @@ This document provides the complete end-to-end functional requirements for the G
 > **Related:** For the full Technical Architecture — including security model, pluggable/hybrid patterns, architectural rationale for Beam & Composer, and governance rules — see [TECHNICAL_ARCHITECTURE.md](TECHNICAL_ARCHITECTURE.md).
 
 The **Generic system** is a combined reference demonstrating two distinct pipeline patterns simultaneously:
-- **JOIN pattern** (from Application A): 3 source entities → 3 ODP tables → 2 FDP tables. All 3 entities must complete before transformation triggers.
-- **MAP pattern** (from Application B): 1 source entity → 1 ODP table → 1 FDP table. Transformation triggers immediately after ODP load. 
+- **JOIN pattern** (from Application A (the multi-entity JOIN system)): 3 source entities → 3 ODP tables → 2 FDP tables. All 3 entities must complete before transformation triggers.
+- **MAP pattern** (from Application B (the single-entity MAP system)): 1 source entity → 1 ODP table → 1 FDP table. Transformation triggers immediately after ODP load. 
 
 ### Why the 3-Unit Deployment model?
 By decoupling **Ingestion**, **Transformation**, and **Orchestration** into independent units, the framework simplifies the end-to-end lifecycle:
@@ -107,14 +107,14 @@ By decoupling **Ingestion**, **Transformation**, and **Orchestration** into inde
 
 | Pattern | Origin | Description |
 |---------|--------|-------------|
-| **JOIN** | Application A | Multi-entity system: all 3 entities required before FDP transformation |
-| **MAP** | Application B | Single-entity system: immediate trigger after ODP load |
+| **JOIN** | Application A (the multi-entity JOIN system) | Multi-entity system: all 3 entities required before FDP transformation |
+| **MAP** | Application B (the single-entity MAP system) | Single-entity system: immediate trigger after ODP load |
 
 Both patterns are deployed together as the **Generic** reference system.
 
 ### System Comparison
 
-| Aspect | JOIN Pattern (Application A) | MAP Pattern (Application B) |
+| Aspect | JOIN Pattern (Application A (the multi-entity JOIN system)) | MAP Pattern (Application B (the single-entity MAP system)) |
 |--------|----------------------------------|-------------------------------|
 | **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | **Extract Schedule** | Staggered: Customers/Accounts 4 PM, Decision 5 AM | Daily |
@@ -186,7 +186,7 @@ The Generic reference system is organised into three independent deployment unit
 │                                    MAINFRAME SYSTEMS                                     │
 │                                                                                          │
 │    ┌────────────────────────────────┐         ┌────────────────────────────────┐        │
-│    │      JOIN PATTERN (Excess Mgmt)     │         │   MAP PATTERN (Application B)  │        │
+│    │      JOIN PATTERN (Excess Mgmt)     │         │   MAP PATTERN (Application B (the single-entity MAP system))  │        │
 │    │  ┌──────────┐ ┌──────────┐    │         │  ┌──────────────────────┐      │        │
 │    │  │Customers │ │ Accounts │    │         │  │    Applications      │      │        │
 │    │  │ (4 PM)   │ │ (4 PM)   │    │         │  │       (Daily)        │      │        │
@@ -335,7 +335,7 @@ The Generic reference system is organised into three independent deployment unit
 
 ## SOURCE SYSTEMS
 
-### JOIN Pattern: Generic (Application A)
+### JOIN Pattern: Generic (Application A (the multi-entity JOIN system))
 
 #### Entities & Tables
 
@@ -419,7 +419,7 @@ Each file contains three record types:
 
 ---
 
-### MAP Pattern: Generic (Application B Application)
+### MAP Pattern: Generic (Application B (the single-entity MAP system) Application)
 
 #### Entities & Tables
 
@@ -735,7 +735,7 @@ WHERE portfolio_id IS NOT NULL  -- Filter for portfolio-related records
 
 ## PATTERN COMPARISON: JOIN vs MAP
 
-| Aspect | JOIN Pattern (Application A) | MAP Pattern (Application B) |
+| Aspect | JOIN Pattern (Application A (the multi-entity JOIN system)) | MAP Pattern (Application B (the single-entity MAP system)) |
 |--------|----------------------------------|-------------------------------|
 | **Source Entities** | 3 (Customers, Accounts, Decision) | 1 (Applications) |
 | **Extract Schedule** | Customers/Accounts: 4 PM; Decision: 5 AM | Daily |
@@ -1665,7 +1665,7 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 ┌─────────────────────────────────────────────────────────────┐
 │ JOIN PATTERN: ENTITY DEPENDENCY CHECK                           │
 │                                                             │
-│  Required Entities (JOIN pattern — Application A):          │
+│  Required Entities (JOIN pattern — Application A (the multi-entity JOIN system)):          │
 │    ☑ Customers  (Daily @ 4:00 PM)                          │
 │    ☑ Accounts   (Daily @ 4:00 PM)                          │
 │    ☑ Decision   (Daily @ 5:00 AM)                          │
@@ -1719,7 +1719,7 @@ The next stage of processing (Transformation) can **only be triggered when ALL e
 # LIBRARY provides the EntityDependencyChecker class (flow/mechanism)
 # PIPELINE provides the configuration (entities, counts, triggers)
 
-# JOIN pattern configuration (Application A entities)
+# JOIN pattern configuration (Application A (the multi-entity JOIN system) entities)
 # deployments/data-pipeline-orchestrator/src/config.py
 JOIN_ENTITY_DEPENDENCIES = {
     "entities": ["customers", "accounts", "decision"],
@@ -1727,7 +1727,7 @@ JOIN_ENTITY_DEPENDENCIES = {
     "trigger_next_stage": "transformation"
 }
 
-# MAP pattern configuration (Application B — immediate trigger)
+# MAP pattern configuration (Application B (the single-entity MAP system) — immediate trigger)
 # deployments/data-pipeline-orchestrator/src/config.py
 MAP_ENTITY_DEPENDENCIES = {
     "entities": ["applications"],
@@ -1751,8 +1751,8 @@ if checker.all_entities_loaded("generic", extract_date):
 
 | Pattern | Required Entities | Dependency Wait? | Trigger Condition |
 |---------|-------------------|-----------------|-------------------|
-| **JOIN** (Application A) | Customers, Accounts, Decision | Yes — all 3 | All 3 reach SUCCESS for same `extract_date` |
-| **MAP** (Application B) | Applications | No | Immediate after ODP load SUCCESS |
+| **JOIN** (Application A (the multi-entity JOIN system)) | Customers, Accounts, Decision | Yes — all 3 | All 3 reach SUCCESS for same `extract_date` |
+| **MAP** (Application B (the single-entity MAP system)) | Applications | No | Immediate after ODP load SUCCESS |
 
 #### Dependency Check Query
 
