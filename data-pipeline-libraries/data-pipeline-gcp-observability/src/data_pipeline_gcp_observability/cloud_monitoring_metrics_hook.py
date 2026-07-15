@@ -225,8 +225,13 @@ class CloudMonitoringMetricsHook:
         for k, v in labels.items():
             series.metric.labels[k] = v
         series.resource.type = "global"
-        series.metric_kind = monitoring_v3.MetricDescriptor.MetricKind.CUMULATIVE
-        series.value_type = monitoring_v3.MetricDescriptor.ValueType.INT64
+        # google.api.metric_pb2 is the version-stable home of these enums:
+        # monitoring_v3.MetricDescriptor existed at our >=2.14 floor but was
+        # removed by google-cloud-monitoring 2.31 (caught by the Sprint-25
+        # real-GCP smoke of the published wheel; the hook's swallow-on-error
+        # resilience masked it, and mocked unit tests never evaluate the attr).
+        series.metric_kind = ga_metric.MetricDescriptor.MetricKind.CUMULATIVE
+        series.value_type = ga_metric.MetricDescriptor.ValueType.INT64
 
         point = monitoring_v3.Point(
             interval=interval,
@@ -244,14 +249,15 @@ class CloudMonitoringMetricsHook:
     ) -> Any:
         """Build a GAUGE DOUBLE TimeSeries — mirrors Java buildGaugeDouble (line 305)."""
         from google.cloud import monitoring_v3  # type: ignore[import]
+        from google.api import metric_pb2 as ga_metric  # type: ignore[import]
 
         series = monitoring_v3.TimeSeries()
         series.metric.type = metric_type
         for k, v in labels.items():
             series.metric.labels[k] = v
         series.resource.type = "global"
-        series.metric_kind = monitoring_v3.MetricDescriptor.MetricKind.GAUGE
-        series.value_type = monitoring_v3.MetricDescriptor.ValueType.DOUBLE
+        series.metric_kind = ga_metric.MetricDescriptor.MetricKind.GAUGE
+        series.value_type = ga_metric.MetricDescriptor.ValueType.DOUBLE
 
         point = monitoring_v3.Point(
             interval=interval,
