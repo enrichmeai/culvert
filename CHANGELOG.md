@@ -2,10 +2,10 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
-## [0.1.0]
+## [0.1.0] — 2026-07-15
 
-**Python: released to PyPI as `culvert` 0.1.0 (2026-07-11). Java: built and
-Maven-Central-ready, publish pending.**
+**RELEASED — both ecosystems. Python: `culvert` 0.1.0 on PyPI (2026-07-11). Java:
+`com.enrichmeai.culvert:*` 0.1.0 on Maven Central, 19 artifacts (2026-07-15).**
 
 Culvert's first public release. Every contract interface in the core has at
 least one concrete adapter; the Python distribution `culvert` (one wheel with
