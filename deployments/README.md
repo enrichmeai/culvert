@@ -329,7 +329,7 @@ BigQuery FDP (3 tables) → 3-Table JOIN → BigQuery CDP (customer_risk_profile
 - **Kafka integration:** Event streaming with Apache Kafka
 - **Beam streaming:** Dataflow streaming mode with windowing
 
-**Status:** Reference/planned — stub implementation for future Golden Path.
+**Status:** Reference/planned — stub implementation for future paved path.
 
 ---
 

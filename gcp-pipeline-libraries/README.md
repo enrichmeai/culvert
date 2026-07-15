@@ -2,13 +2,13 @@
 
 > **Current Version:** 1.0.29 (all 6 libraries aligned)
 
-4-library architecture for mainframe-to-GCP data migration, following a **Golden Path** pattern demonstrated through production-ready reference deployments. Two supplementary packages (`gcp-pipeline-tester` for testing utilities, `gcp-pipeline-framework` as the umbrella package) complete the ecosystem.
+4-library architecture for mainframe-to-GCP data migration, following a **paved path** pattern demonstrated through production-ready reference deployments. Two supplementary packages (`gcp-pipeline-tester` for testing utilities, `gcp-pipeline-framework` as the umbrella package) complete the ecosystem.
 
 These libraries provide **generic mechanisms** (sensors, operators, macros, validators) — all system-specific logic is **config-driven** via `system.yaml` files in each deployment. No library code changes are needed when onboarding a new system.
 
 ---
 
-## Golden Path — Reference Deployments
+## paved path — Reference Deployments
 
 The libraries are demonstrated through a complete end-to-end pipeline (the "Generic" system):
 
@@ -41,7 +41,7 @@ Each deployment has its own `config/system.yaml` containing **only** the configu
 
 Reference packages are published to PyPI: `gcp-pipeline-ref-ingestion`, `gcp-pipeline-ref-transform`, `gcp-pipeline-ref-orchestration`, `gcp-pipeline-ref-cdp`.
 
-See [GOLDEN_PATH_PROPOSAL.md](../docs/GOLDEN_PATH_PROPOSAL.md) for the full architecture and [DBT_CONFIG_DRIVEN_SPEC.md](../docs/DBT_CONFIG_DRIVEN_SPEC.md) for the config-driven dbt specification.
+See [ARCHITECTURE.md](../docs/ARCHITECTURE.md) for the full architecture and [DBT_CONFIG_DRIVEN_SPEC.md](../docs/DBT_CONFIG_DRIVEN_SPEC.md) for the config-driven dbt specification.
 
 ---
 
@@ -248,7 +248,7 @@ To maintain the integrity of the library architecture, the following rules and r
 
 ---
 
-## Golden Path Feature Catalogue
+## paved path Feature Catalogue
 
 > **81 source files across 4 libraries — all production-ready, fully tested.**
 > Every capability listed below is real, working code. No stubs.

@@ -32,7 +32,7 @@
 
 ## 1. Executive Summary
 
-This document defines the production-grade architecture for the GCP Pipeline Reference Implementation. The framework transitions legacy batch systems (mainframe extracts) into a modern, event-driven, decoupled cloud platform on Google Cloud Platform (GCP). It serves as the enterprise "Golden Path" standard for Credit Platform teams migrating mainframe data to BigQuery.
+This document defines the production-grade architecture for the GCP Pipeline Reference Implementation. The framework transitions legacy batch systems (mainframe extracts) into a modern, event-driven, decoupled cloud platform on Google Cloud Platform (GCP). It serves as the enterprise "paved path" standard for the enterprise platform teams migrating mainframe data to BigQuery.
 
 > **Related:** For the complete end-to-end data flow (stages, schemas, diagrams) see [E2E_FUNCTIONAL_FLOW.md](E2E_FUNCTIONAL_FLOW.md). For deployment operations see [DEPLOYMENT_OPERATIONS_GUIDE.md](DEPLOYMENT_OPERATIONS_GUIDE.md).
 
@@ -67,9 +67,9 @@ See [CREATING_NEW_DEPLOYMENT_GUIDE.md](CREATING_NEW_DEPLOYMENT_GUIDE.md) for the
 
 ## 3. System Architecture
 
-### 3.1 The Full Pipeline — 5 Golden Path Patterns
+### 3.1 The Full Pipeline — 5 paved path Patterns
 
-The framework defines **five reusable deployment patterns**. Each pattern is a Golden Path that teams adopt by creating a system-specific instance:
+The framework defines **five reusable deployment patterns**. Each pattern is a paved path that teams adopt by creating a system-specific instance:
 
 | # | Pattern | Technology | Layer Transition | Description |
 |---|---------|-----------|-----------------|-------------|
@@ -199,7 +199,7 @@ The architecture defines a four-layer data hierarchy. Each layer has its own dat
 | **CDP** (Consumable Data Product) | `cdp_{system_id}` | Denormalised views joining multiple FDP tables into consumer-ready products. | CDP unit (dbt) |
 | **Segments** (GCS export) | GCS bucket `*-segments` | Formatted output files (e.g., fixed-width mainframe segment files) for downstream consumption. | Segment export unit (Beam) |
 
-Each layer represents a distinct **Golden Path pattern** that teams can adopt independently:
+Each layer represents a distinct **paved path pattern** that teams can adopt independently:
 
 | Pattern | Layer Transition | Example (Generic Reference) |
 |---------|-----------------|----------------------------|
@@ -281,7 +281,7 @@ The pipeline follows a strict reactive pattern:
 
 The Generic system proves two distinct orchestration patterns simultaneously:
 
-#### JOIN Pattern (from Excess Management)
+#### JOIN Pattern (from Application A (the multi-entity JOIN system))
 
 All 3 entities (Customers, Accounts, Decision) must reach `SUCCESS` in `job_control` for the same `extract_date` before the FDP transformation is triggered. The `EntityDependencyChecker` in `gcp-pipeline-orchestration` polls the `job_control` table to detect completion.
 
@@ -295,7 +295,7 @@ Produces:
 - `fdp_generic.event_transaction_excess`
 - `fdp_generic.portfolio_account_excess`
 
-#### MAP Pattern (from Loan Origination)
+#### MAP Pattern (from Application B (the single-entity MAP system))
 
 A single entity (Applications) loads to ODP and immediately triggers dbt transformation. No dependency wait is required.
 
@@ -477,34 +477,34 @@ Even when the reference Ingestion or Transformation units are replaced, `gcp-pip
 3. **End-to-End Observability**: Structured JSON logging and standardised metrics ensure that logs from any tool are searchable and alertable. The `run_id` is consistently propagated as a correlation ID.
 4. **Data Integrity & Auditability**: `AuditTrail` and `ReconciliationEngine` are tool-agnostic. Integrating the core library provides source-to-target reconciliation and lineage tracking regardless of which technology performed the data movement.
 
-### 10.6 Alignment with Enterprise Golden Paths
+### 10.6 Alignment with Enterprise paved paths
 
 This framework aligns with enterprise data platform standards while providing the missing orchestration and ingestion layers.
 
 #### Transformation (dbt on Cloud Run)
 
-The Enterprise Transformation Golden Path enables teams to run dbt on Cloud Run. Our Orchestration Unit (Unit 3) acts as the invoker — triggering dbt only after all upstream ODP loads have successfully updated `job_control`. This prevents the partial-data problem inherent in simple time-based triggers. Teams can use the enterprise pipeline to deploy dbt code while using this framework's Airflow DAGs to trigger execution, maintaining unified `run_id` lineage.
+The Enterprise Transformation paved path enables teams to run dbt on Cloud Run. Our Orchestration Unit (Unit 3) acts as the invoker — triggering dbt only after all upstream ODP loads have successfully updated `job_control`. This prevents the partial-data problem inherent in simple time-based triggers. Teams can use the enterprise pipeline to deploy dbt code while using this framework's Airflow DAGs to trigger execution, maintaining unified `run_id` lineage.
 
 #### Ingestion
 
-This framework's Ingestion Unit (Unit 1 — Beam) serves as the production-ready Golden Path for mainframe-to-GCP ingestion, providing HDR/TRL validation, split-file reassembly, and ODP audit columns. Because Unit 1 is independent of Units 2 and 3, systems can migrate to an alternative ingestion implementation in future simply by swapping Unit 1.
+This framework's Ingestion Unit (Unit 1 — Beam) serves as the production-ready paved path for mainframe-to-GCP ingestion, providing HDR/TRL validation, split-file reassembly, and ODP audit columns. Because Unit 1 is independent of Units 2 and 3, systems can migrate to an alternative ingestion implementation in future simply by swapping Unit 1.
 
-### 10.7 Governance for Custom Golden Paths
+### 10.7 Governance for Custom paved paths
 
-All custom Golden Paths must adhere to the following mandatory rules to maintain platform integrity.
+All custom paved paths must adhere to the following mandatory rules to maintain platform integrity.
 
-#### 10.7.1 Pathway to Official Golden Path Status
+#### 10.7.1 Pathway to Official paved path Status
 
 A custom pattern can be promoted if it:
 
 1. **Demonstrates Reusability**: Solves a pattern common to at least two different systems.
-2. **Passes Peer Review**: Reviewed and approved by the Credit Platform architecture guild.
+2. **Passes Peer Review**: Reviewed and approved by the enterprise platform architecture guild.
 3. **Includes Templates**: Provides scaffolding in the `templates/` directory.
 4. **Maintains Documentation**: Includes comprehensive READMEs and architectural diagrams.
 
 #### 10.7.2 Mandatory Rules
 
-1. **Mandatory Core Integration**: Every Golden Path MUST use `gcp-pipeline-core`. It is the only source of truth for `PipelineJob` models and `AuditTrail` logic.
+1. **Mandatory Core Integration**: Every paved path MUST use `gcp-pipeline-core`. It is the only source of truth for `PipelineJob` models and `AuditTrail` logic.
 2. **Metadata Contract Compliance**: Every unit must accept a `run_id` as its primary correlation key and must update `job_control` state (`PENDING → RUNNING → SUCCESS/FAILED`) using `JobControlRepository`.
 3. **Strict Audit Lineage**: All data written to BigQuery (ODP or FDP) MUST include `_run_id` and a processing timestamp (`_processed_ts` or `_transformed_at`).
 4. **Functional Decoupling**: Ingestion logic must not be embedded in Transformation scripts; Orchestration must remain engine-agnostic.

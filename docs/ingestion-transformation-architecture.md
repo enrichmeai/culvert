@@ -2,7 +2,7 @@
 
 ## Overview
 
-A mainframe-to-GCP batch pipeline using an event-driven, schema-driven Golden Path. Data flows through three layers — **ODP** (raw copy), **FDP** (business-ready), **CDP** (consumable, planned) — with reconciliation at every boundary.
+A mainframe-to-GCP batch pipeline using an event-driven, schema-driven paved path. Data flows through three layers — **ODP** (raw copy), **FDP** (business-ready), **CDP** (consumable, planned) — with reconciliation at every boundary.
 
 ---
 
