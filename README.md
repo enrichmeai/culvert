@@ -68,8 +68,17 @@ from data_pipeline_core import autoconfig
 blob_store = autoconfig.discover().first("blob_store")   # GcsBlobStore with culvert[gcp]
 ```
 
-The Java libraries (`com.enrichmeai.culvert:*`) are not on Maven Central yet;
-build them from source per **Build & test** below until that release lands.
+**Java** — the libraries are on Maven Central:
+
+```xml
+<dependency>
+    <groupId>com.enrichmeai.culvert</groupId>
+    <artifactId>data-pipeline-core</artifactId>
+    <version>0.1.0</version>
+</dependency>
+<!-- adapters: data-pipeline-gcp-bigquery, data-pipeline-gcp-gcs,
+     data-pipeline-aws-s3, ... same groupId/version -->
+```
 
 ## Build & test
 
