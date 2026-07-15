@@ -1,4 +1,4 @@
-# Generic (Application A) - Terraform Variables
+# Generic (Application A (the multi-entity JOIN system)) - Terraform Variables
 
 # ============================================================================
 # GCP CONFIGURATION

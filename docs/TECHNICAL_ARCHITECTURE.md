@@ -281,7 +281,7 @@ The pipeline follows a strict reactive pattern:
 
 The Generic system proves two distinct orchestration patterns simultaneously:
 
-#### JOIN Pattern (from Application A)
+#### JOIN Pattern (from Application A (the multi-entity JOIN system))
 
 All 3 entities (Customers, Accounts, Decision) must reach `SUCCESS` in `job_control` for the same `extract_date` before the FDP transformation is triggered. The `EntityDependencyChecker` in `gcp-pipeline-orchestration` polls the `job_control` table to detect completion.
 
@@ -295,7 +295,7 @@ Produces:
 - `fdp_generic.event_transaction_excess`
 - `fdp_generic.portfolio_account_excess`
 
-#### MAP Pattern (from Application B)
+#### MAP Pattern (from Application B (the single-entity MAP system))
 
 A single entity (Applications) loads to ODP and immediately triggers dbt transformation. No dependency wait is required.
 
@@ -498,7 +498,7 @@ All custom paved paths must adhere to the following mandatory rules to maintain 
 A custom pattern can be promoted if it:
 
 1. **Demonstrates Reusability**: Solves a pattern common to at least two different systems.
-2. **Passes Peer Review**: Reviewed and approved by the the enterprise platform architecture guild.
+2. **Passes Peer Review**: Reviewed and approved by the enterprise platform architecture guild.
 3. **Includes Templates**: Provides scaffolding in the `templates/` directory.
 4. **Maintains Documentation**: Includes comprehensive READMEs and architectural diagrams.
 

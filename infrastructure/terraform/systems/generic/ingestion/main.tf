@@ -1,4 +1,4 @@
-# Generic (Application A) - Terraform Main Configuration
+# Generic (Application A (the multi-entity JOIN system)) - Terraform Main Configuration
 #
 # Provisions complete GCP infrastructure for Generic pipeline:
 # - GCS buckets (landing, archive, error)
