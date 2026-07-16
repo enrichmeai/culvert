@@ -21,12 +21,12 @@ The library provides an enhanced Pub/Sub sensor for event-driven pipeline trigge
 - **Error handling** -- Graceful handling of malformed messages
 - **Dead Letter Queue (DLQ)** -- Automatic capture of failed messages for investigation
 
-**Core component:** `BasePubSubPullSensor` in `gcp-pipeline-libraries/gcp-pipeline-orchestration/src/gcp_pipeline_core/orchestration/sensors/pubsub.py`
+**Core component:** `BasePubSubPullSensor` in `data-pipeline-libraries/data-pipeline-orchestration/src/data_pipeline_orchestration/sensors/pubsub.py`
 
 ## Usage Example (Airflow DAG)
 
 ```python
-from gcp_pipeline_orchestration.sensors import BasePubSubPullSensor
+from data_pipeline_orchestration.sensors import BasePubSubPullSensor
 
 wait_for_file = BasePubSubPullSensor(
     task_id='wait_for_file',
@@ -305,8 +305,8 @@ gsutil rm "gs://${BUCKET}/${TEST_FILE}"
 
 ## References
 
-- [Terraform: security.tf](../../generic/infrastructure/terraform/security.tf)
-- [Sensor: pubsub.py](../../generic/src/orchestration/airflow/sensors/pubsub.py)
-- [PubSub Client](../../../gcp_pipeline_core/core/clients/pubsub_client.py)
+- [Terraform: security.tf](../infrastructure/terraform/security.tf)
+- [Sensor: pubsub.py](../data-pipeline-libraries/data-pipeline-orchestration/src/data_pipeline_orchestration/sensors/pubsub.py)
+- [Pub/Sub adapter](../data-pipeline-libraries/data-pipeline-gcp-pubsub/src/data_pipeline_gcp_pubsub/)
 - [Google Cloud Pub/Sub Docs](https://cloud.google.com/pubsub/docs)
 - [Google Cloud KMS Docs](https://cloud.google.com/kms/docs)

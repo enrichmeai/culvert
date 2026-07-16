@@ -17,7 +17,7 @@
 # For a one-off manual apply without substitution, replace the placeholders
 # with literal values before running `kubectl apply -f`.
 #
-# Framework reference: deployments/original-data-to-bigqueryload/ (Dataflow).
+# Framework reference: deployments/original-data-to-bigqueryload-java/ (Dataflow).
 # The same Beam pipeline can target Flink by switching --runner=FlinkRunner.
 # See the chart README section "Submitting a Beam pipeline" and book Chapter 14
 # for trade-offs between Dataflow and self-managed Flink.
@@ -86,8 +86,8 @@ spec:
     #   --runner            must be FlinkRunner for Flink execution
     #   --flinkMaster       auto-detect uses the session cluster's REST endpoint
     #
-    # Framework-specific args (mirror Dataflow template parameters in
-    # deployments/original-data-to-bigqueryload/config/):
+    # Framework-specific args (mirror the Java deployment's CLI args in
+    # deployments/original-data-to-bigqueryload-java/ — see IngestionMain):
     #   --inputFile         GCS path to the raw source CSV/JSON
     #   --outputTable       BigQuery destination in project:dataset.table notation
     #   --errorBucket       GCS bucket for DLQ / poison-pill records

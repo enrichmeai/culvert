@@ -29,7 +29,9 @@ EXTRACT_DATE=$(date +%Y%m%d)
 EXTRACT_DATE_BQ=$(date +%Y-%m-%d)
 ENTITIES=(customers accounts decision applications)
 FDP_MODELS=(event_transaction_excess portfolio_account_excess portfolio_account_facility)
-TEST_DATA_DIR="deployments/original-data-to-bigqueryload/tests/data"
+# Sample CSVs live at the repo root (the retired Python deployment's tests/data is gone)
+TEST_DATA_DIR="test_data"
+TEST_DATA_STAMP="20260417"
 LANDING_BUCKET="gs://${PROJECT_ID}-${SYSTEM_ID}-${ENV}-landing"
 TIMEOUT=1200   # 20 min — Dataflow cold start is ~8 min
 POLL_INTERVAL=30
@@ -94,7 +96,7 @@ report "CHECKPOINT 1: File Upload"
 
 UPLOAD_START=$(date +%s)
 for entity in "${ENTITIES[@]}"; do
-  src="${TEST_DATA_DIR}/generic_${entity}_sample.csv"
+  src="${TEST_DATA_DIR}/generic_${entity}_${TEST_DATA_STAMP}.csv"
   if [[ ! -f "$src" ]]; then
     fail "Test data not found: $src"; exit 1
   fi

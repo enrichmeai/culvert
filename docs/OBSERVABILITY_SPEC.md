@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Wire the full monitoring, alerting, auditing, and observability capabilities from the core library (`gcp-pipeline-core`) into the orchestration layer (generated DAGs). The core library already provides all the building blocks — this spec defines how each is connected to the pipeline DAGs.
+Wire the full monitoring, alerting, auditing, and observability capabilities from the framework libraries into the orchestration layer (generated DAGs). On Culvert these building blocks live in `data_pipeline_core.contracts.observability` (the `ObservabilityHook` protocol), the `data-pipeline-gcp-observability` adapter package (`CloudMonitoringMetricsHook`, `CloudTraceObservabilityHook`, `DataCatalogLineageEmitter`), `data_pipeline_core.audit` / `data_pipeline_core.lineage` (event shapes), and `data_pipeline_orchestration.callbacks` (error handling) — this spec defines how each is connected to the pipeline DAGs.
 
 ## 2. Current State
 
@@ -109,37 +109,15 @@ The original 4 hardcoded DAGs had basic auditing but no Dynatrace, no ServiceNow
 
 **Implementation in generated DAGs:**
 
-```python
-from gcp_pipeline_core.monitoring.alerts import (
-    AlertManager, DynatraceAlertBackend, ServiceNowAlertBackend, LoggingAlertBackend,
-)
-from gcp_pipeline_core.monitoring.types import AlertLevel
-
-def _get_alert_manager() -> AlertManager:
-    """Create AlertManager with Dynatrace and ServiceNow backends if configured."""
-    backends = [LoggingAlertBackend()]
-    try:
-        dt_url = Variable.get("dynatrace_environment_url")
-        dt_token = Variable.get("dynatrace_api_token")
-        if dt_url and dt_token:
-            backends.append(DynatraceAlertBackend(
-                environment_url=dt_url, api_token=dt_token,
-            ))
-    except Exception:
-        pass
-    try:
-        snow_url = Variable.get("servicenow_instance_url")
-        snow_user = Variable.get("servicenow_username")
-        snow_pass = Variable.get("servicenow_password")
-        if snow_url and snow_user:
-            backends.append(ServiceNowAlertBackend(
-                instance_url=snow_url, username=snow_user, password=snow_pass,
-                assignment_group=Variable.get("servicenow_assignment_group", default_var=""),
-            ))
-    except Exception:
-        pass
-    return AlertManager(alert_backends=backends)
-```
+Culvert does not carry a bespoke alert-backend stack. The current design is:
+failure callbacks (`data_pipeline_orchestration.callbacks.on_failure_callback`)
+publish structured failure events to the DLQ topic, and pipeline metrics flow
+through the `ObservabilityHook` protocol
+(`data_pipeline_core.contracts.observability`) via the
+`CloudMonitoringMetricsHook` adapter in `data-pipeline-gcp-observability`.
+Dynatrace/ServiceNow (or any other alert sink) subscribe to Cloud Monitoring
+alert policies on those metrics, or consume the DLQ topic directly — no
+in-library Dynatrace/ServiceNow client code.
 
 **Where applied:**
 - Ingestion DAG: `mark_job_failed()` callback
@@ -169,15 +147,16 @@ def _get_alert_manager() -> AlertManager:
 **Implementation in generated DAGs:**
 
 ```python
-from gcp_pipeline_core.audit.publisher import AuditPublisher
-from gcp_pipeline_core.audit.records import AuditRecord
-from gcp_pipeline_core.audit.lineage import DataLineageTracker
+from data_pipeline_core.audit import AuditRecord
+from data_pipeline_core.contracts.audit import AuditEventPublisher  # protocol
+# Lineage: data_pipeline_core.lineage.LineageEvent, emitted through the
+# LineageEmitter contract (GCP adapter: DataCatalogLineageEmitter in
+# data-pipeline-gcp-observability).
 
-def _publish_audit_record(run_id, pipeline_name, entity, source_file,
+def _publish_audit_record(publisher: AuditEventPublisher,
+                          run_id, pipeline_name, entity, source_file,
                           record_count, duration_seconds, success, error_count, metadata=None):
-    """Publish audit record to Pub/Sub for downstream consumers."""
-    project_id = _get_project_id()
-    topic = Variable.get("audit_pubsub_topic", default_var="generic-pipeline-events")
+    """Publish audit record for downstream consumers (Pub/Sub-backed publisher)."""
     try:
         record = AuditRecord(
             run_id=run_id,
@@ -189,12 +168,12 @@ def _publish_audit_record(run_id, pipeline_name, entity, source_file,
             processing_duration_seconds=duration_seconds,
             success=success,
             error_count=error_count,
-            audit_hash="",  # computed by publisher
+            audit_hash="",  # computed by the publisher implementation
             metadata=metadata or {},
         )
-        publisher = AuditPublisher(project_id=project_id, topic_name=topic)
-        msg_id = publisher.publish(record)
-        logger.info(f"Published audit record to {topic}: {msg_id}")
+        publisher.publish(record)
+        publisher.flush()
+        logger.info(f"Published audit record for {run_id}")
     except Exception as e:
         logger.warning(f"Audit publishing failed (non-fatal): {e}")
 ```

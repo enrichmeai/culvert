@@ -822,8 +822,7 @@ resource "google_composer_environment" "generic_composer" {
 
       # Only install orchestration-specific packages (NO beam to avoid Airflow conflicts)
       pypi_packages = {
-        gcp-pipeline-core          = "==1.0.29"
-        gcp-pipeline-orchestration = "==1.0.29"
+        culvert = "[orchestration]==0.1.1"
       }
 
       env_variables = {

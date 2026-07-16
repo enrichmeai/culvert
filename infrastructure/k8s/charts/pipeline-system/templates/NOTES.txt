@@ -1,5 +1,5 @@
 ================================================================
-  gcp-pipeline-framework — installed
+  culvert — installed
 ================================================================
 
 System ID:   {{ .Values.global.system_id | default "generic" }}

@@ -12,7 +12,7 @@ The platform is officially supported by multiple teams across the **the enterpri
 - **Orchestration**: Apache Airflow (Cloud Composer)
 - **Cloud Services**: GCP (BigQuery, GCS, Pub/Sub, Dataflow)
 - **Transformations**: dbt (SQL macros)
-- **Testing**: pytest, BDD/Gherkin (gcp-pipeline-tester)
+- **Testing**: pytest, BDD/Gherkin (data-pipeline-tester)
 - **Infrastructure**: Terraform
 
 ---
@@ -24,10 +24,10 @@ Infrastructure is split into four specialized libraries to maintain a **Zero-Ble
 
 | Library | Purpose | Key Components | Constraints |
 | :--- | :--- | :--- | :--- |
-| **`gcp-pipeline-core`** | Foundation | Audit Trail, Error Classifier, Job Control, Schema Types | **NO beam, NO airflow** |
-| **`gcp-pipeline-beam`** | Ingestion | HDR/TRL Parser, Schema Validator, Beam Transforms | Depends on `core`; **NO airflow** |
-| **`gcp-pipeline-orchestration`** | Control | Pub/Sub Sensors, DAG Factories, Entity Dependency | Depends on `core`; **NO beam** |
-| **`gcp-pipeline-transform`** | SQL | dbt Audit Macros, Metadata-Driven PII Masking | **dbt only**; NO Python |
+| **`data-pipeline-core`** | Foundation | Contracts, Audit Records, Job Control Types, Schema Types | **NO beam, NO airflow, NO cloud SDKs** |
+| **`data-pipeline-gcp-*`** | Adapters | BigQuery, GCS, Pub/Sub, Secrets, Observability | Depend on `core`; one cloud SDK each |
+| **`data-pipeline-orchestration`** | Control | Pub/Sub Sensors, DAG Factory, Entity Dependency | Depends on `core`; **NO beam** |
+| **`data-pipeline-transform`** | SQL | dbt Audit Macros, Metadata-Driven PII Masking | **dbt only**; NO Python |
 
 ### 2.2 The 3-Unit Deployment Model
 Each system (e.g., **Application1**, **Application2**) is implemented as three independent, decoupled units:
@@ -40,7 +40,7 @@ Each system (e.g., **Application1**, **Application2**) is implemented as three i
 ## 3. Key Governance Rules
 
 ### 3.1 Zero-Bleed Dependency Policy (Critical)
-- **Core Isolation**: `gcp-pipeline-core` MUST NOT import `apache_beam` or `airflow`. It must remain portable.
+- **Core Isolation**: `data-pipeline-core` MUST NOT import `apache_beam`, `airflow`, or any cloud SDK. It must remain portable.
 - **Domain Isolation**: Do not import Beam in Orchestration or vice-versa.
 
 ### 3.2 Strict Genericity & Naming
@@ -73,7 +73,7 @@ Each system (e.g., **Application1**, **Application2**) is implemented as three i
 
 ## 5. Testing Standards
 - **Mirroring**: Test structure must mirror the source module structure 1:1.
-- **Mocks**: Use `gcp-pipeline-tester` mocks (GCS, BigQuery) to avoid live GCP requirements.
+- **Mocks**: Use `data-pipeline-tester` mocks (GCS, BigQuery) to avoid live GCP requirements.
 - **BDD**: Use Gherkin scenarios for complex multi-stage orchestration logic.
 - **Coverage**: Aim for 90%+ test coverage for all library code.
 

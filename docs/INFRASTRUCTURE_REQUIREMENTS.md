@@ -45,11 +45,11 @@ This document provides a complete reference for all GCP infrastructure required 
 
 ## Deployment Types Overview
 
-### Active Deployments (deployed by `deploy-generic.yml`)
+### Active Deployments (validated by `.github/workflows/ci.yml`)
 
 | Deployment | Purpose | Runtime | Docker Image |
 |------------|---------|---------|--------------|
-| **original-data-to-bigqueryload** | Beam ingestion — GCS → ODP | Cloud Dataflow (Flex Template) | `generic-ingestion` |
+| **original-data-to-bigqueryload-java** | Beam ingestion — GCS → ODP | Cloud Dataflow / Cloud Run Job (shaded jar) | `generic-ingestion-java` |
 | **bigquery-to-mapped-product** | dbt transformations — ODP → FDP | BigQuery (native SQL) | `generic-transformation` |
 | **data-pipeline-orchestrator** | Airflow DAGs — Pub/Sub sensing, coordination | Cloud Composer (managed Airflow) -- **opt-in only, ~$300-500/month** | `generic-dag-validator` |
 
@@ -70,7 +70,7 @@ This document provides a complete reference for all GCP infrastructure required 
 
 | Deployment | Purpose | Runtime | Trigger |
 |------------|---------|---------|---------|
-| **data-pipeline-orchestrator** | Same DAGs on self-hosted Airflow | GKE (Kubernetes) | `deploy-gke.yml` — manual only; requires `pipeline-cluster` to be provisioned first |
+| **data-pipeline-orchestrator** | Same DAGs on self-hosted Airflow | GKE (Kubernetes) | Manual only — superseded path, see [GKE_DEPLOYMENT_GUIDE.md](GKE_DEPLOYMENT_GUIDE.md) banner |
 
 ---
 
@@ -157,7 +157,7 @@ This document provides a complete reference for all GCP infrastructure required 
 
 ### 2. Ingestion Pipeline (Dataflow)
 
-**Deployment:** `original-data-to-bigqueryload`
+**Deployment:** `original-data-to-bigqueryload-java`
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -306,7 +306,7 @@ gs://{PROJECT_ID}-generic-{ENV}-segments/segments/{run_id}/{SEGMENT_CATEGORY}/se
 
 ### 6. Job Control (State Management)
 
-**Required for all deployments.** Schema owned by `JobControlRepository` in `gcp-pipeline-core`.
+**Required for all deployments.** Schema owned by the `JobControlRepository` contract (`data_pipeline_core.contracts.job_control` / `com.enrichmeai.culvert.contracts.JobControlRepository`).
 
 Created automatically by `./scripts/gcp/03_create_infrastructure.sh`.
 
@@ -468,6 +468,6 @@ Tests:
 1. **New Deployment:** See [CREATING_NEW_DEPLOYMENT_GUIDE.md](CREATING_NEW_DEPLOYMENT_GUIDE.md)
 2. **DAG Development:** See [DAG_DEVELOPMENT_GUIDE.md](DAG_DEVELOPMENT_GUIDE.md)
 3. **Testing:** See [E2E_TESTING_GUIDE.md](E2E_TESTING_GUIDE.md)
-4. **Production Release:** See [PRODUCTION_RELEASE_GUIDE.md](PRODUCTION_RELEASE_GUIDE.md)
+4. **Production Release:** See [RELEASE.md](../RELEASE.md)
 5. **File Processing & Resource Sizing:** See [BEAM_FILE_PROCESSING_GUIDE.md](BEAM_FILE_PROCESSING_GUIDE.md)
 

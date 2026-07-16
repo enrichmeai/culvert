@@ -37,16 +37,27 @@ source venv/bin/activate
 python3 -m pip install --upgrade pip
 
 # Determine which libraries to install based on pyproject.toml
-# This is a simple heuristic: check for gcp-pipeline-* in dependencies
+# This is a simple heuristic: check for data-pipeline-* in dependencies
 echo "Installing monorepo libraries..."
 
 # List of all possible libraries in the monorepo
-ALL_LIBS=("gcp-pipeline-core" "gcp-pipeline-beam" "gcp-pipeline-orchestration" "gcp-pipeline-transform" "gcp-pipeline-tester")
+ALL_LIBS=(
+    "data-pipeline-core"
+    "data-pipeline-gcp-bigquery"
+    "data-pipeline-gcp-gcs"
+    "data-pipeline-gcp-pubsub"
+    "data-pipeline-gcp-secrets"
+    "data-pipeline-gcp-observability"
+    "data-pipeline-orchestration"
+    "data-pipeline-transform"
+    "data-pipeline-tester"
+    "data-pipeline-contract-tests"
+)
 
 for lib in "${ALL_LIBS[@]}"; do
     if grep -q "$lib" pyproject.toml; then
         echo "Detected dependency: $lib. Installing from local monorepo..."
-        python3 -m pip install -e "$PROJECT_ROOT/gcp-pipeline-libraries/$lib"
+        python3 -m pip install -e "$PROJECT_ROOT/data-pipeline-libraries/$lib"
     fi
 done
 

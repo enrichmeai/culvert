@@ -176,7 +176,7 @@ SCHEMA
     fi
     rm -f "$JOBS_SCHEMA_FILE"
 
-    # audit_trail: matches AuditRecord from gcp_pipeline_core.audit.records
+    # audit_trail: matches AuditRecord from data_pipeline_core.audit
     create_bq_table "job_control.audit_trail" \
         "run_id:STRING,pipeline_name:STRING,entity_type:STRING,source_file:STRING,record_count:INTEGER,processed_timestamp:TIMESTAMP,processing_duration_seconds:FLOAT,success:BOOLEAN,error_count:INTEGER,audit_hash:STRING" \
         "--time_partitioning_field processed_timestamp --clustering_fields pipeline_name,entity_type"

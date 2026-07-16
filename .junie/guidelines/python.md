@@ -57,9 +57,9 @@ Mandatory type hints for all function signatures and complex class attributes. T
     -   `logger.warning("Reconciliation failed: %s", data)` → correct
 
 ## Library Boundary Rules
--   `gcp-pipeline-core`: MUST NOT import `apache_beam` or `apache_airflow`
--   `gcp-pipeline-beam`: MUST NOT import `apache_airflow`
--   `gcp-pipeline-orchestration`: MUST NOT import `apache_beam`
+-   `data-pipeline-core`: MUST NOT import `apache_beam`, `apache_airflow`, or any cloud SDK
+-   `data-pipeline-gcp-*` adapters: one cloud SDK each; MUST NOT import `apache_airflow`
+-   `data-pipeline-orchestration`: MUST NOT import `apache_beam`
 -   DoFns MUST route errors to tagged outputs — never raise inside `process()`
 
 ## Error Handling Patterns

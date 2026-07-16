@@ -57,7 +57,7 @@ Mainframe CSV files → GCS landing bucket
 
 ### 2.1 Job Statuses
 
-Defined in `gcp-pipeline-core/job_control/types.py`:
+Defined in `data_pipeline_core/job_control_api/types.py`:
 
 | Status | Meaning | Used? |
 |--------|---------|-------|
@@ -70,7 +70,7 @@ Defined in `gcp-pipeline-core/job_control/types.py`:
 
 ### 2.2 Failure Stages
 
-Defined in `gcp-pipeline-core/job_control/types.py`:
+Defined in `data_pipeline_core/job_control_api/types.py`:
 
 | Stage | Meaning | Used? |
 |-------|---------|-------|
@@ -134,7 +134,7 @@ Table: `job_control.audit_trail` (managed by Terraform)
 
 ### 2.5 What the Job Control Repository Provides
 
-Source: `gcp-pipeline-core/job_control/repository.py`
+Source: the `JobControlRepository` contract (`data_pipeline_core/contracts/job_control.py`); reference implementation `BigQueryJobControlRepository` (`data-pipeline-gcp-bigquery-java`)
 
 | Method | What It Does |
 |--------|-------------|
@@ -346,7 +346,7 @@ All previously disconnected guardrails have been wired into the pipeline:
 
 ## 7. Implemented Changes — Library
 
-### 7.1 `gcp-pipeline-core/job_control/types.py`
+### 7.1 `data_pipeline_core/job_control_api/types.py`
 
 **Add new failure stage for FDP dependency failures:**
 
@@ -374,7 +374,7 @@ class JobType(Enum):
     CDP_TRANSFORMATION = "CDP_TRANSFORMATION"  # Future
 ```
 
-### 7.2 `gcp-pipeline-core/job_control/models.py`
+### 7.2 `data_pipeline_core/job_control_api/models.py`
 
 **Add `job_type` and `parent_run_ids` to PipelineJob:**
 
@@ -389,7 +389,7 @@ class PipelineJob:
     dbt_model_name: Optional[str] = None     # NEW: for FDP jobs, which model was run
 ```
 
-### 7.3 `gcp-pipeline-core/job_control/repository.py`
+### 7.3 `data_pipeline_core/contracts/job_control.py` (+ `BigQueryJobControlRepository.java`)
 
 **Add new methods:**
 
@@ -433,7 +433,7 @@ class JobControlRepository:
         self.mark_failed(run_id, error_code, str(exception), failure_stage, error_file_path)
 ```
 
-### 7.4 `gcp-pipeline-core/audit/reconciliation.py`
+### 7.4 Reconciliation (predecessor module retired; the concept lives in the Java ingestion's `ReconciliationResult`)
 
 **Add FDP reconciliation method:**
 
@@ -456,7 +456,7 @@ class ReconciliationEngine:
         # Compare with actual FDP table count for this run_id
 ```
 
-### 7.5 `gcp-pipeline-core/data_deletion/recovery.py`
+### 7.5 Data-deletion recovery (predecessor module retired; not yet re-implemented in Culvert)
 
 **Add GCS persistence to RecoveryManager:**
 

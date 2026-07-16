@@ -53,7 +53,7 @@ The **Generic system** (`system_id=generic`) is the reference implementation tha
 | New FDP (per product) | `fdp_{system_id}.{product}` table — created by dbt on first run |
 | Infrastructure | New Terraform module: GCS buckets `{project}-{system_id}-{env}-*`, BigQuery datasets `odp_{system_id}` / `fdp_{system_id}`, Pub/Sub topics |
 | Deployment units | 3 folders under `deployments/`: `{system_id}-ingestion`, `{system_id}-transformation`, `{system_id}-orchestration` |
-| Shared library | Same `gcp-pipeline-framework` — zero new library code required |
+| Shared library | Same Culvert libraries — zero new library code required |
 
 See [CREATING_NEW_DEPLOYMENT_GUIDE.md](CREATING_NEW_DEPLOYMENT_GUIDE.md) for the step-by-step onboarding process.
 
@@ -150,7 +150,7 @@ The `run_id` is the primary correlation key for pipeline coordination. It is gen
 
 ### 4.2 Job Control Schema (`job_control.pipeline_jobs`)
 
-This table manages the state machine for every pipeline run. Schema is owned by `JobControlRepository` in `gcp-pipeline-core`.
+This table manages the state machine for every pipeline run. Schema is owned by the `JobControlRepository` contract in `data-pipeline-core` (reference implementation: `BigQueryJobControlRepository`, `data-pipeline-gcp-bigquery-java`).
 
 | Column | Type | Mode | Description |
 |--------|------|------|-------------|
@@ -173,7 +173,7 @@ This table manages the state machine for every pipeline run. Schema is owned by 
 
 ### 4.3 Audit Trail Schema (`job_control.audit_trail`)
 
-Stores `AuditRecord` events published by `gcp-pipeline-core.audit.AuditPublisher`. Records are also streamed to Pub/Sub (`generic-pipeline-events`) for real-time observability.
+Stores `AuditRecord` events published through the `AuditEventPublisher` contract (`data_pipeline_core.contracts.audit`). Records are also streamed to Pub/Sub (`generic-pipeline-events`) for real-time observability.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -261,7 +261,7 @@ Instead of a single monolithic DAG, each system's scheduling is split into small
 
 - **Technology**: dbt on BigQuery.
 - **Pattern**: Push-down SQL — all transformation logic executes within BigQuery.
-- **Audit**: Shared macros from `gcp-pipeline-transform` inject `_run_id` and `_transformed_at` tracking into every FDP row, ensuring 100% lineage from source to target.
+- **Audit**: Shared macros from `data-pipeline-transform` inject `_run_id` and `_transformed_at` tracking into every FDP row, ensuring 100% lineage from source to target.
 
 ---
 
@@ -283,7 +283,7 @@ The Generic system proves two distinct orchestration patterns simultaneously:
 
 #### JOIN Pattern (from Application A (the multi-entity JOIN system))
 
-All 3 entities (Customers, Accounts, Decision) must reach `SUCCESS` in `job_control` for the same `extract_date` before the FDP transformation is triggered. The `EntityDependencyChecker` in `gcp-pipeline-orchestration` polls the `job_control` table to detect completion.
+All 3 entities (Customers, Accounts, Decision) must reach `SUCCESS` in `job_control` for the same `extract_date` before the FDP transformation is triggered. The `EntityDependencyChecker` in `data-pipeline-orchestration` polls the `job_control` table to detect completion.
 
 ```
 Customers ODP Load ──┐
@@ -337,7 +337,7 @@ Each deployment unit runs under a **dedicated Service Account** following the Pr
 |-------|-----------|--------|
 | **Encryption at Rest** | Google-managed keys (default) | CMEK-ready via Cloud KMS — see [PUBSUB_KMS_GUIDE.md](PUBSUB_KMS_GUIDE.md) for KMS configuration |
 | **Encryption in Transit** | TLS 1.2 | All GCS, Pub/Sub, and BigQuery transfers |
-| **PII Masking** | dbt macros (`gcp-pipeline-transform`) | Applied at the FDP layer; ODP retains raw data for lineage |
+| **PII Masking** | dbt macros (`data-pipeline-transform`) | Applied at the FDP layer; ODP retains raw data for lineage |
 | **Audit Integrity** | SHA-256 hash | `audit_hash` column in `audit_trail` table for tamper detection |
 | **Bucket Access** | Uniform bucket-level access | IAM-only (no ACLs); versioning enabled on landing and archive |
 
@@ -372,7 +372,7 @@ Each deployment unit runs under a **dedicated Service Account** following the Pr
 
 - **Logging**: Structured JSON logging in all libraries, searchable in Cloud Logging.
 - **Tracing**: `run_id` used as correlation ID across Cloud Logging, Dataflow, and BigQuery.
-- **Metrics**: Custom metrics exported to Cloud Monitoring and Dynatrace via `gcp-pipeline-core`.
+- **Metrics**: Custom metrics exported to Cloud Monitoring via the observability adapters (`data-pipeline-gcp-observability`).
 - **Dashboards**: Pre-configured Cloud Monitoring dashboards for pipeline throughput, error rates, and FinOps costs.
 
 ---
@@ -410,7 +410,7 @@ Best for: Low-to-medium volume where BigQuery can query Spanner directly.
 
 1. Airflow triggers dbt (Unit 2).
 2. dbt models use `EXTERNAL_QUERY` to pull from Spanner and transform directly into BigQuery FDP tables.
-3. `gcp-pipeline-transform` macros inject `run_id` and `_transformed_at` timestamps.
+3. `data-pipeline-transform` macros inject `run_id` and `_transformed_at` timestamps.
 
 #### Pattern B: Two-Step Migration (Ingestion + Transformation)
 
@@ -470,7 +470,7 @@ run_sproc = BigQueryValueCheckOperator(
 
 ### 10.5 The Essential Role of the Core Library in Hybrid Scenarios
 
-Even when the reference Ingestion or Transformation units are replaced, `gcp-pipeline-core` remains the **mandatory foundation** of the platform. It provides:
+Even when the reference Ingestion or Transformation units are replaced, `data-pipeline-core` remains the **mandatory foundation** of the platform. It provides:
 
 1. **Standardised Metadata Contract**: Shared data models (`PipelineJob`, `AuditRecord`) used by the `job_control` table. Without these, in-house tools would break cross-unit coordination.
 2. **Unified State Management**: `JobControlRepository` provides a standardised way to update pipeline status (`PENDING → RUNNING → SUCCESS`), ensuring correct participation in the platform's state machine.
@@ -504,11 +504,11 @@ A custom pattern can be promoted if it:
 
 #### 10.7.2 Mandatory Rules
 
-1. **Mandatory Core Integration**: Every paved path MUST use `gcp-pipeline-core`. It is the only source of truth for `PipelineJob` models and `AuditTrail` logic.
+1. **Mandatory Core Integration**: Every paved path MUST use `data-pipeline-core`. It is the only source of truth for `PipelineJob` models and audit-record shapes.
 2. **Metadata Contract Compliance**: Every unit must accept a `run_id` as its primary correlation key and must update `job_control` state (`PENDING → RUNNING → SUCCESS/FAILED`) using `JobControlRepository`.
 3. **Strict Audit Lineage**: All data written to BigQuery (ODP or FDP) MUST include `_run_id` and a processing timestamp (`_processed_ts` or `_transformed_at`).
 4. **Functional Decoupling**: Ingestion logic must not be embedded in Transformation scripts; Orchestration must remain engine-agnostic.
-5. **Standardised Observability**: All components must implement Structured JSON Logging and export standardised metrics as defined in `gcp-pipeline-core`.
+5. **Standardised Observability**: All components must implement Structured JSON Logging and export standardised metrics as defined by the `data-pipeline-core` contracts.
 6. **Security Isolation**: Each functional unit must run under a dedicated Service Account with PoLP permissions.
 
 ---
@@ -669,7 +669,7 @@ Infrastructure is managed as a **single unified Terraform module** at the reposi
 | Cloud Composer 2 | Managed Airflow orchestration | Terraform |
 | Cloud Build | Docker image builds | Deploy workflow |
 | Container Registry (GCR) | Docker image storage | Deploy workflow |
-| Cloud Monitoring | Metrics, dashboards, alerting | Auto-configured via `gcp-pipeline-core` |
+| Cloud Monitoring | Metrics, dashboards, alerting | Auto-configured via the observability adapters |
 | Cloud Logging | Structured JSON logs | Auto-configured |
 | Cloud KMS | Encryption keys (optional, CMEK) | Manual / Terraform |
 
@@ -693,7 +693,7 @@ Infrastructure is managed as a **single unified Terraform module** at the reposi
 |-----------|---------|------------|
 | **File size** | Up to 1 GB | Dataflow workers autoscale; for > 10 GB, switch to `n1-highmem-8` (see [BEAM_FILE_PROCESSING_GUIDE.md](BEAM_FILE_PROCESSING_GUIDE.md)) |
 | **Entities per system** | 4 in Generic reference (customers, accounts, decision, applications) | DAG Factory generates DAGs from config; adding an entity requires only configuration — no library code changes |
-| **Concurrent systems** | 1 deployed (Generic); architecture supports N | Each system gets its own Terraform module, datasets (`odp_{system_id}`, `fdp_{system_id}`), and buckets; shared `gcp-pipeline-framework` library |
+| **Concurrent systems** | 1 deployed (Generic); architecture supports N | Each system gets its own Terraform module, datasets (`odp_{system_id}`, `fdp_{system_id}`), and buckets; shared Culvert libraries |
 | **Composer workers** | 1–3 (SMALL) | Scale to MEDIUM/LARGE for higher DAG concurrency |
 
 ### 14.3 Availability & Resilience
@@ -744,9 +744,9 @@ Feature Branch → main (auto-deploys to int) → Tag release → prod deploymen
 | System | Integration | Direction | Protocol |
 |--------|------------|-----------|----------|
 | **Mainframe** | CSV file extracts with HDR/TRL envelope | Inbound → GCS | SFTP / MFT → GCS landing bucket |
-| **PyPI** | `gcp-pipeline-framework` library | Build-time | HTTPS (pip install) |
+| **PyPI** | `culvert` distribution | Build-time | HTTPS (pip install) |
 | **GitHub** | Source code, CI/CD workflows | Build-time | HTTPS / GitHub Actions |
-| **Dynatrace** | Metrics export from `gcp-pipeline-core` | Outbound | HTTPS (push) |
+| **Dynatrace** | Metrics export via observability hooks (optional) | Outbound | HTTPS (push) |
 
 ### 16.2 Internal GCP Dependencies
 
@@ -767,7 +767,7 @@ Feature Branch → main (auto-deploys to int) → Tag release → prod deploymen
 | Apache Beam | 2.56.0 | Dataflow SDK |
 | Apache Airflow | 2.10.x | Cloud Composer runtime |
 | dbt-bigquery | Latest | FDP transformation engine |
-| `gcp-pipeline-framework` | 1.0.11 | Umbrella package (5 libraries) |
+| `culvert` | 0.1.1 | Umbrella distribution (Python contracts + adapters) |
 | Python | 3.11 | All deployment units |
 
 ---

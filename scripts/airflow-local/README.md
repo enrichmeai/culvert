@@ -48,13 +48,13 @@ containers:
 - `PUBSUB_EMULATOR_HOST=pubsub-fake:8085`
 - `BIGQUERY_EMULATOR_HOST=http://bq-fake:9050`
 
-The framework's `gcp-pipeline-core.clients` wrappers (and the official Google
-client libraries) pick these up automatically. No DAG-side code changes needed.
+The framework's `data_pipeline_gcp_*` client wrappers (GCS, BigQuery, Pub/Sub
+adapters) and the official Google client libraries pick these up automatically. No DAG-side code changes needed.
 
 ## What this does not do
 
 - **Does not test Dataflow.** Dataflow has no local emulator. Tasks that submit
-  to Dataflow will fail unless you stub them (see `gcp-pipeline-tester`).
+  to Dataflow will fail unless you stub them (see `data-pipeline-tester`).
 - **Does not test Composer-specific behaviour.** For behaviour tied to Cloud
   Composer's Airflow build (for example private-IP networking), you need a
   real Composer environment or the sandbox flow under `scripts/dev/`.

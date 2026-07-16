@@ -12,7 +12,7 @@ A standard system migration is broken down into **5 Work Streams**, correspondin
 *Focus: Defining the contract between the source system and GCP.*
 
 1.  **Analyse Source Extract**: Identify HDR/TRL format, delimiters, and file naming conventions.
-2.  **Define Entity Schema**: Create `EntitySchema` definitions in `gcp-pipeline-core` including data types, nullability, and regex patterns.
+2.  **Define Entity Schema**: Create `EntitySchema` definitions with `data_pipeline_core.schema` including data types, nullability, and regex patterns.
 3.  **Map ODP to FDP**: Document the transformation logic (joins, filters, business rules) from raw tables to business-ready tables.
 4.  **Identify PII/Sensitive Data**: List columns requiring masking or hashing in the FDP layer.
 
@@ -40,7 +40,7 @@ A standard system migration is broken down into **5 Work Streams**, correspondin
 1.  **Initialise dbt Project**: Create `deployments/<system_id>-transformation/dbt/`.
 2.  **Implement Staging Models**: Create 1:1 staging views with basic casting and renaming.
 3.  **Implement FDP Models**: Write the SQL logic for the final business-ready tables.
-4.  **Apply Audit Macros**: Ensure all models use the `add_audit_columns()` macro from `gcp-pipeline-transform`.
+4.  **Apply Audit Macros**: Ensure all models use the `add_audit_columns()` macro from `data-pipeline-transform`.
 5.  **PII Masking**: Apply masking macros to sensitive columns identified in the analysis phase.
 
 ### Work Stream 5: Orchestration Unit (Unit 3 — Airflow)

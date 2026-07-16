@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Backup Script for legacy-migration-reference project
+# Backup Script for gcp-pipeline-reference project
 # =============================================================================
 # Creates a compressed backup excluding virtual environments and cache files
 #
@@ -16,7 +16,7 @@ NC='\033[0m'
 
 # Configuration
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PROJECT_NAME="legacy-migration-reference"
+PROJECT_NAME="gcp-pipeline-reference"
 DEST_DIR="${1:-$HOME/backups}"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 BACKUP_NAME="${PROJECT_NAME}-backup-${TIMESTAMP}.tar.gz"

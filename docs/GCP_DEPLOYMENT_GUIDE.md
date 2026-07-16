@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
 This guide explains how to set up and deploy the GCP Pipeline Reference Implementation to Google Cloud Platform.
 
@@ -164,57 +165,57 @@ The pipeline uses a **3-unit deployment model** (Ingestion, Transformation, Orch
 
 ### Shared Libraries (PyPI)
 
-The shared libraries (`gcp-pipeline-core`, `gcp-pipeline-beam`, `gcp-pipeline-orchestration`, `gcp-pipeline-transform`, `gcp-pipeline-tester`) are published as Python packages to **PyPI** under the umbrella package `gcp-pipeline-framework`.
+The shared Python libraries (`data-pipeline-core`, `data-pipeline-gcp-*`, `data-pipeline-orchestration`, `data-pipeline-transform`, `data-pipeline-tester`) are published to **PyPI** as the single distribution `culvert`; the Java libraries are on **Maven Central** under `com.enrichmeai.culvert`.
 
-- Current version: `1.0.11`
-- PyPI: https://pypi.org/project/gcp-pipeline-framework/
-- Libraries must be published to PyPI before deploying application units that depend on them.
-- Use the `[publish:pypi]` or `[publish:deploy]` commit keyword to trigger publishing workflows.
+- PyPI: https://pypi.org/project/culvert/
+- Libraries must be published before deploying application units that depend on them.
+- Publishing is manually gated via the `publish-pypi.yml` / `publish-maven.yml` workflows — see [`RELEASE.md`](../RELEASE.md).
 
 ### Containerisation Strategy
 
 | Deployment Unit | Requires Docker? | Reason |
 | :--- | :--- | :--- |
-| **Ingestion** (`original-data-to-bigqueryload`) | Yes | Dataflow Flex Templates require a custom Docker image registered in GCR. |
+| **Ingestion** (`original-data-to-bigqueryload-java`) | Yes | The shaded ingestion jar runs as a containerised Cloud Run Job (image built from the deployment's Dockerfile). |
 | **Transformation** (`bigquery-to-mapped-product`) | No | Executed as dbt code using standard dbt-bigquery runners. |
 | **Orchestration** (`data-pipeline-orchestrator`) | No | Deployed as Python DAG files to the Cloud Composer GCS bucket. |
 
 ### Step 2.1: Deploy Ingestion Unit
 
-1. Build the Dataflow Flex Template container. The Dockerfile installs `gcp-pipeline-framework` from PyPI.
-2. Push the Docker image to GCR: `generic-ingestion:{version}`.
-3. Publish the Flex Template JSON to GCS.
+1. Build the shaded jar: `mvn -f deployments/original-data-to-bigqueryload-java/pom.xml package -DskipTests`.
+2. Build the container from `deployments/original-data-to-bigqueryload-java/Dockerfile` and push it to the registry: `generic-ingestion-java:{version}`.
+3. Apply the deployment's Terraform (`deployments/original-data-to-bigqueryload-java/terraform/`) to create/update the Cloud Run Job.
 
 ### Step 2.2: Deploy Transformation Unit
 
 1. Validate dbt models against the target BigQuery project.
 2. Publish dbt artifacts and configurations.
-3. dbt macros are pulled from `gcp-pipeline-transform` via `dbt deps`.
+3. Shared dbt macros are copied from the pip-installed `data_pipeline_transform` package at image build time (see `deployments/bigquery-to-mapped-product/Dockerfile`).
 
 ### Step 2.3: Deploy Orchestration Unit
 
 1. Upload Airflow DAGs to the Cloud Composer DAGs bucket (`gs://<composer-bucket>/dags/`).
-2. Update Cloud Composer environment PyPI dependencies to include `gcp-pipeline-framework==1.0.11`.
+2. Update Cloud Composer environment PyPI dependencies to include `culvert[orchestration]`.
 3. Cloud Composer environment: `generic-{ENV}-composer`.
 
 ### Automatic Deployment
 
 Pipelines deploy automatically when you push to `main` with changes in:
 
-- `deployments/original-data-to-bigqueryload/**` → Triggers ingestion deployment
+- `deployments/original-data-to-bigqueryload-java/**` → Triggers ingestion deployment
 - `deployments/bigquery-to-mapped-product/**` → Triggers transformation deployment
 - `deployments/data-pipeline-orchestrator/**` → Triggers orchestration deployment
-- `gcp-pipeline-libraries/**` → Triggers relevant deployments
+- `data-pipeline-libraries/**` and `data-pipeline-libraries-java/**` → Trigger relevant deployments
 - `infrastructure/terraform/**` → Triggers infrastructure updates
 
 ### Manual Deployment
 
 ```bash
-# Trigger the Generic deployment workflow
-gh workflow run deploy-generic.yml
+# CI (build + tests) runs on every push
+gh run list --workflow=ci.yml --limit 3
 
-# Check status
-gh run list --workflow=deploy-generic.yml --limit 3
+# Library publishing is a manually-gated workflow — see RELEASE.md
+gh workflow run publish-pypi.yml
+gh workflow run publish-maven.yml
 ```
 
 ### CI/CD Commit Keywords

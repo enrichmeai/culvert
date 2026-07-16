@@ -99,9 +99,10 @@ spec:
       #     --tempLocation=gs://pipeline-artifacts/beam-temp/customers/20260512/
       #
       # NOTE: --environment_config must reference a Docker image that has your
-      # Python pipeline wheel installed.  Build it from deployments/
-      # original-data-to-bigqueryload/ Dockerfile, swap the runner import, and
-      # push to GCR/Artifact Registry.
+      # Python pipeline wheel installed. Culvert's Beam execution is Java-only
+      # (the retired Python ingestion pipeline this example originally
+      # targeted is gone) — build the image from your own Python pipeline
+      # project and push to GCR/Artifact Registry.
       # -----------------------------------------------------------------------
 
 # =============================================================================

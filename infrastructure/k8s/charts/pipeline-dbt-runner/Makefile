@@ -5,7 +5,7 @@
 #   REGISTRY   — image registry prefix (default: my-registry)
 #   IMAGE      — image name            (default: pipeline-dbt-runner)
 #   DBT_VER    — dbt-core/bigquery version  (default: 1.7.14)
-#   LIB_VER    — gcp-pipeline-* version     (default: 1.0.29)
+#   LIB_VER    — culvert version            (default: 0.1.1)
 #   TAG        — full image tag        (default: $(DBT_VER)-$(LIB_VER))
 #
 # Examples:
@@ -18,12 +18,12 @@
 REGISTRY  ?= my-registry
 IMAGE     ?= pipeline-dbt-runner
 DBT_VER   ?= 1.7.14
-LIB_VER   ?= 1.0.29
+LIB_VER   ?= 0.1.1
 TAG       ?= $(DBT_VER)-$(LIB_VER)
 
 FULL_IMAGE := $(REGISTRY)/$(IMAGE):$(TAG)
 
-# Optional: override PyPI index for gcp-pipeline-transform (private registry)
+# Optional: override PyPI index for culvert[transform] (private registry)
 PIP_INDEX_URL ?= https://pypi.org/simple/
 
 # Local smoke-test settings

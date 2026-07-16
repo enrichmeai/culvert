@@ -7,18 +7,18 @@
 
 ## Overview
 
-The platform uses a **hybrid data quality strategy** — combining in-pipeline validation from `gcp-pipeline-core` with managed post-load profiling via Google Cloud Dataplex. This gives teams fine-grained runtime control without reimplementing standard checks at scale.
+The platform uses a **hybrid data quality strategy** — combining in-pipeline validation from `data_pipeline_core.dataquality` with managed post-load profiling via Google Cloud Dataplex. This gives teams fine-grained runtime control without reimplementing standard checks at scale.
 
 | Engine | When to Use | Tooling |
 |--------|-------------|---------|
-| **Library (`gcp-pipeline-core`)** | Runtime validation before writing to BigQuery | `DataQualityChecker`, `ValidationError` |
+| **Library (`data_pipeline_core.dataquality`)** | Runtime validation before writing to BigQuery | `DataQualityTransform`, `FieldViolation` |
 | **Dataplex Auto DQ** | Post-load profiling, historical scans, anomaly detection | Dataplex YAML rules, Cloud Console |
 
 ---
 
 ## Quality Engines
 
-### 1. Library-Based Checks (`gcp-pipeline-core`)
+### 1. Library-Based Checks (`data_pipeline_core.dataquality`)
 
 Use for business rules that must be enforced **before records reach the warehouse**. These run inline in the Dataflow pipeline.
 
@@ -49,29 +49,33 @@ Use for **post-load profiling** across large historical datasets where inline va
 
 ## Integrating Library-Based Checks
 
-### Step 1 — Define Validation Rules in Your DoFn
+### Step 1 — Define Validation Rules via the Entity Schema
+
+Validation is schema-grounded: declare required fields, wire types, and numeric
+ranges on the `EntitySchema`, then let `DataQualityTransform` accumulate
+violations (`MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE`) per row:
 
 ```python
-from gcp_pipeline_core.data_quality.validators import ValidationError
+from data_pipeline_core.dataquality import DataQualityTransform, InvalidRow, NumericRange
+from data_pipeline_core.schema import EntitySchema, SchemaField
 
-def validate_record(record: dict) -> list[ValidationError]:
-    errors = []
+schema = EntitySchema(
+    name="customers",
+    fields=[
+        SchemaField("customer_id", "STRING", mode="REQUIRED"),
+        SchemaField("full_name", "STRING", mode="REQUIRED"),
+        SchemaField("loan_amount", "FLOAT64",
+                    range=NumericRange.of(0.0, 10_000_000.0)),
+    ],
+)
 
-    # Completeness
-    for field in ['customer_id', 'full_name', 'extract_date']:
-        if not record.get(field):
-            errors.append(ValidationError(field, None, f"{field} is required"))
+dq = DataQualityTransform(schema=schema, row_accessor=lambda row: row)
 
-    # Validity
-    if record.get('ssn') and len(str(record['ssn'])) != 9:
-        errors.append(ValidationError('ssn', record['ssn'], "SSN must be 9 digits"))
-
-    # Range check
-    amount = record.get('loan_amount')
-    if amount is not None and not (0 < float(amount) <= 10_000_000):
-        errors.append(ValidationError('loan_amount', amount, "Amount out of range"))
-
-    return errors
+result = dq.validate(record)
+if not result.is_valid():
+    assert isinstance(result, InvalidRow)
+    for violation in result.violations:
+        print(violation)  # FieldViolation(field_name, violation_kind, detail)
 ```
 
 ### Step 2 — Route Failed Records to Dead Letter Output
@@ -217,5 +221,5 @@ gcloud logging read \
 
 - [Error Handling Guide](./ERROR_HANDLING_GUIDE.md) — dead letter table schema and naming
 - [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md) — where validation fits in the pipeline
-- [gcp-pipeline-core data_quality module](../gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/data_quality/)
+- [data-pipeline-core dataquality module](../data-pipeline-libraries/data-pipeline-core/src/data_pipeline_core/dataquality/)
 - [Google Cloud Dataplex — Data Quality Overview](https://cloud.google.com/dataplex/docs/data-quality-overview)

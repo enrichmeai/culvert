@@ -4,7 +4,7 @@ A Helm chart for deploying dbt runners on Kubernetes. Provides both a scheduled 
 
 ## Building the image
 
-The chart expects image `my-registry/pipeline-dbt-runner:1.7.14-1.0.29`. The `Dockerfile` in this directory builds it.
+The chart expects image `my-registry/pipeline-dbt-runner:1.7.14-0.1.1`. The `Dockerfile` in this directory builds it.
 
 ### Build locally
 
@@ -13,7 +13,7 @@ cd infrastructure/k8s/charts/pipeline-dbt-runner
 make build
 ```
 
-By default this produces `my-registry/pipeline-dbt-runner:1.7.14-1.0.29`.
+By default this produces `my-registry/pipeline-dbt-runner:1.7.14-0.1.1`.
 
 ### Build and push to your registry
 
@@ -26,12 +26,12 @@ Then update `values.yaml`:
 ```yaml
 image:
   repository: gcr.io/your-project-id/pipeline-dbt-runner
-  tag: "1.7.14-1.0.29"
+  tag: "1.7.14-0.1.1"
 ```
 
-### Override `gcp-pipeline-transform` source (private registry)
+### Override `culvert[transform]` source (private registry)
 
-`gcp-pipeline-transform` is pulled from PyPI by default. To use a private Artifact Registry or Nexus index, pass `PIP_INDEX_URL` at build time:
+`culvert[transform]` is pulled from PyPI by default. To use a private Artifact Registry or Nexus index, pass `PIP_INDEX_URL` at build time:
 
 ```bash
 make build \
@@ -96,7 +96,7 @@ helm install pipeline-dbt-runner ./pipeline-dbt-runner \
 | Key | Default | Description |
 |-----|---------|-------------|
 | `image.repository` | `my-registry/pipeline-dbt-runner` | dbt runner image |
-| `image.tag` | `1.7.14-1.0.29` | Image tag |
+| `image.tag` | `1.7.14-0.1.1` | Image tag |
 | `schedule.transformation` | `0 3 * * *` | CronJob schedule (3am daily) |
 | `schedule.concurrencyPolicy` | `Forbid` | Prevent overlapping runs |
 | `resources.requests.cpu` | `500m` | CPU request |

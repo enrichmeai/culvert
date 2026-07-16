@@ -69,10 +69,10 @@ configuration (which entities to wait for, which system).
    `required_entities` list per FDP model, so each model fires as soon as
    its own subset of ODP entities is ready.
 
-**`gcp_pipeline_core` decoupling (T11.2b):**
+**Legacy job-control decoupling (T11.2b):**
 
-The legacy `from gcp_pipeline_core.job_control import JobControlRepository, JobStatus`
-import has been removed from `dependency.py`. The coupling is replaced by:
+The predecessor framework's job-control import has been removed from
+`dependency.py`. The coupling is replaced by:
 
 - A local constant `_SUCCESS_STATUS = "SUCCESS"` (matching the legacy
   `JobStatus.SUCCESS.value`) used in `get_loaded_entities()`.

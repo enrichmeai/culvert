@@ -83,7 +83,7 @@ Cloud Composer is the single most expensive resource (~$300-500/month for ENVIRO
 We use metadata to ensure that cloud spend translates to business value.
 
 *   **Job Control Table**: Every run is logged in `job_control.pipeline_jobs`. We monitor the `total_records` processed against the billing data to identify "Cost per Record" anomalies.
-*   **Data Quality (DQ)**: We stop "Bad Data" at the ingestion layer using the `gcp-pipeline-core` library. This prevents the cost of transforming and storing unusable data.
+*   **Data Quality (DQ)**: We stop "Bad Data" at the ingestion layer using the `data-pipeline-core` data-quality layer (`data_pipeline_core.dataquality`). This prevents the cost of transforming and storing unusable data.
 
 ---
 
