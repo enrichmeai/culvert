@@ -19,7 +19,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "culvert"
-version = "0.1.1"
+version = "0.2.0.dev0"
 description = "Cloud-agnostic, polyglot data-pipeline framework: one contract set, adapters per cloud. Python side of Culvert (Java twin on Maven Central: com.enrichmeai.culvert)."
 readme = "README.md"
 license = { text = "MIT" }
