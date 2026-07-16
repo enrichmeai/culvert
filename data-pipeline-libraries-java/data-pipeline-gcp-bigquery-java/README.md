@@ -2,7 +2,7 @@
 
 Google Cloud BigQuery adapter for the Culvert data pipeline framework, JVM edition. Provides `BigQueryWarehouse`, the GCP implementation of the cloud-neutral [`Warehouse`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/Warehouse.java) contract defined in `data-pipeline-core-java`.
 
-Sibling of the Python adapter that will lift out of `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/clients/bigquery_client.py` in a later stage.
+Sibling of the Python adapter `data-pipeline-libraries/data-pipeline-gcp-bigquery` (`BigQueryWarehouse`).
 
 ## Status
 
@@ -134,7 +134,7 @@ All five share this module's `pom.xml`.
 
 ## BigQueryJobControlRepository
 
-Implementation of [`JobControlRepository`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/JobControlRepository.java) — the pipeline-job state-machine contract. Java port of the Python `gcp_pipeline_core.job_control.repository.JobControlRepository`. Same eleven public methods; SQL patterns inherited but adapted to the richer Java `PipelineJob` record schema (more columns: `pipeline_name`, `source_file`, `target_table`, `record_count`, `error_count`, FinOps fields).
+Implementation of [`JobControlRepository`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/JobControlRepository.java) — the pipeline-job state-machine contract. Eleven public methods of parameterised SQL against the `job_control.pipeline_jobs` ledger, covering the full `PipelineJob` record schema (`pipeline_name`, `source_file`, `target_table`, `record_count`, `error_count`, FinOps fields).
 
 ### Construction
 

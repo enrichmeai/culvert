@@ -61,7 +61,7 @@ This directory contains **7 deployment units (3 active, 2 code-complete, 2 refer
 | # | Deployment | Purpose | Runtime | Pattern Demonstrated |
 |---|------------|---------|---------|---------------------|
 | 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | Cloud Composer (Google-managed) | Event-driven orchestration, entity dependencies |
-| 2 | **original-data-to-bigqueryload** | Beam pipeline for CSV → BigQuery ingestion | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
+| 2 | **original-data-to-bigqueryload-java** | Beam pipeline for CSV → BigQuery ingestion (Java, Culvert libraries) | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
 | 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN/MAP patterns, schema routing, audit columns |
 | 4 | **mainframe-segment-transform** | Beam pipeline for CDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
 | 5 | **spanner-to-bigquery-load** | dbt models with Spanner federated queries | BigQuery (federated) | External queries, cross-service integration |
@@ -105,9 +105,9 @@ Pub/Sub Event → Sensor DAG → Ingestion DAG → [Wait for all entities] → T
 
 ---
 
-### 2. original-data-to-bigqueryload (Ingestion)
+### 2. original-data-to-bigqueryload-java (Ingestion)
 
-**What it is:** Apache Beam pipeline that reads mainframe CSV extracts and loads them into BigQuery ODP tables.
+**What it is:** Apache Beam pipeline (Java, built on the Culvert libraries) that reads mainframe CSV extracts and loads them into BigQuery ODP tables. This is the pipeline proven on real Dataflow in the culvert demo project; the retired Python original lives in git history.
 
 **What it does:**
 - Reads CSV files from GCS landing bucket
@@ -126,17 +126,15 @@ Pub/Sub Event → Sensor DAG → Ingestion DAG → [Wait for all entities] → T
 
 **Key files:**
 ```
-src/data_ingestion/
-├── pipeline/
-│   ├── runner.py           # Main Beam pipeline entry point
-│   └── transforms.py       # Custom DoFn transforms
-├── schema/
-│   ├── customers.py        # Customer entity schema
-│   ├── accounts.py         # Account entity schema
-│   ├── decision.py         # Decision entity schema
-│   └── applications.py     # Applications entity schema
-└── validation/
-    └── file_validator.py   # HDR/TRL validation logic
+src/main/java/com/enrichmeai/culvert/deployments/ingestion/
+├── IngestionMain.java      # Main Beam pipeline entry point
+├── CsvRowParser.java       # CSV data-line parsing
+├── envelope/
+│   ├── EnvelopeParser.java # HDR/TRL parsing + validation
+│   ├── HeaderRecord.java   # HDR|system|entity|yyyyMMdd
+│   └── TrailerRecord.java  # TRL|RecordCount=n|Checksum=...
+└── schema/
+    └── GenericEntities.java  # customers/accounts/decision/applications registry
 ```
 
 **Flow:**
@@ -449,17 +447,18 @@ gcloud config set project YOUR_PROJECT_ID
 
 ## Library Dependencies
 
-Each deployment uses the shared libraries from `gcp-pipeline-libraries/`:
+Each deployment builds on the Culvert libraries (`data-pipeline-libraries/` for
+Python, `data-pipeline-libraries-java/` for Java):
 
 | Deployment | Libraries Used |
 |------------|----------------|
-| orchestrator | `gcp-pipeline-core`, `data-pipeline-orchestration` |
-| ingestion | `gcp-pipeline-core`, `gcp-pipeline-beam` |
-| transform | `gcp-pipeline-core`, `data-pipeline-transform` (dbt macros) |
-| cdp | `gcp-pipeline-core`, `data-pipeline-transform` (dbt macros) |
-| segment | `gcp-pipeline-core`, `gcp-pipeline-beam` |
+| orchestrator | `culvert[orchestration]` (data_pipeline_core + data_pipeline_orchestration) |
+| ingestion (Java) | `data-pipeline-core-java`, `data-pipeline-gcp-dataflow-java`, `data-pipeline-gcp-bigquery-java`, `data-pipeline-gcp-gcs-java` |
+| transform | `data-pipeline-transform` (dbt macros) |
+| cdp | `data-pipeline-transform` (dbt macros) |
+| segment (Java) | Culvert Java libraries (see mainframe-segment-transform-java/pom.xml) |
 | spanner | `data-pipeline-transform` (dbt macros) |
-| postgres-cdc | `gcp-pipeline-core`, `gcp-pipeline-beam` |
+| postgres-cdc | `culvert[gcp]` (data_pipeline_core + GCP adapters) |
 
 **Zero-Bleed Policy:** No library imports code from another layer (e.g., `data-pipeline-orchestration` never imports `apache_beam`).
 

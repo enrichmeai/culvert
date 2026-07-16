@@ -103,14 +103,14 @@ helm repo update --fail-on-repo-update-fail=false 2>/dev/null || true
 # Check if already installed
 if helm status airflow -n airflow &>/dev/null 2>&1; then
     echo -e "${YELLOW}Airflow already installed — upgrading${NC}"
-    helm upgrade airflow apache-airflow/airflow \
+    helm dependency build deployments/data-pipeline-orchestrator/helm
+    helm upgrade airflow deployments/data-pipeline-orchestrator/helm \
         --namespace airflow \
-        --values infrastructure/k8s/airflow/values.yaml \
         --wait --timeout 5m
 else
-    helm install airflow apache-airflow/airflow \
+    helm dependency build deployments/data-pipeline-orchestrator/helm
+    helm install airflow deployments/data-pipeline-orchestrator/helm \
         --namespace airflow --create-namespace \
-        --values infrastructure/k8s/airflow/values.yaml \
         --wait --timeout 5m
 fi
 echo -e "${GREEN}Airflow installed${NC}"

@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> Predecessor names in older passages are superseded — the framework is **Culvert**
+> ([`README.md`](../README.md)), released on PyPI (`culvert`) and Maven Central
+> (`com.enrichmeai.culvert`).
 
 ## Purpose
 
@@ -434,7 +435,7 @@ The generator and all config-driven logic live at the **deployment level**, not 
 |-----------|----------|----------------|
 | `generate_dbt_models.py` | `deployments/bigquery-to-mapped-product/` | Deployment-level |
 | `system.yaml` | `deployments/*/config/` | Per-deployment config |
-| `gcp-pipeline-framework` | PyPI (published) | **No changes** |
-| `gcp-pipeline-transform` macros | PyPI (published) | **No changes** |
+| `culvert` | PyPI (published) | **No changes** |
+| `data-pipeline-transform` macros | PyPI (in the `culvert[transform]` extra) | **No changes** |
 
 Teams copy the deployment, edit YAML, run the generator. No library updates needed.

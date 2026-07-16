@@ -1,7 +1,7 @@
 # ============================================================================
 # Culvert CI — Sprint-15 rewrite (T15.1 / #77), extended by T15.2 (#79), T15.3 (#83)
 #
-# Replaces the legacy gcp-pipeline-libraries Python-only CI with a polyglot
+# Replaces the retired predecessor's Python-only CI with a polyglot
 # workflow that covers:
 #   1. Java reactor  — 18 modules under data-pipeline-libraries-java/
 #   2. Python (Culvert adapters) — 3 GCP adapter modules under

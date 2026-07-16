@@ -75,16 +75,20 @@ python3 -m pip install --quiet \
 echo -e "${YELLOW}Installing libraries in editable mode...${NC}"
 
 LIBRARIES=(
-    "gcp-pipeline-core"
-    "gcp-pipeline-beam"
-    "gcp-pipeline-orchestration"
-    "gcp-pipeline-transform"
-    "gcp-pipeline-tester"
-    "gcp-pipeline-framework"
+    "data-pipeline-core"
+    "data-pipeline-gcp-bigquery"
+    "data-pipeline-gcp-gcs"
+    "data-pipeline-gcp-pubsub"
+    "data-pipeline-gcp-secrets"
+    "data-pipeline-gcp-observability"
+    "data-pipeline-orchestration"
+    "data-pipeline-transform"
+    "data-pipeline-tester"
+    "data-pipeline-contract-tests"
 )
 
 for lib in "${LIBRARIES[@]}"; do
-    LIB_PATH="$PROJECT_ROOT/gcp-pipeline-libraries/$lib"
+    LIB_PATH="$PROJECT_ROOT/data-pipeline-libraries/$lib"
     if [ -d "$LIB_PATH" ] && [ -f "$LIB_PATH/pyproject.toml" ]; then
         echo -e "  ${BLUE}Installing $lib...${NC}"
         python3 -m pip install -e "$LIB_PATH" --quiet --no-deps
@@ -95,11 +99,9 @@ done
 echo -e "${YELLOW}Installing deployments in editable mode...${NC}"
 
 DEPLOYMENTS=(
-    "original-data-to-bigqueryload"
     "data-pipeline-orchestrator"
     "bigquery-to-mapped-product"
     "fdp-to-consumable-product"
-    "mainframe-segment-transform"
 )
 
 for dep in "${DEPLOYMENTS[@]}"; do
@@ -110,9 +112,9 @@ for dep in "${DEPLOYMENTS[@]}"; do
     fi
 done
 
-# 8. Install root package with dev dependencies (pytest, linters, etc.)
+# 8. Install dev tools (there is no root pyproject.toml — install directly)
 echo -e "${YELLOW}Installing dev tools...${NC}"
-python3 -m pip install -e ".[dev]" --quiet
+python3 -m pip install --quiet pytest pytest-cov pytest-mock ruff mypy
 
 echo -e "\n${GREEN}================================================================${NC}"
 echo -e "${GREEN}Setup Complete!${NC}"

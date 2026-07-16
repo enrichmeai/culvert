@@ -1,16 +1,15 @@
 # =============================================================================
 # pipeline-dbt-runner — dbt + BigQuery runner image
 # =============================================================================
-# Versions baked into the tag (1.7.14-1.0.29):
+# Versions baked into the tag (1.7.14-0.1.1):
 #   dbt-core / dbt-bigquery : 1.7.14
-#   gcp-pipeline-transform  : 1.0.29  (dbt macro package)
-#   gcp-pipeline-core       : 1.0.29  (structured logging / audit emission)
+#   culvert[transform]      : 0.1.1  (contracts + dbt macro package)
 #
 # Build:
 #   docker build \
 #     --build-arg DBT_VERSION=1.7.14 \
-#     --build-arg PIPELINE_LIB_VERSION=1.0.29 \
-#     -t my-registry/pipeline-dbt-runner:1.7.14-1.0.29 .
+#     --build-arg PIPELINE_LIB_VERSION=0.1.1 \
+#     -t my-registry/pipeline-dbt-runner:1.7.14-0.1.1 .
 #
 # Override pip index (private registry):
 #   docker build --build-arg PIP_INDEX_URL=https://pypi.example.com/simple/ ...
@@ -20,7 +19,7 @@
 FROM python:3.11-slim AS builder
 
 ARG DBT_VERSION=1.7.14
-ARG PIPELINE_LIB_VERSION=1.0.29
+ARG PIPELINE_LIB_VERSION=0.1.1
 ARG PIP_INDEX_URL=https://pypi.org/simple/
 
 ENV PIP_INDEX_URL=${PIP_INDEX_URL} \
@@ -45,8 +44,7 @@ RUN pip install --prefix=/install \
 # Install pipeline libraries (index-url override lets teams point at a private registry)
 RUN pip install --prefix=/install \
     --index-url "${PIP_INDEX_URL}" \
-    "gcp-pipeline-transform==${PIPELINE_LIB_VERSION}" \
-    "gcp-pipeline-core==${PIPELINE_LIB_VERSION}"
+    "culvert[transform]==${PIPELINE_LIB_VERSION}"
 
 # Pin transitive GCP client libs to known-good versions
 RUN pip install --prefix=/install \
@@ -61,10 +59,10 @@ RUN pip install pip-audit && \
 FROM python:3.11-slim AS runtime
 
 ARG DBT_VERSION=1.7.14
-ARG PIPELINE_LIB_VERSION=1.0.29
+ARG PIPELINE_LIB_VERSION=0.1.1
 
 LABEL org.opencontainers.image.title="pipeline-dbt-runner" \
-      org.opencontainers.image.description="dbt BigQuery runner with gcp-pipeline-transform macros" \
+      org.opencontainers.image.description="dbt BigQuery runner with data-pipeline-transform macros" \
       org.opencontainers.image.version="${DBT_VERSION}-${PIPELINE_LIB_VERSION}"
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

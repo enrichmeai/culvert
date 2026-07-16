@@ -182,13 +182,13 @@ Deployments include this package via `packages.yml`:
 
 ```yaml
 packages:
-  - local: ../../gcp-pipeline-libraries/data-pipeline-transform
+  - local: ../../data-pipeline-libraries/data-pipeline-transform
 ```
 
 Or from a published version:
 ```yaml
 packages:
-  - git: "https://github.com/your-org/gcp-pipeline-libraries.git"
+  - git: "https://github.com/enrichmeai/culvert.git"
     subdirectory: data-pipeline-transform
     revision: libs-1.0.5
 ```

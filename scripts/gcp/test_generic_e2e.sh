@@ -7,7 +7,9 @@ set -e
 PROJECT_ID="joseph-antony-aruja"
 LANDING_BUCKET="gs://${PROJECT_ID}-generic-int-landing"
 EXTRACT_DATE=$(date +%Y%m%d)
-TEST_DATA_DIR="deployments/original-data-to-bigqueryload/tests/data"
+# Sample CSVs live at the repo root (the retired Python deployment's tests/data is gone)
+TEST_DATA_DIR="test_data"
+TEST_DATA_STAMP="20260417"
 
 echo "=========================================="
 echo "Generic Pipeline E2E Test"
@@ -20,7 +22,7 @@ echo ""
 # Function to upload entity file
 upload_entity() {
     local entity=$1
-    local source_file="${TEST_DATA_DIR}/generic_${entity}_sample.csv"
+    local source_file="${TEST_DATA_DIR}/generic_${entity}_${TEST_DATA_STAMP}.csv"
     local dest_path="${LANDING_BUCKET}/generic/${entity}/generic_${entity}_${EXTRACT_DATE}.csv"
     local ok_path="${LANDING_BUCKET}/generic/${entity}/generic_${entity}_${EXTRACT_DATE}.ok"
 

@@ -37,7 +37,7 @@
 from unittest.mock import patch, MagicMock
 
 def test_writes_to_bq(self):
-    with patch("gcp_pipeline_beam.pipelines.beam.io.bigquery.bigquery.Client") as mock_client:
+    with patch("data_pipeline_gcp_bigquery.warehouse.bigquery.Client") as mock_client:
         mock_client.return_value.insert_rows_json.return_value = []
         dofn = BatchWriteToBigQueryDoFn(project="p", dataset="d", table="t")
         list(dofn.process({"id": "1"}))
@@ -183,12 +183,12 @@ What makes this good:
 
 ```bash
 # All libraries under Python 3.11
-python3.11 -m pytest gcp-pipeline-libraries/gcp-pipeline-core/tests/ -v
-python3.11 -m pytest gcp-pipeline-libraries/gcp-pipeline-beam/tests/ -v
-python3.11 -m pytest gcp-pipeline-libraries/gcp-pipeline-tester/tests/ -v
+python3.11 -m pytest data-pipeline-libraries/data-pipeline-core/tests/ -v
+python3.11 -m pytest data-pipeline-libraries/data-pipeline-gcp-bigquery/tests/ -v
+python3.11 -m pytest data-pipeline-libraries/data-pipeline-gcp-gcs/tests/ -v
 
 # Single library, show coverage
-cd gcp-pipeline-libraries/gcp-pipeline-core
+cd data-pipeline-libraries/data-pipeline-core
 python3.11 -m pytest tests/ --cov=src --cov-report=term-missing
 
 # Run only tests matching a keyword

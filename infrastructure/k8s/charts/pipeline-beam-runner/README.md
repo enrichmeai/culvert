@@ -60,9 +60,9 @@ mvn package -DskipTests -Pflink-runner
 # produces: target/customers-ingestion-1.0-shaded.jar
 ```
 
-For the framework's reference deployment (`deployments/original-data-to-bigqueryload/`),
+For the framework's reference deployment (`deployments/original-data-to-bigqueryload-java/`),
 which currently targets Dataflow, re-target it at Flink by swapping the runner
-import and dependency in `pyproject.toml` / `pom.xml`:
+dependency in `pom.xml`:
 
 ```
 # Before (Dataflow)
@@ -81,9 +81,12 @@ operational overhead, but full cluster control and no per-byte egress cost).
 For Python pipelines using the Beam portable runner, package your pipeline as a
 wheel and bake it into a Docker image:
 
+> **Note:** Culvert's Beam execution is Java-only — the repo no longer ships a
+> Python Beam pipeline. The steps below describe the generic portable-runner
+> flow for your own Python pipeline.
+
 ```bash
-# Build wheel
-cd deployments/original-data-to-bigqueryload
+# Build wheel (from your own Python pipeline project)
 pip wheel . -w dist/
 
 # Build and push Docker image containing the wheel

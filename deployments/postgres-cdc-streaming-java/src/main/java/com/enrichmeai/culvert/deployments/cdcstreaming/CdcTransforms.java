@@ -7,7 +7,7 @@ import java.util.Objects;
 
 /**
  * Pure record-shaping functions mirroring
- * {@code streaming_pipeline.pipeline.transforms} (gcp-pipeline-reference
+ * {@code streaming_pipeline.pipeline.transforms} (this repo
  * deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/transforms.py).
  *
  * <p>Kept as plain static methods (not Beam {@code DoFn}s) so they are

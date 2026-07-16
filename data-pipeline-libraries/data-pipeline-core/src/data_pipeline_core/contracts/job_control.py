@@ -1,11 +1,11 @@
 """JobControlRepository — pipeline-job state machine contract.
 
 Implementations track the lifecycle of every pipeline run: created,
-running, succeeded, failed, retrying. Existing GCP implementation:
-`gcp_pipeline_core.job_control.repository.JobControlRepository` (a
-BigQuery-backed table). Stage 2 will adapt it to satisfy this Protocol
-verbatim; the eleven public methods below mirror its current signature
-set with no GCP type leakage.
+running, succeeded, failed, retrying. The reference implementation is
+the Java `BigQueryJobControlRepository`
+(`data-pipeline-gcp-bigquery-java`), backed by the
+`job_control.pipeline_jobs` table; the eleven public methods below
+carry no cloud type leakage.
 """
 
 from __future__ import annotations

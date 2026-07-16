@@ -27,7 +27,7 @@ Instead of separate ingestion deployments per system, we deploy a single **Unive
 2.  **Runtime Parameters**: When Airflow triggers the job, it passes:
     *   `--schema_config_path`: Path to a GCS JSON file defining the table structure and PII rules.
     *   `--system_id`: Used for logging and metadata.
-3.  **Dynamic Schema Loading**: The Beam pipeline loads the schema at runtime using the `gcp-pipeline-core` library.
+3.  **Dynamic Schema Loading**: The Beam pipeline loads the schema at runtime using the `data-pipeline-core` schema model.
 
 **Benefit**: Zero new code for 90% of new ingestion streams.
 
@@ -43,7 +43,7 @@ Instead of separate dbt projects, we use a single **Enterprise Transformation Pr
     ```bash
     dbt run --select tag:{{ system_id }} --vars '{...}'
     ```
-3.  **Shared Macro Library**: All complex logic (Masking, Audit) is moved to the `gcp-pipeline-transform` library, so the dbt models are just thin shells over the configuration.
+3.  **Shared Macro Library**: All complex logic (Masking, Audit) is moved to the `data-pipeline-transform` library, so the dbt models are just thin shells over the configuration.
 
 ---
 

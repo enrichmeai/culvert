@@ -1,10 +1,8 @@
 """AuditEventPublisher — emits audit records.
 
-Existing GCP implementation: `gcp_pipeline_core.audit.publisher`'s
-`AuditPublisher` (Pub/Sub-backed). It returns a Pub/Sub message ID
-from `publish()` today; Stage 2 will adapt that to return None to
-satisfy this Protocol. It does not have a `flush()` method today
-either (publishers are stateless); the adapter adds a no-op.
+Implementations publish `AuditRecord`s to an event bus (Pub/Sub on
+GCP). `publish()` may buffer; `flush()` blocks until everything
+buffered has been acknowledged.
 """
 
 from __future__ import annotations

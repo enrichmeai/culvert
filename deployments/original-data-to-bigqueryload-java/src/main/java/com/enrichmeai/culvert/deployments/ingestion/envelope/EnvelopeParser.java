@@ -15,8 +15,8 @@ import java.util.regex.Pattern;
  * <p>Culvert Java has no HDR/TRL library today (verified — searched
  * {@code data-pipeline-libraries-java} for {@code file_management}, {@code HDRTRLParser};
  * none exist as of T20.5). This class ports the wire format and validation rules
- * from the Python reference's {@code gcp_pipeline_core.file_management.hdr_trl}
- * package, grounded in these source files (main gcp-pipeline-reference checkout):
+ * from the retired predecessor's {@code gcp_pipeline_core.file_management.hdr_trl}
+ * package (removed 2026-07), grounded in these source files (paths refer to git history):
  *
  * <ul>
  *   <li>Wire patterns —

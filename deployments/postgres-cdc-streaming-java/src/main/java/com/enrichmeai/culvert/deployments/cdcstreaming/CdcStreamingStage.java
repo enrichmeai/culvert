@@ -20,7 +20,7 @@ import java.util.Optional;
 
 /**
  * The single Culvert {@link PipelineStage} that ports the Python reference
- * pipeline's read → parse → ODP-write → dead-letter flow (gcp-pipeline-reference
+ * pipeline's read → parse → ODP-write → dead-letter flow (this repo
  * deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/runner.py:249-283,
  * the {@code ReadFromPubSub → ParseCDCEvent → FilterValid → TransformToODP →
  * AddAuditColumns → WriteToODP} chain).

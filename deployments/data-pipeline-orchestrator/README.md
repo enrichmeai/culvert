@@ -144,7 +144,7 @@ The DAGs use several Airflow variables and connections:
 
 | Library | Purpose |
 |---------|---------|
-| `gcp-pipeline-core` | Audit, logging, error handling |
+| `data-pipeline-core` | Contracts, job-control types, audit records |
 | `data-pipeline-orchestration` | DAG factory, sensors, operators |
 
 **NO Apache Beam dependency** - ingestion is separate unit.

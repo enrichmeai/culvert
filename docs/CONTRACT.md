@@ -103,7 +103,7 @@ Every entity processed by the framework is described by an EntitySchema JSON doc
 | `event_ts` | TIMESTAMP | REQUIRED | UTC timestamp when the event occurred; partition column |
 | `extract_date` | DATE | NULLABLE | Business date the source file covers; taken from HDR record |
 | `payload` | JSON | NULLABLE | Freeform JSON bag for event-specific detail (row counts, error messages, etc.) |
-| `producer` | STRING | NULLABLE | Emitter library name and version, e.g. `gcp-pipeline-core@1.0.29` or `my-custom-emitter@1.0.0` |
+| `producer` | STRING | NULLABLE | Emitter library name and version, e.g. `culvert@0.1.1` or `my-custom-emitter@1.0.0` |
 | `contract_version` | STRING | REQUIRED | SemVer of this spec the emitter was written against, e.g. `1.0.0` |
 | `environment` | STRING | NULLABLE | Deployment environment: `dev`, `staging`, `prod` |
 
@@ -118,7 +118,7 @@ Every entity processed by the framework is described by an EntitySchema JSON doc
   "event_ts": "2026-04-17T09:14:00Z",
   "extract_date": "2026-04-16",
   "payload": { "source_file": "gs://bucket/landing/customers_20260416.csv" },
-  "producer": "gcp-pipeline-core@1.0.29",
+  "producer": "culvert@0.1.1",
   "contract_version": "1.0.0",
   "environment": "prod"
 }
@@ -160,7 +160,7 @@ Every entity processed by the framework is described by an EntitySchema JSON doc
   "cost_usd": 0.000000,
   "pricing_tier": "on_demand",
   "event_ts": "2026-04-17T09:17:32Z",
-  "producer": "gcp-pipeline-core@1.0.29",
+  "producer": "culvert@0.1.1",
   "contract_version": "1.0.0"
 }
 ```
@@ -205,7 +205,7 @@ Every entity processed by the framework is described by an EntitySchema JSON doc
   "status": "GREEN",
   "details": { "difference": 0, "match_percentage": 100.0, "message": "All records accounted for" },
   "event_ts": "2026-04-17T09:22:11Z",
-  "producer": "gcp-pipeline-core@1.0.29",
+  "producer": "culvert@0.1.1",
   "contract_version": "1.0.0"
 }
 ```

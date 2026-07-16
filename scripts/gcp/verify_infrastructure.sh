@@ -239,7 +239,7 @@ for image in "${REQUIRED_IMAGES[@]}"; do
         check_pass "Image: gcr.io/${PROJECT_ID}/${image}:latest"
     else
         check_warn "Image: ${image} (not built yet)"
-        check_info "Build with: gcloud builds submit --tag gcr.io/${PROJECT_ID}/${image}:latest infrastructure/k8s/airflow/"
+        check_info "Build with: gcloud builds submit --tag gcr.io/${PROJECT_ID}/${image}:latest deployments/data-pipeline-orchestrator/"
     fi
 done
 

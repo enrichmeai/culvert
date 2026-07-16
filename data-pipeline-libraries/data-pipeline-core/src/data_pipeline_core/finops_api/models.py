@@ -1,6 +1,5 @@
 """CostMetrics dataclass — the unit of cost emission.
 
-Mirrors the existing `gcp_pipeline_core.finops.models.CostMetrics` shape.
 The fields cover BigQuery slot-millis, scanned/written bytes, GCS storage
 bytes, and Pub/Sub message counts — but the dataclass itself is
 generic. AWS Redshift slot equivalents (or Azure DWUs) populate the same

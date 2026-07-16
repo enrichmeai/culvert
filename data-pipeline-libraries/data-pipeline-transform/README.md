@@ -140,7 +140,7 @@ PII masking is configurable per schema. Define which fields to mask in the entit
 
 ```python
 # In deployment schema definition
-from gcp_pipeline_core.schema import EntitySchema, SchemaField
+from data_pipeline_core.schema import EntitySchema, SchemaField
 
 CustomerSchema = EntitySchema(
     entity_name="customers",
@@ -217,13 +217,13 @@ name: 'generic_transformation'
 
 # Reference shared macros
 packages:
-  - local: ../../gcp-pipeline-libraries/data-pipeline-transform/dbt_shared
+  - local: ../../data-pipeline-libraries/data-pipeline-transform/dbt_shared
 ```
 
 Or copy macros to your project:
 
 ```bash
-cp -r gcp-pipeline-libraries/data-pipeline-transform/dbt_shared/macros \
+cp -r data-pipeline-libraries/data-pipeline-transform/dbt_shared/macros \
       deployments/bigquery-to-mapped-product/dbt/macros/shared/
 ```
 
@@ -234,7 +234,7 @@ cp -r gcp-pipeline-libraries/data-pipeline-transform/dbt_shared/macros \
 Run dbt macro unit tests:
 
 ```bash
-cd gcp-pipeline-libraries/data-pipeline-transform
+cd data-pipeline-libraries/data-pipeline-transform
 pytest tests/unit/test_pii_macros.py
 ```
 

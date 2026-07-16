@@ -2,7 +2,7 @@
 
 Control library - Airflow DAGs, sensors, operators.
 
-**Depends on:** `gcp-pipeline-core` (legacy; being migrated to `data-pipeline-core` contracts — see T11.2b notes below)
+**Depends on:** `data-pipeline-core` contracts (job-control types; see T11.2b notes below)
 **NO Apache Beam dependency.**
 
 ---
@@ -69,15 +69,15 @@ configuration (which entities to wait for, which system).
    `required_entities` list per FDP model, so each model fires as soon as
    its own subset of ODP entities is ready.
 
-**`gcp_pipeline_core` decoupling (T11.2b):**
+**Legacy job-control decoupling (T11.2b):**
 
-The legacy `from gcp_pipeline_core.job_control import JobControlRepository, JobStatus`
-import has been removed from `dependency.py`. The coupling is replaced by:
+The predecessor framework's job-control import has been removed from
+`dependency.py`. The coupling is replaced by:
 
 - A local constant `_SUCCESS_STATUS = "SUCCESS"` (matching the legacy
   `JobStatus.SUCCESS.value`) used in `get_loaded_entities()`.
 - The `job_repo` parameter accepts `Any` — callers inject a concrete
-  BigQuery-backed adapter (currently from `gcp_pipeline_core`).
+  BigQuery-backed adapter satisfying the `JobControlRepository` Protocol.
 - The fallback that instantiated `JobControlRepository` directly has been
   replaced with `ValueError` so the library no longer imports
   `google-cloud-bigquery` at module load time.
@@ -131,7 +131,7 @@ import has been removed from `dependency.py`. The coupling is replaced by:
   └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
-                       Uses: gcp-pipeline-core
+                       Uses: data-pipeline-core
 ```
 
 ---
@@ -425,7 +425,7 @@ A dedicated **Error Handling DAG** (e.g., `generic_error_handling_dag.py`) runs 
 ```
 
 #### Classification Logic
-The Error Handling DAG uses the `ErrorClassifier` from `gcp-pipeline-core` to determine the next step:
+The Error Handling DAG classifies the failure to determine the next step:
 
 | Category | Strategy | Example |
 | :--- | :--- | :--- |
@@ -572,7 +572,7 @@ routes its failure to the Dead Letter Queue automatically:
   `on_data_quality_failure`, `quarantine_file`.
 
 The callbacks are imported **lazily inside the builders** (not at module top),
-so `dag_factory` stays import-safe without `gcp_pipeline_core` installed —
+so `dag_factory` stays import-safe without the callbacks' dependencies installed —
 `_failure_callback()` returns `None` and the DAG still builds if the callbacks
 package can't be imported.
 

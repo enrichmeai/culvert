@@ -37,15 +37,14 @@ python --version
 # dbt (for transformation/CDP units)
 pip install dbt-bigquery>=1.5.0
 
-# Install the shared framework (all 5 libraries)
-pip install gcp-pipeline-framework>=1.0.6
+# Install the shared framework (one distribution, extras per concern)
+pip install "culvert[gcp,orchestration,transform,tester]"
 
 # Or install from local source for development
-pip install -e gcp-pipeline-libraries/gcp-pipeline-core/
-pip install -e gcp-pipeline-libraries/gcp-pipeline-beam/
-pip install -e gcp-pipeline-libraries/gcp-pipeline-orchestration/
-pip install -e gcp-pipeline-libraries/gcp-pipeline-transform/
-pip install -e gcp-pipeline-libraries/gcp-pipeline-tester/
+pip install -e data-pipeline-libraries/data-pipeline-core/
+pip install -e data-pipeline-libraries/data-pipeline-orchestration/
+pip install -e data-pipeline-libraries/data-pipeline-transform/
+pip install -e data-pipeline-libraries/data-pipeline-tester/
 ```
 
 ### GCP Authentication for Local Testing
@@ -164,7 +163,7 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 
 ## Unit 1: Ingestion (Apache Beam)
 
-**Deployment:** `original-data-to-bigqueryload`
+**Deployment:** `original-data-to-bigqueryload-java` (Java — Beam execution is Java-only)
 
 ### GCP Resources Used
 
@@ -191,14 +190,17 @@ gcloud projects add-iam-policy-binding $PROJECT_ID \
 ### Setup
 
 ```bash
-./scripts/setup_deployment_venv.sh original-data-to-bigqueryload
-source deployments/original-data-to-bigqueryload/venv/bin/activate
+# Install the Culvert Java libraries into the local Maven repository (once)
+mvn -f data-pipeline-libraries-java/pom.xml install -DskipTests
+
+# Build the deployment jar
+mvn -f deployments/original-data-to-bigqueryload-java/pom.xml package -DskipTests
 ```
 
 ### Unit Tests (No GCP Access Needed)
 
 ```bash
-python -m pytest tests/unit/ -v --tb=short
+mvn -f deployments/original-data-to-bigqueryload-java/pom.xml test
 ```
 
 Tests cover: HDR/TRL parsing, schema validation, CSV error handling, audit column injection, dead letter routing.
@@ -210,20 +212,21 @@ Run the full pipeline locally against a sample file without deploying to Dataflo
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
 
-python -m data_ingestion.pipeline.runner \
+java -jar deployments/original-data-to-bigqueryload-java/target/original-data-to-bigqueryload-java-0.1.0.jar \
     --entity=customers \
-    --source_file=tests/data/generic_customers_sample.csv \
-    --extract_date=20260101 \
-    --output_table=${PROJECT_ID}:odp_generic.customers \
-    --error_table=${PROJECT_ID}:odp_generic.customers_failed \
-    --run_id=local_test_001 \
-    --runner=DirectRunner \
-    --temp_location=/tmp/beam-temp
+    --sourceUri=gs://${PROJECT_ID}-generic-int-landing/generic/customers/generic_customers_20260417.csv \
+    --extractDate=20260101 \
+    --project=${PROJECT_ID} \
+    --targetTable=odp_generic.customers \
+    --stagingPathPrefix=gs://${PROJECT_ID}-generic-int-temp/staging \
+    --errorPathPrefix=gs://${PROJECT_ID}-generic-int-error/errors \
+    --runId=local_test_001 \
+    --runner=DirectRunner
 ```
 
-DirectRunner still writes to BigQuery via streaming inserts, so GCP credentials and a valid project are required even for local runs.
+DirectRunner still writes to BigQuery, so GCP credentials and a valid project are required even for local runs.
 
-Required arguments: `--entity`, `--source_file`, `--extract_date` (from `GenericPipelineOptions`), `--output_table`, `--error_table`, `--run_id` (from `GCPPipelineOptions`).
+Required arguments: `--entity`, `--sourceUri`, `--extractDate`, `--project`, `--targetTable`, `--stagingPathPrefix`, `--errorPathPrefix` (see `IngestionMain`).
 
 DirectRunner executes the entire Beam DAG in-process. Use this to verify:
 - HDR/TRL envelope parsing
@@ -238,55 +241,41 @@ For integration testing against a live GCP environment:
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
 
-python -m data_ingestion.pipeline.runner \
+java -jar deployments/original-data-to-bigqueryload-java/target/original-data-to-bigqueryload-java-0.1.0.jar \
     --entity=customers \
-    --source_file=gs://${PROJECT_ID}-generic-int-landing/generic/customers/generic_customers_sample.csv \
-    --extract_date=20260101 \
-    --output_table=${PROJECT_ID}:odp_generic.customers \
-    --error_table=${PROJECT_ID}:odp_generic.customers_failed \
-    --run_id=test_$(date +%Y%m%d_%H%M%S) \
-    --gcp_project=${PROJECT_ID} \
-    --runner=DataflowRunner \
+    --sourceUri=gs://${PROJECT_ID}-generic-int-landing/generic/customers/generic_customers_20260417.csv \
+    --extractDate=20260101 \
     --project=${PROJECT_ID} \
+    --targetTable=odp_generic.customers \
+    --stagingPathPrefix=gs://${PROJECT_ID}-generic-int-temp/staging \
+    --errorPathPrefix=gs://${PROJECT_ID}-generic-int-error/errors \
+    --runId=test_$(date +%Y%m%d_%H%M%S) \
+    --runner=DataflowRunner \
     --region=europe-west2 \
-    --temp_location=gs://${PROJECT_ID}-generic-int-temp/dataflow-temp
+    --stagingLocation=gs://${PROJECT_ID}-generic-int-temp/dataflow-staging
 ```
 
-### Production-Equivalent Execution (Flex Template)
+### Production-Equivalent Execution (Cloud Run Job)
 
-In production, Dataflow runs via a Flex Template (not `python -m` directly). To test the same way:
+In production, the ingestion jar runs as a Cloud Run Job (container built from
+`deployments/original-data-to-bigqueryload-java/Dockerfile`, infrastructure in
+its `terraform/`). To test the same way:
 
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
-ENV="int"
-VERSION="1.0.11"
 
-# Step 1: Build the Flex Template image (if not already built by CI)
-gcloud builds submit . \
-    --config deployments/original-data-to-bigqueryload/cloudbuild.yaml \
-    --substitutions _LIBRARY_VERSION=${VERSION} \
-    --project ${PROJECT_ID} \
-    --timeout=3300s
+# Step 1: Build the shaded jar (the Dockerfile expects it pre-built)
+mvn -f deployments/original-data-to-bigqueryload-java/pom.xml package -DskipTests
 
-# Step 2: Create the Flex Template spec
-gcloud dataflow flex-template build \
-    gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
-    --image gcr.io/${PROJECT_ID}/generic-ingestion:${VERSION} \
-    --sdk-language PYTHON \
-    --metadata-file deployments/original-data-to-bigqueryload/metadata.json \
+# Step 2: Build and push the container image
+gcloud builds submit deployments/original-data-to-bigqueryload-java \
+    --tag gcr.io/${PROJECT_ID}/generic-ingestion-java:0.1.0 \
     --project ${PROJECT_ID}
 
-# Step 3: Launch via Flex Template (exactly as the Airflow DAG does)
-gcloud dataflow flex-template run "generic-odp-load-test-$(date +%Y%m%d-%H%M%S)" \
-    --template-file-gcs-location=gs://${PROJECT_ID}-generic-${ENV}-temp/templates/generic_ingestion_v${VERSION}.json \
+# Step 3: Execute the Cloud Run Job (args as per IngestionMain)
+gcloud run jobs execute generic-ingestion \
     --region=europe-west2 \
-    --parameters entity=customers \
-    --parameters source_file=gs://${PROJECT_ID}-generic-${ENV}-landing/generic/customers/generic_customers_sample.csv \
-    --parameters extract_date=20260101 \
-    --parameters output_table=${PROJECT_ID}:odp_generic.customers \
-    --parameters error_table=${PROJECT_ID}:odp_generic.customers_failed \
-    --parameters run_id=flex_test_$(date +%Y%m%d_%H%M%S) \
-    --parameters gcp_project=${PROJECT_ID}
+    --args="--entity=customers,--sourceUri=gs://${PROJECT_ID}-generic-int-landing/generic/customers/generic_customers_20260417.csv,--extractDate=20260101,--project=${PROJECT_ID},--targetTable=odp_generic.customers,--stagingPathPrefix=gs://${PROJECT_ID}-generic-int-temp/staging,--errorPathPrefix=gs://${PROJECT_ID}-generic-int-error/errors"
 ```
 
 Monitor the Dataflow job:
@@ -349,10 +338,10 @@ gcloud logging read "resource.type=dataflow_step AND resource.labels.job_id={JOB
 source deployments/bigquery-to-mapped-product/venv/bin/activate
 cd deployments/bigquery-to-mapped-product/dbt
 
-# Populate shared macros from pip-installed gcp-pipeline-transform
+# Populate shared macros from pip-installed data-pipeline-transform
 python -c "
-import gcp_pipeline_transform, shutil, os
-src = os.path.join(os.path.dirname(gcp_pipeline_transform.__file__), 'dbt_shared', 'macros')
+import data_pipeline_transform, shutil, os
+src = os.path.join(os.path.dirname(data_pipeline_transform.__file__), 'dbt_shared', 'macros')
 shutil.copytree(src, 'shared_macros', dirs_exist_ok=True)
 "
 
@@ -497,13 +486,11 @@ source deployments/data-pipeline-orchestrator/venv/bin/activate
 Parse each DAG file to verify no import or syntax errors:
 
 ```bash
-python deployments/data-pipeline-orchestrator/dags/pubsub_trigger_dag.py
-python deployments/data-pipeline-orchestrator/dags/data_ingestion_dag.py
-python deployments/data-pipeline-orchestrator/dags/transformation_dag.py
-python deployments/data-pipeline-orchestrator/dags/error_handling_dag.py
+# All DAGs are produced by the config-driven DagFactory in a single module
+python deployments/data-pipeline-orchestrator/dags/culvert_dags.py
 ```
 
-No output = no errors. The `gcp-pipeline-orchestration` library provides `AIRFLOW_AVAILABLE` stubbing so DAGs can be parsed without a live Airflow environment.
+No output = no errors. The `data-pipeline-orchestration` library provides `AIRFLOW_AVAILABLE` stubbing so DAGs can be parsed without a live Airflow environment.
 
 ### Unit Tests (No GCP Access Needed)
 
@@ -619,13 +606,13 @@ To test the full chain on GCP, upload a real file with its trigger:
 ```bash
 PROJECT_ID=$(gcloud config get-value project)
 
-# Upload test data file
-gsutil cp deployments/original-data-to-bigqueryload/tests/data/generic_customers_sample.csv \
+# Upload test data file (sample files live in test_data/ at the repo root)
+gsutil cp test_data/generic_customers_20260417.csv \
     gs://${PROJECT_ID}-generic-int-landing/generic/customers/
 
 # Upload trigger file (this fires the GCS notification → Pub/Sub → pubsub_trigger_dag)
-touch /tmp/generic_customers_sample.csv.ok
-gsutil cp /tmp/generic_customers_sample.csv.ok \
+touch /tmp/generic_customers_20260417.csv.ok
+gsutil cp /tmp/generic_customers_20260417.csv.ok \
     gs://${PROJECT_ID}-generic-int-landing/generic/customers/
 
 # Monitor the chain in Airflow UI or via CLI:
@@ -710,10 +697,10 @@ EOF
 source deployments/fdp-to-consumable-product/venv/bin/activate
 cd deployments/fdp-to-consumable-product/dbt
 
-# Populate shared macros from pip-installed gcp-pipeline-transform
+# Populate shared macros from pip-installed data-pipeline-transform
 python -c "
-import gcp_pipeline_transform, shutil, os
-src = os.path.join(os.path.dirname(gcp_pipeline_transform.__file__), 'dbt_shared', 'macros')
+import data_pipeline_transform, shutil, os
+src = os.path.join(os.path.dirname(data_pipeline_transform.__file__), 'dbt_shared', 'macros')
 shutil.copytree(src, 'shared_macros', dirs_exist_ok=True)
 "
 
@@ -868,14 +855,17 @@ python deployments/mainframe-segment-transform/src/cdp_example/main.py \
 
 Run the full library test suite before modifying any shared code:
 
-```bash
-# All libraries (recommended)
-./scripts/run_library_tests.sh
+All libraries are tested per-package in CI (`.github/workflows/ci.yml` runs a
+matrix over `data-pipeline-libraries/*` and the Java reactor). Locally:
 
-# Individual libraries
-cd gcp-pipeline-libraries/gcp-pipeline-core && PYTHONPATH=src python -m pytest tests/unit/ -v
-cd gcp-pipeline-libraries/gcp-pipeline-beam && PYTHONPATH=src python -m pytest tests/unit/ -v
-cd gcp-pipeline-libraries/gcp-pipeline-orchestration && PYTHONPATH=src python -m pytest tests/unit/ -v
+```bash
+# Individual Python libraries
+cd data-pipeline-libraries/data-pipeline-core && pytest tests/ -v
+cd data-pipeline-libraries/data-pipeline-orchestration && pytest tests/ -v
+cd data-pipeline-libraries/data-pipeline-tester && pytest tests/ -v
+
+# Java libraries (full reactor)
+mvn -f data-pipeline-libraries-java/pom.xml test
 ```
 
 Run tests for each component **separately** to avoid Python module caching conflicts between libraries.
@@ -888,11 +878,11 @@ Run tests for each component **separately** to avoid Python module caching confl
 
 | Unit | Test | Command |
 |------|------|---------|
-| Libraries | Unit tests | `./scripts/run_library_tests.sh` |
-| Ingestion | Unit tests | `cd deployments/original-data-to-bigqueryload && pytest tests/unit/ -v` |
-| Ingestion | DirectRunner | `python -m data_ingestion.pipeline.runner --runner=DirectRunner ...` |
+| Libraries | Unit tests | per-package `pytest tests/ -v` under `data-pipeline-libraries/` + `mvn -f data-pipeline-libraries-java/pom.xml test` (CI: `.github/workflows/ci.yml`) |
+| Ingestion | Unit tests | `mvn -f deployments/original-data-to-bigqueryload-java/pom.xml test` |
+| Ingestion | DirectRunner | `java -jar deployments/original-data-to-bigqueryload-java/target/*.jar --runner=DirectRunner ...` |
 | Transformation | Compile | `cd deployments/bigquery-to-mapped-product/dbt && dbt compile` |
-| Orchestration | DAG parse | `python dags/pubsub_trigger_dag.py` |
+| Orchestration | DAG parse | `python dags/culvert_dags.py` |
 | Orchestration | Unit tests | `cd deployments/data-pipeline-orchestrator && pytest tests/unit/ -v` |
 | CDP | Compile | `cd deployments/fdp-to-consumable-product/dbt && dbt compile` |
 
@@ -900,7 +890,7 @@ Run tests for each component **separately** to avoid Python module caching confl
 
 | Unit | Test | Command |
 |------|------|---------|
-| Ingestion | DataflowRunner | `python -m data_ingestion.pipeline.runner --runner=DataflowRunner ...` |
+| Ingestion | DataflowRunner | `java -jar deployments/original-data-to-bigqueryload-java/target/*.jar --runner=DataflowRunner ...` |
 | Transformation | dbt run | `dbt run --target int` |
 | Transformation | dbt test | `dbt test --target int` |
 | Orchestration | Deploy DAGs | `gsutil cp dags/* ${DAGS_BUCKET}/generic/` |
@@ -985,103 +975,41 @@ These tests verify that the transformation layer handles failures gracefully and
 
 ---
 
-#### Unit Test Patterns (Python)
+#### Unit Test Patterns (dbt-native)
 
-These are the patterns to follow when writing dbt model unit tests using `gcp-pipeline-tester`.
+dbt model unit tests are written as **dbt-native `unit_tests`** (dbt >= 1.8) in
+YAML next to the models — see
+`deployments/bigquery-to-mapped-product/dbt/models/fdp/unit_tests.yml` for the
+real examples. Given/expect rows are declared inline; run them with
+`dbt test` (no warehouse data needed):
 
-**Pattern 1 — MAP transformation (1:1, column rename + code translate)**
-
-```python
-from gcp_pipeline_tester.dbt import DbtModelTestCase
-
-class TestApplicationsFdpModel(DbtModelTestCase):
-    model = "fdp_portfolio_account_facility"
-    source_fixture = "tests/fixtures/odp_applications_sample.csv"
-
-    def test_column_mapping(self):
-        result = self.run_model()
-        row = result[result["application_id"] == "APP-001"].iloc[0]
-        self.assertEqual(row["product_type"], "Personal Loan")  # code A → label
-        self.assertEqual(row["application_status"], "Approved")  # code 1 → label
-
-    def test_pii_masked(self):
-        result = self.run_model()
-        # Raw SSN must never appear in FDP
-        self.assertNotIn("123-45-6789", result["applicant_ssn_masked"].values)
-
-    def test_audit_columns_present(self):
-        result = self.run_model()
-        for col in ["_run_id", "_extract_date", "_transformed_at"]:
-            self.assertIn(col, result.columns)
-            self.assertTrue(result[col].notna().all(), f"{col} must be non-null")
+```yaml
+unit_tests:
+  - name: test_portfolio_account_facility_logic
+    description: "Verify application attributes are correctly mapped"
+    model: portfolio_account_facility
+    overrides:
+      macros:
+        is_incremental: false
+    given:
+      - input: ref('stg_generic_applications')
+        rows:
+          - {application_id: 'APP1', customer_id: 'C1', loan_amount: 1000,
+             application_status: 'APPROVED', _run_id: 'R1', _extract_date: '2023-01-01'}
+    expect:
+      rows:
+        - {application_id: 'APP1', customer_id: 'C1', loan_amount: 1000}
 ```
 
-**Pattern 2 — JOIN transformation (N ODP tables → 1 FDP table)**
+Cover the same scenarios the platform has always required:
 
-```python
-class TestEventTransactionExcessModel(DbtModelTestCase):
-    model = "fdp_event_transaction_excess"
-    source_fixtures = {
-        "odp_generic.customers": "tests/fixtures/odp_customers_sample.csv",
-        "odp_generic.accounts":  "tests/fixtures/odp_accounts_sample.csv",
-        "odp_generic.decision":  "tests/fixtures/odp_decision_sample.csv",
-    }
+- **MAP transformation** (1:1) — column rename and code-to-label translation for a single input `ref()`.
+- **JOIN transformation** (N inputs -> 1 model) — declare each ODP input under `given:`; assert matched row counts and no orphaned join keys.
+- **Empty source** — a `given:` input with `rows: []` must produce zero output rows without failing the run.
+- **Incremental merge idempotency** — override `is_incremental: true` and seed `this` to assert re-runs merge rather than duplicate.
 
-    def test_join_produces_expected_rows(self):
-        result = self.run_model()
-        # 3 customers × 2 accounts each = 6 matched rows
-        self.assertEqual(len(result), 6)
-
-    def test_no_orphaned_join_keys(self):
-        result = self.run_model()
-        self.assertTrue(result["customer_id"].notna().all())
-        self.assertTrue(result["account_id"].notna().all())
-
-    def test_surrogate_key_unique(self):
-        result = self.run_model()
-        self.assertEqual(result["event_transaction_key"].nunique(), len(result))
-```
-
-**Pattern 3 — Error scenario: empty ODP source**
-
-```python
-class TestFdpHandlesEmptyOdp(DbtModelTestCase):
-    model = "fdp_portfolio_account_facility"
-    source_fixtures = {
-        "odp_generic.applications": "tests/fixtures/empty.csv",  # zero data rows
-    }
-
-    def test_empty_source_produces_no_output(self):
-        result = self.run_model()
-        self.assertEqual(len(result), 0)
-
-    def test_empty_source_does_not_raise(self):
-        # dbt must exit 0 — no exception, no Airflow FAILED state
-        self.assertRunSucceeds()
-```
-
-**Pattern 4 — Incremental merge idempotency**
-
-```python
-class TestFdpIncrementalMerge(DbtModelTestCase):
-    model = "fdp_portfolio_account_facility"
-    source_fixture = "tests/fixtures/odp_applications_sample.csv"
-
-    def test_second_run_does_not_duplicate(self):
-        self.run_model()  # first run
-        count_after_first = self.row_count()
-        self.run_model()  # second run with same data
-        count_after_second = self.row_count()
-        self.assertEqual(count_after_first, count_after_second)
-
-    def test_updated_record_is_merged_not_duplicated(self):
-        self.run_model()
-        self.update_fixture_field("APP-001", "status_code", "D")  # D = Declined
-        self.run_model()
-        rows = self.fetch_by_key("application_id", "APP-001")
-        self.assertEqual(len(rows), 1)  # still 1 row, not 2
-        self.assertEqual(rows.iloc[0]["application_status"], "Declined")
-```
+For Python-side pipeline tests (Beam stages, GCS/BigQuery/Pub/Sub fakes), use
+`data_pipeline_tester` (`BasePipelineTest`, `mocks`, `fixtures`, `builders`).
 
 ---
 
@@ -1268,7 +1196,7 @@ When creating a new `source-to-mapped-product` deployment:
 | 1 | BigQuery source dataset | Ensure ODP dataset exists (e.g., `odp_{system}`) with populated tables |
 | 2 | BigQuery target dataset | `bq mk --location=europe-west2 fdp_{system}` |
 | 3 | dbt profiles.yml | Configure `dev`, `int`, `prod` targets pointing to the correct project and datasets |
-| 4 | dbt macro-paths | Set `macro-paths: ["macros", "shared_macros"]` in `dbt_project.yml`. Dockerfile copies macros from pip-installed `gcp-pipeline-transform`. Add `dbt_utils` to `packages.yml` |
+| 4 | dbt macro-paths | Set `macro-paths: ["macros", "shared_macros"]` in `dbt_project.yml`. Dockerfile copies macros from pip-installed `data_pipeline_transform`. Add `dbt_utils` to `packages.yml` |
 | 5 | Service account | Create or reuse SA with: `bigquery.jobUser`, `bigquery.dataEditor` |
 | 6 | Compile check | `dbt compile` (no GCP access needed) |
 | 7 | Dev run | `dbt run --target dev && dbt test --target dev` |
@@ -1281,7 +1209,7 @@ When creating a new orchestration deployment:
 | Step | Resource/Action | Command/Details |
 |------|----------------|-----------------|
 | 1 | Cloud Composer environment | `gcloud composer environments create {system}-{ENV}-composer --location=europe-west2 --image-version=composer-2.x.x-airflow-2.x.x` |
-| 2 | Composer PyPI packages | Add `gcp-pipeline-framework>=1.0.6` to Composer environment PyPI dependencies |
+| 2 | Composer PyPI packages | Add `culvert[orchestration]` to Composer environment PyPI dependencies |
 | 3 | Pub/Sub file notification topic | `gcloud pubsub topics create {system}-file-notifications` |
 | 4 | Pub/Sub file notification subscription | `gcloud pubsub subscriptions create {system}-file-notifications-sub --topic={system}-file-notifications` |
 | 5 | Pub/Sub pipeline events topic | `gcloud pubsub topics create {system}-pipeline-events` |
@@ -1289,7 +1217,7 @@ When creating a new orchestration deployment:
 | 7 | GCS notification on landing bucket | `gsutil notification create -t {system}-file-notifications -f json gs://${PROJECT_ID}-{system}-{ENV}-landing` |
 | 8 | BigQuery job_control | Ensure `job_control.pipeline_jobs` and `job_control.audit_trail` exist |
 | 9 | Composer SA roles | `composer.worker`, `dataflow.developer`, `bigquery.jobUser`, `bigquery.dataEditor`, `storage.objectAdmin`, `pubsub.publisher`, `pubsub.subscriber` |
-| 10 | DAG syntax validation | `python dags/pubsub_trigger_dag.py && python dags/data_ingestion_dag.py && python dags/transformation_dag.py && python dags/error_handling_dag.py` (no output = no errors) |
+| 10 | DAG syntax validation | `python dags/culvert_dags.py` (no output = no errors) |
 | 11 | Unit tests | `pytest tests/unit/ -v` |
 | 12 | Deploy DAGs | `gsutil cp dags/* ${DAGS_BUCKET}/{system}/` |
 | 13 | Verify in Airflow UI | DAGs appear without import errors |

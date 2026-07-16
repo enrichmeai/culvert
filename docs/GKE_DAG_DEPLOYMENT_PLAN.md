@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> Predecessor names in older passages are superseded — the framework is **Culvert**
+> ([`README.md`](../README.md)), released on PyPI (`culvert`) and Maven Central
+> (`com.enrichmeai.culvert`).
 
 ## Context
 
@@ -25,9 +26,7 @@ The goal is to enable **self-hosted Airflow on GKE** as a cost-effective alterna
 | Artifact | Path | Status |
 |----------|------|--------|
 | GKE workflow | `.github/workflows/deploy-gke.yml` | Manual-only trigger, stale versions |
-| Helm values | `infrastructure/k8s/airflow/values.yaml` | Hardcoded project IDs, KubernetesExecutor |
-| Airflow Dockerfile | `infrastructure/k8s/airflow/Dockerfile` | Unpinned package versions |
-| K8s manifests | `infrastructure/k8s/workloads/` | Namespace + ServiceAccount with Workload Identity |
+| Helm chart | `deployments/data-pipeline-orchestrator/helm/` | Wraps the official Apache Airflow chart; culvert[orchestration] |
 | GKE setup script | `scripts/gcp/setup_gke_infrastructure.sh` | Creates cluster, buckets, SA — duplicates Terraform |
 | GKE deploy script | `scripts/gcp/deploy_to_gke.sh` | Syncs DAGs, applies K8s, no Helm automation |
 | GKE guide | `docs/GKE_DEPLOYMENT_GUIDE.md` | Comprehensive but not tied to actual Terraform |
@@ -71,9 +70,7 @@ Key decisions:
 ### Phase 2: Parameterize Helm Values
 
 **Files to update:**
-- `infrastructure/k8s/airflow/values.yaml` — replace `joseph-antony-aruja` with `${PROJECT_ID}` template markers
-- `infrastructure/k8s/airflow/Dockerfile` — pin library versions to `1.0.29`
-- `infrastructure/k8s/workloads/serviceaccount.yaml` — replace hardcoded project ID
+- `deployments/data-pipeline-orchestrator/helm/values.yaml` — parameterise any project-specific values before reuse
 
 Create a `scripts/gcp/render_k8s_templates.sh` that substitutes `${PROJECT_ID}` and `${LIBRARY_VERSION}` before applying manifests.
 

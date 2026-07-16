@@ -3,9 +3,9 @@ package com.enrichmeai.culvert.governance;
 /**
  * How a field is masked when masking is applied.
  *
- * <p>Mirrors the Python {@code MaskingStrategy} enum. Values match the
- * transforms in the existing {@code gcp_pipeline_beam.pipelines.beam.transforms.pii}
- * module.
+ * <p>Mirrors the Python {@code MaskingStrategy} enum. The value strings are
+ * part of the contract — every adapter's PII transform implements these four
+ * modes.
  */
 public enum MaskingStrategy {
     /** Entire value replaced with a constant (the {@code replacement}). */

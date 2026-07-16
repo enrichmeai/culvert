@@ -92,7 +92,7 @@ gsutil -m rsync -r deployments/data-pipeline-orchestrator/dags/ gs://$(gcloud co
 ```
 Deployments:
 ├── data-pipeline-orchestrator/     # Airflow DAGs (runs on GKE)
-├── original-data-to-bigqueryload/  # Beam ingestion (runs on Dataflow)
+├── original-data-to-bigqueryload-java/  # Beam ingestion, Java (runs on Dataflow)
 ├── bigquery-to-mapped-product/     # dbt transforms (runs on BigQuery)
 ├── mainframe-segment-transform/    # Segment processing
 └── spanner-to-bigquery-load/       # Spanner source

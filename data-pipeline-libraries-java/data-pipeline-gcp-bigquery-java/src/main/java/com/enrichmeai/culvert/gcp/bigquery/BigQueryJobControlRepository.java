@@ -25,12 +25,11 @@ import java.util.Optional;
 /**
  * {@link JobControlRepository} implementation backed by Google Cloud BigQuery.
  *
- * <p>Java port of the Python
- * {@code gcp_pipeline_core.job_control.repository.JobControlRepository}. The
- * eleven contract methods map one-for-one to the Python public surface; the
- * SQL patterns are inherited but adapted to the richer Java
- * {@link PipelineJob} record (more columns: pipeline_name, source_file,
- * target_table, record_count, error_count, FinOps fields).
+ * <p>The reference implementation of the job-control contract: the eleven
+ * contract methods run as parameterised SQL against the
+ * {@code job_control.pipeline_jobs} ledger, covering the full
+ * {@link PipelineJob} record (pipeline_name, source_file, target_table,
+ * record_count, error_count, FinOps fields).
  *
  * <p>Wraps a {@link BigQuery} client. All operations execute as parameterised
  * queries; the wrapped client is reused for every call. Like

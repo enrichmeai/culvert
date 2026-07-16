@@ -1,9 +1,8 @@
 """Status enums for pipeline-job state.
 
-These mirror the existing enums in
-`gcp_pipeline_core.job_control.types`. The names and values are kept
-identical so the existing concrete `BigQueryJobControlRepository` can be
-trivially adapted to import from here in Stage 2.
+The names and values are shared with the Java side
+(`com.enrichmeai.culvert.jobcontrol`) — both languages write the same
+`job_control.pipeline_jobs` ledger.
 """
 
 from enum import Enum

@@ -1,11 +1,9 @@
 """LineageEvent — a TypedDict that pins down the OpenLineage-shaped
 event the framework emits at stage boundaries.
 
-The shape mirrors what
-`gcp_pipeline_core.audit.lineage.DataLineageTracker.generate_data_lineage`
-returns today (a dict with `source`/`pipeline`/`destination`/`audit`
-sub-dicts). Capturing it as a TypedDict here makes the LineageEmitter
-Protocol's argument type inspectable for Stage 2 implementers.
+The shape is a dict with `source`/`pipeline`/`destination`/`audit`
+sub-dicts. Capturing it as a TypedDict makes the LineageEmitter
+Protocol's argument type inspectable for implementers.
 
 These are intentionally `total=False` because not every stage produces
 every section (e.g. a streaming source emits no `destination` until the

@@ -2,7 +2,7 @@
 # Run manually against all files with: pre-commit run --all-files
 #
 # Config is aligned with the CI lint job in .github/workflows/ci.yml and the
-# black/isort settings in gcp-pipeline-libraries/gcp-pipeline-tester/pyproject.toml.
+# black/isort settings used across data-pipeline-libraries/.
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

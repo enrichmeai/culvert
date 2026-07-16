@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> Predecessor names in older passages are superseded — the framework is **Culvert**
+> ([`README.md`](../README.md)), released on PyPI (`culvert`) and Maven Central
+> (`com.enrichmeai.culvert`).
 
 ## Purpose
 

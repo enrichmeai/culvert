@@ -9,40 +9,49 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
-This guide provides step-by-step instructions for creating a new pipeline deployment using the decoupled, library-first architecture: 5 specialised libraries and 3 independent deployment units.
+This guide provides step-by-step instructions for creating a new pipeline deployment using the decoupled, library-first architecture: the Culvert libraries and 3 independent deployment units.
 
 ## Overview
 
-The framework follows a **library-first** approach. To create a new deployment for a system (e.g., `myapp`), you create three independent deployment units that consume versioned libraries from PyPI.
+The framework follows a **library-first** approach. To create a new deployment for a system (e.g., `myapp`), you create three independent deployment units that consume versioned libraries from PyPI (Python, distribution `culvert`) and Maven Central (Java, `com.enrichmeai.culvert`).
 
-### 5 Specialised Libraries (`gcp-pipeline-framework==1.0.11`)
+### The Culvert Python Libraries (one PyPI distribution, `culvert`)
 
-All five libraries are distributed as a single PyPI umbrella package:
+All Python libraries ship as a single PyPI distribution with extras:
 
 ```
-pip install gcp-pipeline-framework==1.0.11
+pip install culvert                  # core: contracts, audit, job control, EntitySchema
+pip install "culvert[gcp]"           # + GCP adapters (BigQuery, GCS, Pub/Sub, Secrets, observability)
+pip install "culvert[orchestration]" # + Airflow DagFactory, sensors, callbacks
+pip install "culvert[transform]"     # + dbt macros and SQL patterns
+pip install "culvert[tester]"        # + testing utilities — fixtures, mocks, BDD helpers
 ```
 
-| Library | Purpose | Depends On |
+| Library (import name) | Purpose | Depends On |
 |---------|---------|------------|
-| `gcp-pipeline-core` | Shared models — Audit, JobControl, EntitySchema | None |
-| `gcp-pipeline-beam` | Dataflow ingestion — Beam DoFns, transforms, I/O | `gcp-pipeline-core` |
-| `gcp-pipeline-orchestration` | Airflow sensors, DAG factories, dependency checking | `gcp-pipeline-core` |
-| `gcp-pipeline-transform` | dbt macros and SQL patterns for FDP models | `gcp-pipeline-core` |
-| `gcp-pipeline-tester` | Testing utilities — fixtures, mocks, BDD helpers | `gcp-pipeline-core` |
+| `data_pipeline_core` | Shared contracts & models — Audit, JobControl, EntitySchema | None |
+| `data_pipeline_gcp_*` | GCP adapters — BigQuery, GCS, Pub/Sub, Secrets, observability | `data_pipeline_core` |
+| `data_pipeline_orchestration` | Airflow sensors, DAG factory, dependency checking | `data_pipeline_core` |
+| `data_pipeline_transform` | dbt macros and SQL patterns for FDP models | `data_pipeline_core` |
+| `data_pipeline_tester` | Testing utilities — fixtures, mocks, BDD helpers | `data_pipeline_core` |
+
+Beam/Dataflow execution is **Java-only**: ingestion units use
+`data-pipeline-gcp-dataflow-java` and `data-pipeline-core-java` from Maven
+Central (`com.enrichmeai.culvert`).
 
 ### 3 Independent Deployment Units
 
 | Unit | Folder Convention | Library Used |
 |------|-------------------|-------------|
-| Ingestion | `{system_id}-ingestion` | `gcp-pipeline-beam` |
-| Transformation | `{system_id}-transformation` | `gcp-pipeline-transform` |
-| Orchestration | `{system_id}-orchestration` | `gcp-pipeline-orchestration` |
+| Ingestion | `{system_id}-ingestion` | `data-pipeline-gcp-dataflow-java` (Java) |
+| Transformation | `{system_id}-transformation` | `data_pipeline_transform` |
+| Orchestration | `{system_id}-orchestration` | `data_pipeline_orchestration` |
 
-Each unit is an independent Python project with its own `Dockerfile`, `pyproject.toml`, and CI/CD step.
+Each unit is an independent project (Maven for ingestion, Python/dbt for the rest) with its own `Dockerfile`, build file, and CI/CD step.
 
 ---
 
@@ -65,43 +74,45 @@ mkdir -p deployments/${SYSTEM}-orchestration/dags
 **Define Entity Schemas** — the single source of truth for validation and PII:
 
 ```python
-# src/{system_id}_ingestion/schema/customers.py
-from gcp_pipeline_core.schema import EntitySchema
+# schemas are shared with the Python side via data_pipeline_core.schema
+from data_pipeline_core.schema import EntitySchema, SchemaField
+from data_pipeline_core.governance_api.classification import DataClassification
 
-class CustomersSchema(EntitySchema):
-    entity_name = "customers"
-    primary_key = "customer_id"
-    pii_fields = ["ssn", "date_of_birth"]
-    required_fields = ["customer_id", "full_name"]
+CUSTOMERS = EntitySchema(
+    name="customers",
+    primary_key=["customer_id"],
+    fields=[
+        SchemaField("customer_id", "STRING", mode="REQUIRED"),
+        SchemaField("full_name", "STRING", mode="REQUIRED"),
+        SchemaField("ssn", "STRING", classification=DataClassification.RESTRICTED),
+        SchemaField("date_of_birth", "DATE", classification=DataClassification.RESTRICTED),
+    ],
+)
 ```
 
-**Build the Pipeline** — inherit from the base class and use `BeamPipelineBuilder`:
-
-```python
-# src/{system_id}_ingestion/pipeline/runner.py
-from gcp_pipeline_beam.pipelines.beam.builder import FluentBeamPipelineBuilder
-
-def run(options):
-    builder = FluentBeamPipelineBuilder(options)
-    builder.read_from_gcs() \
-           .parse_csv_with_hdr_trl() \
-           .validate_records() \
-           .mask_pii() \
-           .write_to_bigquery()
-    builder.run()
-```
-
-The library handles HDR/TRL parsing, PII masking, and audit injection automatically when using the standard DoFns.
+**Build the Pipeline** — ingestion is a Java Beam/Dataflow deployment. Use
+`data-pipeline-gcp-dataflow-java` (`DataflowPipeline`, `StageTransform`) with
+`data-pipeline-core-java`, following the reference implementation in
+[`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/)
+(see `IngestionRunner` for HDR/TRL parsing, data-quality quarantine, and audit-column injection).
 
 ### 3. Set Up the Transformation Unit (`{system_id}-transformation`)
 
-**Initialise your dbt project** and integrate the shared macros:
+**Initialise your dbt project** and integrate the shared macros. The shared
+macros live in the pip-installed `data_pipeline_transform` package
+(source: `data-pipeline-libraries/data-pipeline-transform/src/data_pipeline_transform/dbt_shared/macros/`);
+copy them into your dbt project at build time (see
+`deployments/bigquery-to-mapped-product/Dockerfile` for the pattern):
 
 ```yaml
 # dbt_project.yml
-macro-paths:
-  - macros
-  - ../../gcp-pipeline-libraries/gcp-pipeline-transform/dbt_shared/macros
+macro-paths: ["macros", "shared_macros"]
+```
+
+```dockerfile
+# Copy shared macros from the pip-installed data_pipeline_transform package
+RUN TRANSFORM_PKG=$(python -c "import data_pipeline_transform, os; print(os.path.dirname(data_pipeline_transform.__file__))") && \
+    cp -r "$TRANSFORM_PKG/dbt_shared/macros" dbt/shared_macros
 ```
 
 **Use shared macros in your models:**
@@ -120,40 +131,39 @@ FROM {{ source('{system_id}_odp', 'customers') }}
 
 ### 4. Set Up the Orchestration Unit (`{system_id}-orchestration`)
 
-**Use the DAG templates** from `templates/dags/`:
+**Use the config-driven `DagFactory`** from `data_pipeline_orchestration` — DAGs
+are generated from a `system.yaml`, not copied from templates (the manual DAG
+templates have been removed). Follow the reference implementation in
+[`deployments/data-pipeline-orchestrator/dags/culvert_dags.py`](../deployments/data-pipeline-orchestrator/dags/culvert_dags.py):
 
-```bash
-SYSTEM="myapp"
-cp templates/dags/template_pubsub_trigger_dag.py \
-   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_pubsub_trigger_dag.py
+```python
+# dags/{system_id}_dags.py
+from pathlib import Path
 
-cp templates/dags/template_odp_load_dag.py \
-   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_odp_load_dag.py
+from data_pipeline_orchestration.factories import DagFactory
 
-cp templates/dags/template_fdp_transform_dag.py \
-   deployments/${SYSTEM}-orchestration/dags/${SYSTEM}_fdp_transform_dag.py
+_CONFIG = Path(__file__).resolve().parent.parent / "config" / "system.yaml"
+factory = DagFactory.from_config(_CONFIG)
+
+for _name, _dag in factory.ingestion_dags():
+    globals()[f"ingestion_{_name}"] = _dag
+for _dag in factory.transformation_dags():
+    globals()[getattr(_dag, "dag_id", "transformation")] = _dag
+globals()["pubsub_trigger"] = factory.pubsub_trigger_dag()
+globals()["error_handling"] = factory.error_handling_dag()
+globals()["status"] = factory.status_dag()
 ```
 
-**Replace placeholders** in each copied file:
+**Customise for your pattern** in `config/system.yaml`:
 
-| Placeholder | Replace With | Example |
-|-------------|-------------|---------|
-| `<SYSTEM_ID>` | Uppercase system constant | `MYAPP` |
-| `<system_id>` | Lowercase path/ID | `myapp` |
-| `REQUIRED_ENTITIES` | List of entities for this system | `['customers', 'accounts', 'decision', 'applications']` |
-
-**Customise for your pattern:**
-
-- **MAP Pattern** (single entity): Set `REQUIRED_ENTITIES = ["your_entity"]`. The dependency checker passes immediately on that entity loading.
-- **JOIN Pattern** (multi-entity): List all entities in `REQUIRED_ENTITIES`. The `BranchPythonOperator` only triggers the FDP transform once the last required entity for the date is loaded.
+- **MAP Pattern** (single entity): list one entity for the FDP model. The `EntityDependencyChecker` passes immediately on that entity loading.
+- **JOIN Pattern** (multi-entity): list all required entities for the FDP model. The dependency gate only triggers the FDP transform once the last required entity for the date is loaded.
 
 ### 5. Write Tests
 
 ```bash
-# Ingestion unit tests
-cd deployments/${SYSTEM}-ingestion
-pip install -e ".[dev]"
-pytest tests/unit/ -v
+# Ingestion unit tests (Java)
+mvn -f deployments/${SYSTEM}-ingestion/pom.xml test
 
 # dbt compilation check
 cd deployments/${SYSTEM}-transformation/dbt
@@ -161,41 +171,26 @@ dbt compile
 
 # DAG syntax check
 cd deployments/${SYSTEM}-orchestration
-python dags/${SYSTEM}_pubsub_trigger_dag.py
+python dags/${SYSTEM}_dags.py
 ```
 
 ### 6. Add CI/CD
 
-Copy the CI/CD template workflow:
-
-```bash
-cp templates/cicd/template_deploy_workflow.yml \
-   .github/workflows/deploy-${SYSTEM}.yml
-```
-
-Replace `<system_id>` and `<SYSTEM_ID>` throughout the workflow file, then set the required GitHub secrets for your environment.
-
----
-
-## Using the Templates
-
-The `templates/` directory provides ready-to-use starting points:
-
-| Template Location | Contents |
-|-------------------|---------|
-| `templates/dags/` | Standardised, library-integrated Airflow DAGs |
-| `templates/cicd/` | CI/CD workflow template for deploying each unit |
+Extend the repository CI workflow, [`.github/workflows/ci.yml`](../.github/workflows/ci.yml),
+with build/test jobs for your deployment's paths. Library publishing (PyPI and
+Maven Central) is a separate, manually-gated procedure — see
+[`RELEASE.md`](../RELEASE.md).
 
 ---
 
 ## Readiness Checklist
 
 - [ ] **System ID** is consistent (uppercase constant + lowercase path) across all three units
-- [ ] **Entity schemas** defined using `EntitySchema` from `gcp-pipeline-core`
+- [ ] **Entity schemas** defined using `EntitySchema` from `data_pipeline_core.schema`
 - [ ] **Ingestion unit** builds a Dataflow Flex Template successfully
 - [ ] **Transformation unit** runs `dbt compile` without errors
 - [ ] **Orchestration unit** DAGs parse without syntax errors
-- [ ] **Audit trail** flows consistently through all three units via `gcp-pipeline-core`
+- [ ] **Audit trail** flows consistently through all three units via the core audit contracts (`data_pipeline_core.audit` / `data-pipeline-core-java`)
 - [ ] **Unit tests** pass in each deployment unit
 - [ ] **CI/CD workflow** triggers on push to `main` for the relevant paths
 
@@ -205,7 +200,7 @@ The `templates/` directory provides ready-to-use starting points:
 
 The Generic system demonstrates both orchestration patterns:
 
-- [Generic Ingestion (JOIN pattern)](../deployments/original-data-to-bigqueryload/README.md) — 4 entities (Customers, Accounts, Decision, Applications) → ODP → FDP
+- [Generic Ingestion (JOIN pattern)](../deployments/original-data-to-bigqueryload-java/README.md) — 4 entities (Customers, Accounts, Decision, Applications) → ODP → FDP
 - [Generic Transformation (MAP + JOIN)](../deployments/bigquery-to-mapped-product/README.md) — ODP tables → FDP via dbt (`event_transaction_excess`, `portfolio_account_excess`, `portfolio_account_facility`)
 - [Generic Orchestration](../deployments/data-pipeline-orchestrator/README.md) — Cloud Composer DAGs coordinating ingestion and transformation
 

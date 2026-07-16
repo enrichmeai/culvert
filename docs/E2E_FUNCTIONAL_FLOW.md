@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
 **Ticket ID:** LIBRARY-E2E-001  
 **Status:** Requirements Complete  
@@ -128,10 +129,10 @@ Both patterns are deployed together as the **Generic** reference system.
 | Layer | Technology |
 |-------|------------|
 | **Ingestion** | GCS (Cloud Storage), Pub/Sub notifications |
-| **Processing** | Apache Beam on Dataflow (using `gcp-pipeline-beam`) |
-| **Orchestration** | Apache Airflow (Cloud Composer) (using `gcp-pipeline-orchestration`) |
-| **Transformation** | dbt (SQL) (using `gcp-pipeline-transform`) |
-| **Core Utilities** | Audit, Logging, Job Control (using `gcp-pipeline-core`) |
+| **Processing** | Apache Beam on Dataflow (Java — `data-pipeline-gcp-dataflow-java`) |
+| **Orchestration** | Apache Airflow (Cloud Composer) (using `data-pipeline-orchestration`) |
+| **Transformation** | dbt (SQL) (using `data-pipeline-transform`) |
+| **Core Utilities** | Audit, Logging, Job Control (using `data-pipeline-core` / `data-pipeline-core-java`) |
 | **Data Warehouse** | BigQuery |
 | **Monitoring** | Cloud Monitoring, custom metrics |
 
@@ -150,21 +151,21 @@ The following architectural decisions underpin the E2E flow described in this do
 | **Pluggability** | Metadata Contract (`run_id` + `job_control`) | Any tool respecting the contract can replace Beam or dbt without redesigning orchestration |
 | **Infrastructure** | Single unified Terraform module | All GCS, BigQuery datasets, Pub/Sub, IAM provisioned from `infrastructure/terraform/main.tf`; BigQuery tables are application-managed |
 
-### Functional Library Split (4-Library Model)
+### Functional Library Split
 
-To ensure clean dependency management and independent scaling, the framework is split into four specialised libraries (plus tester and umbrella package), all published to PyPI under `gcp-pipeline-framework`:
+To ensure clean dependency management and independent scaling, the framework is split into specialised libraries. The Python libraries are published to PyPI as the single distribution `culvert` (extras `[gcp]`, `[orchestration]`, `[transform]`, `[tester]`); the Java libraries are on Maven Central under `com.enrichmeai.culvert`:
 
-1. **`gcp-pipeline-core`**: The lightweight foundation containing Audit Trails, Error Handling models, and Job Control interfaces. Zero dependencies on Beam or Airflow.
-2. **`gcp-pipeline-beam`**: The ingestion engine. Contains `BasePipeline`, `HDRTRLParser`, and GCS/BigQuery connectors. Used by Ingestion deployment units.
-3. **`gcp-pipeline-orchestration`**: The control plane logic. Contains `BasePubSubPullSensor`, `DAGFactory`, `EntityDependencyChecker`, and Airflow operators. No dependency on Beam.
-4. **`gcp-pipeline-transform`**: The SQL logic layer. Contains shared dbt macros for PII masking, audit column injection, and code mapping.
-5. **`gcp-pipeline-tester`**: Mocks, fixtures, and base test classes for consistent pipeline testing across all units.
+1. **`data-pipeline-core`**: The lightweight foundation containing the contracts (audit, job control, observability, lineage), `EntitySchema`, and data quality. Zero dependencies on Beam or Airflow.
+2. **`data-pipeline-gcp-dataflow-java`** (Java): The ingestion engine — Beam execution is Java-only. `DataflowPipeline`/`StageTransform` plus the GCS/BigQuery adapter libraries. Used by Ingestion deployment units.
+3. **`data-pipeline-orchestration`**: The control plane logic. Contains the Pub/Sub and Dataflow sensors, `DagFactory`, `EntityDependencyChecker`, error-handling callbacks, and Airflow operators. No dependency on Beam.
+4. **`data-pipeline-transform`**: The SQL logic layer. Contains shared dbt macros for PII masking, audit column injection, and code mapping.
+5. **`data-pipeline-tester`**: Mocks, fixtures, and base test classes for consistent pipeline testing across all units.
 
 ### Deployment Architecture (3-Unit Model)
 
 The Generic reference system is organised into three independent deployment units:
 
-1. **Ingestion Unit (`original-data-to-bigqueryload`)**: Handles GCS → ODP load. Packaged as a Dataflow Flex Template.
+1. **Ingestion Unit (`original-data-to-bigqueryload-java`)**: Handles GCS → ODP load. Java Beam pipeline packaged as a shaded jar (Cloud Run Job / Dataflow).
 2. **Transformation Unit (`bigquery-to-mapped-product`)**: Handles ODP → FDP transformation. Manages dbt models and SQL logic.
 3. **Orchestration Unit (`data-pipeline-orchestrator`)**: The conductor. Manages Airflow DAGs deployed to Cloud Composer, Pub/Sub sensing, and cross-unit coordination.
 
@@ -1736,7 +1737,7 @@ MAP_ENTITY_DEPENDENCIES = {
 }
 
 # Usage in DAG (pipeline code, not library)
-from gcp_pipeline_orchestration import EntityDependencyChecker
+from data_pipeline_orchestration import EntityDependencyChecker
 
 checker = EntityDependencyChecker(
     project_id="my-project",
@@ -2472,7 +2473,7 @@ CLUSTER BY customer_id, _run_id;
 
 ### Stage 4: FDP Transformation
 - Cloud Composer triggers dbt (`bigquery-to-mapped-product`)
-- dbt applies attribute mapping, code translations, and PII masking macros from `gcp-pipeline-transform`
+- dbt applies attribute mapping, code translations, and PII masking macros from `data-pipeline-transform`
 - **JOIN pattern**: Joins `odp_generic.customers` + `odp_generic.accounts` → `fdp_generic.event_transaction_excess`; maps `odp_generic.decision` → `fdp_generic.portfolio_account_excess`
 - **MAP pattern**: Maps `odp_generic.applications` → `fdp_generic.portfolio_account_facility`
 - Transformation audit record written to `audit.transformation_audit`

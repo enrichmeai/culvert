@@ -96,25 +96,15 @@ sed "s/PROJECT_ID/${PROJECT_ID}/g" ${ROOT_DIR}/infrastructure/k8s/workloads/serv
 
 echo -e "${GREEN}Kubernetes resources applied${NC}"
 
-# Deploy Dataflow Flex Templates (optional)
+# Deploy Dataflow ingestion (optional)
 if [ "$DEPLOY_DATAFLOW" = true ]; then
-  echo -e "${BLUE}=== Deploying Dataflow Flex Templates ===${NC}"
-
-  # Build and push Dataflow template
-  TEMPLATE_BUCKET="gs://${PROJECT_ID}-dataflow-templates"
-  gsutil mb -l ${REGION} ${TEMPLATE_BUCKET} 2>/dev/null || true
-
-  # Build ingestion template
-  echo "Building Dataflow Flex Template for ingestion..."
-  gcloud dataflow flex-template build \
-    ${TEMPLATE_BUCKET}/templates/ingestion-pipeline.json \
-    --image-gcr-path "gcr.io/${PROJECT_ID}/ingestion-pipeline:latest" \
-    --sdk-language "PYTHON" \
-    --flex-template-base-image "PYTHON3" \
-    --metadata-file "${DEPLOYMENTS_DIR}/original-data-to-bigqueryload/metadata.json" \
-    --py-path "${DEPLOYMENTS_DIR}/original-data-to-bigqueryload/src"
-
-  echo -e "${GREEN}Dataflow templates deployed${NC}"
+  echo -e "${BLUE}=== Dataflow ingestion ===${NC}"
+  # The Python Flex Template path is retired — ingestion is the Java deployment
+  # (deployments/original-data-to-bigqueryload-java), a shaded jar launched with
+  # --runner=DataflowRunner or as a Cloud Run Job (see that deployment's
+  # README.md, Dockerfile, and terraform/). Nothing to build here.
+  echo "Ingestion is the Java deployment (original-data-to-bigqueryload-java);"
+  echo "build it with: mvn -f ${DEPLOYMENTS_DIR}/original-data-to-bigqueryload-java/pom.xml package -DskipTests"
 fi
 
 # Check Airflow deployment

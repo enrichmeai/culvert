@@ -178,7 +178,7 @@ public final class BigQueryWarehouse implements Warehouse {
         throw new UnsupportedOperationException(
                 "merge() is sprint-4 scope (requires column-aware SQL generation). "
                         + "Use execute(String, Map) with an explicit MERGE statement until then. "
-                        + "Tracked at https://github.com/enrichmeai/gcp-pipeline-reference/issues/6");
+                        + "Tracked at https://github.com/enrichmeai/culvert/issues/6");
     }
 
     @Override

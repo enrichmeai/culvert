@@ -13,15 +13,12 @@ Grouped by the kind of change required.
 | File | Line(s) | Current |
 | --- | --- | --- |
 | `infrastructure/k8s/workloads/serviceaccount.yaml` | 10 | `airflow-sa@joseph-antony-aruja.iam.gserviceaccount.com` |
-| `infrastructure/k8s/airflow/values.yaml` | 79, 93, 112, 121 | bucket `joseph-antony-aruja-airflow-dags`, env `GCP_PROJECT_ID` |
-| `infrastructure/k8s/airflow/values-simple.yaml` | 77, 91, 110, 119 | duplicate of above |
 | `scripts/gcp/setup_cdp_segment_infra.sh` | 16 | `PROJECT_ID="${1:-joseph-antony-aruja}"` |
 | `scripts/gcp/teardown_cdp_segment_infra.sh` | 17, 19 | default + force flag |
 | `scripts/gcp/cleanup_builds.sh` | 12 | `PROJECT_ID="joseph-antony-aruja"` (no env fallback) |
 | `scripts/gcp/cleanup_stale_resources.sh` | 12 | hard-coded |
 | `scripts/gcp/test_generic_e2e.sh` | 7 | hard-coded |
 | `scripts/gcp/e2e_pipeline_test.sh` | 25 | `${PROJECT_ID:-joseph-antony-aruja}` |
-| `scripts/gcp/deploy_dags_and_test.sh` | 20 | `${PROJECT_ID:-joseph-antony-aruja}` |
 
 ### Terraform
 
@@ -36,7 +33,7 @@ The `env/*.tfvars` files themselves do **not** contain the slug — they take it
 | File | Line(s) | Current |
 | --- | --- | --- |
 | `scripts/fix_test_data.py` | 14 | `LANDING_BUCKET = "gs://joseph-antony-aruja-generic-int-landing"` |
-| `gcp-pipeline-libraries/gcp-pipeline-orchestration/tests/unit/factories/test_dag_factory_parse_message.py` | 347–369 | bucket name in fixture payloads & assertions |
+| `data-pipeline-libraries/data-pipeline-orchestration/tests/unit/factories/test_dag_factory_parse_message.py` | 347–369 | bucket name in fixture payloads & assertions |
 
 ### Documentation (cold path)
 
@@ -62,7 +59,7 @@ Downside to call out: env vars are global, so in a multi-tenant dev environment 
 
 ## 4. PR-sized rollout
 
-Each step is independently shippable — if PR 3 gets blocked on review, PRs 4–8 are still safe to merge.
+Each step is independently shippable — if PR 3 gets blocked on review, PRs 4–7 are still safe to merge.
 
 1. **Shell scripts — standardise env var name and remove hard-coded defaults.**
    Change `PROJECT_ID` to `GCP_PROJECT_ID` in every `scripts/gcp/*.sh`. Replace hard-coded strings with `${GCP_PROJECT_ID:?must be set}` so the script fails loudly when unset. Add a "Required env vars" section to each script's header comment.
@@ -70,8 +67,8 @@ Each step is independently shippable — if PR 3 gets blocked on review, PRs 4�
 2. **Terraform — add `.tfvars.example`, remove inline comments.**
    Drop the `joseph-antony-aruja` example from `main.tf` comments. Add `infrastructure/terraform/systems/segment/env/int.tfvars.example` with `gcp_project_id = "YOUR_PROJECT_ID"`. Update `DEPLOYMENT_OPERATIONS_GUIDE.md` to show `-var-file=env/int.tfvars -var="gcp_project_id=$GCP_PROJECT_ID"`.
 
-3. **Kubernetes / Helm — parameterise `values.yaml`.**
-   Replace hard-coded `GCP_PROJECT_ID: joseph-antony-aruja` and bucket names in `infrastructure/k8s/airflow/values*.yaml` with Helm variables (`{{ .Values.gcp.projectId }}`). Add `values.yaml.example`. Update the Airflow init script template to read from the injected env.
+3. **Kubernetes / Helm — parameterise the remaining manifests.**
+   The Airflow-on-GKE `values*.yaml` files have been removed with that deployment path. What remains is `infrastructure/k8s/workloads/serviceaccount.yaml` (hard-coded SA email) and the Helm charts under `infrastructure/k8s/charts/` — replace tenant values with Helm variables (`{{ .Values.gcp.projectId }}`) and add a `values.yaml.example`.
 
 4. **Test fixtures — factory-based bucket names.**
    In `tests/unit/factories/test_dag_factory_parse_message.py`, move the hard-coded bucket into a pytest fixture (`@pytest.fixture def project_id(monkeypatch): monkeypatch.setenv("GCP_PROJECT_ID", "test-project"); return "test-project"`). Build payloads from the fixture. Also update `scripts/fix_test_data.py` to read the bucket from env.
@@ -80,17 +77,14 @@ Each step is independently shippable — if PR 3 gets blocked on review, PRs 4�
    Update every `*.md` that shows `export PROJECT_ID=joseph-antony-aruja` to `export GCP_PROJECT_ID=<your-project>`. Add a short *Tenantisation* section to `PROJECT_CONTEXT.md` so new readers know the pattern up front.
 
 6. **Service-level audit — fdp-trigger and neighbours.**
-   Verify `deployments/fdp-trigger/config.py` has no hidden hard-coded fallbacks. Add a `.env.example` documenting `GCP_PROJECT_ID`, `TEMPLATE_GCS_PATH`, etc. Do the same for `deployments/original-data-to-bigqueryload` and the other services.
+   Verify `deployments/fdp-trigger/config.py` has no hidden hard-coded fallbacks. Add a `.env.example` documenting `GCP_PROJECT_ID`, `TEMPLATE_GCS_PATH`, etc. Do the same for `deployments/original-data-to-bigqueryload-java` and the other services.
 
 7. **CI / GitHub Actions — inject at runtime.**
    Grep `.github/workflows/*.yml` for any residual tenant strings. Where they exist, replace with repo secrets (`${{ secrets.GCP_PROJECT_ID }}`) or workflow env blocks. Add a README note on which secrets consumers must configure.
 
-8. **Embedded framework — re-run the sweep.**
-   `gcp-pipeline-libraries/gcp-pipeline-framework/src/gcp_pipeline_framework/deployments/` contains reconstructed copies of several deployments. Run steps 1–7 against that directory too so a release bundle doesn't silently re-introduce the tenant slug.
-
 ## 5. Definition of done
 
-After PR 8 merges, the following greps should return zero hits outside `docs/TENANTISATION_PLAN.md` itself and `AUDIT.md`:
+After PR 7 merges, the following greps should return zero hits outside `docs/TENANTISATION_PLAN.md` itself and `AUDIT.md`:
 
 ```
 grep -r "joseph-antony-aruja" . --exclude-dir=.git --exclude-dir=venv --exclude-dir=__pycache__

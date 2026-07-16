@@ -28,7 +28,7 @@ dependencies = [
 Homepage = "https://github.com/enrichmeai/culvert"
 Documentation = "https://github.com/enrichmeai/culvert/tree/main/deployments/bigquery-to-mapped-product"
 Repository = "https://github.com/enrichmeai/culvert"
-Framework = "https://pypi.org/project/data-pipeline-framework/"
+Framework = "https://pypi.org/project/culvert/"
 
 [project.optional-dependencies]
 dev = [

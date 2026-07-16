@@ -1,10 +1,9 @@
 """BlobStore — object storage abstraction.
 
 URIs are opaque strings (`gs://`, `s3://`, `abfs://`). The framework
-does not parse them; implementations do. The `gs://`-sniffing block
-currently in `gcp_pipeline_core.file_management.hdr_trl.parser` (lines
-169-179) goes away in Stage 2 — the parser will accept a `BlobStore`
-dependency and ask it directly.
+does not parse them; implementations do. Callers that need to inspect
+a blob take a `BlobStore` dependency and ask it directly — no
+scheme-sniffing in framework code.
 """
 
 from __future__ import annotations

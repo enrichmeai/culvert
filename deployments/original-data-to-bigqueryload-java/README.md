@@ -37,5 +37,5 @@ mvn -f data-pipeline-libraries-java/pom.xml install -DskipTests
 Built and unit-tested (in-memory adapters; DirectRunner stage test). Not yet
 exercised against live GCP — that is the deploy-and-test phase gating the 0.1.0
 release (see `docs/framework-evolution/13-python-parity-release.md` §2). The
-predecessor Python deployment (`deployments/original-data-to-bigqueryload`)
-remains until parity sign-off, then retires.
+predecessor Python deployment was retired and removed in July 2026 (F1 legacy
+cleanup; it survives in git history).

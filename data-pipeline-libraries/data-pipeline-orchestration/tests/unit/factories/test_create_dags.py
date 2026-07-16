@@ -78,7 +78,7 @@ def _task_ids(dag: DAG) -> set:
 
 def test_create_dags_module_imports_cleanly():
     """The entrypoint module must import without eager top-level
-    gcp_pipeline_core or Airflow-3.x-only operator imports — construction is
+    job-control or Airflow-3.x-only operator imports — construction is
     delegated to _dag_builders, which lazy-imports Airflow inside the body."""
     from data_pipeline_orchestration.factories import dag_factory
 

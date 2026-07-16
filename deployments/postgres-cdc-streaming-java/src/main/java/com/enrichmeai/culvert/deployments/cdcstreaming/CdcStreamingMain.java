@@ -29,7 +29,7 @@ import java.util.UUID;
  * deployment (T20.6, issue #141).
  *
  * <p>Mirrors {@code run_streaming_pipeline()} in the Python reference
- * (gcp-pipeline-reference deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/runner.py:169-346):
+ * (deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/runner.py:169-346):
  * builds the runtime context, wires the Pub/Sub source + dead-letter sink +
  * BigQuery ODP/FDP warehouses, assembles a two-stage {@link DataflowPipeline}
  * ({@link CdcStreamingStage} → {@link FdpWindowStage}), and submits it to

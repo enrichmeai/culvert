@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Unit tests for {@link CdcTransforms}, mirroring the behaviour of
  * {@code TransformToODPDoFn}, {@code TransformToFDPDoFn}, and
- * {@code AddStreamingAuditDoFn} from transforms.py (gcp-pipeline-reference
+ * {@code AddStreamingAuditDoFn} from transforms.py (this repo
  * deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/transforms.py).
  */
 class CdcTransformsTest {

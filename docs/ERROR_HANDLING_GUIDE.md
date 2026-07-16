@@ -1,6 +1,6 @@
 # Error Handling Guide
 
-This guide describes the error handling patterns used across GCP pipeline deployments. Error handling is built on the `gcp-pipeline-core` library, providing consistent error classification, retry logic, dead letter routing, and structured reporting across all three deployment units.
+This guide describes the error handling patterns used across GCP pipeline deployments. Error handling spans three Culvert layers: schema-grounded validation in `data_pipeline_core.dataquality`, DLQ/quarantine callbacks in `data_pipeline_orchestration.callbacks`, and metrics/tracing via the `ObservabilityHook` contract (`data_pipeline_core.contracts.observability`, GCP adapter in `data-pipeline-gcp-observability`) — providing consistent error classification, retry logic, dead letter routing, and structured reporting across all three deployment units.
 
 ---
 
@@ -70,56 +70,54 @@ Example schema:
 
 ### 1. Validation Errors (Ingestion Unit)
 
-```python
-from gcp_pipeline_core.data_quality.validators import ValidationError
-
-def validate_record(record):
-    errors = []
-    if not record.get('customer_id'):
-        errors.append(ValidationError(
-            field="customer_id",
-            value=None,
-            message="customer_id is required"
-        ))
-    if record.get('ssn') and len(record['ssn']) != 9:
-        errors.append(ValidationError(
-            field="ssn",
-            value=record['ssn'],
-            message="SSN must be exactly 9 digits"
-        ))
-    return errors
-```
-
-Records with validation errors are tagged and routed to the dead letter output via Beam's `TaggedOutput`:
+Validation is schema-grounded via `data_pipeline_core.dataquality`:
 
 ```python
-# In your DoFn
-yield pvalue.TaggedOutput('errors', {
-    '_error_category': 'VALIDATION',
-    '_error_severity': 'WARNING',
-    '_error_field': error.field,
-    '_error_message': error.message,
-    '_raw_record': json.dumps(record),
-})
-```
+from data_pipeline_core.dataquality import DataQualityTransform, InvalidRow
+from data_pipeline_core.schema import EntitySchema, SchemaField
 
-### 2. ErrorContext for Unhandled Exceptions
-
-Wrap any step that could raise an unexpected exception:
-
-```python
-from gcp_pipeline_core.error_handling import ErrorHandler, ErrorContext
-
-handler = ErrorHandler(
-    pipeline_name="{system_id}-ingestion",
-    run_id=run_id,
+schema = EntitySchema(
+    name="customers",
+    fields=[
+        SchemaField("customer_id", "STRING", mode="REQUIRED"),
+        SchemaField("ssn", "STRING"),
+    ],
 )
+dq = DataQualityTransform(schema=schema, row_accessor=lambda row: row)
 
-with ErrorContext(handler, operation_name="dataflow_execution"):
-    result = run_dataflow_pipeline()
+result = dq.validate(record)
+if not result.is_valid():
+    assert isinstance(result, InvalidRow)
+    result.violations  # [FieldViolation(field_name, violation_kind, detail), ...]
 ```
 
-If an exception escapes, `ErrorContext` logs it with full context (operation, run_id, timestamp) before re-raising, ensuring it is captured in Cloud Logging.
+In the Java ingestion pipeline (`deployments/original-data-to-bigqueryload-java`),
+the same `DataQualityTransform` (Java twin, `com.enrichmeai.culvert.dataquality`)
+runs inline and `InvalidRow` results are routed to the dead letter table — see
+`IngestionRunner` and `InvalidRowAdapter`.
+
+### 2. Failure Callbacks for Unhandled Exceptions
+
+Unhandled task exceptions are captured by the error-handling callbacks in
+`data_pipeline_orchestration.callbacks`, which log the full context and publish
+to the Dead Letter Queue:
+
+```python
+from data_pipeline_orchestration.callbacks import ErrorHandler, ErrorHandlerConfig
+
+config = ErrorHandlerConfig(
+    dlq_topic="generic-pipeline-dlq",
+    quarantine_bucket="myproject-generic-int-error",
+)
+handler = ErrorHandler(config)
+
+# Wire onto any Airflow task (the DagFactory does this for you)
+task = PythonOperator(
+    task_id="run_ingestion",
+    python_callable=run_ingestion,
+    on_failure_callback=handler.on_failure_callback,
+)
+```
 
 ### 3. Job Control Integration
 
@@ -191,38 +189,21 @@ In the Airflow UI, failed runs appear in red. The `error_handling_dag` monitors 
 
 | Unit | Error Type | Destination |
 |------|-----------|------------|
-| `original-data-to-bigqueryload` (Ingestion) | Parse failure | `gs://{PROJECT_ID}-generic-{ENV}-error/` |
-| `original-data-to-bigqueryload` (Ingestion) | Validation failure | `odp_generic.{entity}_failed` |
+| `original-data-to-bigqueryload-java` (Ingestion) | Parse failure | `gs://{PROJECT_ID}-generic-{ENV}-error/` |
+| `original-data-to-bigqueryload-java` (Ingestion) | Validation failure | `odp_generic.{entity}_failed` |
 | `bigquery-to-mapped-product` (Transformation) | dbt test failure | BigQuery error logs + job_control FAILED |
 | `data-pipeline-orchestrator` (Orchestration) | DAG task failure | Airflow task log + job_control FAILED |
 
 ---
 
-## CSV Parsing — `RobustCsvParseDoFn`
+## CSV Parsing
 
-Legacy mainframe extracts have common data quality issues (missing columns, EBCDIC artifacts, wrong delimiters, corrupted rows). The framework provides a configurable CSV parser with tagged outputs for error routing.
-
-```python
-from gcp_pipeline_beam.pipelines.beam.transforms import (
-    RobustCsvParseDoFn, CSVParserConfig,
-)
-
-config = CSVParserConfig(
-    field_names=['customer_id', 'name', 'email', 'account_balance'],
-    delimiter=',',
-    skip_hdr_trl=True,           # Skip HDR|/TRL| records from mainframe
-    strict_field_count=False,    # Pad missing fields, truncate extra
-    detect_delimiter=True,       # Auto-detect if configured delimiter fails
-    sanitize_encoding=True,      # Clean non-UTF8 characters
-    max_field_length=65535,      # Detect corruption
-)
-
-parsed = (
-    lines
-    | 'ParseCSV' >> beam.ParDo(RobustCsvParseDoFn(config))
-        .with_outputs('main', 'errors', 'warnings')
-)
-```
+Legacy mainframe extracts have common data quality issues (missing columns, EBCDIC artifacts, wrong delimiters, corrupted rows). CSV parsing now lives in the Java ingestion pipeline: `CsvRowParser` in
+[`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/)
+handles HDR/TRL envelope stripping and field parsing, and rows that fail to
+parse are routed to the error path rather than failing the job (see
+`IngestionRunner` and the `envelope/` package). There is no Python Beam CSV
+parser — Beam execution is Java-only.
 
 ### CSV Error Types
 
@@ -236,37 +217,11 @@ parsed = (
 
 ---
 
-## BigQuery Retry — `ResilientWriteToBigQueryDoFn`
+## BigQuery Retry
 
-BigQuery operations can fail with transient errors (quota exceeded, rate limits, table locks). The framework provides a resilient writer with exponential backoff and dead letter routing.
-
-```python
-from gcp_pipeline_beam.pipelines.beam.io import (
-    ResilientWriteToBigQueryDoFn, BigQueryRetryConfig,
-)
-
-retry_config = BigQueryRetryConfig(
-    max_retries=5,
-    initial_delay_seconds=1.0,
-    max_delay_seconds=300.0,
-    backoff_multiplier=2.0,
-    quota_retry_delay=60.0,
-    table_lock_retry_delay=30.0,
-    dead_letter_after_retries=True,
-)
-
-written = (
-    records
-    | 'WriteBQ' >> beam.ParDo(
-        ResilientWriteToBigQueryDoFn(
-            project=project_id, dataset='odp_generic',
-            table=entity_name, config=retry_config, run_id=run_id,
-        )
-    ).with_outputs('main', 'dead_letter', 'errors')
-)
-```
-
-For high-volume ingestion, use `BatchResilientWriteToBigQueryDoFn` with `batch_size=500`.
+BigQuery operations can fail with transient errors (quota exceeded, rate limits, table locks). Warehouse writes go through the `Warehouse` contract (`data_pipeline_core.contracts.warehouse` / `com.enrichmeai.culvert.contracts.Warehouse`). The Java ingestion pipeline stages rows to GCS and loads them via `BigQueryWarehouse.loadFromUri` (a batch load job, which BigQuery retries server-side), rather than per-record streaming inserts — see `data-pipeline-gcp-bigquery-java` and `IngestionRunner` in
+[`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/).
+Transient load-job failures surface as `CRITICAL` job failures and are retried at the orchestration layer (Airflow task retries).
 
 ### BigQuery Error Classification
 
@@ -285,7 +240,8 @@ For high-volume ingestion, use `BatchResilientWriteToBigQueryDoFn` with `batch_s
 
 ## References
 
-- [gcp-pipeline-core — Error Handling module](../gcp-pipeline-libraries/gcp-pipeline-core/README.md#error-handling)
+- [data-pipeline-orchestration — error-handling callbacks](../data-pipeline-libraries/data-pipeline-orchestration/src/data_pipeline_orchestration/callbacks/)
+- [data-pipeline-core — dataquality module](../data-pipeline-libraries/data-pipeline-core/src/data_pipeline_core/dataquality/)
 - [Data Quality Guide](./DATA_QUALITY_GUIDE.md) — validation rules and Dataplex integration
 - [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md) — full pipeline flow including error states
 - [GCP Deployment Guide](./GCP_DEPLOYMENT_GUIDE.md) — infrastructure setup for error buckets

@@ -9,8 +9,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
 > **Last Updated:** March 2026  
 > **Version:** 1.0
@@ -255,15 +256,11 @@ RUN pip install --no-cache-dir \
     lz4 \
     zstandard
 
-# Install shared libraries
+# Install the Culvert Python libraries
 RUN pip install --no-cache-dir \
-    gcp-pipeline-framework[core,beam]>=1.0.6
+    "culvert[gcp]"
 
-# Copy deployment code
-COPY deployments/original-data-to-bigqueryload /app/deployments/original-data-to-bigqueryload
-
-# Install deployment
-RUN pip install -e /app/deployments/original-data-to-bigqueryload
+# Copy and install your pipeline package here
 
 # Configure Python for large file handling
 ENV PYTHONUNBUFFERED=1
@@ -280,8 +277,14 @@ ENV BEAM_DIRECT_NUM_WORKERS=4
 ENV BEAM_DIRECT_RUNNING_MODE=multi_threading
 
 # Set entrypoint
-ENTRYPOINT ["python", "-m", "data_ingestion.pipeline.runner"]
+ENTRYPOINT ["python", "-m", "your_pipeline.runner"]
 ```
+
+> **Note:** the Dockerfile above is a generic template for a Python Beam custom
+> container. Beam execution in this repo is Java-only — the reference ingestion
+> container is
+> [`deployments/original-data-to-bigqueryload-java/Dockerfile`](../deployments/original-data-to-bigqueryload-java/Dockerfile)
+> (shaded jar on `eclipse-temurin:21-jre`, using `data-pipeline-gcp-dataflow-java`).
 
 ---
 
@@ -380,37 +383,14 @@ def get_pipeline_options(file_size_mb: int) -> PipelineOptions:
 
 ### Strategy 1: File Splitting (Recommended for > 10 GB)
 
-Split large files before processing:
-
-```python
-# File splitting utility
-from gcp_pipeline_core.utils import split_large_file
-
-def split_if_needed(gcs_path: str, max_size_mb: int = 1000) -> list[str]:
-    """
-    Split large files into smaller chunks.
-    
-    Args:
-        gcs_path: GCS path to the file
-        max_size_mb: Maximum size per chunk in MB
-        
-    Returns:
-        List of GCS paths to split files
-    """
-    from google.cloud import storage
-    
-    client = storage.Client()
-    blob = storage.Blob.from_string(gcs_path, client=client)
-    
-    file_size_mb = blob.size / (1024 * 1024)
-    
-    if file_size_mb <= max_size_mb:
-        return [gcs_path]
-    
-    # Split logic - creates files like: original_part001.csv, original_part002.csv
-    num_parts = int(file_size_mb / max_size_mb) + 1
-    return split_large_file(gcs_path, num_parts)
-```
+Split large files before processing. Culvert no longer ships a Python
+file-splitting utility — Beam execution is Java-only, where Beam's
+`TextIO`/`FileIO` splittable reads shard large files across workers
+automatically. See `data-pipeline-gcp-dataflow-java` and the reference
+ingestion pipeline
+[`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/).
+If you must pre-split a file host-side, use `gsutil` composite objects or a
+one-off `gcloud storage` job rather than framework code.
 
 ### Strategy 2: Streaming Read with Batching
 

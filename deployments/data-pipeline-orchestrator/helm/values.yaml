@@ -1,6 +1,5 @@
 # Deployment-specific overrides for the upstream Apache Airflow chart (aliased
-# pipeline-airflow). Mirrors infrastructure/k8s/airflow/values.yaml; only the
-# orchestrator-specific bits are set here.
+# pipeline-airflow). Only the orchestrator-specific bits are set here.
 pipeline-airflow:
   executor: KubernetesExecutor
   serviceAccount:

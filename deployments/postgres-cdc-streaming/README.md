@@ -117,7 +117,9 @@ deployments/postgres-cdc-streaming/
 │           ├── runner.py         # Main streaming pipeline
 │           ├── cdc_parser.py     # Parse Debezium CDC events
 │           ├── transforms.py     # Streaming transforms
-│           └── windows.py        # Windowing strategies
+│           ├── windows.py        # Windowing strategies
+│           ├── job_control.py    # Culvert JobControlRepository (BigQuery, write path)
+│           └── audit.py          # Culvert AuditEventPublisher (Pub/Sub)
 └── tests/
     └── unit/
         └── test_cdc_parser.py
@@ -136,13 +138,16 @@ from apache_beam.io.kafka import ReadFromKafka
 from apache_beam.transforms.window import FixedWindows, SlidingWindows
 from apache_beam.transforms.trigger import AfterWatermark, AfterProcessingTime, AccumulationMode
 
-from gcp_pipeline_core.audit import AuditTrailManager
-from gcp_pipeline_beam.transforms import AddAuditColumnsDoFn
+# Culvert (culvert[gcp] on PyPI): job-control types + audit record
+from data_pipeline_core.audit.records import AuditRecord
+from data_pipeline_core.job_control_api import FailureStage, JobStatus, PipelineJob
+
+# Deployment-local adapters implementing the Culvert Protocols
+from streaming_pipeline.pipeline.audit import PubSubAuditPublisher
+from streaming_pipeline.pipeline.job_control import BigQueryJobControlRepository
 
 from streaming_pipeline.pipeline.cdc_parser import ParseCDCEventDoFn
 from streaming_pipeline.pipeline.transforms import TransformToODPDoFn, TransformToFDPDoFn
-from streaming_pipeline.sinks.odp_sink import WriteToODPStreaming
-from streaming_pipeline.sinks.fdp_sink import WriteToFDPStreaming
 
 
 def run_streaming_pipeline(options):

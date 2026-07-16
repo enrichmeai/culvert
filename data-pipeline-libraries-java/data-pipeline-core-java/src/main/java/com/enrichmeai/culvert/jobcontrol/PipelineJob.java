@@ -8,10 +8,9 @@ import java.util.Optional;
  * A single pipeline-job ledger entry. Every record processed by the framework
  * is associated with exactly one {@code PipelineJob} via {@code runId}.
  *
- * <p>Mirrors the Python {@code PipelineJob} dataclass. The fields are the
- * union of what the existing
- * {@code gcp_pipeline_core.job_control.models.PipelineJob} carries today;
- * Stage 1 will replace the Python class with one that matches this shape.
+ * <p>Mirrors the Python {@code PipelineJob} dataclass
+ * ({@code data_pipeline_core.job_control_api.models}) — both languages
+ * share the {@code job_control.pipeline_jobs} ledger schema.
  *
  * <p>Note: this record uses a builder because seventeen positional arguments
  * would be hostile to callers. Use {@link #builder(String, String, String, LocalDate, JobStatus)}.

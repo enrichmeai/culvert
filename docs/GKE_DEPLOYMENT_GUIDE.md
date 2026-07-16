@@ -1,5 +1,14 @@
 # GKE Deployment Guide — Alternative Orchestration Pattern
 
+> **SUPERSEDED.** The Airflow-on-GKE deployment path described here has been
+> removed from the repo (the `infrastructure/k8s/airflow/` Helm values, DAG
+> templates, and `deploy-gke.yml` workflow no longer exist). The current
+> execution model is local-first with Cloud Run Jobs + Cloud Workflows as the
+> cloud tier — see
+> [`docs/framework-evolution/14-execution-tiers.md`](framework-evolution/14-execution-tiers.md)
+> and [`README.md`](../README.md). This guide is retained as a description of
+> the pattern only; do not follow its commands verbatim.
+
 > **Culvert deployment guide.** The reference deployments live under `deployments/`:
 > Java Dataflow pipelines (`original-data-to-bigqueryload-java`,
 > `postgres-cdc-streaming-java`, `mainframe-segment-transform-java`,
@@ -9,8 +18,9 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
 > **Pattern:** Alternative | **Primary pattern:** [Cloud Composer (deploy-generic.yml)](../. github/workflows/deploy-generic.yml)
 
@@ -21,7 +31,7 @@ This guide demonstrates deploying the **same three-unit Generic pipeline** using
 | **Orchestration (Airflow)** | GKE — self-managed Helm | Cloud Composer — fully managed |
 | **Ingestion (Beam)** | Dataflow (Google-managed) | Dataflow (Google-managed) |
 | **Transformation (dbt)** | BigQuery (Google-managed) | BigQuery (Google-managed) |
-| **Library** | `gcp-pipeline-framework==1.0.11` | `gcp-pipeline-framework==1.0.11` |
+| **Library** | `culvert[orchestration]` | `culvert[orchestration]` |
 | **CI/CD Workflow** | `deploy-gke.yml` | `deploy-generic.yml` |
 
 ## Architecture Overview
@@ -179,8 +189,8 @@ The DAGs use `DataflowStartFlexTemplateOperator` to trigger Beam pipelines on Da
 ### Build Flex Template
 
 ```bash
-# Build and upload Flex Template
-cd deployments/original-data-to-bigqueryload
+# Build and upload Flex Template (retired Python flow — see banner;
+# the current ingestion deployment is deployments/original-data-to-bigqueryload-java)
 
 gcloud dataflow flex-template build \
   gs://${PROJECT_ID}-dataflow-templates/templates/ingestion-pipeline.json \

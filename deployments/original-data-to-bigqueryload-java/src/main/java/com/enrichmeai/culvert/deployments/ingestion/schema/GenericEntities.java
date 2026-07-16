@@ -7,9 +7,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Entity registry ported from the Python reference's
+ * Entity registry ported from the retired Python reference's
  * {@code data_ingestion.schema.registry} / {@code data_ingestion.config.constants}
- * (main gcp-pipeline-reference checkout,
+ * (removed 2026-07; in git history at
  * {@code deployments/original-data-to-bigqueryload/src/data_ingestion/schema/*.py}
  * and {@code .../config/constants.py}).
  *

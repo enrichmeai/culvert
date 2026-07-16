@@ -9,9 +9,8 @@ import java.util.Optional;
  * Parses one CSV data line into a {@code Map<String,Object>} keyed by the
  * entity's column headers.
  *
- * <p>Ports the CSV-splitting semantics of the Python reference's
- * {@code ParseAndValidateRecordDoFn.process} (main gcp-pipeline-reference
- * checkout,
+ * <p>Ports the CSV-splitting semantics of the retired Python reference's
+ * {@code ParseAndValidateRecordDoFn.process} (removed 2026-07; in git history at
  * {@code deployments/original-data-to-bigqueryload/src/data_ingestion/pipeline/transforms.py:89-134}):
  * a naive {@code line.split(',')} (no quoted-field handling — the Python source
  * has none either), skip blank lines, skip a line that re-states the header
