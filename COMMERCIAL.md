@@ -18,5 +18,6 @@ labelled `commercial`.
 
 ---
 
-EnrichMeAI is a trading name of Good Shepherd Software Consultancy Ltd
-(registered in the United Kingdom), the copyright holder of Culvert.
+EnrichMeAI is a trading name of Good Shepherd Software Consultancy Limited,
+registered in England & Wales, company no. 09702990 — the copyright holder
+of Culvert.
