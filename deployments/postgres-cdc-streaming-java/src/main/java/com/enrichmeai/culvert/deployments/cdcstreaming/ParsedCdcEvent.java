@@ -8,7 +8,7 @@ import java.util.Objects;
  * {@code after} or {@code before}, depending on operation) plus CDC
  * metadata, mirroring the fields {@code ParseCDCEventDoFn.process} injects
  * into the record dict in the Python source (see
- * gcp-pipeline-reference deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/cdc_parser.py:97-119).
+ * deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/cdc_parser.py:97-119).
  *
  * @param record         The row payload ({@code after} for INSERT/UPDATE/SNAPSHOT,
  *                        {@code before} for DELETE). Never null or empty —

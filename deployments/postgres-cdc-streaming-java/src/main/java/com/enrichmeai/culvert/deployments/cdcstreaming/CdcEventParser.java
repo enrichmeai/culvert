@@ -16,7 +16,7 @@ import java.util.Optional;
 /**
  * Parses Debezium-format CDC change events (JSON), mirroring
  * {@code ParseCDCEventDoFn} from the Python reference implementation
- * (gcp-pipeline-reference deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/cdc_parser.py:20-131).
+ * (deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/cdc_parser.py:20-131).
  *
  * <h2>Debezium event structure (see Python docstring, cdc_parser.py:24-39)</h2>
  * <pre>{@code

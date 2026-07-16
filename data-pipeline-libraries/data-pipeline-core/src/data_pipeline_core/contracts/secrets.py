@@ -1,10 +1,8 @@
 """SecretProvider — single seam for secret lookup.
 
-Existing GCP-adjacent shape: `gcp_pipeline_orchestration.hooks.secrets`
-provides a Secret Manager hook with `get_secret(secret_id, project_id,
-version_id)`. Stage 2 will adapt the method names: `get_secret` ->
-`get`, `secret_id` -> `name`, `version_id` -> `version`, and lift the
-class out of the orchestration package into `data-pipeline-gcp-secrets`.
+The GCP implementation is `SecretManagerProvider` in
+`data-pipeline-gcp-secrets` (`get(name, version)` against Secret
+Manager); the AWS twin is `AwsSecretsManagerProvider` on the Java side.
 
 The default cloud-neutral implementation is `EnvSecretProvider` (added
 in Stage 3), which reads from environment variables.

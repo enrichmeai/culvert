@@ -15,9 +15,8 @@ from typing import Optional
 class MaskingStrategy(str, Enum):
     """How a field is masked when masking is applied.
 
-    Values match the existing transforms in
-    `gcp_pipeline_beam.pipelines.beam.transforms.pii` so Stage 2 can
-    map directly.
+    The four values are the masking modes every adapter's PII
+    transform implements; the value strings are part of the contract.
     """
 
     FULL = "full"  # entire value replaced with constant

@@ -30,10 +30,9 @@ class PipelineJob:
     """A single pipeline-job ledger entry. Every record processed by the
     framework is associated with exactly one `PipelineJob` via `run_id`.
 
-    The fields here are the union of what the existing
-    `gcp_pipeline_core.job_control.models.PipelineJob` carries today.
-    Stage 1 will replace the existing class with this one (the existing
-    class is already structurally identical).
+    The fields map 1:1 onto the columns of the
+    `job_control.pipeline_jobs` table (and onto the Java
+    `PipelineJob` record — both languages share the ledger schema).
     """
 
     run_id: str

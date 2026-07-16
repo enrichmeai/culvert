@@ -46,7 +46,7 @@ Each system (e.g., **Application1**, **Application2**) is implemented as three i
 ### 3.2 Strict Genericity & Naming
 - **No Legacy IDs**: Never use legacy system IDs (e.g., "EM", "LOA"). Always use generic placeholders like **Application1** and **Application2** in documentation, examples, and tests.
 - **Generic Engine Model**: Libraries provide **mechanisms** (engine); Deployments provide **configuration** (fuel).
-- **NO Hardcoding**: Never hardcode project-specific IDs or regional biases in the `gcp-pipeline-libraries/` directory.
+- **NO Hardcoding**: Never hardcode project-specific IDs or regional biases in the `data-pipeline-libraries/` or `data-pipeline-libraries-java/` directories.
 
 ### 3.3 Metadata-Driven Coordination
 - Use the `run_id` as the primary correlation key across all layers.
@@ -83,21 +83,21 @@ Each system (e.g., **Application1**, **Application2**) is implemented as three i
 
 ### HDR/TRL Validation
 ```python
-from gcp_pipeline_beam.file_management import HDRTRLParser
+from data_pipeline_core import autoconfig
 parser = HDRTRLParser()
 metadata = parser.parse_file_lines(lines)
 ```
 
 ### Job Control
 ```python
-from gcp_pipeline_core.job_control import JobControlRepository, JobStatus
+from data_pipeline_core.job_control_api import JobStatus, PipelineJob
 repo = JobControlRepository(project_id=PROJECT_ID)
 repo.update_status(run_id, JobStatus.RUNNING)
 ```
 
 ### Entity Dependency (Application1 Join Pattern)
 ```python
-from gcp_pipeline_orchestration import EntityDependencyChecker
+from data_pipeline_orchestration.dependency import get_loaded_entities
 checker = EntityDependencyChecker(system_id="Application1", required_entities=["customers", "accounts", "decision"])
 if checker.all_entities_loaded(extract_date):
     trigger_transform()

@@ -4,11 +4,11 @@
 # This Dockerfile is for LOCAL TESTING and CI validation of DAGs only.
 # It does NOT run Airflow - it just validates DAG syntax and imports.
 #
-# For the actual Airflow runtime image, use:
-#   infrastructure/k8s/airflow/Dockerfile
+# For the actual Airflow runtime, use the Helm chart in ./helm (official
+# Apache Airflow chart + culvert[orchestration])
 #
 # Usage:
-#   docker build --build-arg LIBRARY_VERSION=1.0.5 -t dag-validator .
+#   docker build --build-arg LIBRARY_VERSION=0.1.1 -t dag-validator .
 #   docker run dag-validator python -c "from dags import *; print('DAGs OK')"
 # =============================================================================
 
@@ -32,17 +32,18 @@ RUN pip install --upgrade pip
 RUN pip install --no-cache-dir "apache-airflow==2.10.5"
 RUN pip install --no-cache-dir "apache-airflow-providers-google>=10.0.0"
 
-# Install framework from PyPI with version pinning (includes core, beam, orchestration, transform, tester)
+# Install Culvert from PyPI with version pinning (core contracts + Airflow-side
+# orchestration; import names are data_pipeline_*)
 RUN if [ "$LIBRARY_VERSION" = "latest" ]; then \
-        pip install --no-cache-dir data-pipeline-framework; \
+        pip install --no-cache-dir "culvert[orchestration]"; \
     else \
-        pip install --no-cache-dir "data-pipeline-framework==${LIBRARY_VERSION}"; \
+        pip install --no-cache-dir "culvert[orchestration]==${LIBRARY_VERSION}"; \
     fi
 
 # Verify installed versions
 RUN echo "Installed library versions:" && \
-    pip show gcp-pipeline-core | grep Version && \
-    pip show data-pipeline-orchestration | grep Version
+    pip show culvert | grep Version && \
+    python -c "import data_pipeline_orchestration; print('data_pipeline_orchestration OK')" 
 
 # Copy DAGs
 COPY dags /app/dags

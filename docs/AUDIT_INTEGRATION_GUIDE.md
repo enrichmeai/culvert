@@ -9,14 +9,16 @@
 > library — no more `generate_dags.py` codegen). The GCP steps here are Culvert's
 > **first-implementation** operations; the deploy→test→validate→publish gate is in
 > [`docs/framework-evolution/13-python-parity-release.md`](framework-evolution/13-python-parity-release.md) §2.
-> Predecessor `gcp-pipeline-framework` names in older passages are superseded — the
-> framework is **Culvert** ([`README.md`](../README.md)). Nothing is on PyPI/Maven Central yet.
+> The framework is **Culvert** ([`README.md`](../README.md)): the Python libraries publish
+> to PyPI as the single distribution `culvert`, the Java libraries to Maven Central as
+> `com.enrichmeai.culvert` (see [`RELEASE.md`](../RELEASE.md)).
 
 ## Overview
 
 Every pipeline in this repo writes audit records that connect raw source files
-to final outputs. The audit system is provided by the `gcp-pipeline-core`
-library (installed from PyPI) and consists of three complementary layers:
+to final outputs. The audit system is provided by the `data-pipeline-core`
+library (installed from PyPI as part of the `culvert` distribution) and
+consists of three complementary layers:
 
 | Layer | What it tracks |
 |-------|----------------|
@@ -29,18 +31,22 @@ library (installed from PyPI) and consists of three complementary layers:
 ## Library Components (installed from PyPI)
 
 ```
-pip install gcp-pipeline-core          # audit, job control, error handling
-pip install gcp-pipeline-framework     # meta-package: installs all 6 libraries
+pip install culvert          # core: audit records, job control, contracts
+pip install culvert[gcp]     # adds the GCP adapters (BigQuery, GCS, Pub/Sub, observability)
 ```
 
 | Class | Module | Purpose |
 |-------|--------|---------|
-| `AuditTrail` | `gcp_pipeline_core.audit.trail` | Publish start/end audit events |
-| `AuditPublisher` | `gcp_pipeline_core.audit.publisher` | Send events to Pub/Sub topic |
-| `JobControlRepository` | `gcp_pipeline_core.job_control` | CRUD on `pipeline_jobs` table |
-| `PipelineJob` | `gcp_pipeline_core.job_control` | Job record dataclass |
-| `ErrorHandler` | `gcp_pipeline_core.error_handling.handler` | Classify and log exceptions |
-| `MetricsCollector` | `gcp_pipeline_core.monitoring.metrics` | Increment pipeline counters |
+| `AuditRecord` | `data_pipeline_core.audit` | Cloud-neutral audit event dataclass |
+| `AuditEventPublisher` | `data_pipeline_core.contracts.audit` | Protocol for publishing audit events |
+| `JobControlRepository` | `data_pipeline_core.contracts.job_control` | Protocol for CRUD on the `pipeline_jobs` table |
+| `PipelineJob` | `data_pipeline_core.job_control_api` | Job record dataclass |
+
+There is no standalone error-handling or metrics module: error handling lives
+in `data_pipeline_orchestration.callbacks` (`ErrorHandler`, `on_failure_callback`,
+DLQ and quarantine helpers), and pipeline counters go through the
+`ObservabilityHook` protocol (`data_pipeline_core.contracts.observability`)
+with the `CloudMonitoringMetricsHook` adapter in `data-pipeline-gcp-observability`.
 
 ---
 
@@ -252,27 +258,17 @@ WHERE j.run_id = 'seg-monthly-202603-a1b2c3d4';
 
 ---
 
-## Ingestion Pipeline Audit (original-data-to-bigqueryload)
+## Ingestion Pipeline Audit (original-data-to-bigqueryload-java)
 
-```python
-from gcp_pipeline_core.audit import AuditTrail
-from gcp_pipeline_core.audit.publisher import AuditPublisher
-
-audit_publisher = AuditPublisher(
-    project_id=gcp_project,
-    topic_name='generic-pipeline-events',
-)
-audit = AuditTrail(
-    run_id=run_id,
-    pipeline_name='mainframe-segment-transform',
-    entity_type='customer',
-    publisher=audit_publisher,
-)
-
-audit.record_processing_start(source_file='project:cdp_generic.customer_risk_profile')
-# ... pipeline runs ...
-audit.record_processing_end(success=True)
-```
+The ingestion pipeline is the Java deployment
+[`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/).
+Its `IngestionRunner` records the run in `job_control.pipeline_jobs` and stamps
+the audit columns (`_run_id`, `_source_file`, `_extract_date`, `_processed_at`)
+onto every row it loads. Audit events are shaped by the `AuditRecord` type and
+emitted through the `AuditEventPublisher` contract
+(`com.enrichmeai.culvert.audit` / `com.enrichmeai.culvert.contracts` in
+`data-pipeline-core-java`; the Python equivalents are `data_pipeline_core.audit`
+and `data_pipeline_core.contracts.audit`).
 
 The events land in `job_control.audit_trail` via the Pub/Sub subscription
 `generic-pipeline-events-sub`. Infrastructure for the topic and subscription
@@ -285,5 +281,5 @@ is provisioned by Terraform (`infrastructure/terraform/systems/generic/main.tf`)
 - [E2E Functional Flow](./E2E_FUNCTIONAL_FLOW.md)
 - [Data Quality Guide](./DATA_QUALITY_GUIDE.md)
 - [Deployment Operations Guide](./DEPLOYMENT_OPERATIONS_GUIDE.md)
-- [runner.py](../deployments/mainframe-segment-transform/src/segment_transform/pipeline/runner.py) — where run_id, job_control, and audit_trail are wired together
-- [segment_pipeline.py](../deployments/mainframe-segment-transform/src/segment_transform/pipeline/segment_pipeline.py) — where run_id is embedded in manifest and GCS paths
+- [MainframeSegmentPipeline.java](../deployments/mainframe-segment-transform-java/src/main/java/com/enrichmeai/culvert/deployments/segmenttransform/MainframeSegmentPipeline.java) — where run_id is embedded in manifest and GCS paths
+- [FormatFixedWidthDoFn.java](../deployments/mainframe-segment-transform-java/src/main/java/com/enrichmeai/culvert/deployments/segmenttransform/FormatFixedWidthDoFn.java) — fixed-width record formatting for the mainframe segment files

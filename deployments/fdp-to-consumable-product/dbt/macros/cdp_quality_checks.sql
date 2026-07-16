@@ -1,5 +1,5 @@
 -- CDP Data Quality Checks
--- Uses patterns from gcp-pipeline-transform shared macros
+-- Uses patterns from data-pipeline-transform shared macros
 -- (audit_columns, data_quality_check, pii_masking)
 --
 -- These macros validate CDP output before it is consumed by

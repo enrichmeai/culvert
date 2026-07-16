@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "data-pipeline-orchestration"
 version = "0.1.0"
-description = "Orchestration library for the Culvert data pipeline framework. Airflow DAG factory, operators, sensors, and callbacks. Cloud-coupled to Composer/Airflow — Airflow is Python-only and is not being polyglot-ported. Renamed successor of `gcp-pipeline-orchestration`."
+description = "Orchestration library for the Culvert data pipeline framework. Airflow DAG factory, operators, sensors, and callbacks. Cloud-coupled to Composer/Airflow — Airflow is Python-only and is not being polyglot-ported."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -50,5 +50,5 @@ Repository = "https://github.com/enrichmeai/culvert"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "../../gcp-pipeline-libraries/gcp-pipeline-core/src"]
+pythonpath = ["src"]
 testpaths = ["tests"]

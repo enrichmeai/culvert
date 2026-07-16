@@ -6,7 +6,7 @@ This document defines Python coding standards, documentation patterns, and envir
 ## IDE Integration & Environment Setup
 To enable full cross-module context help and error detection, the IDE must be able to resolve all internal dependencies.
 
-1.  **Recommended Setup**: Use the root-level `pyproject.toml` to install all libraries and deployments in "editable mode". This ensures changes in `gcp-pipeline-libraries/` are immediately reflected in `deployments/`.
+1.  **Recommended Setup**: Install each library editable from `data-pipeline-libraries/` (`pip install -e data-pipeline-libraries/data-pipeline-core` first, then the adapters you need). Changes are immediately reflected in `deployments/`.
     ```bash
     # From project root
     pip install -e .[dev]
@@ -37,11 +37,11 @@ Mandatory type hints for all function signatures and complex class attributes. T
 -   Use Python 3.9+ native types where possible (`list[str]`, `dict[str, int]`).
 
 ## Library Imports
--   **Always** import from the top-level package names (e.g., `from gcp_pipeline_core.monitoring import ...`).
+-   **Always** import from the top-level package names (e.g., `from data_pipeline_core.contracts import ...`).
 -   Avoid relative imports (`from .. import ...`) as they can break context help when modules are installed in editable mode.
 
 ## Project Structure Awareness
--   `gcp-pipeline-libraries/`: Shared code. Changes here affect all deployments.
+-   `data-pipeline-libraries/`: Shared code. Changes here affect all deployments.
 -   `deployments/`: System-specific logic. Dependencies on libraries are declared in `pyproject.toml`.
 
 ## Python Version

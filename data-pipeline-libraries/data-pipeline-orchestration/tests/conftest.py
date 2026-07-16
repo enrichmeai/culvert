@@ -1,5 +1,5 @@
 """
-Root conftest.py for gcp-pipeline-builder - ensures proper import paths
+Root conftest.py for data-pipeline-orchestration - ensures proper import paths
 """
 import sys
 from pathlib import Path

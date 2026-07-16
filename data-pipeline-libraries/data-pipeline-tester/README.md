@@ -2,8 +2,8 @@
 
 A comprehensive testing framework for GCP data pipelines, providing mocks, fixtures, builders, and assertions for testing BigQuery, GCS, Pub/Sub, and Dataflow pipelines.
 
-> **📖 Part of the GCP Pipeline Framework**
-> This library provides testing utilities for pipelines built with `gcp-pipeline-core and gcp-pipeline-beam`.
+> **📖 Part of the Culvert framework**
+> This library provides testing utilities for pipelines built on the `data-pipeline-core` contracts.
 
 ---
 
@@ -46,7 +46,7 @@ A comprehensive testing framework for GCP data pipelines, providing mocks, fixtu
 
 ```bash
 # Install from source
-cd gcp-pipeline-libraries/data-pipeline-tester
+cd data-pipeline-libraries/data-pipeline-tester
 pip install -e .
 
 # Or with dev dependencies
@@ -621,7 +621,7 @@ data-pipeline-tester/
 
 ## Related Libraries
 
-- **[gcp-pipeline-core](../../gcp-pipeline-libraries/gcp-pipeline-core/README.md)** and **[gcp-pipeline-beam](../../gcp-pipeline-libraries/gcp-pipeline-beam/README.md)**: Core pipeline building libraries
+- **[data-pipeline-core](../data-pipeline-core/README.md)**: contracts + types the tester asserts against
 
 ---
 

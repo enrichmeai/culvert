@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Layer:** Control — Airflow DAG creation, sensors, operators
-**Dependency rule:** MAY import `gcp-pipeline-core` and `apache_airflow`. MUST NOT import `apache_beam`.
+**Dependency rule:** MAY import `data-pipeline-core` and `apache_airflow`. MUST NOT import `apache_beam`.
 
 ---
 
@@ -22,7 +22,7 @@ Reusable Airflow components for orchestrating data migration pipelines:
 | Rule | Rationale |
 |------|-----------|
 | MUST NOT import `apache_beam` | Separation of concerns |
-| MUST NOT contain record-level transform logic | That belongs in `gcp-pipeline-beam` |
+| MUST NOT contain record-level transform logic | That belongs in the Beam execution layer (`data-pipeline-gcp-dataflow-java`) |
 | All Airflow imports MUST be guarded with `try/except ImportError` | Enables local testing without Airflow installed |
 | MUST NOT use `print()` | All output through `logging` |
 | MUST NOT hardcode project IDs, bucket names, or table names | Configuration via Airflow Variables |

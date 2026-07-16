@@ -1,11 +1,10 @@
 """FinOpsSink — receives CostMetrics from cloud-specific cost trackers.
 
-Today's `gcp_pipeline_core.finops.tracker` has cloud-specific cost
-trackers (`BigQueryCostTracker`, `CloudStorageCostTracker`,
-`PubSubCostTracker`) that produce `CostMetrics`, but no aggregation
-layer that records them. This Protocol fills that gap. Stage 2's
-`BigQueryFinOpsSink` will write the metrics to a BigQuery cost-metrics
-table.
+Cloud-specific cost trackers (`BigQueryCostTracker`,
+`CloudStorageCostTracker`, `PubSubCostTracker`) produce `CostMetrics`;
+this Protocol is the aggregation seam that records them.
+`BigQueryFinOpsSink` (in `data-pipeline-gcp-bigquery`) writes the
+metrics to a BigQuery cost-metrics table.
 
 `FinOpsTag` is passed explicitly rather than read from the runtime
 context. Cost emissions are infrequent and lossy attribution is the

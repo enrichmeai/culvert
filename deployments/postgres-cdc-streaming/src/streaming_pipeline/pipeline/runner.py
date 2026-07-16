@@ -3,12 +3,14 @@ Streaming CDC Pipeline Runner
 
 Real-time CDC streaming: PostgreSQL → Kafka → Beam (Streaming) → ODP → FDP
 
-Uses gcp-pipeline-framework libraries:
-  - GCPPipelineOptions: Standardised CLI options
-  - JobControlRepository: Track streaming job in job_control.pipeline_jobs
-  - AuditTrail / AuditPublisher: Publish audit events to Pub/Sub
-  - ErrorHandler: Classify and handle errors with retry strategies
-  - MetricsCollector: Track processing counters
+Built on Culvert (`culvert[gcp]` on PyPI):
+  - PipelineJob / JobStatus / FailureStage: the job-control types
+    (data_pipeline_core.job_control_api); writes go through the
+    deployment-local BigQueryJobControlRepository, which implements the
+    JobControlRepository Protocol's write path.
+  - AuditRecord: published at start/end via the deployment-local
+    PubSubAuditPublisher (implements the AuditEventPublisher Protocol).
+  - StageMetrics + CloudMonitoringMetricsHook: launcher-side run metrics.
 
 This pipeline demonstrates:
 1. Reading CDC events from Pub/Sub (Debezium format via Kafka Connect)
@@ -20,27 +22,26 @@ This pipeline demonstrates:
 
 import argparse
 import logging
+import time
 import uuid
 from datetime import date, datetime, timezone
-from typing import Dict, Any
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
 
-# Framework imports
-from gcp_pipeline_beam.pipelines.base.options import GCPPipelineOptions
-from gcp_pipeline_core.job_control import (
-    JobControlRepository,
-    JobStatus,
+# Culvert framework imports
+from data_pipeline_core.audit.records import AuditRecord
+from data_pipeline_core.contracts.stage_metrics import StageMetrics
+from data_pipeline_core.job_control_api import (
     FailureStage,
+    JobStatus,
     PipelineJob,
 )
-from gcp_pipeline_core.audit.trail import AuditTrail
-from gcp_pipeline_core.audit.publisher import AuditPublisher
-from gcp_pipeline_core.error_handling.handler import ErrorHandler
-from gcp_pipeline_core.error_handling.types import ErrorSeverity, ErrorCategory
-from gcp_pipeline_core.monitoring.metrics import MetricsCollector
+
+# Local adapters (implement the Culvert Protocols at the deployment seam)
+from streaming_pipeline.pipeline.audit import PubSubAuditPublisher
+from streaming_pipeline.pipeline.job_control import BigQueryJobControlRepository
 
 # Local transforms
 from streaming_pipeline.pipeline.cdc_parser import ParseCDCEventDoFn
@@ -54,6 +55,8 @@ from streaming_pipeline.pipeline.windows import StreamingWindowStrategies
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+PIPELINE_NAME = "postgres-cdc-streaming"
 
 
 class StreamingCDCOptions(PipelineOptions):
@@ -166,15 +169,52 @@ def build_fdp_schema():
     }
 
 
+def _audit_record(run_id: str, entity_name: str, source: str, *,
+                  success: bool, duration_seconds: float,
+                  event: str) -> AuditRecord:
+    return AuditRecord(
+        run_id=run_id,
+        pipeline_name=PIPELINE_NAME,
+        entity_type=entity_name,
+        source_file=source,
+        record_count=0,  # streaming: per-record counts live in the ODP audit columns
+        processed_timestamp=datetime.now(timezone.utc),
+        processing_duration_seconds=duration_seconds,
+        success=success,
+        metadata={"event": event},
+    )
+
+
+def _emit_run_metrics(project_id: str, run_id: str, *,
+                      duration_seconds: float, error_count: int) -> None:
+    """Launcher-side run metrics via the Culvert monitoring hook.
+
+    The hook swallows emission errors by design (resilience contract),
+    so this can never fail the pipeline.
+    """
+    from google.cloud import monitoring_v3
+    from data_pipeline_gcp_observability import CloudMonitoringMetricsHook
+
+    hook = CloudMonitoringMetricsHook(
+        monitoring_v3.MetricServiceClient(), project_id)
+    hook.record_stage_metrics(StageMetrics(
+        pipeline_id=PIPELINE_NAME,
+        run_id=run_id,
+        stage_name="streaming_run",
+        rows_processed=0,  # streaming: row counts are windowed, not per-run
+        stage_latency_ms=duration_seconds * 1000.0,
+        error_count=error_count,
+    ))
+
+
 def run_streaming_pipeline():
     """
     Main entry point for the streaming CDC pipeline.
 
-    Integrates with gcp-pipeline-framework:
-    - Job control: registers streaming job in pipeline_jobs
-    - Error handling: classifies errors with retry strategies
-    - Audit trail: publishes events to Pub/Sub topic
-    - Metrics: tracks processing counts
+    Culvert integration:
+    - Job control: registers the streaming job in job_control.pipeline_jobs
+    - Audit trail: publishes AuditRecords to the pipeline-events topic
+    - Metrics: emits launcher-side StageMetrics to Cloud Monitoring
 
     Flow:
     1. Read from Pub/Sub (CDC events from Kafka Connect)
@@ -198,53 +238,40 @@ def run_streaming_pipeline():
               or f"stream_{datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}")
     project_id = streaming_options.bq_project
     entity_name = streaming_options.entity_name
+    source = f"pubsub://{streaming_options.kafka_topic}"
+    started = time.monotonic()
 
     logger.info("Starting streaming CDC pipeline")
     logger.info("  Kafka topic: %s", streaming_options.kafka_topic)
     logger.info("  Entity: %s", entity_name)
     logger.info("  Run ID: %s", run_id)
 
-    # --- Framework: Job Control ---
-    job_repo = JobControlRepository(project_id=project_id)
-    job = PipelineJob(
+    # --- Culvert: Job Control ---
+    job_repo = BigQueryJobControlRepository(project_id=project_id)
+    job_repo.create_job(PipelineJob(
         run_id=run_id,
-        system_id='postgres_cdc',
-        entity_type=entity_name,
+        system_id="postgres_cdc",
+        pipeline_name=PIPELINE_NAME,
         extract_date=date.today(),
-        source_files=[f"pubsub://{streaming_options.kafka_topic}"],
-    )
-    job_repo.create_job(job)
+        status=JobStatus.CREATED,
+        entity_type=entity_name,
+        source_file=source,
+    ))
     job_repo.update_status(run_id, JobStatus.RUNNING)
 
-    # --- Framework: Error Handler ---
-    error_handler = ErrorHandler(
-        pipeline_name='postgres-cdc-streaming',
-        run_id=run_id,
-    )
-
-    # --- Framework: Metrics ---
-    metrics = MetricsCollector(
-        pipeline_name='postgres-cdc-streaming',
-        run_id=run_id,
-    )
-
-    # --- Framework: Audit Trail ---
+    # --- Culvert: Audit Trail ---
     try:
-        audit_publisher = AuditPublisher(
+        audit = PubSubAuditPublisher(
             project_id=project_id,
-            topic_name='generic-pipeline-events',
+            topic_name="generic-pipeline-events",
         )
-        audit_trail = AuditTrail(
-            run_id=run_id,
-            pipeline_name='postgres-cdc-streaming',
-            entity_type=entity_name,
-            publisher=audit_publisher,
-        )
-        audit_trail.record_processing_start(
-            source_file=f"pubsub://{streaming_options.kafka_topic}")
+        audit.publish(_audit_record(
+            run_id, entity_name, source,
+            success=True, duration_seconds=0.0, event="processing_start"))
+        audit.flush()
     except Exception as audit_err:
         logger.warning("Audit trail init failed (non-fatal): %s", audit_err)
-        audit_trail = None
+        audit = None
 
     try:
         with beam.Pipeline(options=options) as p:
@@ -313,33 +340,39 @@ def run_streaming_pipeline():
             )
 
         # --- Success ---
-        job_repo.update_status(run_id, JobStatus.SUCCESS)
-        metrics.increment('pipeline_runs_success')
-        if audit_trail:
+        duration = time.monotonic() - started
+        job_repo.update_status(run_id, JobStatus.SUCCEEDED)
+        _emit_run_metrics(project_id, run_id,
+                          duration_seconds=duration, error_count=0)
+        if audit:
             try:
-                audit_trail.record_processing_end(success=True)
+                audit.publish(_audit_record(
+                    run_id, entity_name, source,
+                    success=True, duration_seconds=duration,
+                    event="processing_end"))
+                audit.flush()
             except Exception:
                 pass
         logger.info("Streaming pipeline completed — run_id=%s", run_id)
 
     except Exception as exc:
-        # --- Failure: classify and record ---
-        error = error_handler.handle_exception(
-            exc,
-            severity=ErrorSeverity.CRITICAL,
-            category=ErrorCategory.INTEGRATION,
-            source_file=f"pubsub://{streaming_options.kafka_topic}",
-        )
+        # --- Failure: record structured error context ---
+        duration = time.monotonic() - started
         job_repo.mark_failed(
             run_id=run_id,
-            error_code=error.error_type,
+            error_code=type(exc).__name__,
             error_message=str(exc)[:500],
-            failure_stage=FailureStage.ODP_LOAD,
+            failure_stage=FailureStage.LOAD,
         )
-        metrics.increment('pipeline_runs_failed')
-        if audit_trail:
+        _emit_run_metrics(project_id, run_id,
+                          duration_seconds=duration, error_count=1)
+        if audit:
             try:
-                audit_trail.record_processing_end(success=False)
+                audit.publish(_audit_record(
+                    run_id, entity_name, source,
+                    success=False, duration_seconds=duration,
+                    event="processing_end"))
+                audit.flush()
             except Exception:
                 pass
         logger.error("Streaming pipeline failed — run_id=%s: %s", run_id, exc)

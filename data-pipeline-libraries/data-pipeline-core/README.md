@@ -4,7 +4,7 @@ The cloud-neutral kernel of the Culvert data pipeline framework. Contains the fr
 
 ## Status
 
-**Version 0.1.0 — Stage 0 of the framework redesign.** The Protocols define the *target shape* of the framework. The existing `gcp-pipeline-*` packages have not yet been refactored to satisfy these contracts; see `COMPATIBILITY.md` for the per-Protocol gap analysis that drives Stage 2 of the migration (`docs/framework-evolution/02-redesign.md`).
+**Released** — published to PyPI as part of the [`culvert`](https://pypi.org/project/culvert/) distribution. The Protocols here are the framework's contract set; the `data-pipeline-gcp-*` adapter packages implement them and self-register via entry points (see `autoconfig.py`). The design rationale lives in `docs/framework-evolution/02-redesign.md`.
 
 ## Install
 
@@ -40,19 +40,17 @@ Eleven Protocols are the entire framework-to-cloud seam:
 
 1. **No cloud SDK imports.** Anywhere in this distribution that needs to talk to a cloud, it does so through one of the Protocols. CI fails the build if `grep -r "google\.cloud\|boto3\|azure\." src/` finds anything.
 2. **Protocols are small.** Each contract covers the operations every serious cloud supports and stops there. Cloud-specific extensions (BigQuery clustering, S3 lifecycle, ADLS hierarchical namespaces) live in the cloud-specific module as extension classes, not in core.
-3. **Implementations register themselves.** A cloud module's `auto_config.py` (added in Stage 3) calls `runtime.register(Warehouse, BigQueryWarehouse(...))` at bootstrap time. Core does not import the cloud module.
+3. **Implementations register themselves.** Each cloud package registers its adapters as `data_pipeline_core.adapters` entry points; `autoconfig.discover()` finds every installed implementation. Core does not import the cloud module.
 
-## What's in v0.1.0 (Stage 0)
+## What's in the package
 
-- `data_pipeline_core/contracts/` — the eleven Protocols.
+- `data_pipeline_core/contracts/` — the contract Protocols (plus the `StageMetrics` record).
 - `data_pipeline_core/{audit,lineage,finops_api,governance_api,job_control_api,schema}/` — the dataclasses, enums, and TypedDicts the Protocols reference.
-- `COMPATIBILITY.md` — per-Protocol gap analysis against existing `gcp-pipeline-*` code.
+- `autoconfig.py`, `runtime.py`, `decorators.py` — discovery (entry-point registry), the runtime context, and the `@pipeline`/`@source`-style decorators.
 
-## What's NOT in v0.1.0
+## What's NOT in the package
 
-- The runtime container, decorators (`@pipeline`, `@source`, etc.), and auto-config registry. Those land in Stage 3.
-- Any concrete implementation of any Protocol. Those live in the `data-pipeline-gcp-*` packages (Stages 2-3).
-- The cloud-neutral helpers (run-id generation, structured logging, blob discovery against a `BlobStore`) currently in `gcp-pipeline-libraries/gcp-pipeline-core/src/gcp_pipeline_core/utilities/`. Those migrate in Stage 1.
+- Any concrete implementation of any Protocol. Those live in the `data-pipeline-gcp-*` adapter packages, installed via the `culvert[gcp]` extra.
 
 ## License
 

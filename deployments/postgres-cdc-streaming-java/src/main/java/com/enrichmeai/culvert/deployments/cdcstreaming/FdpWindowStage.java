@@ -25,7 +25,7 @@ import java.util.Objects;
  * <p>The Python pipeline uses a genuine Beam windowing strategy —
  * {@code FixedWindows} with an {@code AfterWatermark} trigger and an early
  * {@code AfterProcessingTime} firing
- * (gcp-pipeline-reference deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/windows.py:31-55),
+ * (deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/windows.py:31-55),
  * i.e. watermark-driven, re-triggering, discarding-accumulation windows over
  * an unbounded {@code PCollection}. Culvert's {@code StageTransform} adapter
  * triggers a {@link PipelineStage#execute(RuntimeContext)} call exactly once

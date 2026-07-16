@@ -1,9 +1,8 @@
 """SchemaField and EntitySchema — cloud-neutral typed schema model.
 
-Mirrors the existing `gcp_pipeline_core.schema.SchemaField` /
-`EntitySchema` shape, minus the `to_bq_schema()` convenience method.
-That method moves to `data-pipeline-gcp-bigquery` as an extension
-function (Stage 2).
+The model is deliberately cloud-neutral: no `to_bq_schema()`-style
+convenience methods here — cloud-specific schema conversions belong
+in the adapter packages.
 """
 
 from __future__ import annotations

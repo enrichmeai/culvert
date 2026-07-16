@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Unit tests for {@link CdcEventParser}, mirroring
  * tests/unit/test_cdc_parser.py from the Python reference implementation
- * (gcp-pipeline-reference deployments/postgres-cdc-streaming/tests/unit/test_cdc_parser.py)
+ * (deployments/postgres-cdc-streaming/tests/unit/test_cdc_parser.py)
  * case-for-case: insert/update/delete classification, CDC metadata presence,
  * and graceful handling of malformed JSON / missing {@code op}.
  */

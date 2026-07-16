@@ -86,7 +86,7 @@ public final class AzureBlobStore implements BlobStore {
     private static UnsupportedOperationException post8(String method) {
         return new UnsupportedOperationException(
                 method + "() not yet implemented in the sprint-8 Azure Blob skeleton. "
-                        + "See https://github.com/enrichmeai/gcp-pipeline-reference/issues/18 "
+                        + "See https://github.com/enrichmeai/culvert/issues/18 "
                         + "for the post-sprint-8 expansion plan.");
     }
 

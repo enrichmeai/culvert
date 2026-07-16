@@ -1,10 +1,9 @@
 """LineageEmitter — publishes OpenLineage-shaped events.
 
-Existing GCP-adjacent shape:
-`gcp_pipeline_core.audit.lineage.DataLineageTracker.generate_data_lineage`
-returns a dict with the four sub-dicts captured by `LineageEvent`.
-Stage 2 will adapt that static method into an instance method that
-satisfies this Protocol.
+Implementations emit a `LineageEvent` — a dict of four sub-dicts
+(`source`/`pipeline`/`destination`/`audit`) — at stage boundaries.
+The GCP implementation is `DataCatalogLineageEmitter` in
+`data-pipeline-gcp-observability`.
 """
 
 from __future__ import annotations

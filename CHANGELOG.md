@@ -114,5 +114,5 @@ Plus the Stage 1 deprecation shims (`gcp-pipeline-tester`, `gcp-pipeline-transfo
 ## Not yet shipped
 
 - Publishing to PyPI / Maven Central — see [RELEASE.md](RELEASE.md) for the procedure when ready.
-- Repo rename — see [REPO_RENAME.md](REPO_RENAME.md) for the procedure.
+- Repo rename — completed (`enrichmeai/culvert`); the procedure doc has been retired.
 - Book v1 ship to Leanpub / other channel — separate workflow, not in scope for this changelog.

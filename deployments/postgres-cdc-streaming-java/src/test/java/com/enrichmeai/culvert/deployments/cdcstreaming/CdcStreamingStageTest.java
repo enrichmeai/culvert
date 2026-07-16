@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>Exercises the read → parse → ODP-write → dead-letter flow end to end,
  * mirroring runner.py's {@code ReadFromPubSub → ParseCDCEvent → FilterValid
  * → TransformToODP → AddAuditColumns → WriteToODP} chain
- * (gcp-pipeline-reference deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/runner.py:249-283).
+ * (deployments/postgres-cdc-streaming/src/streaming_pipeline/pipeline/runner.py:249-283).
  */
 class CdcStreamingStageTest {
 

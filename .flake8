@@ -1,5 +1,5 @@
 # Flake8 configuration. Black-compatible.
-# Run: flake8 gcp-pipeline-libraries deployments
+# Run: flake8 data-pipeline-libraries deployments scripts
 #
 # Rationale for ignores:
 #   E203  whitespace before ':'     — disagrees with black
@@ -23,11 +23,8 @@ exclude =
     .pytest_cache,
     .tox,
     .idea,
-    book,
     templates,
     test_data,
-    # Reconstructed monorepo embeds — source of truth is elsewhere
-    gcp-pipeline-libraries/gcp-pipeline-framework/src/gcp_pipeline_framework/deployments,
     # dbt macros/models get linted by dbt, not Python tooling
     deployments/*/dbt
 

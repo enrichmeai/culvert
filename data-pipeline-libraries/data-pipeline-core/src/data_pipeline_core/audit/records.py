@@ -1,7 +1,7 @@
 """The AuditRecord dataclass — the unit of audit emission.
 
-Mirrors the existing `gcp_pipeline_core.audit.records.AuditRecord` shape
-verbatim (eleven fields). Stage 1 will collapse the two into one.
+Eleven fields, published at pipeline boundaries by an
+`AuditEventPublisher` implementation.
 """
 
 from __future__ import annotations
