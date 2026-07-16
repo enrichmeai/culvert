@@ -185,6 +185,33 @@ def _audit_record(run_id: str, entity_name: str, source: str, *,
     )
 
 
+def _finish_run(job_repo, audit, project_id: str, run_id: str,
+                entity_name: str, source: str, started: float, *,
+                error: Exception | None) -> None:
+    """Shared success/failure epilogue: job status, metrics, audit end."""
+    duration = time.monotonic() - started
+    if error is None:
+        job_repo.update_status(run_id, JobStatus.SUCCEEDED)
+    else:
+        job_repo.mark_failed(
+            run_id=run_id,
+            error_code=type(error).__name__,
+            error_message=str(error)[:500],
+            failure_stage=FailureStage.LOAD,
+        )
+    _emit_run_metrics(project_id, run_id, duration_seconds=duration,
+                      error_count=0 if error is None else 1)
+    if audit:
+        try:
+            audit.publish(_audit_record(
+                run_id, entity_name, source,
+                success=error is None, duration_seconds=duration,
+                event="processing_end"))
+            audit.flush()
+        except Exception:
+            pass
+
+
 def _emit_run_metrics(project_id: str, run_id: str, *,
                       duration_seconds: float, error_count: int) -> None:
     """Launcher-side run metrics via the Culvert monitoring hook.
@@ -234,8 +261,9 @@ def run_streaming_pipeline():
     standard_options.streaming = True
 
     # Generate run_id if not provided
+    stamp = datetime.now(tz=timezone.utc).strftime("%Y%m%d_%H%M%S")
     run_id = (streaming_options.run_id
-              or f"stream_{datetime.now(tz=timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}")
+              or f"stream_{stamp}_{uuid.uuid4().hex[:8]}")
     project_id = streaming_options.bq_project
     entity_name = streaming_options.entity_name
     source = f"pubsub://{streaming_options.kafka_topic}"
@@ -340,41 +368,14 @@ def run_streaming_pipeline():
             )
 
         # --- Success ---
-        duration = time.monotonic() - started
-        job_repo.update_status(run_id, JobStatus.SUCCEEDED)
-        _emit_run_metrics(project_id, run_id,
-                          duration_seconds=duration, error_count=0)
-        if audit:
-            try:
-                audit.publish(_audit_record(
-                    run_id, entity_name, source,
-                    success=True, duration_seconds=duration,
-                    event="processing_end"))
-                audit.flush()
-            except Exception:
-                pass
+        _finish_run(job_repo, audit, project_id, run_id, entity_name,
+                    source, started, error=None)
         logger.info("Streaming pipeline completed — run_id=%s", run_id)
 
     except Exception as exc:
         # --- Failure: record structured error context ---
-        duration = time.monotonic() - started
-        job_repo.mark_failed(
-            run_id=run_id,
-            error_code=type(exc).__name__,
-            error_message=str(exc)[:500],
-            failure_stage=FailureStage.LOAD,
-        )
-        _emit_run_metrics(project_id, run_id,
-                          duration_seconds=duration, error_count=1)
-        if audit:
-            try:
-                audit.publish(_audit_record(
-                    run_id, entity_name, source,
-                    success=False, duration_seconds=duration,
-                    event="processing_end"))
-                audit.flush()
-            except Exception:
-                pass
+        _finish_run(job_repo, audit, project_id, run_id, entity_name,
+                    source, started, error=exc)
         logger.error("Streaming pipeline failed — run_id=%s: %s", run_id, exc)
         raise
 
