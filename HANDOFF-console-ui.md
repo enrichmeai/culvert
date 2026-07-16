@@ -138,10 +138,11 @@ contracts are unbound.
 
 ## 7. Known repo hygiene backlog (separate from this work; do only if asked)
 
-1. License mismatch: root `LICENSE` is Apache-2.0 (GitHub shows apache-2.0)
-   but module POMs + README say MIT — align to one (Apache-2.0 suggested).
-2. Legacy `v1.0.x` GitHub releases (predecessor framework) — `v1.0.29` shows
-   as "Latest"; mark legacy/delete before the 0.1.0 launch.
+1. ~~License mismatch~~ — resolved 2026-07-16: root `LICENSE` is now MIT,
+   matching the module POMs, pyprojects, and the published artifacts.
+2. Legacy `v1.0.x` GitHub releases (predecessor framework) — the published
+   ones are gone and `v0.1.0` is Latest; six `v1.0.2x` drafts still await
+   deletion (maintainer action).
 3. Repo storefront empty: no description, topics, or homepage on GitHub.
 
 ## 8. Out of scope
