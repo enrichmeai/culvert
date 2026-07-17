@@ -207,7 +207,7 @@
   <div class="wrap hero-inner">
     <span class="eyebrow">Cloud-agnostic · polyglot · open source</span>
     <h1>There was no <span class="accent">Spring</span> for data pipelines.<br><span class="soft">So I built one.</span></h1>
-    <p class="lede">Culvert is a framework for pipelines <b>defined once against a language-neutral contract set</b> — then run on any cloud by swapping adapters, not rewriting logic. Sixteen contracts, realised in <b>Java and Python</b>. GCP today, AWS alongside it, Azure on the way.</p>
+    <p class="lede">Culvert is a framework for pipelines <b>defined once against a language-neutral contract set</b>, then run on any cloud by swapping adapters instead of rewriting logic. Sixteen contracts, in <b>Java and Python</b>. GCP today, AWS alongside it, Azure on the way.</p>
     <div class="cmd">
       <span class="prompt">$</span>
       <code id="pipcmd">pip install culvert[gcp]</code>
@@ -226,12 +226,12 @@
     <div class="wrap">
       <div class="sechead"><span class="num">01</span><h2>Contracts are the portability boundary</h2></div>
       <div class="prose">
-        <p>Engines like Beam, Airflow and dbt are magnificent — but an engine is not a framework. Nobody had drawn the line that says <i>this</i> part of your pipeline is about data engineering and <i>that</i> part is about the cloud you happen to be renting this year. So every team welds its business logic to one vendor's SDK by habit, and the thin cloud layer quietly becomes a load-bearing wall.</p>
-        <p>Culvert draws that line where Spring drew its: a small, honest core of <b>contracts</b> — <code>BlobStore</code>, <code>Warehouse</code>, <code>Source</code>, <code>Sink</code>, <code>JobControlRepository</code>, and eleven more. Business logic depends only on the contracts. Adapters implement them per cloud, and a shared conformance suite every adapter must pass keeps the promise honest.</p>
+        <p>Beam, Airflow and dbt are excellent engines. But an engine is not a framework. Nobody draws the line between the part of your pipeline that is data engineering and the part that is the cloud you happen to be renting this year, so teams weld business logic to one vendor's SDK out of habit, and the thin cloud layer quietly becomes a load-bearing wall.</p>
+        <p>Culvert draws that line where Spring drew it: a small core of <b>contracts</b> (<code>BlobStore</code>, <code>Warehouse</code>, <code>Source</code>, <code>Sink</code>, <code>JobControlRepository</code>, eleven more). Business logic depends only on the contracts. Adapters implement them for each cloud, and a shared conformance suite that every adapter must pass keeps the promise honest.</p>
       </div>
       <div class="cards">
         <div class="card"><span class="k">Contracts</span><h3>Both languages, one spec</h3><p>16 interfaces + a metrics record, realised as Java interfaces and Python Protocols. Same seam, either runtime.</p></div>
-        <div class="card"><span class="k">Execution</span><h3>Java owns Beam</h3><p>The Dataflow/Beam execution layer is Java. Legacy Python Beam is not carried forward — the languages don't do the same job.</p></div>
+        <div class="card"><span class="k">Execution</span><h3>Java owns Beam</h3><p>The Dataflow/Beam execution layer is Java. Legacy Python Beam is not carried forward; the two languages deliberately don't do the same job.</p></div>
         <div class="card"><span class="k">Transform</span><h3>dbt, reused</h3><p>Transformation is SQL + macros, not “Java” or “Python”. Packaged once; there is deliberately no Java transform module.</p></div>
         <div class="card"><span class="k">Local-first</span><h3>Runs on your laptop</h3><p>The whole stack runs against emulators with no cloud account. Cloud is where you prove and ship, not where you develop.</p></div>
       </div>
@@ -276,12 +276,12 @@ blob_store = autoconfig.discover().first(<span class="s">"blob_store"</span>)
         <div class="row"><div class="lab">Python</div><div class="val">Released — <code style="font-family:var(--font-mono)">culvert 0.1.0</code> on PyPI <span class="tag live">live</span></div></div>
         <div class="row"><div class="lab">Java</div><div class="val">Released — <code style="font-family:var(--font-mono)">com.enrichmeai.culvert:*</code> on Maven Central <span class="tag live">live</span></div></div>
         <div class="row"><div class="lab">Clouds</div><div class="val">GCP — full implementation <span class="tag live">live</span> · AWS — Java adapter family <span class="tag">S3 · Athena · SQS · DynamoDB · CloudWatch</span> · Azure <span class="tag soon">roadmap</span></div></div>
-        <div class="row"><div class="lab">Proof</div><div class="val">Ran end-to-end on a real GCP project — Cloud Run → BigQuery, event-driven — <b>before</b> release. It caught eight production-only bugs every local test had passed.</div></div>
+        <div class="row"><div class="lab">Proof</div><div class="val">Ran end-to-end on a real GCP project (Cloud Run → BigQuery, event-driven) <b>before</b> release. It caught eight production-only bugs every local test had passed.</div></div>
         <div class="row"><div class="lab">Licence</div><div class="val">MIT</div></div>
       </div>
 
       <div class="creed" style="margin-top:40px">
-        <p>“Both halves shipped only after the whole thing had run on real infrastructure — and the first real deploy failed eight ways that 1,145 green tests never saw. Releases here carry receipts, not promises.”</p>
+        <p>“Both halves shipped only after the whole thing had run on real infrastructure. The first real deploy failed in eight ways that 1,145 green tests never saw. Releases here carry receipts, not promises.”</p>
         <div class="by">— the release gate, in one sentence</div>
       </div>
     </div>

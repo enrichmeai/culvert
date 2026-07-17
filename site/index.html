@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>EnrichMeAI — code got cheap. Judgment didn't.</title>
-<meta name="description" content="EnrichMeAI builds open-source libraries and frameworks for the AI era — because when code is cheap, the contracts, tests and operational judgment inside a good library matter more, not less.">
+<meta name="description" content="EnrichMeAI builds open-source libraries and frameworks for the AI era. Code is cheap now; the contracts, tests and operational judgment inside a good library are not.">
 <style>
   :root{
     --ground:#E8EBEF; --surface:#F4F6F8; --raise:#FFFFFF;
@@ -112,7 +112,7 @@
   <div class="wrap">
     <span class="eyebrow">Open-source libraries for the AI era</span>
     <h1 style="margin-top:14px">Code got <span class="strike">expensive</span> cheap.<br>Judgment didn't.</h1>
-    <p class="lede">AI can write a thousand lines before your coffee cools. What it cannot conjure is the part that makes software <b>trustworthy</b>: the contracts, the tests, the operational scars, the signed artifact a stranger can depend on. That's what a library is — <b>congealed judgment</b> — and in the AI era it matters more, not less. EnrichMeAI builds them, in the open.</p>
+    <p class="lede">AI can write a thousand lines before your coffee cools. What it can't do is stand behind them: keep an interface stable for years, catch the failure the emulator never shows, ship an artifact a stranger can depend on. That takes <b>judgment</b>, and libraries are where judgment collects. EnrichMeAI builds them in the open.</p>
   </div>
 </div>
 
@@ -121,8 +121,8 @@
     <div class="wrap">
       <h2>Why libraries, when anyone can generate code?</h2>
       <div class="prose">
-        <p>Because systems don't fail in the middle of a function — they fail at the <b>seams</b>. Between your logic and the cloud SDK. Between the schema Terraform provisioned and the schema the code writes. Between what passed on your laptop and what runs on a serialised worker with real IAM. Generated code multiplies the seams; it doesn't harden them.</p>
-        <p>A good library is where hardening accumulates: a stable contract, a conformance suite every implementation must pass, honest documentation of what <i>doesn't</i> work, and a signed, versioned artifact. That's not typing — that's judgment. And it's precisely what AI agents need to build <b>against</b>: we know, because we build our libraries <i>with</i> agents, and the only reason it works is the contracts and gates they're held to.</p>
+        <p>Systems rarely break in the middle of a function. They break at the <b>seams</b>: between your logic and the cloud SDK, between the schema Terraform provisioned and the schema the code writes, between what passed on your laptop and what runs on a serialised worker with real IAM. Generated code adds more seams. It doesn't harden any of them.</p>
+        <p>A good library is where the hardening collects: a stable contract, a conformance suite every implementation has to pass, honest notes about what <i>doesn't</i> work, and a signed, versioned artifact. None of that is typing. We build our own libraries with AI agents, and it only works because the agents are held to the same contracts and gates.</p>
       </div>
       <div class="thesis">
         <div class="cheap">
@@ -154,7 +154,7 @@
         <div>
           <h3>Culvert</h3>
           <div class="mono-sub">cloud-agnostic data-pipeline framework · Java + Python</div>
-          <p>Data pipelines defined once against a language-neutral contract set — sixteen interfaces, two languages — and run on any cloud by swapping adapters, not rewriting logic. GCP today, AWS alongside it, Azure on the roadmap. Built in the open, deployed and tested on real infrastructure before every release.</p>
+          <p>Data pipelines defined once against a language-neutral contract set, then run on any cloud by swapping adapters instead of rewriting logic. Sixteen interfaces, implemented in Java and Python. GCP today, AWS alongside it, Azure on the roadmap. Everything runs on real infrastructure before it ships.</p>
           <div class="btns">
             <a class="btn primary" href="culvert/">Explore Culvert →</a>
             <a class="btn" href="https://pypi.org/project/culvert/">PyPI ↗</a>
@@ -166,7 +166,7 @@
           <ul>
             <li><span class="mono">pip install culvert</span> — live on PyPI</li>
             <li><span class="mono">com.enrichmeai.culvert:*</span> — Java twin on Maven Central</li>
-            <li>Proven end-to-end on a real cloud project <i>before</i> release — the deploy caught 8 bugs 1,145 green tests had missed</li>
+            <li>Proven end-to-end on a real cloud project before release. That deploy caught 8 bugs which 1,145 green tests had missed</li>
             <li>MIT licensed · honest limitations documented per adapter</li>
           </ul>
         </aside>
@@ -182,7 +182,7 @@
         <div>
           <h3>The book — building Culvert, honestly</h3>
           <div class="mono-sub">a practitioner&rsquo;s account · in progress</div>
-          <p>Twenty-one chapters on designing a cloud-agnostic framework in the open: the contract boundary, the polyglot split, an unflinching review of the author&rsquo;s own code, and what it&rsquo;s like to build with AI agents held to contracts and gates. Every technical claim cites the real source tree. Publishing after the 0.x line settles.</p>
+          <p>Twenty-one chapters on designing a cloud-agnostic framework in the open: where the contract boundary sits, why the two languages split the work the way they do, an honest review of my own code, and what building with AI agents actually looks like when they're held to contracts and gates. Every technical claim cites the real source tree. It publishes once the 0.x line settles.</p>
         </div>
         <aside class="proof">
           <span class="k">Essay series — starting soon</span>
@@ -194,7 +194,7 @@
         </aside>
       </div>
       <div class="prose" style="margin-top:34px">
-        <p><b>Who is behind this?</b> Joseph Antony Aruja — twenty-five years building software for banks and enterprises, too much of it the same scaffolding rebuilt on each new platform. EnrichMeAI is where that experience becomes things other people can use: libraries, writing, and the occasional strong opinion, all in the open.</p>
+        <p><b>Who is behind this?</b> I&rsquo;m Joseph Aruja. Twenty-five years building software for banks and enterprises, too much of it the same scaffolding rebuilt on every new platform. EnrichMeAI is where that experience turns into things other people can use: libraries, writing, and the occasional strong opinion. All in the open.</p>
       </div>
     </div>
   </section>
@@ -202,8 +202,8 @@
   <section>
     <div class="wrap">
       <div class="creed">
-        <p>“Nothing here is announced before it has run on real infrastructure. When code is cheap, the only scarce signal left is proof.”</p>
-        <div class="by">— how we ship</div>
+        <p>“Nothing here is announced before it has run on real infrastructure. Claims are cheap now. Proof isn't.”</p>
+        <div class="by">— house rule</div>
       </div>
     </div>
   </section>
