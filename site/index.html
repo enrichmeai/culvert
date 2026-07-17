@@ -79,6 +79,8 @@
   .proof .mono{font-size:13px;color:var(--flow)}
   @media(max-width:760px){.product{grid-template-columns:1fr}}
 
+  .nextcard{border:1px dashed var(--line);border-radius:4px;background:transparent;padding:20px 22px;margin-top:16px}
+
   .creed{border-left:3px solid var(--accent);padding:6px 0 6px 24px;max-width:56ch}
   .creed p{font-weight:600;font-size:clamp(19px,2.5vw,25px);letter-spacing:-.015em;line-height:1.36}
   .creed .by{margin-top:12px;font-family:var(--font-mono);font-size:12px;color:var(--muted)}
@@ -100,8 +102,9 @@
     <span class="brand">enrichme<span class="dot">·</span>ai</span>
     <nav class="navlinks">
       <a href="#thesis">Thesis</a>
-      <a href="#culvert">Culvert</a>
+      <a href="#work">Products</a>
       <a href="#writing">Writing</a>
+      <a href="#services">Work with us</a>
       <a href="https://github.com/enrichmeai">GitHub ↗</a>
       <button class="themebtn" id="theme" aria-label="Toggle colour theme">◐</button>
     </nav>
@@ -147,10 +150,11 @@
     </div>
   </section>
 
-  <section id="culvert">
+  <section id="work">
     <div class="wrap">
-      <span class="eyebrow">Flagship</span>
-      <div class="product" style="margin-top:14px">
+      <span class="eyebrow">Products</span>
+      <h2 style="margin-top:14px">What we build</h2>
+      <div class="product" style="margin-top:8px">
         <div>
           <h3>Culvert</h3>
           <div class="mono-sub">cloud-agnostic data-pipeline framework · Java + Python</div>
@@ -170,6 +174,23 @@
             <li>MIT licensed · honest limitations documented per adapter</li>
           </ul>
         </aside>
+      </div>
+      <div class="nextcard">
+        <div>
+          <h3 style="font-size:clamp(17px,2.2vw,21px);font-weight:700;letter-spacing:-.01em">Product two — personal data, back in personal hands</h3>
+          <p style="color:var(--muted);margin-top:8px;max-width:60ch">A server that stores your data where <i>you</i> decide, and lets applications ask permission instead of taking copies. In design now. Per the house rule below, it gets a name and a page when it runs on real infrastructure — not before.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services">
+    <div class="wrap">
+      <span class="eyebrow">Work with us</span>
+      <h2 style="margin-top:14px">Free to use. Supported if you want backup.</h2>
+      <div class="prose">
+        <p>Culvert is MIT licensed — free for commercial use, no strings, no open-core bait. If you're putting it to work inside an organisation and want backup, EnrichMeAI offers <b>enterprise support</b> (prioritised fixes, upgrade help, direct maintainer access), <b>integration engagements</b>, and <b>sponsored features</b>.</p>
+        <p>Start with <a href="https://github.com/enrichmeai/culvert/blob/main/COMMERCIAL.md" style="color:var(--flow)">COMMERCIAL.md</a> or open a GitHub issue labelled <span class="mono" style="font-size:14px">commercial</span>.</p>
       </div>
     </div>
   </section>
@@ -213,6 +234,7 @@
   <div class="wrap foot">
     <div>
       <a href="culvert/">Culvert — data-pipeline framework</a>
+      <a href="https://github.com/enrichmeai/culvert/blob/main/COMMERCIAL.md">Work with us ↗</a>
       <a href="https://github.com/enrichmeai">github.com/enrichmeai ↗</a>
       <a href="https://pypi.org/project/culvert/">pypi.org/project/culvert ↗</a>
     </div>
