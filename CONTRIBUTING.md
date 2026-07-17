@@ -41,6 +41,19 @@ developing.
 - `deployments/` — worked example pipelines, each with its own terraform/ + helm/
 - `docs/framework-evolution/` — the why/what/when; disagreements resolve in its favour
 
+## Sign your commits (DCO)
+
+Every commit must carry a `Signed-off-by` line matching the commit author,
+certifying the [Developer Certificate of Origin 1.1](https://developercertificate.org/).
+No CLA — the sign-off is the whole agreement.
+
+```bash
+git commit -s                      # adds Signed-off-by: Your Name <you@example.com>
+git rebase --signoff main          # fix up an existing branch
+```
+
+PRs with unsigned commits fail the DCO check and can't merge.
+
 ## Releases
 
 Maintainer-gated and coordinated across Maven Central + PyPI — see

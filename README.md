@@ -129,4 +129,6 @@ Culvert grew out of an earlier GCP-only internal iteration; that code is fully r
 
 ## License
 
-MIT — see each module's `pom.xml` / `pyproject.toml`.
+MIT — see [LICENSE](LICENSE). Copyright Good Shepherd Software Consultancy Limited
+(trading as EnrichMeAI). Free for commercial use; for enterprise support,
+integration engagements, or sponsored features, see [COMMERCIAL.md](COMMERCIAL.md).
