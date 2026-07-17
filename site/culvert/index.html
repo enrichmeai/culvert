@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Culvert — cloud-agnostic data-pipeline framework</title>
+<title>Culvert, the cloud-agnostic data-pipeline framework</title>
 <meta name="description" content="Culvert: data pipelines defined once against a language-neutral contract set, with adapters per cloud. Java and Python. pip install culvert.">
 <style>
   :root{
@@ -217,7 +217,7 @@
   <div class="channel" aria-hidden="true">
     <div class="terrain top"><span>GCP · live</span><span class="dim">AWS · Java family</span><span class="dim">Azure · roadmap</span></div>
     <canvas id="flow"></canvas>
-    <div class="terrain bot"><span class="dim">source</span><span>— the contract carries the flow —</span><span class="dim">warehouse</span></div>
+    <div class="terrain bot"><span class="dim">source</span><span>the contract carries the flow</span><span class="dim">warehouse</span></div>
   </div>
 </div>
 
@@ -246,7 +246,7 @@
       <div class="prose"><p>One package, extras for the adapters and roles you want. Core installs with no cloud SDKs at all.</p></div>
       <div class="code">
         <div class="head"><span>shell</span><span>Python ≥ 3.10</span></div>
-<pre><span class="c"># core contracts only — no cloud SDKs</span>
+<pre><span class="c"># core contracts only, no cloud SDKs</span>
 <span class="k">pip</span> install culvert
 
 <span class="c"># + BigQuery, GCS, Pub/Sub, Secret Manager, observability</span>
@@ -270,19 +270,19 @@ blob_store = autoconfig.discover().first(<span class="s">"blob_store"</span>)
 
   <section id="status">
     <div class="wrap">
-      <div class="sechead"><span class="num">03</span><h2>What's real — stated plainly</h2></div>
+      <div class="sechead"><span class="num">03</span><h2>What's real, stated plainly</h2></div>
       <div class="prose"><p>This project has a rule: nothing is announced before it has run on real infrastructure. So here is the honest state, not the roadmap in disguise.</p></div>
       <div class="spec">
-        <div class="row"><div class="lab">Python</div><div class="val">Released — <code style="font-family:var(--font-mono)">culvert 0.1.0</code> on PyPI <span class="tag live">live</span></div></div>
-        <div class="row"><div class="lab">Java</div><div class="val">Released — <code style="font-family:var(--font-mono)">com.enrichmeai.culvert:*</code> on Maven Central <span class="tag live">live</span></div></div>
-        <div class="row"><div class="lab">Clouds</div><div class="val">GCP — full implementation <span class="tag live">live</span> · AWS — Java adapter family <span class="tag">S3 · Athena · SQS · DynamoDB · CloudWatch</span> · Azure <span class="tag soon">roadmap</span></div></div>
+        <div class="row"><div class="lab">Python</div><div class="val">Released: <code style="font-family:var(--font-mono)">culvert 0.1.0</code> on PyPI <span class="tag live">live</span></div></div>
+        <div class="row"><div class="lab">Java</div><div class="val">Released: <code style="font-family:var(--font-mono)">com.enrichmeai.culvert:*</code> on Maven Central <span class="tag live">live</span></div></div>
+        <div class="row"><div class="lab">Clouds</div><div class="val">GCP: full implementation <span class="tag live">live</span> · AWS: Java adapter family <span class="tag">S3 · Athena · SQS · DynamoDB · CloudWatch</span> · Azure <span class="tag soon">roadmap</span></div></div>
         <div class="row"><div class="lab">Proof</div><div class="val">Ran end-to-end on a real GCP project (Cloud Run → BigQuery, event-driven) <b>before</b> release. It caught eight production-only bugs every local test had passed.</div></div>
         <div class="row"><div class="lab">Licence</div><div class="val">MIT</div></div>
       </div>
 
       <div class="creed" style="margin-top:40px">
         <p>“Both halves shipped only after the whole thing had run on real infrastructure. The first real deploy failed in eight ways that 1,145 green tests never saw. Releases here carry receipts, not promises.”</p>
-        <div class="by">— the release gate, in one sentence</div>
+        <div class="by">the release gate, in one sentence</div>
       </div>
     </div>
   </section>
@@ -293,8 +293,8 @@ blob_store = autoconfig.discover().first(<span class="s">"blob_store"</span>)
     <div class="cols">
       <div>
         <h4>Get it</h4>
-        <a href="https://pypi.org/project/culvert/">PyPI — pip install culvert ↗</a>
-        <a href="https://github.com/enrichmeai/culvert">GitHub — source ↗</a>
+        <a href="https://pypi.org/project/culvert/">PyPI: pip install culvert ↗</a>
+        <a href="https://github.com/enrichmeai/culvert">GitHub: source ↗</a>
         <a href="https://github.com/enrichmeai/culvert/blob/main/docs/CONTRACT.md">The contract spec ↗</a>
       </div>
       <div>
@@ -315,7 +315,7 @@ blob_store = autoconfig.discover().first(<span class="s">"blob_store"</span>)
 
 <script>
 (function(){
-  // theme toggle — stamps data-theme, overriding the media query both ways
+  // theme toggle: stamps data-theme, overriding the media query both ways
   var root=document.documentElement, btn=document.getElementById('theme');
   btn.addEventListener('click',function(){
     var cur=root.getAttribute('data-theme');

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EnrichMeAI — code got cheap. Judgment didn't.</title>
+<title>EnrichMeAI. Code got cheap. Judgment didn't.</title>
 <meta name="description" content="EnrichMeAI builds open-source libraries and frameworks for the AI era. Code is cheap now; the contracts, tests and operational judgment inside a good library are not.">
 <style>
   :root{
@@ -79,6 +79,8 @@
   .proof .mono{font-size:13px;color:var(--flow)}
   @media(max-width:760px){.product{grid-template-columns:1fr}}
 
+  .nextcard{border:1px dashed var(--line);border-radius:4px;background:transparent;padding:20px 22px;margin-top:16px}
+
   .creed{border-left:3px solid var(--accent);padding:6px 0 6px 24px;max-width:56ch}
   .creed p{font-weight:600;font-size:clamp(19px,2.5vw,25px);letter-spacing:-.015em;line-height:1.36}
   .creed .by{margin-top:12px;font-family:var(--font-mono);font-size:12px;color:var(--muted)}
@@ -100,8 +102,9 @@
     <span class="brand">enrichme<span class="dot">·</span>ai</span>
     <nav class="navlinks">
       <a href="#thesis">Thesis</a>
-      <a href="#culvert">Culvert</a>
+      <a href="#work">Products</a>
       <a href="#writing">Writing</a>
+      <a href="#services">Work with us</a>
       <a href="https://github.com/enrichmeai">GitHub ↗</a>
       <button class="themebtn" id="theme" aria-label="Toggle colour theme">◐</button>
     </nav>
@@ -147,10 +150,14 @@
     </div>
   </section>
 
-  <section id="culvert">
+  <section id="work">
     <div class="wrap">
-      <span class="eyebrow">Flagship</span>
-      <div class="product" style="margin-top:14px">
+      <span class="eyebrow">Products</span>
+      <h2 style="margin-top:14px">Software shouldn't be hard.</h2>
+      <div class="prose" style="margin-bottom:26px">
+        <p>Most of what makes software hard is the same plumbing, rebuilt badly on every project. We build libraries that take that plumbing off your plate: libraries for data pipelines, libraries for messaging systems, libraries for microservices. Data pipelines shipped first. The rest are on the way.</p>
+      </div>
+      <div class="product" style="margin-top:8px">
         <div>
           <h3>Culvert</h3>
           <div class="mono-sub">cloud-agnostic data-pipeline framework · Java + Python</div>
@@ -164,12 +171,29 @@
         <aside class="proof">
           <span class="k">Receipts, not claims</span>
           <ul>
-            <li><span class="mono">pip install culvert</span> — live on PyPI</li>
-            <li><span class="mono">com.enrichmeai.culvert:*</span> — Java twin on Maven Central</li>
+            <li><span class="mono">pip install culvert</span> is live on PyPI</li>
+            <li><span class="mono">com.enrichmeai.culvert:*</span> is the Java twin on Maven Central</li>
             <li>Proven end-to-end on a real cloud project before release. That deploy caught 8 bugs which 1,145 green tests had missed</li>
             <li>MIT licensed · honest limitations documented per adapter</li>
           </ul>
         </aside>
+      </div>
+      <div class="nextcard">
+        <div>
+          <h3 style="font-size:clamp(17px,2.2vw,21px);font-weight:700;letter-spacing:-.01em">Product two: personal data, back in personal hands</h3>
+          <p style="color:var(--muted);margin-top:8px;max-width:60ch">A server that stores your data where <i>you</i> decide, and lets applications ask permission instead of taking copies. It is in design now. The house rule below applies: it gets a name and a page when it runs on real infrastructure, not before.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="services">
+    <div class="wrap">
+      <span class="eyebrow">Work with us</span>
+      <h2 style="margin-top:14px">Free to use. Supported if you want backup.</h2>
+      <div class="prose">
+        <p>Culvert is MIT licensed. Free for commercial use, no strings, no open-core bait. If you're putting it to work inside an organisation and want backup, EnrichMeAI offers <b>enterprise support</b> (prioritised fixes, upgrade help, direct maintainer access), <b>integration engagements</b>, and <b>sponsored features</b>.</p>
+        <p>Start with <a href="https://github.com/enrichmeai/culvert/blob/main/COMMERCIAL.md" style="color:var(--flow)">COMMERCIAL.md</a> or open a GitHub issue labelled <span class="mono" style="font-size:14px">commercial</span>.</p>
       </div>
     </div>
   </section>
@@ -180,12 +204,12 @@
       <h2 style="margin-top:14px">The code is one part. The thinking is the product.</h2>
       <div class="product" style="margin-top:8px">
         <div>
-          <h3>The book — building Culvert, honestly</h3>
+          <h3>The book: building Culvert, honestly</h3>
           <div class="mono-sub">a practitioner&rsquo;s account · in progress</div>
           <p>Twenty-one chapters on designing a cloud-agnostic framework in the open: where the contract boundary sits, why the two languages split the work the way they do, an honest review of my own code, and what building with AI agents actually looks like when they're held to contracts and gates. Every technical claim cites the real source tree. It publishes once the 0.x line settles.</p>
         </div>
         <aside class="proof">
-          <span class="k">Essay series — starting soon</span>
+          <span class="k">Essay series, starting soon</span>
           <ul>
             <li>Why is there no Spring for data pipelines?</li>
             <li>1,145 green tests. The first real deploy failed 8 different ways.</li>
@@ -203,7 +227,7 @@
     <div class="wrap">
       <div class="creed">
         <p>“Nothing here is announced before it has run on real infrastructure. Claims are cheap now. Proof isn't.”</p>
-        <div class="by">— house rule</div>
+        <div class="by">house rule</div>
       </div>
     </div>
   </section>
@@ -212,7 +236,8 @@
 <footer>
   <div class="wrap foot">
     <div>
-      <a href="culvert/">Culvert — data-pipeline framework</a>
+      <a href="culvert/">Culvert, the data-pipeline framework</a>
+      <a href="https://github.com/enrichmeai/culvert/blob/main/COMMERCIAL.md">Work with us ↗</a>
       <a href="https://github.com/enrichmeai">github.com/enrichmeai ↗</a>
       <a href="https://pypi.org/project/culvert/">pypi.org/project/culvert ↗</a>
     </div>
