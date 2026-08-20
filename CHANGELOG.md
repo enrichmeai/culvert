@@ -2,6 +2,23 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
+## [Unreleased]
+
+### Changed
+
+- **Relicensed from MIT to Apache License 2.0** (2026-08-20). Rationale: an
+  explicit patent grant from every contributor (and patent-retaliation
+  termination) that enterprise dependency review expects of infrastructure
+  code; built-in contribution licensing (§5); an explicit trademark
+  reservation (§6); and one license posture across EnrichMeAI projects
+  (Cistern is Apache-2.0). All code to date is the copyright of Good Shepherd
+  Software Consultancy Limited, so no contributor consent was required.
+  Versions already published under MIT (PyPI `culvert` 0.1.0, Maven Central
+  `com.enrichmeai.culvert:*` 0.1.0) remain MIT — that grant is irrevocable;
+  the next release is the first to ship Apache-2.0 metadata. Added the
+  canonical `LICENSE` text and a `NOTICE` file; updated license metadata in
+  every `pyproject.toml`, the parent POM, and docs.
+
 ## [0.1.0] — 2026-07-15
 
 **RELEASED — both ecosystems. Python: `culvert` 0.1.0 on PyPI (2026-07-11). Java:
