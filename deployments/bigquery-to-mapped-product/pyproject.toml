@@ -7,14 +7,14 @@ name = "data-pipeline-ref-transform"
 version = "1.0.29"
 description = "GCP Pipeline Reference: Generic FDP Transformation — dbt models for ODP to FDP (JOIN + MAP patterns)"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "Apache-2.0"}
 requires-python = ">=3.9"
 keywords = ["gcp", "bigquery", "dbt", "transformation", "reference", "example"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
