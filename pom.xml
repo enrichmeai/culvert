@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Copyright 2026 EnrichMeAI
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        https://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+        Whole-repo build aggregator.
+
+        `mvn test` from the repo root builds the 18-module library reactor AND
+        every Java deployment in one command, on a clean checkout, with no
+        prior `install` step. That is the point of this file: before it existed,
+        the deployments were standalone poms pinned to a *released* library
+        version (`culvert.version` 0.1.0) while the reactor beside them built
+        0.2.0-SNAPSHOT. Because 0.1.0 is on Maven Central, that resolved and
+        went green — it just silently validated two-versions-stale library code
+        and never exercised the reactor the contributor had just built.
+
+        Aggregation fixes that structurally: Maven resolves the deployments'
+        `com.enrichmeai.culvert:*` dependencies from the reactor modules built
+        in the same session, so a contract change and its consumers cannot
+        drift apart without the build going red.
+
+        This aggregator declares NO parent for its modules and sets no shared
+        configuration — each module keeps the pom it already had. It only
+        controls build ORDER and reactor membership. In particular
+        `data-pipeline-libraries-java/pom.xml` remains the authoritative
+        library parent, and the publish workflow still targets it directly
+        (`mvn -f data-pipeline-libraries-java/pom.xml -P release deploy`), so
+        release scope is unchanged by this file.
+
+        Deployment membership rule: a deployment belongs here if it has a
+        `pom.xml`. `mainframe-segment-transform-java` is included even though
+        it declares no `com.enrichmeai.culvert` dependency — it is Java code in
+        this repo, and "one command builds everything" is worth more than a
+        narrow definition of what depends on the library.
+    -->
+
+    <groupId>com.enrichmeai.culvert</groupId>
+    <artifactId>culvert-build-aggregator</artifactId>
+    <version>0.2.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Culvert :: whole-repo build aggregator</name>
+    <description>
+        Aggregator that builds the Culvert Java library reactor and every Java
+        deployment in a single reactor, so a clean checkout can be verified
+        with one command and deployments are always compiled against the
+        library code sitting beside them rather than a released version.
+    </description>
+
+    <url>https://github.com/enrichmeai/culvert</url>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <modules>
+        <!-- The 18-module library reactor (itself an aggregator). -->
+        <module>data-pipeline-libraries-java</module>
+
+        <!--
+            Java deployments. These are standalone poms with no parent; they
+            appear here only so the reactor supplies their library
+            dependencies. Ordering is left to Maven, which sorts by the
+            dependency graph.
+        -->
+        <module>deployments/original-data-to-bigqueryload-java</module>
+        <module>deployments/postgres-cdc-streaming-java</module>
+        <module>deployments/reference-e2e-gcp</module>
+        <module>deployments/mainframe-segment-transform-java</module>
+    </modules>
+
+</project>
