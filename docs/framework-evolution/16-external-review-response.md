@@ -204,14 +204,66 @@ and it means **GCP 1.0/CNE (Composer 2 + GKE pods, no Cloud Run)** and **GCP 2.0
 
 ---
 
-## Scope taken
+## What landed, and what did not
 
 The review lists 14 findings plus the substrate work; its own "Done means"
-section names five outcomes. The five are the contract, and they map to findings
-**1, 2, 4, 11, 12 (JobControlRepository only)** plus the substrate work.
+section names five outcomes. Those five were the scope.
 
-Findings **5, 6, 7, 8, 9, 10, 13, 14** are verified above and deferred, each with
-a reason recorded in the tracking table at the top. #6 (`CloseableIterator` on
-the streaming contracts) is the one candidate to ride along with #2, since both
-ripple through the same adapter set in the same pass — taking it separately would
-mean two breaking waves through nine adapters instead of one.
+### Done
+
+| "Done means" | Status | Where |
+|---|---|---|
+| A reconciliation mismatch can never end SUCCEEDED, with a test proving it | ✅ | `IngestionRunner`, `ReconciliationMismatchException`; `IngestionRunnerTest.loadCountMismatch_failsTheRunAndNeverReportsSucceeded` + `unaccountedRecords_abortBeforeTheTargetIsWritten` |
+| Re-running the same extract twice leaves one copy, with a test proving it | ✅ | `LoadOptions` contract + `IngestionRunnerIdempotencyTest` (5 tests, against a double that holds real rows) |
+| A deployment can be pointed at Composer 2 + pods, Composer 3, or Cloud Run by configuration alone | ✅ | `ExecutionSubstrate`, `SubstrateDagRenderer`, orchestrator Terraform — see [17-execution-substrates.md](17-execution-substrates.md) |
+| A clean checkout builds the libraries and every deployment in one command | ✅ | root `pom.xml` aggregator + CI `whole-repo-build` job with a version-drift guard |
+| Job control has no `UPDATE` statements, and a contract test Athena also passes | ❌ **not started** | see below |
+
+### Not started: findings 4 and 12 (append-only job control)
+
+Verified as real (six `UPDATE … SET status` statements at
+`BigQueryJobControlRepository.java:173, 178, 186, 208, 233, 414`) but not
+attempted, because it is a larger change than the other four combined and a
+half-landed storage migration is worse than none:
+
+- **Two** mutating implementations, not one — `BigQueryJobControlRepository`
+  (SQL `UPDATE`) and `DynamoDbJobControlRepository` (conditional `UpdateItem`).
+- Every **read** path (`getJob`, `getPendingJobs`, `getEntityStatus`,
+  `getFailedJobs`, `getFdpJobStatus`) has to become newest-row-per-key.
+- The `job_control.pipeline_jobs` DDL assumes one row per `runId`
+  (`scripts/gcp/03_create_infrastructure.sh:226`); append-only changes the
+  table's grain, and the e2e scripts that poll it.
+
+A correction to the review's framing while it is still open: it says the
+mutation "blocks Athena entirely" and asks for "a contract test that Athena's
+implementation also passes". There is **no Athena job-control implementation** —
+AWS job control is DynamoDB-backed, and DynamoDB *can* update. The finding is
+about a hypothetical Athena-backed job control, so satisfying that bullet means
+writing that implementation too, not just a contract test.
+
+Also worth carrying forward: an append-only log does **not** on its own fix
+finding #1 (see above), so the control-flow fix that landed is not made
+redundant by doing #4 later.
+
+### Verified and deferred
+
+Findings **5, 6, 7, 8, 9, 10, 13, 14** are confirmed above but out of the "Done
+means" scope and untouched. #6 (`CloseableIterator` on the streaming contracts)
+was the one candidate to ride along with #2 and was **not** taken — it would have
+widened an already-large breaking change across nine adapters; it remains the
+natural next contract change, ideally in the same pass as #4.
+
+### Discovered while verifying, not in the review
+
+- **The repo does not build on JDK 24+.** Mockito 5.11.0's inline mock maker
+  cannot mock on JDK 25 (17 failures in `data-pipeline-core-java`, 50 in
+  `data-pipeline-gcp-bigquery-java`), and bumping to 5.23.0 trades that for a
+  self-attach failure needing a `-javaagent` on surefire. CI pins JDK 21 so it
+  is green there; a new contributor on a current JDK is not. **All verification
+  in this pass was run on JDK 21**, matching CI. Not fixed — flagged.
+- **CI's `python-tests` job would fail on a clean runner.** It never installed
+  `data-pipeline-contract-tests`, which the bigquery and gcs suites import, so
+  they die at collection with `ModuleNotFoundError`. Latent because the workflow
+  is disabled at the GitHub level. Fixed.
+- **The committed DAGs are not yet generated through the renderer** — see the
+  "Not done" section of [17-execution-substrates.md](17-execution-substrates.md).
