@@ -345,6 +345,22 @@ public final class IngestionRunner {
      *
      * <p>Issued through {@link com.enrichmeai.culvert.contracts.Warehouse#execute}
      * as plain parameterised SQL, so it stays within the cloud-neutral contract.
+     *
+     * <p><strong>Honest limitation — this delete and the load that follows are
+     * not atomic.</strong> They are two separate warehouse jobs, so a crash
+     * between them leaves the target missing the previous attempt's rows and
+     * not yet holding the new ones. That window is a deliberate trade: before
+     * this, the same crash left duplicated rows instead, and duplication is
+     * both harder to detect and harder to undo than a gap. Re-running the
+     * extract heals it, and the run is not marked SUCCEEDED, so job control
+     * shows the hole rather than hiding it.
+     *
+     * <p>Closing the window properly means loading to a staging table,
+     * reconciling there, and swapping in one BigQuery multi-statement
+     * transaction — the shape the external review preferred. That was not done
+     * here, and no test can catch its absence: {@code InMemoryTableWarehouse}
+     * applies both statements in one process, so the gap is invisible to the
+     * suite by construction.
      */
     private void deletePriorLoadForExtract(String targetTable, String extractDateIso) {
         warehouse.execute(

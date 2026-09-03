@@ -57,6 +57,25 @@ class AthenaWarehouseContractTest extends WarehouseContractTest {
     private static final String OUTPUT_LOCATION = "s3://contract-bucket/athena-results/";
     private static final String QUERY_EXECUTION_ID = "contract-query-id";
 
+    /**
+     * Athena's load idiom is {@code INSERT INTO} and it has no DML on
+     * non-Iceberg tables, so it can only append. Declared here so the shared
+     * contract test asserts it REFUSES the other two rather than silently
+     * appending — see AthenaWarehouse#loadFromUri.
+     */
+    @Override
+    protected java.util.Set<com.enrichmeai.culvert.contracts.LoadOptions.WriteDisposition>
+            unsupportedDispositions() {
+        return java.util.Set.of(
+                com.enrichmeai.culvert.contracts.LoadOptions.WriteDisposition.TRUNCATE,
+                com.enrichmeai.culvert.contracts.LoadOptions.WriteDisposition.ERROR_IF_EXISTS);
+    }
+
+    @Override
+    protected String loadUri() {
+        return "s3://contract-bucket/contract.ndjson";
+    }
+
     @Override
     protected Warehouse warehouse() {
         AthenaClient client = mock(AthenaClient.class);

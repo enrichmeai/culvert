@@ -118,7 +118,17 @@ class IngestionRunnerIdempotencyTest {
     }
 
     @Test
-    void aFailedRunLeavesNoRowsBehindForTheRetryToDuplicate() {
+    void aFailedRunDoesNotDisturbDataAlreadyCommittedByAnEarlierRun() {
+        // Commit a good extract FIRST. Asserting an empty table after a failed
+        // run would prove nothing here — the table starts empty, so that
+        // assertion passes even with the abort path removed entirely. The
+        // property worth pinning is that a failing run leaves committed data
+        // alone.
+        runner.run(new IngestionRequest(
+                "run-good", "customers", SOURCE_URI, "20260601", TARGET_TABLE));
+        assertThat(warehouse.rowsIn(TARGET_TABLE)).hasSize(2);
+        int sqlAfterGoodRun = warehouse.executedSql.size();
+
         // Trailer declares 3 records but one is a repeated header line that the
         // parser silently skips, so the run aborts before writing (finding #3).
         String badUri = "gs://landing/generic/customers/generic_customers_20260603.csv";
@@ -130,8 +140,15 @@ class IngestionRunnerIdempotencyTest {
                         "run-bad", "customers", badUri, "20260603", TARGET_TABLE)))
                 .isInstanceOf(ReconciliationMismatchException.class);
 
-        assertThat(warehouse.rowsIn(TARGET_TABLE)).isEmpty();
-        assertThat(warehouse.executedSql).isEmpty();
+        // The June-1 rows survive untouched...
+        assertThat(warehouse.rowsIn(TARGET_TABLE)).hasSize(2);
+        assertThat(warehouse.rowsIn(TARGET_TABLE))
+                .extracting(row -> row.get("customer_id"))
+                .containsExactlyInAnyOrder("cust-1", "cust-2");
+
+        // ...and the aborted run issued no DELETE at all, so it could not have
+        // removed anything on its way out.
+        assertThat(warehouse.executedSql).hasSize(sqlAfterGoodRun);
     }
 
     @Test
