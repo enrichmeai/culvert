@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.aws.athena;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -409,7 +410,8 @@ class AthenaWarehouseTest {
                 com.enrichmeai.culvert.schema.SchemaField.nullable("full_name", "STRING")));
 
         long loaded = warehouse.loadFromUri(
-                "s3://landing/staging/run-1/customers.csv", "odp.customers", schema);
+                "s3://landing/staging/run-1/customers.csv", "odp.customers", schema,
+                LoadOptions.append());
 
         assertThat(loaded).isEqualTo(7L);
         ArgumentCaptor<StartQueryExecutionRequest> captor =
@@ -448,7 +450,7 @@ class AthenaWarehouseTest {
                 List.of(com.enrichmeai.culvert.schema.SchemaField.nullable("id", "INT64")));
 
         assertThatThrownBy(() ->
-                warehouse.loadFromUri("s3://landing/run-2/x.csv", "odp.t", schema))
+                warehouse.loadFromUri("s3://landing/run-2/x.csv", "odp.t", schema, LoadOptions.append()))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("insert exploded");
 
@@ -473,7 +475,8 @@ class AthenaWarehouseTest {
                 com.enrichmeai.culvert.schema.SchemaField.nullable("full_name", "STRING")));
 
         long loaded = warehouse.loadFromUri(
-                "s3://staging-bucket/staging/customers/run-1.ndjson", "odp.customers", schema);
+                "s3://staging-bucket/staging/customers/run-1.ndjson", "odp.customers", schema,
+                LoadOptions.append());
 
         assertThat(loaded).isEqualTo(2L);
         ArgumentCaptor<StartQueryExecutionRequest> captor =
@@ -503,7 +506,7 @@ class AthenaWarehouseTest {
         EntitySchema schema = EntitySchema.of("customer",
                 List.of(com.enrichmeai.culvert.schema.SchemaField.nullable("id", "STRING")));
 
-        warehouse.loadFromUri("s3://landing/staging/run-3/", "odp.t", schema);
+        warehouse.loadFromUri("s3://landing/staging/run-3/", "odp.t", schema, LoadOptions.append());
 
         ArgumentCaptor<StartQueryExecutionRequest> captor =
                 ArgumentCaptor.forClass(StartQueryExecutionRequest.class);
@@ -515,9 +518,9 @@ class AthenaWarehouseTest {
     @Test
     void loadFromUriRejectsNullArguments() {
         EntitySchema schema = EntitySchema.of("customer", List.of());
-        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri(null, "t", schema));
-        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri("uri", null, schema));
-        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri("uri", "t", null));
+        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri(null, "t", schema, LoadOptions.append()));
+        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri("uri", null, schema, LoadOptions.append()));
+        assertThatNullPointerException().isThrownBy(() -> warehouse.loadFromUri("uri", "t", null, LoadOptions.append()));
     }
 
     // ------------------------------------------------------------------ //

@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.tester;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import org.mockito.Mockito;
 
@@ -43,7 +44,8 @@ public final class WarehouseFixtures {
         Mockito.when(mock.query(Mockito.anyString(), Mockito.anyMap()))
                 .thenAnswer(invocation -> Collections.emptyIterator());
         Mockito.when(mock.tableExists(Mockito.anyString())).thenReturn(false);
-        Mockito.when(mock.loadFromUri(Mockito.anyString(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(mock.loadFromUri(Mockito.anyString(), Mockito.anyString(), Mockito.any(),
+                        Mockito.any(LoadOptions.class)))
                 .thenReturn(0L);
         Mockito.when(mock.merge(Mockito.anyString(), Mockito.anyString(), Mockito.anyList()))
                 .thenReturn(0L);
@@ -85,7 +87,8 @@ public final class WarehouseFixtures {
         Warehouse mock = Mockito.mock(Warehouse.class);
         Mockito.when(mock.query(Mockito.anyString(), Mockito.anyMap())).thenThrow(error);
         Mockito.doThrow(error).when(mock).execute(Mockito.anyString(), Mockito.anyMap());
-        Mockito.when(mock.loadFromUri(Mockito.anyString(), Mockito.anyString(), Mockito.any()))
+        Mockito.when(mock.loadFromUri(Mockito.anyString(), Mockito.anyString(), Mockito.any(),
+                        Mockito.any(LoadOptions.class)))
                 .thenThrow(error);
         Mockito.when(mock.merge(Mockito.anyString(), Mockito.anyString(), Mockito.anyList()))
                 .thenThrow(error);

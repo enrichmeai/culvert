@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.tester;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import org.junit.jupiter.api.Test;
 
@@ -21,7 +22,7 @@ class WarehouseFixturesTest {
 
         assertThat(w.query("SELECT 1", Map.of()).hasNext()).isFalse();
         assertThat(w.tableExists("p.d.t")).isFalse();
-        assertThat(w.loadFromUri("gs://b/o", "p.d.t", null)).isZero();
+        assertThat(w.loadFromUri("gs://b/o", "p.d.t", null, LoadOptions.append())).isZero();
         assertThat(w.merge("src", "dst", List.of("id"))).isZero();
         assertThat(w.copy("src", "dst")).isZero();
     }

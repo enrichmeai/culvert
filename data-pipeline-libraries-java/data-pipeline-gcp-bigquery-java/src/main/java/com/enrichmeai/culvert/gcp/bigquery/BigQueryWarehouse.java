@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.gcp.bigquery;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import com.enrichmeai.culvert.schema.SchemaField;
@@ -139,18 +140,29 @@ public final class BigQueryWarehouse implements Warehouse {
     }
 
     @Override
-    public long loadFromUri(String uri, String targetTable, EntitySchema schema) {
+    public long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options) {
         Objects.requireNonNull(uri, "uri must not be null");
         Objects.requireNonNull(targetTable, "targetTable must not be null");
         Objects.requireNonNull(schema, "schema must not be null");
+        Objects.requireNonNull(options, "options must not be null");
 
         TableId tableId = parseFqtn(targetTable);
         Schema bqSchema = toBigQuerySchema(schema);
         FormatOptions format = guessFormat(uri);
 
+        // A partition-scoped write is expressed in BigQuery as a partition
+        // DECORATOR on the destination table id (`dataset.table$20260601`), not
+        // as a job setting — so WRITE_TRUNCATE against a decorated id replaces
+        // just that partition, while the same disposition against a bare id
+        // replaces the whole table.
+        if (options.targetPartition().isPresent()) {
+            tableId = withPartitionDecorator(tableId, options.targetPartition().get());
+        }
+
         LoadJobConfiguration loadConfig = LoadJobConfiguration.newBuilder(tableId, uri)
                 .setSchema(bqSchema)
                 .setFormatOptions(format)
+                .setWriteDisposition(toBigQueryDisposition(options.writeDisposition()))
                 .build();
 
         Job job = client.create(JobInfo.of(loadConfig));
@@ -158,6 +170,43 @@ public final class BigQueryWarehouse implements Warehouse {
         LoadStatistics stats = completed.getStatistics();
         Long outputRows = stats.getOutputRows();
         return outputRows == null ? 0L : outputRows;
+    }
+
+    /**
+     * Map Culvert's {@link LoadOptions.WriteDisposition} onto BigQuery's.
+     *
+     * <p>All three map exactly, so there is nothing to approximate here. The
+     * switch is deliberately exhaustive over the enum with no {@code default}
+     * branch: adding a disposition to the contract should fail this compile
+     * rather than fall through to {@code WRITE_APPEND}, which is the silent
+     * behaviour this whole parameter exists to eliminate.
+     */
+    private static JobInfo.WriteDisposition toBigQueryDisposition(
+            LoadOptions.WriteDisposition disposition) {
+        return switch (disposition) {
+            case APPEND -> JobInfo.WriteDisposition.WRITE_APPEND;
+            case TRUNCATE -> JobInfo.WriteDisposition.WRITE_TRUNCATE;
+            case ERROR_IF_EXISTS -> JobInfo.WriteDisposition.WRITE_EMPTY;
+        };
+    }
+
+    /**
+     * Append a BigQuery partition decorator ({@code table$20260601}) to a table id.
+     *
+     * <p>Validated rather than concatenated blindly: a malformed decorator is
+     * rejected by BigQuery as an obscure server-side error, and a silently
+     * mis-scoped {@code WRITE_TRUNCATE} would replace the wrong data. Accepts
+     * the day form ({@code YYYYMMDD}) plus the hour/month/year forms BigQuery
+     * allows for the corresponding partitioning granularities.
+     */
+    private static TableId withPartitionDecorator(TableId tableId, String partitionId) {
+        if (!partitionId.matches("\\d{4}|\\d{6}|\\d{8}|\\d{10}")) {
+            throw new IllegalArgumentException(
+                    "Invalid BigQuery partition id '" + partitionId + "'. Expected a partition "
+                            + "decorator: YYYY, YYYYMM, YYYYMMDD, or YYYYMMDDHH.");
+        }
+        return TableId.of(tableId.getProject(), tableId.getDataset(),
+                tableId.getTable() + "$" + partitionId);
     }
 
     @Override

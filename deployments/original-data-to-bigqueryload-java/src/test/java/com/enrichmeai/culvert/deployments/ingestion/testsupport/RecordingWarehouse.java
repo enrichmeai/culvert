@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.deployments.ingestion.testsupport;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import com.enrichmeai.culvert.schema.EntitySchema;
 
@@ -24,7 +25,7 @@ import java.util.function.LongUnaryOperator;
 public final class RecordingWarehouse implements Warehouse {
 
     /** One record per {@link #loadFromUri} call. */
-    public record LoadCall(String uri, String targetTable, EntitySchema schema) {
+    public record LoadCall(String uri, String targetTable, EntitySchema schema, LoadOptions options) {
     }
 
     public final List<LoadCall> loadCalls = new ArrayList<>();
@@ -48,8 +49,8 @@ public final class RecordingWarehouse implements Warehouse {
     }
 
     @Override
-    public long loadFromUri(String uri, String targetTable, EntitySchema schema) {
-        loadCalls.add(new LoadCall(uri, targetTable, schema));
+    public long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options) {
+        loadCalls.add(new LoadCall(uri, targetTable, schema, options));
         return rowCountOverride != null ? rowCountOverride.applyAsLong(0) : 0L;
     }
 

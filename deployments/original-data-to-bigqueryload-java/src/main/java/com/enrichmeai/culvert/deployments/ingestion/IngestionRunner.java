@@ -2,6 +2,7 @@ package com.enrichmeai.culvert.deployments.ingestion;
 
 import com.enrichmeai.culvert.contracts.BlobStore;
 import com.enrichmeai.culvert.contracts.JobControlRepository;
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import com.enrichmeai.culvert.dataquality.DataQualityTransform;
 import com.enrichmeai.culvert.dataquality.ValidationResult;
@@ -69,20 +70,42 @@ import java.util.function.Function;
  *       (mirrors {@code ParseAndValidateRecordDoFn}'s CSV split).</li>
  *   <li>Schema-validate each row via {@link DataQualityTransform} (mirrors
  *       {@code SchemaValidator} / {@code GenericRecordValidator}).</li>
- *   <li>Serialise valid rows as newline-delimited JSON to a staging blob, then
- *       bulk-load via {@link Warehouse#loadFromUri} (replaces the Python
- *       {@code WriteToBigQuery(method='STREAMING_INSERTS')} path — see
- *       {@code BigQueryWarehouse.loadFromUri},
- *       {@code data-pipeline-gcp-bigquery-java/.../BigQueryWarehouse.java:128-147}).</li>
  *   <li>Quarantine invalid rows (parse errors + schema violations) via
  *       {@link QuarantineHandler#writeFailures} (mirrors the Python error-table
  *       write, but via Culvert's dead-letter convention instead of a BigQuery
  *       error table).</li>
- *   <li>Reconcile the TRL's declared record count against the loaded row count
- *       (mirrors {@code ReconciliationEngine.reconcile_with_bigquery}).</li>
+ *   <li><strong>Reconcile before commit</strong> — declared count vs.
+ *       loaded-plus-quarantined. Abort here and the target table is untouched.</li>
+ *   <li>Serialise valid rows as newline-delimited JSON to a staging blob,
+ *       delete any rows a previous run of the same extract date left behind,
+ *       then bulk-load via {@link Warehouse#loadFromUri} (replaces the Python
+ *       {@code WriteToBigQuery(method='STREAMING_INSERTS')} path).</li>
+ *   <li>Check load integrity — staged rows vs. rows the warehouse says it took.</li>
  *   <li>Create/update the job-control record throughout (mirrors
  *       {@code JobControlRepository.create_job/update_status/mark_failed}).</li>
  * </ol>
+ *
+ * <h2>Two reconciliation checks, and why both must be terminal</h2>
+ * <p>Step 6 compares the envelope's declared count against what this run could
+ * account for — rows loaded plus rows quarantined (see
+ * {@link ReconciliationResult}). It runs <em>before</em> the target is written,
+ * so a source file whose records do not add up never half-lands.
+ *
+ * <p>Step 8 compares the rows handed to the warehouse against the count the
+ * warehouse reports back. These catch different faults and neither subsumes
+ * the other: a warehouse that silently drops rows sails through step 6.
+ *
+ * <p>Both throw {@link ReconciliationMismatchException}. They used to do
+ * neither — the mismatch was recorded with {@code markFailed} and then
+ * overwritten by {@code updateStatus(SUCCEEDED)} on the way out, so a load
+ * that did not reconcile ended green. See that exception's Javadoc.
+ *
+ * <h2>Re-running the same extract</h2>
+ * <p>Loading is idempotent per extract date: the run deletes anything a
+ * previous attempt at that {@code _extract_date} wrote before appending, so
+ * running the same extract twice leaves one copy of the data rather than two.
+ * {@link LoadOptions} makes the disposition explicit at the call site — the
+ * absence of one is what made the duplication silent.
  */
 public final class IngestionRunner {
 
@@ -150,6 +173,13 @@ public final class IngestionRunner {
             jobControlRepository.updateStatus(runId, JobStatus.SUCCEEDED,
                     Optional.of(result.loadedRowCount()));
             return result;
+        } catch (ReconciliationMismatchException e) {
+            // process() has already recorded the mismatch with its specific
+            // error code and stage. Re-marking here would replace that detail
+            // with a vaguer PIPELINE_FAILED, and falling through to the generic
+            // handler below is exactly how the original bug read as harmless.
+            // Rethrow untouched: the run is over, and it is not a success.
+            throw e;
         } catch (EnvelopeParseException e) {
             jobControlRepository.markFailed(runId, "ENVELOPE_VALIDATION_FAILURE", e.getMessage(),
                     FailureStage.VALIDATION, Optional.empty());
@@ -213,29 +243,12 @@ public final class IngestionRunner {
             }
         }
 
-        // 5. Stage valid rows to NDJSON and bulk-load into BigQuery — with the
-        // audit columns the downstream dbt models contract on. The Python
-        // reference injects these via AddAuditColumnsDoFn (transforms.py:107);
-        // the FDP staging/join models read _run_id/_extract_date/_processed_at,
-        // so omitting them loads rows that silently never join (caught by the
-        // first real e2e on GCP, 2026-07-10).
-        long loadedCount = 0L;
-        if (!validRows.isEmpty()) {
-            String extractDateIso = java.time.LocalDate.parse(
-                    request.extractDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE).toString();
-            String processedAt = java.time.Instant.now().toString();
-            for (Map<String, Object> row : validRows) {
-                row.put("_run_id", runId);
-                row.put("_extract_date", extractDateIso);
-                row.put("_processed_at", processedAt);
-            }
-            EntitySchema auditedSchema = withAuditColumns(schema);
-            String stagingUri = stagingPathPrefix + "/" + entity + "/" + runId + ".ndjson";
-            blobStore.put(stagingUri, toNdjson(validRows));
-            loadedCount = warehouse.loadFromUri(stagingUri, request.targetTable(), auditedSchema);
-        }
-
-        // 6. Quarantine invalid rows (schema violations + CSV parse errors).
+        // 5. Quarantine invalid rows (schema violations + CSV parse errors)
+        //    BEFORE the target is touched. Quarantining is not a commit — it
+        //    writes to the error bucket, never to the target table — and doing
+        //    it first means a run that is about to abort still leaves the
+        //    operator the evidence of WHY the counts did not add up.
+        int quarantinedCount = invalidRows.size() + parseErrors.size();
         List<FailedRowRecord> quarantineRecords = new ArrayList<>(
                 InvalidRowAdapter.adaptAll(invalidRows, Function.identity()));
         quarantineRecords.addAll(parseErrorsToFailedRowRecords(parseErrors));
@@ -246,19 +259,97 @@ public final class IngestionRunner {
             quarantineHandler.writeFailures(runId, quarantineRecords);
         }
 
-        // 7. Reconcile declared vs. loaded counts.
-        ReconciliationResult reconciliation =
-                new ReconciliationResult(envelope.trailer().recordCount(), loadedCount);
-        if (!reconciliation.isReconciled()) {
+        // 6. RECONCILE BEFORE COMMIT — is every declared record accounted for?
+        //    Loaded-or-quarantined is the test; see ReconciliationResult for
+        //    why quarantined rows count. A shortfall here means records went
+        //    missing during parsing without landing anywhere, so we abort with
+        //    the target table untouched rather than half-loading it and
+        //    discovering the problem afterwards with no way back.
+        ReconciliationResult accounting = new ReconciliationResult(
+                envelope.trailer().recordCount(), (long) validRows.size() + quarantinedCount);
+        if (!accounting.isReconciled()) {
             jobControlRepository.markFailed(runId, "RECONCILIATION_MISMATCH",
-                    "Expected " + reconciliation.expectedCount() + " rows, loaded "
-                            + reconciliation.actualCount(),
+                    "Envelope declared " + accounting.expectedCount() + " records but only "
+                            + accounting.accountedCount() + " were accounted for ("
+                            + validRows.size() + " valid, " + quarantinedCount
+                            + " quarantined). Target table not written.",
                     FailureStage.RECONCILIATION, Optional.empty());
+            throw new ReconciliationMismatchException(accounting);
+        }
+
+        // 7. Stage valid rows to NDJSON and bulk-load — with the audit columns
+        // the downstream dbt models contract on. The Python reference injects
+        // these via AddAuditColumnsDoFn (transforms.py:107); the FDP
+        // staging/join models read _run_id/_extract_date/_processed_at, so
+        // omitting them loads rows that silently never join (caught by the
+        // first real e2e on GCP, 2026-07-10).
+        long loadedCount = 0L;
+        String extractDateIso = java.time.LocalDate.parse(
+                request.extractDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE).toString();
+        if (!validRows.isEmpty()) {
+            String processedAt = java.time.Instant.now().toString();
+            for (Map<String, Object> row : validRows) {
+                row.put("_run_id", runId);
+                row.put("_extract_date", extractDateIso);
+                row.put("_processed_at", processedAt);
+            }
+            EntitySchema auditedSchema = withAuditColumns(schema);
+            String stagingUri = stagingPathPrefix + "/" + entity + "/" + runId + ".ndjson";
+            blobStore.put(stagingUri, toNdjson(validRows));
+
+            // Make the load idempotent: drop anything a previous attempt at
+            // THIS extract date already wrote, then append.
+            //
+            // Why delete-then-append rather than LoadOptions.truncatePartition:
+            // the ODP tables are partitioned on BUSINESS dates (customers on
+            // created_date, accounts on open_date -
+            // scripts/gcp/03_create_infrastructure.sh:117-129), not on
+            // _extract_date. One extract spans many business-date partitions,
+            // so there is no single partition that means "this extract" and a
+            // partition-scoped TRUNCATE cannot express the intent. A whole-table
+            // TRUNCATE would be worse - it would delete every other extract.
+            deletePriorLoadForExtract(request.targetTable(), extractDateIso);
+            loadedCount = warehouse.loadFromUri(stagingUri, request.targetTable(), auditedSchema,
+                    LoadOptions.append());
+        }
+
+        // 8. Post-load integrity: did the warehouse load everything we staged?
+        //    Distinct from step 6 and NOT redundant with it - step 6 checks the
+        //    source file against what we parsed, this checks what we handed the
+        //    warehouse against what it says it took. A load that silently drops
+        //    rows passes step 6 and fails here, and without this check it would
+        //    still end SUCCEEDED - the original bug, moved one step later.
+        ReconciliationResult loadIntegrity =
+                new ReconciliationResult(validRows.size(), loadedCount);
+        if (!loadIntegrity.isReconciled()) {
+            jobControlRepository.markFailed(runId, "LOAD_COUNT_MISMATCH",
+                    "Staged " + validRows.size() + " rows but the warehouse reported loading "
+                            + loadedCount + ".",
+                    FailureStage.LOAD, Optional.empty());
+            throw new ReconciliationMismatchException(loadIntegrity);
         }
 
         return new IngestionResult(
                 runId, entity, candidateRows.size(), validRows.size(),
-                invalidRows.size() + parseErrors.size(), loadedCount, reconciliation);
+                quarantinedCount, loadedCount, accounting);
+    }
+
+    /**
+     * Remove rows a previous run of the same extract date already wrote, so a
+     * re-run replaces rather than duplicates.
+     *
+     * <p>Keyed on {@code _extract_date} rather than {@code _run_id}: a retry
+     * gets a fresh {@code runId}, so deleting by run id would leave the failed
+     * attempt's rows in place and the retry would append a second copy - the
+     * exact duplication this exists to prevent.
+     *
+     * <p>Issued through {@link com.enrichmeai.culvert.contracts.Warehouse#execute}
+     * as plain parameterised SQL, so it stays within the cloud-neutral contract.
+     */
+    private void deletePriorLoadForExtract(String targetTable, String extractDateIso) {
+        warehouse.execute(
+                "DELETE FROM " + targetTable + " WHERE _extract_date = @extract_date",
+                Map.of("extract_date", extractDateIso));
     }
 
     private static List<FailedRowRecord> parseErrorsToFailedRowRecords(List<Map<String, Object>> parseErrors) {

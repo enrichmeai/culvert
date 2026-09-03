@@ -101,30 +101,37 @@ class IngestionRunnerTest {
         assertThat(result.validRowCount()).isEqualTo(1);
         assertThat(result.invalidRowCount()).isEqualTo(1);
         assertThat(result.loadedRowCount()).isEqualTo(1);
-        // The TRL declares 2 rows but only 1 was well-formed CSV and loaded — this is
-        // exactly the mismatch reconciliation exists to catch (mirrors the Python
-        // reference's reconciliation warning when quarantined rows reduce the loaded
-        // count below the envelope's declared total).
-        assertThat(result.reconciliation().isReconciled()).isFalse();
+
+        // The TRL declares 2 records: 1 loaded + 1 quarantined = 2 accounted for,
+        // so this RECONCILES. Reconciliation asks "did every declared record land
+        // somewhere?", not "did every declared record load" — a quarantined row
+        // has not vanished, it is sitting in the error bucket where an operator
+        // can read it. Counting only loaded rows would make every use of the
+        // quarantine path a reconciliation failure, which would mean the pipeline
+        // aborts precisely when it uses the mechanism built for not aborting.
+        assertThat(result.reconciliation().isReconciled()).isTrue();
         assertThat(result.reconciliation().expectedCount()).isEqualTo(2);
-        assertThat(result.reconciliation().actualCount()).isEqualTo(1);
+        assertThat(result.reconciliation().accountedCount()).isEqualTo(2);
 
         // Quarantine file was written.
         assertThat(blobStore.writtenUris()).anyMatch(uri -> uri.contains("/quarantine/run-2/"));
 
-        // markFailed called twice: once by QuarantineHandler for the parse-error
-        // quarantine, once for the resulting reconciliation mismatch.
-        assertThat(jobControlRepository.markFailedCalls).hasSize(2);
+        // One markFailed, from QuarantineHandler recording the quarantined row.
+        // No RECONCILIATION_MISMATCH: nothing went missing.
+        assertThat(jobControlRepository.markFailedCalls).hasSize(1);
         assertThat(jobControlRepository.markFailedCalls.get(0).errorCode())
                 .isEqualTo("DQ_VALIDATION_FAILURE");
         assertThat(jobControlRepository.markFailedCalls.get(0).failureStage())
                 .isEqualTo(FailureStage.VALIDATION);
-        assertThat(jobControlRepository.markFailedCalls.get(1).errorCode())
-                .isEqualTo("RECONCILIATION_MISMATCH");
-        assertThat(jobControlRepository.markFailedCalls.get(1).failureStage())
-                .isEqualTo(FailureStage.RECONCILIATION);
 
-        // Overall job still succeeds — invalid rows are quarantined, not fatal.
+        // Overall job succeeds — invalid rows are quarantined, not fatal.
+        //
+        // Note this run calls markFailed (the quarantine record) and then
+        // updateStatus(SUCCEEDED). That is the same write-ordering shape as the
+        // reconciliation bug, but here it is intended: the markFailed row is a
+        // per-row quarantine note, not a verdict on the run. Under an append-only
+        // job-control log (external review finding #4) both become visible events
+        // rather than one overwriting the other.
         assertThat(jobControlRepository.statusUpdates).extracting(
                 RecordingJobControlRepository.StatusUpdate::status)
                 .containsExactly(JobStatus.RUNNING, JobStatus.SUCCEEDED);
@@ -146,30 +153,79 @@ class IngestionRunnerTest {
         assertThat(blobStore.writtenUris()).anyMatch(uri -> uri.contains("/quarantine/run-3/"));
     }
 
+    /**
+     * Regression test for external review finding #1.
+     *
+     * <p>This method previously asserted the opposite — that a mismatch was
+     * recorded and the run still ended SUCCEEDED, mirroring the Python
+     * reference's reconciliation warning. That behaviour meant an
+     * {@code UPDATE … SET status} overwrote the failure that had just been
+     * written, so a load that did not reconcile reported green in the one place
+     * an operator would look. Parity with a permissive reference is not a
+     * reason to report a bad load as a good one.
+     *
+     * <p>Deliberately asserted against the CURRENT mutating
+     * {@link RecordingJobControlRepository}: the fix is in the runner's control
+     * flow, so it must hold regardless of whether job control is later made
+     * append-only. An append-only store alone would NOT fix this — SUCCEEDED
+     * appended after the failure still wins a newest-row-per-key read.
+     */
     @Test
-    void reconciliationMismatch_marksFailedButDoesNotThrow() {
+    void loadCountMismatch_failsTheRunAndNeverReportsSucceeded() {
         List<String> rows = List.of("cust-1,Ada,Lovelace,123-45-6789,1990-01-01,A,2020-01-01");
         seedSourceFile(rows);
-        // Warehouse reports fewer rows loaded than declared (0 instead of 1).
+        // The row parses and validates fine, so accounting reconciles — but the
+        // warehouse claims to have loaded 0 of the 1 row it was handed.
         warehouse.returnRowCount(0);
 
-        IngestionResult result = runner.run(new IngestionRequest(
-                "run-4", "customers", SOURCE_URI, "20260601", TARGET_TABLE));
+        assertThatThrownBy(() -> runner.run(new IngestionRequest(
+                "run-4", "customers", SOURCE_URI, "20260601", TARGET_TABLE)))
+                .isInstanceOf(ReconciliationMismatchException.class)
+                .hasMessageContaining("staged 0");
 
-        assertThat(result.reconciliation().isReconciled()).isFalse();
-        assertThat(result.reconciliation().expectedCount()).isEqualTo(1);
-        assertThat(result.reconciliation().actualCount()).isEqualTo(0);
+        assertThat(jobControlRepository.markFailedCalls)
+                .anyMatch(c -> c.errorCode().equals("LOAD_COUNT_MISMATCH")
+                        && c.failureStage() == FailureStage.LOAD);
+
+        // The point of the whole finding: SUCCEEDED must never be written.
+        assertThat(jobControlRepository.statusUpdates).extracting(
+                RecordingJobControlRepository.StatusUpdate::status)
+                .containsExactly(JobStatus.RUNNING)
+                .doesNotContain(JobStatus.SUCCEEDED);
+    }
+
+    /**
+     * The other half of finding #1: records that vanish during parsing — counted
+     * by the trailer, but neither loaded nor quarantined — must abort BEFORE the
+     * target table is written (finding #3, reconcile before commit).
+     *
+     * <p>A data line identical to the CSV header is skipped by
+     * {@link CsvRowParser} as a repeated header, so the trailer counts it and
+     * nothing else ever sees it. That is a silent drop, and it is exactly what
+     * the accounting check exists to catch.
+     */
+    @Test
+    void unaccountedRecords_abortBeforeTheTargetIsWritten() {
+        List<String> rows = List.of(
+                "cust-1,Ada,Lovelace,123-45-6789,1990-01-01,A,2020-01-01",
+                CSV_HEADER); // counted by the TRL, silently skipped by the parser
+        seedSourceFile(rows);
+
+        assertThatThrownBy(() -> runner.run(new IngestionRequest(
+                "run-4b", "customers", SOURCE_URI, "20260601", TARGET_TABLE)))
+                .isInstanceOf(ReconciliationMismatchException.class)
+                .hasMessageContaining("target table was NOT written");
 
         assertThat(jobControlRepository.markFailedCalls)
                 .anyMatch(c -> c.errorCode().equals("RECONCILIATION_MISMATCH")
                         && c.failureStage() == FailureStage.RECONCILIATION);
 
-        // Job control still marks the run as SUCCEEDED at the top level — reconciliation
-        // failure is recorded via markFailed but does not abort the run (mirrors the
-        // Python reference, which logs a reconciliation warning rather than raising).
+        // Reconcile-before-commit: nothing was handed to the warehouse at all.
+        assertThat(warehouse.loadCalls).isEmpty();
+
         assertThat(jobControlRepository.statusUpdates).extracting(
                 RecordingJobControlRepository.StatusUpdate::status)
-                .containsExactly(JobStatus.RUNNING, JobStatus.SUCCEEDED);
+                .doesNotContain(JobStatus.SUCCEEDED);
     }
 
     @Test
