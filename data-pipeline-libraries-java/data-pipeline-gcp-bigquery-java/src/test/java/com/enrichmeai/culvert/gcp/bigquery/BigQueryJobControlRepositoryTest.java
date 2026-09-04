@@ -12,6 +12,9 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.FieldValueList;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.TableResult;
@@ -29,6 +32,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -41,6 +46,11 @@ import static org.mockito.Mockito.when;
  * {@link ArgumentCaptor} and verifies key SQL substrings — the SQL is the
  * contract surface that ports the Python {@code repository.py} semantics, so
  * regressions there must fail the build.
+ *
+ * <p>Read methods go through {@code client.query}; writes go through
+ * {@code client.create(JobInfo)} + {@code Job.waitFor()}, because that is the
+ * only route to {@code QueryStatistics.getNumDmlAffectedRows()} — the number
+ * every conditional write is judged on. {@link #stubDml} stubs that chain.
  */
 @ExtendWith(MockitoExtension.class)
 class BigQueryJobControlRepositoryTest {
@@ -60,6 +70,54 @@ class BigQueryJobControlRepositoryTest {
         return new BigQueryJobControlRepository(client, PROJECT_ID, DATASET, TABLE);
     }
 
+    /** Stub create → waitFor → statistics so a DML statement reports {@code affected} rows. */
+    private void stubDml(long affected) throws InterruptedException {
+        QueryStatistics stats = mock(QueryStatistics.class);
+        when(stats.getNumDmlAffectedRows()).thenReturn(affected);
+        stubDmlWithStatistics(stats);
+    }
+
+    /** As {@link #stubDml} but with caller-chosen (possibly null) statistics. */
+    private void stubDmlWithStatistics(QueryStatistics stats) throws InterruptedException {
+        Job submitted = mock(Job.class);
+        Job completed = mock(Job.class);
+        when(submitted.waitFor()).thenReturn(completed);
+        when(completed.getStatistics()).thenReturn(stats);
+        when(client.create(any(JobInfo.class))).thenReturn(submitted);
+    }
+
+    /** The SQL of the single DML statement submitted via {@code client.create}. */
+    private String capturedDmlSql() {
+        ArgumentCaptor<JobInfo> captor = ArgumentCaptor.forClass(JobInfo.class);
+        verify(client).create(captor.capture());
+        QueryJobConfiguration config = captor.getValue().getConfiguration();
+        return config.getQuery();
+    }
+
+    /** A one-row {@link TableResult} standing in for a job in {@code status}. */
+    private void stubGetJobReturns(String status) throws InterruptedException {
+        Schema schema = Schema.of(
+                Field.of("run_id", com.google.cloud.bigquery.StandardSQLTypeName.STRING),
+                Field.of("system_id", com.google.cloud.bigquery.StandardSQLTypeName.STRING),
+                Field.of("pipeline_name", com.google.cloud.bigquery.StandardSQLTypeName.STRING),
+                Field.of("extract_date", com.google.cloud.bigquery.StandardSQLTypeName.DATE),
+                Field.of("status", com.google.cloud.bigquery.StandardSQLTypeName.STRING));
+        FieldValueList row = FieldValueList.of(List.of(
+                FieldValue.of(FieldValue.Attribute.PRIMITIVE, "run-1"),
+                FieldValue.of(FieldValue.Attribute.PRIMITIVE, "system-A"),
+                FieldValue.of(FieldValue.Attribute.PRIMITIVE, "customer-ingest"),
+                FieldValue.of(FieldValue.Attribute.PRIMITIVE, "2026-01-15"),
+                FieldValue.of(FieldValue.Attribute.PRIMITIVE, status)), schema.getFields());
+        when(emptyResult.iterateAll()).thenReturn(List.of(row));
+        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+    }
+
+    /** An empty {@link TableResult} — the run has no job-control row at all. */
+    private void stubGetJobReturnsNothing() throws InterruptedException {
+        when(emptyResult.iterateAll()).thenReturn(List.of());
+        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+    }
+
     private PipelineJob sampleJob() {
         return PipelineJob.builder(
                         "run-1", "system-A", "customer-ingest",
@@ -73,20 +131,32 @@ class BigQueryJobControlRepositoryTest {
     // --- createJob ---------------------------------------------------------
 
     @Test
-    void createJobIssuesInsertWithAllColumns() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+    void createJobMergesInsertIfAbsentWithAllColumns() throws InterruptedException {
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.createJob(sampleJob());
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
-        assertThat(sql).contains("INSERT INTO " + FQTN);
+        String sql = capturedDmlSql();
+        assertThat(sql).contains("MERGE INTO " + FQTN);
+        assertThat(sql).contains("ON T.run_id = S.run_id");
+        assertThat(sql).contains("WHEN NOT MATCHED THEN INSERT");
         assertThat(sql).contains("run_id", "system_id", "pipeline_name",
                 "extract_date", "status", "job_type");
         assertThat(sql).contains("CURRENT_TIMESTAMP()");
+    }
+
+    /** AC1: createJob is insert-if-absent and fails if the runId already exists. */
+    @Test
+    void createJobRejectsARunIdThatAlreadyExists() throws InterruptedException {
+        // MERGE matched the existing row, so WHEN NOT MATCHED did not fire.
+        stubDml(0L);
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.createJob(sampleJob()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("run-1")
+                .hasMessageContaining("already exists");
     }
 
     // --- getJob ------------------------------------------------------------
@@ -148,67 +218,146 @@ class BigQueryJobControlRepositoryTest {
 
     @Test
     void updateStatusRunningStampsStartedAt() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.updateStatus("run-1", JobStatus.RUNNING, Optional.empty());
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("UPDATE " + FQTN);
         assertThat(sql).contains("started_at = CURRENT_TIMESTAMP()");
     }
 
     @Test
     void updateStatusSucceededStampsCompletedAtAndRecordCount() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.updateStatus("run-1", JobStatus.SUCCEEDED, Optional.of(5_000L));
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("completed_at = CURRENT_TIMESTAMP()");
         assertThat(sql).contains("record_count = @record_count");
+    }
+
+    /**
+     * AC2: the expected prior states are in the statement, not merely checked
+     * for row existence. RUNNING may only be entered from CREATED or RETRYING.
+     */
+    @Test
+    void updateStatusGuardsOnTheExpectedPriorStates() throws InterruptedException {
+        stubDml(1L);
+        BigQueryJobControlRepository repo = newRepo();
+
+        repo.updateStatus("run-1", JobStatus.RUNNING, Optional.empty());
+
+        ArgumentCaptor<JobInfo> captor = ArgumentCaptor.forClass(JobInfo.class);
+        verify(client).create(captor.capture());
+        QueryJobConfiguration config = captor.getValue().getConfiguration();
+        assertThat(config.getQuery())
+                .contains("WHERE run_id = @run_id AND status IN (@prior_0, @prior_1)");
+        assertThat(config.getNamedParameters().get("prior_0").getValue())
+                .isEqualTo(JobStatus.CREATED.getValue());
+        assertThat(config.getNamedParameters().get("prior_1").getValue())
+                .isEqualTo(JobStatus.RETRYING.getValue());
+    }
+
+    /** AC5: a transition from the wrong prior state is rejected, and says so. */
+    @Test
+    void updateStatusRejectsATransitionFromTheWrongPriorState() throws InterruptedException {
+        stubDml(0L);
+        stubGetJobReturns("succeeded");
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.updateStatus("run-1", JobStatus.RUNNING, Optional.empty()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("run-1")
+                .hasMessageContaining("SUCCEEDED")
+                .hasMessageContaining("expected one of");
+    }
+
+    /** AC5: a transition against no row at all is rejected — distinctly. */
+    @Test
+    void updateStatusRejectsATransitionAgainstAMissingRow() throws InterruptedException {
+        stubDml(0L);
+        stubGetJobReturnsNothing();
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.updateStatus("run-1", JobStatus.SUCCEEDED, Optional.of(1L)))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no job with runId=run-1");
+    }
+
+    /** CREATED is not reachable by transition — a job enters it via createJob. */
+    @Test
+    void updateStatusRejectsCreatedAsATransitionTarget() {
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.updateStatus("run-1", JobStatus.CREATED, Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("not a transition target");
     }
 
     // --- markFailed --------------------------------------------------------
 
     @Test
     void markFailedSetsErrorContextAndFailedStatus() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.markFailed("run-1", "E001", "schema mismatch",
                 FailureStage.VALIDATION, Optional.of("gs://errors/run-1.json"));
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("UPDATE " + FQTN);
         assertThat(sql).contains("error_code = @error_code", "error_message = @error_message",
                 "failure_stage = @failure_stage", "error_file_path = @error_file_path");
+        // FAILED -> FAILED is deliberate: QuarantineHandler marks a run failed,
+        // then the ingestion runner's reconciliation check can mark it again.
+        assertThat(sql).contains("AND status IN (@prior_0, @prior_1, @prior_2, @prior_3)");
+    }
+
+    /** AC5: a run that already SUCCEEDED cannot be re-marked failed. */
+    @Test
+    void markFailedRejectsARunThatAlreadySucceeded() throws InterruptedException {
+        stubDml(0L);
+        stubGetJobReturns("succeeded");
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.markFailed("run-1", "E001", "too late",
+                FailureStage.VALIDATION, Optional.empty()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SUCCEEDED");
     }
 
     // --- markRetrying ------------------------------------------------------
 
     @Test
     void markRetryingUpdatesStatusAndCounter() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.markRetrying("run-1", 3);
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("retry_count = @retry_count");
+        assertThat(sql).contains("AND status IN (@prior_0, @prior_1, @prior_2)");
+    }
+
+    /**
+     * AC5, and the point of the whole story: retrying a run that already
+     * SUCCEEDED is how a re-run duplicates data. It is rejected.
+     */
+    @Test
+    void markRetryingRejectsARunThatAlreadySucceeded() throws InterruptedException {
+        stubDml(0L);
+        stubGetJobReturns("succeeded");
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SUCCEEDED")
+                .hasMessageContaining("expected one of");
     }
 
     @Test
@@ -313,51 +462,75 @@ class BigQueryJobControlRepositoryTest {
 
     // --- cleanupPartialLoad ------------------------------------------------
 
+    /**
+     * AC3 / issue #99: the count comes from the DML statement's
+     * {@code numDmlAffectedRows}, not from {@code TableResult.getTotalRows()},
+     * which describes a result set a DELETE does not have.
+     */
     @Test
-    void cleanupPartialLoadDeletesByRunId() throws InterruptedException {
-        when(emptyResult.getTotalRows()).thenReturn(42L);
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+    void cleanupPartialLoadReturnsTheRowsTheDeleteActuallyRemoved() throws InterruptedException {
+        stubDml(42L);
         BigQueryJobControlRepository repo = newRepo();
 
         int deleted = repo.cleanupPartialLoad("run-1", "my-project.warehouse.customers");
 
         assertThat(deleted).isEqualTo(42);
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("DELETE FROM `my-project.warehouse.customers`");
         assertThat(sql).contains("WHERE _run_id = @run_id");
+    }
+
+    /** Deleting nothing is a legitimate outcome, not a failure. */
+    @Test
+    void cleanupPartialLoadReturnsZeroWhenNothingWasPartiallyLoaded()
+            throws InterruptedException {
+        stubDml(0L);
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThat(repo.cleanupPartialLoad("run-1", "my-project.warehouse.customers"))
+                .isZero();
     }
 
     // --- updateCostMetrics -------------------------------------------------
 
     @Test
     void updateCostMetricsSetsAllThreeFinOpsFields() throws InterruptedException {
-        when(client.query(any(QueryJobConfiguration.class))).thenReturn(emptyResult);
+        stubDml(1L);
         BigQueryJobControlRepository repo = newRepo();
 
         repo.updateCostMetrics("run-1", 12.34, 1_000_000L, 500_000L);
 
-        ArgumentCaptor<QueryJobConfiguration> captor =
-                ArgumentCaptor.forClass(QueryJobConfiguration.class);
-        verify(client).query(captor.capture());
-        String sql = captor.getValue().getQuery();
+        String sql = capturedDmlSql();
         assertThat(sql).contains("estimated_cost_usd = @cost");
         assertThat(sql).contains("billed_bytes_scanned = @scanned");
         assertThat(sql).contains("billed_bytes_written = @written");
     }
 
+    /** Not a status transition, but still conditional: the row must exist. */
+    @Test
+    void updateCostMetricsRejectsAMissingRow() throws InterruptedException {
+        stubDml(0L);
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.updateCostMetrics("run-1", 1.0, 1L, 1L))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no job with runId=run-1");
+        // It is not a transition, so it does not pay for the disambiguating read.
+        verify(client, never()).query(any(QueryJobConfiguration.class));
+    }
+
     // --- error path --------------------------------------------------------
 
+    /** Read path (client.query): interruption is rewrapped, flag restored. */
     @Test
-    void interruptedExceptionIsRewrappedAndInterruptFlagRestored() throws InterruptedException {
+    void interruptedExceptionOnAReadIsRewrappedAndInterruptFlagRestored()
+            throws InterruptedException {
         when(client.query(any(QueryJobConfiguration.class)))
                 .thenThrow(new InterruptedException("test"));
         BigQueryJobControlRepository repo = newRepo();
 
         try {
-            assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
+            assertThatThrownBy(() -> repo.getJob("run-1"))
                     .isInstanceOf(RuntimeException.class)
                     .hasMessageContaining("interrupted");
             assertThat(Thread.currentThread().isInterrupted()).isTrue();
@@ -367,13 +540,69 @@ class BigQueryJobControlRepositoryTest {
         }
     }
 
+    /** Write path (Job.waitFor): same guarantee. */
     @Test
-    void bigQueryExceptionPropagates() throws InterruptedException {
+    void interruptedExceptionOnAWriteIsRewrappedAndInterruptFlagRestored()
+            throws InterruptedException {
+        Job submitted = mock(Job.class);
+        when(submitted.waitFor()).thenThrow(new InterruptedException("test"));
+        when(client.create(any(JobInfo.class))).thenReturn(submitted);
+        BigQueryJobControlRepository repo = newRepo();
+
+        try {
+            assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("interrupted");
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
+    void bigQueryExceptionOnAReadPropagates() throws InterruptedException {
         when(client.query(any(QueryJobConfiguration.class)))
+                .thenThrow(new BigQueryException(500, "boom"));
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.getJob("run-1"))
+                .isInstanceOf(BigQueryException.class);
+    }
+
+    @Test
+    void bigQueryExceptionOnAWritePropagates() {
+        when(client.create(any(JobInfo.class)))
                 .thenThrow(new BigQueryException(500, "boom"));
         BigQueryJobControlRepository repo = newRepo();
 
         assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
                 .isInstanceOf(BigQueryException.class);
+    }
+
+    /**
+     * An unverifiable write is the defect this story exists to remove, so a
+     * missing affected-row statistic fails loudly rather than being read as
+     * success.
+     */
+    @Test
+    void missingDmlStatisticsIsAHardFailure() throws InterruptedException {
+        stubDmlWithStatistics(null);
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("did not report DML affected rows");
+    }
+
+    @Test
+    void aNullAffectedRowCountIsAHardFailure() throws InterruptedException {
+        QueryStatistics stats = mock(QueryStatistics.class);
+        when(stats.getNumDmlAffectedRows()).thenReturn(null);
+        stubDmlWithStatistics(stats);
+        BigQueryJobControlRepository repo = newRepo();
+
+        assertThatThrownBy(() -> repo.markRetrying("run-1", 1))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("did not report DML affected rows");
     }
 }
