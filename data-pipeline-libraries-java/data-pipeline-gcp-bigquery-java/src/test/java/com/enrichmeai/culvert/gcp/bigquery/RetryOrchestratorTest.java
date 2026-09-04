@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
  *   <li>Re-running an already-RETRYING job does NOT double-increment the counter</li>
  *   <li>No-target-table job still transitions to RETRYING (cleanup step skipped)</li>
  *   <li>{@code IllegalStateException} when run not found</li>
+ *   <li>A run that is not retryable (e.g. SUCCEEDED) is rejected with nothing deleted</li>
  * </ul>
  *
  * <p>Sprint-14 deliverable for issue
@@ -58,6 +59,15 @@ class RetryOrchestratorTest {
     private PipelineJob failedJobNoTable(int retryCount) {
         return PipelineJob.builder(RUN_ID, "system-A", "customer-ingest", EXTRACT_DATE, JobStatus.FAILED)
                 .jobType(JobType.INGESTION)
+                .retryCount(retryCount)
+                .build();
+    }
+
+    private PipelineJob succeededJobWithTable(int retryCount) {
+        return PipelineJob.builder(RUN_ID, "system-A", "customer-ingest", EXTRACT_DATE,
+                        JobStatus.SUCCEEDED)
+                .jobType(JobType.INGESTION)
+                .targetTable(TABLE_ID)
                 .retryCount(retryCount)
                 .build();
     }
@@ -174,6 +184,32 @@ class RetryOrchestratorTest {
         assertThatThrownBy(() -> new RetryOrchestrator(repo).prepareRetry(RUN_ID))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining(RUN_ID);
+    }
+
+    // -------------------------------------------------------------------------
+    // Error case: the run is not retryable — and nothing is deleted
+    // -------------------------------------------------------------------------
+
+    /**
+     * The eligibility check must come before the deletion. markRetrying would
+     * reject a SUCCEEDED run anyway now that it is compare-and-set, but by then
+     * cleanupPartialLoad would already have deleted the rows that run
+     * legitimately loaded — an emptied table behind a job record still reading
+     * SUCCEEDED.
+     */
+    @Test
+    void prepareRetry_succeededJob_throwsAndDeletesNothing() {
+        when(repo.getJob(RUN_ID)).thenReturn(Optional.of(succeededJobWithTable(0)));
+
+        assertThatThrownBy(() -> new RetryOrchestrator(repo).prepareRetry(RUN_ID))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("SUCCEEDED")
+                .hasMessageContaining("Nothing was deleted");
+
+        verify(repo, never()).cleanupPartialLoad(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyString());
+        verify(repo, never()).markRetrying(org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt());
     }
 
     // -------------------------------------------------------------------------

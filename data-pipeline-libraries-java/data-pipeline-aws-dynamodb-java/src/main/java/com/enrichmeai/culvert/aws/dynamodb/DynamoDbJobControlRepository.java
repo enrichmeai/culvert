@@ -32,20 +32,26 @@ import java.util.Optional;
 /**
  * {@link JobControlRepository} implementation backed by Amazon DynamoDB.
  *
- * <p><b>Why this module is strategically important:</b> the BigQuery adapter
- * ({@code BigQueryJobControlRepository}) implements every status transition as
- * a plain {@code UPDATE ... WHERE run_id = @run_id} statement. BigQuery has no
- * compare-and-swap primitive, so two concurrent callers racing to, say,
- * {@code markFailed} and {@code updateStatus(..., SUCCEEDED, ...)} the same run
- * can both "succeed" — the last writer wins silently. DynamoDB's
+ * <p><b>Why this module is in the adapter family:</b> DynamoDB's
  * {@code PutItem}/{@code UpdateItem} APIs accept a
  * {@code ConditionExpression} that is evaluated atomically against the
  * server-side item state as part of the same request: the write either
  * commits or is rejected with {@link software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException},
- * with no window for a concurrent writer to interleave. That is a genuine
- * transactional control plane the BigQuery implementation structurally cannot
- * offer, and it is the reason DynamoDB is in the adapter family at all
+ * with no window for a concurrent writer to interleave
  * (Sprint-21, epic #144, issue #148 / T21.4).
+ *
+ * <p><b>Where this adapter currently stands against BigQuery.</b> An earlier
+ * version of this javadoc claimed the BigQuery adapter "structurally cannot"
+ * offer a conditional write. That is no longer true, and the comparison now
+ * runs the other way. As of Sprint 23 (story 1.3)
+ * {@code BigQueryJobControlRepository} guards every transition on the
+ * <em>observed prior state</em> — {@code UPDATE ... WHERE run_id = @run_id AND
+ * status IN (...)}, rejected when it matches no row. This adapter's condition
+ * is only {@code attribute_exists(run_id)}: it proves the run exists, not that
+ * it is in a state the transition may legally leave, and two concurrent writers
+ * racing the same transition both satisfy it. Bringing this adapter up to
+ * prior-state conditions is open follow-up work, not something story 1.3
+ * changed.
  *
  * <h2>Table schema</h2>
  *
@@ -104,7 +110,9 @@ import java.util.Optional;
  *       {@code ConditionExpression = "attribute_exists(run_id)"}: refuses to
  *       create a partial item out of thin air if the run doesn't exist yet,
  *       which is exactly the failure mode an unconditional {@code UpdateItem}
- *       (an upsert by default) would allow.</li>
+ *       (an upsert by default) would allow. Note the limit: existence only.
+ *       A transition from a state it may not legally leave still passes
+ *       here, and two concurrent writers both satisfy the condition.</li>
  * </ul>
  *
  * <p>These are per-item conditional writes, not {@code TransactWriteItems} —
