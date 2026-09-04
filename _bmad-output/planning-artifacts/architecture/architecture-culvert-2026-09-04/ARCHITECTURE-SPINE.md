@@ -5,7 +5,7 @@ purpose: build-substrate
 altitude: epic
 paradigm: 'Event sourcing with a latest-state projection, behind Culvert''s existing ports-and-adapters contracts'
 scope: 'Everything that writes or reads job_control: the audit model (docs/CONTRACT.md §4/§5/§6), JobControlRepository across all three clouds, the provisioning DDL, and every consumer'
-status: draft
+status: final
 created: '2026-09-04'
 updated: '2026-09-04'
 binds: ['story-1.4', 'story-1.6', 'review-finding-4', 'review-finding-12', 'review-finding-13']
