@@ -139,3 +139,29 @@ so it currently resolves to `NoOpLineageEmitter` — it has emitted nothing for 
 
 **Files:** `data-pipeline-gcp-observability-java/.../DataCatalogLineageEmitter.java` (+ rename), its test, its service file
 **Verify:** `mvn -o -pl data-pipeline-libraries-java/data-pipeline-gcp-observability-java -am test`
+
+---
+
+## Story 1.6 — The BigQuery audit sink has been writing to a table that does not exist
+
+**Found while working Story 1.4. Not dispatched — new scope goes in the backlog, not mid-sprint.**
+
+**As** an operator relying on the audit trail,
+**I want** audit writes to reach a real table and fail loudly when they don't,
+**so that** "we have an audit trail" is a true statement.
+
+**The defect.** `BigQueryAuditEventPublisher` defaults to dataset `audit`, table `audit_events`
+(`BigQueryAuditEventPublisher.java:93,:96`). The repo provisions neither: infrastructure creates
+`job_control.audit_trail` (`scripts/gcp/03_create_infrastructure.sh:180`). Every write therefore
+fails — and the failure is caught and logged at WARN with the message *"audit error swallowed"*
+(`BigQueryAuditEventPublisher.java:238-243`). So GCP audit has been silently dark, in the same
+shape as the lineage emitter in Story 1.5: an adapter that advertises a capability, emits
+nothing, and never raises.
+
+**Acceptance criteria**
+1. Publisher and provisioned infrastructure agree on one dataset and table — decide which is canonical and change the other.
+2. A write failure is no longer swallowed unconditionally; audit loss is surfaced (fail fast, or a metric plus an ERROR, per an explicit call recorded in the PR).
+3. A test asserts the configured target matches what `03_create_infrastructure.sh` and the Terraform provision.
+4. `auditFailures` is exposed somewhere an operator can actually see it.
+
+**Depends on:** Story 1.4's reconciliation decision, since it may change the record shape.
