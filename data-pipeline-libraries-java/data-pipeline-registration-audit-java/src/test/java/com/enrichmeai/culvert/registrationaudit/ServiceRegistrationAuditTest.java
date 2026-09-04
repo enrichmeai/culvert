@@ -72,6 +72,17 @@ class ServiceRegistrationAuditTest {
     /** Only Culvert contract registrations are in scope. */
     private static final String CONTRACT_PREFIX = "com.enrichmeai.culvert.contracts.";
 
+    /**
+     * Appended wherever the audit tells someone to add a module to its classpath, because
+     * for one module that advice does not work and the wall is worth naming in advance.
+     */
+    private static final String ADD_DEPENDENCY_CAVEAT =
+            "Note: data-pipeline-gcp-dataflow cannot simply be added — it pulls Beam's GCP "
+            + "IO closure (bigtable, firestore, spanner, pubsublite) in at versions no "
+            + "module has ever built with, which does not resolve under the `mvn -o` this "
+            + "project verifies with. If a Dataflow-module registration ever needs "
+            + "auditing, that resolution has to be solved first.";
+
     /** Directories that never contain source-of-truth registrations. */
     private static final Set<String> PRUNED = Set.of(
             "target", ".git", ".claude", "node_modules", ".venv", "venv", "build");
@@ -119,14 +130,22 @@ class ServiceRegistrationAuditTest {
                         + " — the class is abstract or an interface; it cannot be instantiated.");
                 continue;
             }
-            if (!hasProviderConstructor(impl) && !hasStaticProviderMethod(impl)) {
-                problems.add(registration.location()
+            switch (providerVerdict(impl)) {
+                case CONSTRUCTABLE -> { /* the good case */ }
+                case NOT_CONSTRUCTABLE -> problems.add(registration.location()
                         + " — no public no-arg constructor and no public static provider() "
                         + "method, so ServiceLoader raises ServiceConfigurationError on every "
                         + "discovery pass. Either give it a constructor that can honestly "
                         + "self-configure from the environment, or withdraw the registration "
                         + "and record why in the service file (see the gcp-observability "
                         + "LineageEmitter file for the precedent).");
+                case UNVERIFIABLE -> problems.add(registration.location()
+                        + " — COULD NOT BE VERIFIED: resolving this class's constructors needs "
+                        + "a parameter type that is missing from the audit's classpath, so the "
+                        + "audit cannot tell whether a no-arg constructor exists. This is a "
+                        + "failure, not a pass: add the module supplying that type to "
+                        + "data-pipeline-registration-audit-java's test dependencies. "
+                        + ADD_DEPENDENCY_CAVEAT);
             }
         }
 
@@ -172,7 +191,8 @@ class ServiceRegistrationAuditTest {
                         + "). If the owning module is new, add it as a <scope>test</scope> "
                         + "dependency of data-pipeline-registration-audit-java so its "
                         + "registrations are checked instead of skipped. If the class was "
-                        + "renamed or deleted, the service file is stale.");
+                        + "renamed or deleted, the service file is stale. "
+                        + ADD_DEPENDENCY_CAVEAT);
             }
         }
 
@@ -243,38 +263,44 @@ class ServiceRegistrationAuditTest {
     }
 
     /**
-     * ServiceLoader's provider constructor: public, no arguments. {@code getConstructor}
-     * returns public constructors only, which is exactly the accessibility ServiceLoader
-     * requires.
+     * Whether a class offers ServiceLoader something to construct — and, crucially, a
+     * third answer for "the audit could not tell".
+     *
+     * <p>The third state is not fussiness. {@code getConstructor()} resolves the parameter
+     * types of <em>every</em> public constructor, so a class whose only constructor takes a
+     * type missing from this classpath raises {@link NoClassDefFoundError} — the same
+     * outcome as a class with no no-arg constructor at all. Collapsing that into "fine"
+     * would let exactly the defect this module exists to catch pass in silence, and
+     * collapsing it into {@code NOT_CONSTRUCTABLE} would print a diagnosis the audit has
+     * not actually made. So it is reported as its own failure, with its own remedy.
      */
-    private static boolean hasProviderConstructor(Class<?> impl) {
-        try {
-            Constructor<?> ctor = impl.getConstructor();
-            return Modifier.isPublic(ctor.getModifiers());
-        } catch (NoSuchMethodException e) {
-            return false;
-        } catch (NoClassDefFoundError e) {
-            // A sibling constructor's parameter type is missing from the audit classpath.
-            // Not this audit's business to fail on; the class itself resolved.
-            return true;
-        }
-    }
+    private enum ProviderVerdict { CONSTRUCTABLE, NOT_CONSTRUCTABLE, UNVERIFIABLE }
 
-    /**
-     * The other shape ServiceLoader accepts (JDK 9+): a public static {@code provider()}
-     * method, which takes precedence over the constructor when present. No adapter uses
-     * it today; accepting it keeps the audit honest about what ServiceLoader really does
-     * rather than about what this codebase happens to do.
-     */
-    private static boolean hasStaticProviderMethod(Class<?> impl) {
+    private static ProviderVerdict providerVerdict(Class<?> impl) {
+        // JDK 9+ ServiceLoader prefers a public static provider() method when present.
+        // No adapter uses it today; honouring it keeps the audit true to what
+        // ServiceLoader does rather than to what this codebase happens to do.
         try {
             Method provider = impl.getDeclaredMethod("provider");
-            return Modifier.isPublic(provider.getModifiers())
-                    && Modifier.isStatic(provider.getModifiers());
+            if (Modifier.isPublic(provider.getModifiers())
+                    && Modifier.isStatic(provider.getModifiers())) {
+                return ProviderVerdict.CONSTRUCTABLE;
+            }
         } catch (NoSuchMethodException e) {
-            return false;
+            // Fall through to the constructor check - the ordinary case.
         } catch (NoClassDefFoundError e) {
-            return false;
+            return ProviderVerdict.UNVERIFIABLE;
+        }
+
+        try {
+            Constructor<?> ctor = impl.getConstructor();
+            return Modifier.isPublic(ctor.getModifiers())
+                    ? ProviderVerdict.CONSTRUCTABLE
+                    : ProviderVerdict.NOT_CONSTRUCTABLE;
+        } catch (NoSuchMethodException e) {
+            return ProviderVerdict.NOT_CONSTRUCTABLE;
+        } catch (NoClassDefFoundError e) {
+            return ProviderVerdict.UNVERIFIABLE;
         }
     }
 

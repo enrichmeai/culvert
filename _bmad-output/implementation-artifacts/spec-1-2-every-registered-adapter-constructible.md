@@ -43,6 +43,7 @@ variables no deployment sets in order to manufacture a green.
 | Adapter with no no-arg ctor | Fails the audit, naming the file, the class and both remedies. |
 | Registered class not on the audit's classpath | Fails, telling the author to add the module as a test dependency. |
 | Registered class that does not implement its contract | Fails, naming the contract. |
+| Constructors unresolvable (a parameter type missing from the audit classpath) | Fails as UNVERIFIABLE — never a silent pass. |
 | Comment-only service file (a withdrawal) | Parses as zero registrations. |
 | Repo root not locatable | Fails loudly rather than walking nothing and passing. |
 
@@ -132,6 +133,42 @@ branch.
 throwing rather than by `ProviderAvailability`. Story 1.1 flagged that migration as separate
 follow-up and this story does not change it; the audit passes them because their constructors
 exist, which is the correct structural verdict.
+
+**Docs deliberately left unchanged (DoD 5).** `docs/framework-evolution/10-architecture.md:114`
+and `CHANGELOG.md:63` both list adapters that *exist* (`BlobStore | GcsBlobStore, S3BlobStore,
+AzureBlobStore`), not adapters that are auto-discoverable. Withdrawing a registration does not
+delete a class, so both stay true and neither was edited. Worth noting for whoever reads that
+table next: `10-architecture.md` was already stale before this story — it shows
+`LineageEmitter | DataCatalogLineageEmitter | OK` although Story 1.5 removed that registration,
+and `AuditEventPublisher | — | planned` although `BigQueryAuditEventPublisher` exists and
+registers. It reads as a Sprint-14-era snapshot ("After Sprint 14, all 16 contract
+interfaces..."), and CLAUDE.md names 01-08 as the canonical plan, so it is not this story's to
+rewrite — but it should not be read as current truth.
+
+**`reference-e2e-gcp` — analysed, not merely assumed.** That module has `gcp-bigquery` at
+compile scope and registers `RecordingFinOpsSink` in its test resources, so making
+`BigQueryFinOpsSink` constructable creates a second `FinOpsSink` candidate there — and since
+Story 1.1, `finOpsSink()` fails fast on two available providers with no selector
+(`AutoConfig.java:357-362`). Measured: the module runs 16 tests (1 skipped), byte-identical
+before and after. To rule out a lucky pass I re-ran `ReferenceE2ECostTest` with
+`-DargLine="-Dculvert.finopssink.provider=NoSuchProviderAnywhere"`, a selector that matches
+nothing and therefore *must* throw wherever `finOpsSink()` is reached — it still passed, so
+that path is not exercised by this module's surefire tests (they build their context with
+`DefaultRuntimeContext.builder`, not `fromAutoConfig`).
+
+*Flagged for the architect:* the risk is real on paths that genuinely rebuild the transient
+registry — `DefaultRuntimeContext.registry()` (`:133-147`) calls `fromAutoConfig` -> 
+`finOpsSink()` — i.e. a real Dataflow worker, or `mvn -P it verify`. It only fires where
+`FINOPS_DATASET` is set *and* a project resolves, since otherwise the constructor throws and
+Story 1.1 records it as a `DiscoveryFailure` rather than a candidate. This is the same
+"known consequence, accepted" shape Story 1.1 recorded for the two observability hooks.
+I did not run `mvn -P it verify` (Docker; architect-run).
+
+**Untestable offline, flagged:** `maven.deploy.skip` is honoured by maven-deploy-plugin, but
+the parent's `release` profile wires `central-publishing-maven-plugin` with
+`<extensions>true</extensions>`, which has its own `skipPublishing` switch. Whether the audit
+module is excluded from a Central publish should be confirmed on the next `mvn -P release`
+dry run rather than assumed from `maven.deploy.skip` alone.
 
 **Story text nit:** Story 1.2's acceptance criteria are misnumbered — "5. Scope" appears before
 "4. The test fails if a future module...". Cosmetic; both were implemented.
