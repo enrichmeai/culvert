@@ -28,7 +28,7 @@ Pulls in `data-pipeline-core` (the contracts) plus `google-cloud-bigquery` (vers
 public interface Warehouse {
     Iterator<Map<String, Object>> query(String sql, Map<String, Object> params);
     void execute(String sql, Map<String, Object> params);
-    long loadFromUri(String uri, String targetTable, EntitySchema schema);
+    long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options);
     long merge(String sourceTable, String targetTable, List<String> keys);
     long copy(String sourceTable, String targetTable);
     boolean tableExists(String fqtn);
@@ -41,7 +41,7 @@ public interface Warehouse {
 |---|---|
 | `query` | `client.query(QueryJobConfiguration)` returning a `TableResult`; rows streamed lazily via `iterateAll()` |
 | `execute` | Same as `query`; returned `TableResult` is discarded |
-| `loadFromUri` | `LoadJobConfiguration` from a `gs://` URI; returns `LoadStatistics.outputRows` |
+| `loadFromUri` | `LoadJobConfiguration` from a `gs://` URI, with the caller's `LoadOptions` write disposition and optional partition decorator; returns `LoadStatistics.outputRows` |
 | `merge` | Throws `UnsupportedOperationException` in sprint-1. BigQuery `MERGE` needs explicit non-key columns in `WHEN MATCHED THEN UPDATE SET ...` (no `SET t.* = s.*` shorthand); generating them requires a source-schema lookup that's deferred to sprint-4. Use `execute(String, Map)` with an explicit MERGE statement until then. |
 | `copy` | `CopyJobConfiguration`; returns the target table's row count after the copy completes |
 | `tableExists` | `client.getTable(TableId)`; returns `false` on `null` or a 404 `BigQueryException` |

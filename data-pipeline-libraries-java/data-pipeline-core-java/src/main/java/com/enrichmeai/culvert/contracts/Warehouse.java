@@ -44,13 +44,32 @@ public interface Warehouse {
     /**
      * Bulk-load an object at {@code uri} into {@code targetTable}.
      *
+     * <p>{@code options} is <strong>required</strong>, and there is deliberately
+     * no three-argument overload that defaults it. The earlier signature had no
+     * disposition parameter at all, so each backend silently chose one —
+     * BigQuery's own default of {@code WRITE_APPEND} — and re-running an
+     * extract quietly doubled the data. A defaulted parameter would preserve
+     * exactly that failure: a caller could still write an idempotency-critical
+     * load without deciding what a re-run means. Making it explicit costs one
+     * argument and removes a class of silent data corruption.
+     *
+     * <p>Implementations that cannot honour the requested
+     * {@link LoadOptions.WriteDisposition} must throw
+     * {@link UnsupportedOperationException} naming the disposition — never
+     * silently downgrade to {@code APPEND}, which is the bug this parameter
+     * exists to prevent.
+     *
      * @param uri          A {@link BlobStore} URI ({@code gs://}, {@code s3://}). The
      *                     warehouse arranges access (same-cloud loads only).
      * @param targetTable  Fully-qualified table name.
      * @param schema       The target schema.
+     * @param options      What to do with rows already in the target, and
+     *                     optionally which partition to confine the write to.
      * @return Number of rows loaded.
+     * @throws UnsupportedOperationException if the backend cannot express the
+     *                                       requested disposition.
      */
-    long loadFromUri(String uri, String targetTable, EntitySchema schema);
+    long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options);
 
     /**
      * MERGE source into target on {@code keys}. Standard upsert semantics:

@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from data_pipeline_contract_tests import WarehouseContract
+from data_pipeline_core.contracts.warehouse import LoadOptions
 from data_pipeline_gcp_bigquery import BigQueryWarehouse
 
 
@@ -95,10 +96,56 @@ def test_load_from_uri_returns_output_rows(mock_client):
     mock_client.load_table_from_uri.return_value = load_job
 
     w = BigQueryWarehouse("my-project", mock_client)
-    n = w.load_from_uri("gs://bucket/file.csv", "ds.t", schema=MagicMock())
+    n = w.load_from_uri(
+        "gs://bucket/file.csv", "ds.t", schema=MagicMock(),
+        options=LoadOptions.append(),
+    )
 
     assert n == 1234
     load_job.result.assert_called_once()
+
+
+def test_load_from_uri_sets_the_requested_write_disposition(mock_client):
+    """The disposition must reach the job config.
+
+    Without it BigQuery applies its own default of WRITE_APPEND, which is
+    how re-running an extract silently doubled the data.
+    """
+    load_job = MagicMock()
+    load_job.output_rows = 2
+    mock_client.load_table_from_uri.return_value = load_job
+    job_config = MagicMock()
+
+    w = BigQueryWarehouse("my-project", mock_client)
+    w.load_from_uri(
+        "gs://bucket/file.csv", "ds.t", schema=job_config,
+        options=LoadOptions.truncate(),
+    )
+
+    assert job_config.write_disposition == "WRITE_TRUNCATE"
+
+
+def test_load_from_uri_appends_a_partition_decorator_when_scoped(mock_client):
+    """A partition-scoped load targets `table$YYYYMMDD`, not the bare table."""
+    load_job = MagicMock()
+    load_job.output_rows = 1
+    mock_client.load_table_from_uri.return_value = load_job
+
+    w = BigQueryWarehouse("my-project", mock_client)
+    w.load_from_uri(
+        "gs://bucket/file.csv", "ds.t", schema=MagicMock(),
+        options=LoadOptions.truncate_partition("20260601"),
+    )
+
+    destination = mock_client.load_table_from_uri.call_args[0][1]
+    assert destination == "ds.t$20260601"
+
+
+def test_load_from_uri_requires_options(mock_client):
+    """No defaulted disposition: choosing one must be a visible act."""
+    w = BigQueryWarehouse("my-project", mock_client)
+    with pytest.raises(TypeError):
+        w.load_from_uri("gs://bucket/file.csv", "ds.t", schema=MagicMock())
 
 
 def test_merge_is_unimplemented(mock_client):

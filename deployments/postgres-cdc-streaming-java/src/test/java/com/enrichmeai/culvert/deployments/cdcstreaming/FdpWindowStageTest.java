@@ -113,7 +113,8 @@ class FdpWindowStageTest {
         }
 
         @Override
-        public long loadFromUri(String uri, String targetTable, EntitySchema schema) {
+        public long loadFromUri(String uri, String targetTable, EntitySchema schema,
+                                com.enrichmeai.culvert.contracts.LoadOptions options) {
             throw new UnsupportedOperationException();
         }
 

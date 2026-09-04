@@ -237,6 +237,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e "data-pipeline-libraries/data-pipeline-core[test]"
 
+      - name: Install data-pipeline-contract-tests (local, no PyPI)
+        # The adapter test suites import `data_pipeline_contract_tests` — the
+        # provider-extended contract suites (test_warehouse.py, test_blob_store.py)
+        # subclass it.  Without this the modules fail at COLLECTION with
+        # ModuleNotFoundError, before a single test runs.  It is not pulled in
+        # by the adapters' [test] extra because it is a local path package, not
+        # a PyPI dependency.  Latent since this job was written; it went
+        # unnoticed only because the workflow is disabled at the GitHub level.
+        run: pip install -e "data-pipeline-libraries/data-pipeline-contract-tests"
+
       - name: Install ${{ matrix.module }}
         run: |
           pip install -e "data-pipeline-libraries/${{ matrix.module }}[${{ matrix.test-extra }}]"
@@ -317,10 +327,13 @@ jobs:
 # Compiles and runs the standalone reference-e2e-gcp deployment.
 #
 # Architecture:
-#   • The deployment is NOT in the Java reactor — its pom.xml has no parent.
-#     Culvert library artifacts (group com.enrichmeai.culvert:0.1.0) are not
-#     published to Maven Central, so we must install them into ~/.m2 inside
-#     the same job before running the deployment's tests.
+#   • The deployment's pom.xml has no parent, so it is not built as a
+#     side-effect of the library reactor build; we install the libraries into
+#     ~/.m2 inside the same job before running the deployment's tests.
+#     (Culvert IS published to Maven Central since 0.1.0 — the install step is
+#     not about availability, it is about making sure this job tests the
+#     libraries in THIS checkout rather than the last released ones.  The
+#     whole-repo job below enforces the same property structurally.)
 #   • The install step runs online (--batch-mode, NOT -o).  CI runners start
 #     with an empty ~/.m2; offline mode would fail immediately on a cold runner
 #     (same rationale as the java-build and java-it jobs above).
@@ -380,29 +393,112 @@ jobs:
           mvn --batch-mode test
 
 # ============================================================================
-# ── Job 6: CI gate ───────────────────────────────────────────────────────────
+# ── Job 6: Whole-repo build from a clean checkout ───────────────────────────
+#
+# Builds the library reactor AND every Java deployment in ONE reactor, from a
+# clean checkout, with no prior `install` step:
+#
+#     mvn --batch-mode test        (at the repo root)
+#
+# Why this job exists.  The deployments are standalone poms that pin the
+# library version via `culvert.version`.  That property said 0.1.0 while the
+# reactor beside it built 0.2.0-SNAPSHOT — and because 0.1.0 IS on Maven
+# Central, the deployments resolved it and went green while validating
+# two-versions-stale library code.  A silently stale build, not a broken one,
+# which is why no existing job caught it.
+#
+# The root aggregator pom makes the drift structural rather than conventional:
+# Maven resolves the deployments' com.enrichmeai.culvert:* dependencies from
+# the reactor modules built in the same session, so a contract change and its
+# consumers cannot diverge without this job going red.  Every other job here
+# builds a SUBSET (one module, or one deployment against installed jars); this
+# is the only one that builds what a new contributor's `git clone && mvn test`
+# actually builds.
+#
+# No Docker, no credentials — surefire only (*IT.java is failsafe/-P it, which
+# the java-it job covers).
+# ============================================================================
+  whole-repo-build:
+    name: Whole-repo — clean checkout, one command
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Hash BOTH the library poms and the deployment poms — this job is
+          # the one that breaks when a deployment's dependency set changes.
+          key: maven-whole-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-whole-
+            maven-
+
+      - name: Assert no deployment pins a released library version
+        # Guard the regression directly, not just its symptom.  A deployment
+        # pinned to a fixed version silently stops testing the code beside it,
+        # and the reactor build alone would not notice.
+        run: |
+          set -euo pipefail
+          REACTOR_VERSION=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' \
+            data-pipeline-libraries-java/pom.xml | head -1)
+          echo "Reactor version: $REACTOR_VERSION"
+
+          BAD=0
+          for pom in deployments/*/pom.xml; do
+            PINNED=$(sed -n 's:.*<culvert.version>\(.*\)</culvert.version>.*:\1:p' "$pom")
+            [ -n "$PINNED" ] || continue
+            if [ "$PINNED" != "$REACTOR_VERSION" ]; then
+              echo "ERROR: $pom pins culvert.version=$PINNED, reactor is $REACTOR_VERSION"
+              BAD=1
+            else
+              echo "OK: $pom -> $PINNED"
+            fi
+          done
+          [ "$BAD" -eq 0 ] || {
+            echo "A deployment is pinned to a library version other than the"
+            echo "one in this checkout, so it is testing stale library code."
+            exit 1
+          }
+
+      - name: Build libraries + all deployments in one reactor
+        run: mvn --batch-mode test
+
+# ============================================================================
+# ── Job 7: CI gate ───────────────────────────────────────────────────────────
 # Single required-status-check entry point.  PR merge gates on this job.
 # Updated in T15.2 (#79) to include java-it in the gate.
 # Updated in T15.3 (#83) to include e2e-gate in the gate.
+# Updated 2026-09 to include whole-repo-build (external review finding #11).
 # ============================================================================
   ci-gate:
     name: CI passed
     runs-on: ubuntu-latest
-    needs: [java-build, python-tests, java-it, e2e-gate]
+    needs: [java-build, python-tests, java-it, e2e-gate, whole-repo-build]
     if: always()
 
     steps:
       - name: Gate
         run: |
-          echo "java-build:   ${{ needs.java-build.result }}"
-          echo "python-tests: ${{ needs.python-tests.result }}"
-          echo "java-it:      ${{ needs.java-it.result }}"
-          echo "e2e-gate:     ${{ needs.e2e-gate.result }}"
+          echo "java-build:       ${{ needs.java-build.result }}"
+          echo "python-tests:     ${{ needs.python-tests.result }}"
+          echo "java-it:          ${{ needs.java-it.result }}"
+          echo "e2e-gate:         ${{ needs.e2e-gate.result }}"
+          echo "whole-repo-build: ${{ needs.whole-repo-build.result }}"
 
           if [ "${{ needs.java-build.result }}" != "success" ] || \
              [ "${{ needs.python-tests.result }}" != "success" ] || \
              [ "${{ needs.java-it.result }}" != "success" ] || \
-             [ "${{ needs.e2e-gate.result }}" != "success" ]; then
+             [ "${{ needs.e2e-gate.result }}" != "success" ] || \
+             [ "${{ needs.whole-repo-build.result }}" != "success" ]; then
             echo "ERROR: one or more required jobs failed"
             exit 1
           fi

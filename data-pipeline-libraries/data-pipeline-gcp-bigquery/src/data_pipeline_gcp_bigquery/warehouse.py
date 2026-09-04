@@ -6,6 +6,7 @@ Java sibling: ``com.enrichmeai.culvert.gcp.bigquery.BigQueryWarehouse``.
 from __future__ import annotations
 
 import logging
+from data_pipeline_core.contracts.warehouse import LoadOptions, WriteDisposition
 from typing import Any, Iterator, List, Mapping, Optional
 
 logger = logging.getLogger(__name__)
@@ -72,22 +73,52 @@ class BigQueryWarehouse:
         job = self.client.query(sql)
         job.result()
 
+    _WRITE_DISPOSITIONS = {
+        WriteDisposition.APPEND: "WRITE_APPEND",
+        WriteDisposition.TRUNCATE: "WRITE_TRUNCATE",
+        WriteDisposition.ERROR_IF_EXISTS: "WRITE_EMPTY",
+    }
+
     def load_from_uri(
         self,
         uri: str,
         target_table: str,
         schema: Any,
+        options: LoadOptions,
     ) -> int:
         """Bulk-load a GCS URI into a BigQuery table.
 
         Returns the number of rows loaded.
+
+        `options` is required. Without it BigQuery applied its own default
+        of WRITE_APPEND, so re-running the same extract silently doubled
+        the data — see ``LoadOptions``.
         """
         if uri is None or target_table is None:
             raise TypeError("uri and target_table must not be None")
+        if options is None:
+            raise TypeError("options must not be None")
+
+        # A partition-scoped write is expressed in BigQuery as a partition
+        # DECORATOR on the destination table (`dataset.table$20260601`), not
+        # as a job setting — so WRITE_TRUNCATE against a decorated name
+        # replaces just that partition, while the same disposition against a
+        # bare name replaces the whole table.
+        destination = target_table
+        if options.target_partition is not None:
+            destination = f"{target_table}${options.target_partition}"
+
         # Caller supplies a LoadJobConfig-shaped schema; for cloud-neutral
         # callers passing an EntitySchema, the caller is responsible for
         # converting it (sprint-4 auto-config will do that automatically).
-        load_job = self.client.load_table_from_uri(uri, target_table, job_config=schema)
+        job_config = schema
+        disposition = self._WRITE_DISPOSITIONS[options.write_disposition]
+        if job_config is not None and hasattr(job_config, "write_disposition"):
+            job_config.write_disposition = disposition
+
+        load_job = self.client.load_table_from_uri(
+            uri, destination, job_config=job_config
+        )
         load_job.result()
         return int(load_job.output_rows or 0)
 

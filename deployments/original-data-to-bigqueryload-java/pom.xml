@@ -42,7 +42,7 @@
         <maven.compiler.release>17</maven.compiler.release>
 
         <!-- Pin to same versions as data-pipeline-libraries-java parent / reference-e2e-gcp. -->
-        <culvert.version>0.1.0</culvert.version>
+        <culvert.version>0.2.0-SNAPSHOT</culvert.version>
         <testcontainers.version>1.19.8</testcontainers.version>
         <beam.version>2.55.0</beam.version>
         <slf4j.version>2.0.13</slf4j.version>

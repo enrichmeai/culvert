@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.deployments.cdcstreaming;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import com.enrichmeai.culvert.schema.EntitySchema;
 
@@ -80,7 +81,7 @@ final class InMemoryWarehouse implements Warehouse, java.io.Serializable {
     }
 
     @Override
-    public long loadFromUri(String uri, String targetTable, EntitySchema schema) {
+    public long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options) {
         throw new UnsupportedOperationException("not used by this deployment's tests");
     }
 

@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.aws.athena;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import software.amazon.awssdk.services.athena.AthenaClient;
@@ -198,10 +199,39 @@ public final class AthenaWarehouse implements Warehouse {
     }
 
     @Override
-    public long loadFromUri(String uri, String targetTable, EntitySchema schema) {
+    public long loadFromUri(String uri, String targetTable, EntitySchema schema, LoadOptions options) {
         Objects.requireNonNull(uri, "uri must not be null");
         Objects.requireNonNull(targetTable, "targetTable must not be null");
         Objects.requireNonNull(schema, "schema must not be null");
+        Objects.requireNonNull(options, "options must not be null");
+
+        // Athena's load idiom below is INSERT INTO, which is APPEND and only
+        // APPEND. TRUNCATE would need either a DELETE (no DML on non-Iceberg
+        // tables - the same limitation merge() documents) or an S3-level
+        // overwrite of the target's data, which is outside what this adapter
+        // is allowed to do to a table it does not own. ERROR_IF_EXISTS would
+        // need an emptiness check that races with any concurrent writer.
+        //
+        // Refusing loudly is the point: the contract requires that an
+        // unhonourable disposition throws rather than silently degrading to
+        // APPEND, because a caller who asked for replace and got append gets
+        // duplicated data and no signal.
+        if (options.writeDisposition() != LoadOptions.WriteDisposition.APPEND) {
+            throw new UnsupportedOperationException(
+                    "AthenaWarehouse.loadFromUri supports only APPEND; got "
+                            + options.writeDisposition() + ". Athena has no DML on non-Iceberg "
+                            + "tables, so it cannot replace existing rows (same limitation as "
+                            + "merge()). Use an Iceberg-backed table and execute(String, Map), "
+                            + "or overwrite the S3 prefix outside Culvert. "
+                            + "Tracked at https://github.com/enrichmeai/culvert/issues/6");
+        }
+        if (options.targetPartition().isPresent()) {
+            throw new UnsupportedOperationException(
+                    "AthenaWarehouse.loadFromUri does not support partition-scoped loads. "
+                            + "Athena partitions are S3 prefixes registered in the Glue catalog; "
+                            + "confine the load by pointing `uri` at the partition's prefix "
+                            + "instead. Tracked at https://github.com/enrichmeai/culvert/issues/6");
+        }
 
         // Athena has no bulk-load API analogous to BigQuery's
         // LoadJobConfiguration — it only reads data already registered at an

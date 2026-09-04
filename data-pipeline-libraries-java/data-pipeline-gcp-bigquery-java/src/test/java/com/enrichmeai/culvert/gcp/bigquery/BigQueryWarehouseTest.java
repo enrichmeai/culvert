@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.gcp.bigquery;
 
+import com.enrichmeai.culvert.contracts.LoadOptions;
 import com.enrichmeai.culvert.schema.EntitySchema;
 import com.enrichmeai.culvert.schema.SchemaField;
 import com.google.cloud.bigquery.BigQuery;
@@ -123,7 +124,8 @@ class BigQueryWarehouseTest {
         long rows = warehouse.loadFromUri(
                 "gs://bucket/customers.csv",
                 "my-project.ds.customers",
-                entity);
+                entity,
+                LoadOptions.append());
 
         assertThat(rows).isEqualTo(42L);
 
@@ -263,7 +265,8 @@ class BigQueryWarehouseTest {
         assertThatThrownBy(() -> warehouse.loadFromUri(
                         "gs://bucket/bad.csv",
                         "my-project.ds.target",
-                        entity))
+                        entity,
+                        LoadOptions.append()))
                 .isInstanceOf(BigQueryException.class);
     }
 
