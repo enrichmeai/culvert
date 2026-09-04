@@ -54,19 +54,37 @@ classpath can disable a GCP adapter with no error. The code's own comment calls 
 **I want** a registration that ServiceLoader cannot construct to fail the build,
 **so that** an adapter cannot advertise itself and then silently resolve to a no-op.
 
-**The defect.** `BigQueryFinOpsSink` and `DataCatalogLineageEmitter` are registered under
-`META-INF/services` with no no-arg constructor, so `ServiceLoader` throws
-`ServiceConfigurationError` on each — which is precisely the throw Story 1.1 shows being
-swallowed. `AzureBlobStore` has the same fault. Verified on 2 of 7 sampled GCP/AWS adapters;
-the rest are unaudited.
+**The defect — full audit, verified 2026-09-04 across every registration in the reactor.**
+Seven registered classes have no no-arg constructor, so `ServiceLoader` raises
+`ServiceConfigurationError` on each — precisely the throw Story 1.1 was swallowing:
+
+| Cloud | Class | Contract |
+|---|---|---|
+| GCP | `PubSubSource` | `Source` |
+| GCP | `PubSubSink` | `Sink` |
+| GCP | `DataflowPipeline` | `Pipeline` |
+| GCP | `BigQueryFinOpsSink` | `FinOpsSink` |
+| AWS | `SqsSource` | `Source` |
+| AWS | `SqsSink` | `Sink` |
+| Azure | `AzureBlobStore` | `BlobStore` |
+
+Four of GCP's eleven cloud-bound contracts have therefore been unreachable through
+auto-config. `DataCatalogLineageEmitter` was an eighth; Story 1.5 removed its registration.
+
+**Not defects, do not "fix" them:** `AthenaWarehouse` and `DynamoDbJobControlRepository`
+have working no-arg constructors that *throw* when `CULVERT_CLOUD` does not select their
+family. That is the gate working as designed, and Story 1.1 made it visible rather than
+swallowed. Leave them; Story 1.1 flagged migrating them to the non-throwing `isAvailable()`
+form as separate follow-up work.
 
 **Acceptance criteria**
 1. A test walks **every** `META-INF/services/com.enrichmeai.culvert.contracts.*` file in the reactor and asserts each listed class is instantiable via `ServiceLoader`.
 2. `BigQueryFinOpsSink` gains a working no-arg constructor resolving config from the environment, matching the convention `BigQueryWarehouse` already documents in its service file.
-3. Any registration that cannot be made constructible is **removed** from its service file rather than left advertising a lie, with the reason in the module's `<description>`.
+3. Per adapter, choose deliberately: give it a working no-arg constructor **if** it can honestly self-configure, **or** remove the registration if it cannot or should not be auto-discovered. Story 1.5 set the precedent — it removed `DataCatalogLineageEmitter` rather than make discovery succeed against a dead API. `AzureBlobStore` is the obvious candidate for removal: seven of its eight methods throw `UnsupportedOperationException`, so a discoverable skeleton is worse than none. Record the reason in the service file itself, as Story 1.5 did.
+5. **Scope:** the four GCP entries are this sprint's target (Joseph's "GCP first"). Fix the AWS and Azure three as well **only** if it is a genuine no-arg constructor each; if either needs real design thought, leave the registration removed or the entry allowlisted with a comment, and flag it — do not invent configuration.
 4. The test fails if a future module registers a class ServiceLoader cannot construct.
 
-**Depends on:** Story 1.5 (which owns `DataCatalogLineageEmitter`). Run after it.
+**Depends on:** Stories 1.1 (discovery reporting, merged) and 1.5 (owns `DataCatalogLineageEmitter`, merged). Both are in `sprint-23` — branch from it, not `main`.
 **Verify:** `mvn -o -pl data-pipeline-libraries-java -amd test`
 
 ---
