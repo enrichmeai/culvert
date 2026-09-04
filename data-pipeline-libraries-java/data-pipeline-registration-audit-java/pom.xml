@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.2.0-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-registration-audit</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-registration-audit (Java)</name>
+    <description>
+        Build gate, not a library. Ships no main code and is never published.
+
+        Sprint-23 Story 1.2. Walks every
+        META-INF/services/com.enrichmeai.culvert.contracts.* file in the
+        reactor and asserts each registered class is one ServiceLoader can
+        actually construct. Seven registrations were not, across three
+        clouds, and AutoConfig swallowed every resulting
+        ServiceConfigurationError until Story 1.1 - so four of GCP's
+        cloud-bound contracts were unreachable through auto-config with
+        nothing anywhere saying so.
+
+        This module exists because no other module sees every adapter. It
+        depends (test scope) on each module that carries a registration, so
+        the audit can load the classes those files name. A module that adds
+        a registration and is not listed here fails the audit with an
+        explicit "add it as a test dependency" message rather than being
+        skipped in silence.
+
+        The audit is structural: it asserts a provider constructor EXISTS and
+        never invokes one. Adapters gated on CULVERT_CLOUD throw from a
+        perfectly good no-arg constructor by design, and invoking constructors
+        would need cloud credentials and could call live APIs.
+    </description>
+
+    <properties>
+        <!-- A build gate has no artifact anyone should consume. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- central-publishing-maven-plugin runs as a build extension in the
+             release profile and manages its own skip flag; maven.deploy.skip
+             alone is not a guarantee it stays out of the staged bundle. This
+             module is a reactor-wide test harness with no consumers, so it must
+             never reach Maven Central. Belt and braces, deliberately. -->
+        <skipPublishing>true</skipPublishing>
+        <maven.install.skip>true</maven.install.skip>
+
+        <!--
+            Must match the adapter modules exactly - see the dependencyManagement
+            note below. Grep says every GCP adapter is on libraries-bom 26.39.0
+            (gcp-bigquery/pom.xml:35, gcp-gcs/pom.xml:36, gcp-pubsub/pom.xml:35,
+            gcp-observability/pom.xml:49, gcp-secrets/pom.xml:33).
+        -->
+        <google.cloud.libraries.bom.version>26.39.0</google.cloud.libraries.bom.version>
+        <opentelemetry.bom.version>1.38.0</opentelemetry.bom.version>
+        <jackson.bom.version>2.13.5</jackson.bom.version>
+    </properties>
+
+    <!--
+        A dependency's own <dependencyManagement> does NOT reach its consumers, so
+        pulling the adapters in here resolves their transitive GCP libraries to the
+        versions their BOMs would otherwise have pinned - versions no module has
+        ever built with and which are therefore absent from a `mvn -o` local repo
+        (the first run of this module failed on google-cloud-trace:2.30.0, which
+        exporter-trace names and libraries-bom overrides). Importing the same BOMs
+        the adapters import reproduces their resolution exactly and keeps this
+        module offline-buildable.
+    -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.google.cloud</groupId>
+                <artifactId>libraries-bom</artifactId>
+                <version>${google.cloud.libraries.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.opentelemetry</groupId>
+                <artifactId>opentelemetry-bom</artifactId>
+                <version>${opentelemetry.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson</groupId>
+                <artifactId>jackson-bom</artifactId>
+                <version>${jackson.bom.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- The contract interfaces the audit checks assignability against. -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+            Every module that currently carries a registration in
+            META-INF/services/com.enrichmeai.culvert.contracts.*, and only
+            those. Test scope: this module publishes nothing, so none of it
+            is inflicted on a consumer.
+
+            Deliberately NOT the full adapter list. gcp-pubsub, gcp-dataflow,
+            aws-sqs and azure-blob register nothing after Story 1.2, and
+            gcp-dataflow in particular drags Beam's GCP IO closure (bigtable,
+            firestore, spanner, pubsublite) onto this classpath at versions
+            no module has ever built with - which does not resolve under the
+            `mvn -o` the project verifies with. So the list tracks
+            registrations, not adapters.
+
+            Keeping it in sync is not left to memory: a module that adds a
+            registration without being added here fails
+            everyRegisteredClassIsOnTheAuditClasspath with an explicit
+            instruction to add it. That failure is the reminder.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-gcs</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-observability</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-secrets</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-s3</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-secrets</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-dynamodb</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-athena</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-aws-cloudwatch</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

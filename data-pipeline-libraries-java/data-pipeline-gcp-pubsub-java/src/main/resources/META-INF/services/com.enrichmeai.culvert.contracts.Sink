@@ -1,8 +1,26 @@
-# Pre-registered for sprint-4 auto-config. The implementation does NOT
-# expose a no-arg constructor — PubSubSink wraps a pre-built Publisher,
-# which itself requires a topic name and batching/retry config at
-# construction time. Direct ServiceLoader.load(Sink.class).findFirst()
-# will fail with ServiceConfigurationError until sprint-4 introduces a
-# config-driven constructor. Until then, instantiate explicitly with
-# `new PubSubSink(publisher)`.
-com.enrichmeai.culvert.gcp.pubsub.PubSubSink
+# INTENTIONALLY EMPTY - no Sink is registered by this module.
+#
+# PubSubSink used to be listed here, "pre-registered for sprint-4
+# auto-config". It was removed in sprint-23 (Story 1.2) for two independent
+# reasons:
+#
+#  1. NOT CONSTRUCTIBLE. Its only constructor takes a pre-built Publisher
+#     (PubSubSink.java:58), which itself carries the topic name and the
+#     batching/retry settings. ServiceLoader raised
+#     ServiceConfigurationError on every discovery pass; AutoConfig
+#     swallowed it before Story 1.1.
+#
+#  2. Sink IS NOT A ONE-PER-CLASSPATH CONTRACT. AutoConfig deliberately
+#     exposes no singular sink() accessor - only the plural sinks()
+#     (AutoConfig.java:268-270) - unlike warehouse(), blobStore() and
+#     jobControl(). A topic is per-stage wiring, not per-environment
+#     configuration, so a no-arg constructor would have to pick ONE topic
+#     out of the environment and be wrong for every pipeline with two
+#     outputs.
+#
+# Removing the line is behaviour-identical to the swallowed error it
+# replaces - discovery still yields no Sink from this module - but it no
+# longer advertises a lie, and it satisfies Story 1.2 AC 3.
+#
+# The class is unchanged and fully supported. Construct it per stage:
+#     new PubSubSink(publisher)

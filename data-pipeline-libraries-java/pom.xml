@@ -105,6 +105,14 @@
             T11.3.
         -->
         <module>data-pipeline-orchestration-java</module>
+        <!--
+            Sprint-23 (Story 1.2): build gate, not a library. Publishes
+            nothing; depends test-scope on every module that carries a
+            META-INF/services registration so it can assert each registered
+            class is one ServiceLoader can actually construct. Last in the
+            list because nothing depends on it.
+        -->
+        <module>data-pipeline-registration-audit-java</module>
     </modules>
 
     <properties>
