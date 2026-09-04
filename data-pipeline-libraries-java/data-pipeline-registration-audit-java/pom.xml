@@ -43,6 +43,12 @@
     <properties>
         <!-- A build gate has no artifact anyone should consume. -->
         <maven.deploy.skip>true</maven.deploy.skip>
+        <!-- central-publishing-maven-plugin runs as a build extension in the
+             release profile and manages its own skip flag; maven.deploy.skip
+             alone is not a guarantee it stays out of the staged bundle. This
+             module is a reactor-wide test harness with no consumers, so it must
+             never reach Maven Central. Belt and braces, deliberately. -->
+        <skipPublishing>true</skipPublishing>
         <maven.install.skip>true</maven.install.skip>
 
         <!--
