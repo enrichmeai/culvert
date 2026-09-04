@@ -25,15 +25,44 @@ import java.util.Objects;
  * sub-records of {@code LineageEvent} ({@code source}, {@code pipeline},
  * {@code destination}, {@code audit}), flattened to scalar string values.
  *
- * <h2>Why Data Catalog (and not Cloud Data Lineage)?</h2>
+ * <h2>DEPRECATED: this emitter writes to a shut-down API</h2>
  *
- * <p>The newer Cloud Data Lineage API (artifact
- * {@code google-cloud-datalineage}) is not bundled in the GCP
- * {@code libraries-bom} this module pins. To avoid an out-of-BOM version
- * pin for a product still in transition, this Stage-2 implementation uses
- * the stable v1 {@link DataCatalogClient} and stores lineage as tags. A
- * dedicated {@code DataLineagePublisher} backed by the lineage API is
- * deferred to sprint-5 (tracked under the lineage epic).
+ * <p><strong>Data Catalog began its phased shutdown on 2026-06-01.</strong>
+ * It was superseded by Knowledge Catalog (the Dataplex API), and lineage
+ * specifically now has its own Data Lineage API
+ * ({@code datalineage.googleapis.com}, Java client
+ * {@code google-cloud-datalineage}, with an OpenLineage-compatible
+ * producer library). Every {@link #emit(LineageEvent)} call here still
+ * targets {@code com.google.cloud.datacatalog.v1}, so depending on how far
+ * the shutdown has progressed in a given project it will either write a
+ * tag nobody reads or fail outright.
+ *
+ * <p>The older javadoc claimed the lineage API was avoided because it sits
+ * outside the pinned {@code libraries-bom}. That reasoning is obsolete: the
+ * backend it chose instead is now the one going away.
+ *
+ * <p><strong>This class is no longer registered for discovery.</strong> It
+ * was removed from
+ * {@code META-INF/services/com.enrichmeai.culvert.contracts.LineageEmitter}
+ * in sprint-23 (Story 1.5). It never worked through that path anyway: the
+ * only constructor takes three arguments, so {@code ServiceLoader} raised
+ * {@code ServiceConfigurationError}, {@code AutoConfig} swallowed it
+ * ({@code AutoConfig.java:227}), and {@code DefaultRuntimeContext:276}
+ * substituted a silent no-op. Removing the registration is
+ * behaviour-identical and stops the module advertising an emitter that
+ * never emitted.
+ *
+ * <p>Adding a no-arg constructor was deliberately <em>not</em> the fix: it
+ * would make discovery succeed against a dead backend, converting today's
+ * silent no-op into a runtime failure.
+ *
+ * <p>The replacement adapter over the Data Lineage API is blocked offline
+ * - {@code google-cloud-datalineage} is absent from {@code ~/.m2} (only
+ * {@code google-cloud-datalineage-bom} poms are cached) and this build runs
+ * {@code mvn -o}. Tracked by Story 1.5 AC 2 / AC 5.
+ *
+ * <p>Retained, deprecated, for callers that construct it explicitly against
+ * a project where Data Catalog still answers.
  *
  * <h2>Construction</h2>
  *
@@ -51,7 +80,15 @@ import java.util.Objects;
  * {@code SecretManagerProvider} / {@code PubSubSource} pilot rule.
  *
  * <p>Sprint-2 deliverable for issue #24.
+ *
+ * @deprecated Data Catalog entered its phased shutdown on 2026-06-01. Use a
+ *             LineageEmitter backed by the Data Lineage API
+ *             ({@code datalineage.googleapis.com}) once that adapter exists;
+ *             it cannot be built offline today (Story 1.5 AC 5). This class
+ *             is retained only for explicit construction and is no longer
+ *             registered for ServiceLoader discovery.
  */
+@Deprecated
 public final class DataCatalogLineageEmitter implements LineageEmitter, AutoCloseable {
 
     private static final Logger LOG = LoggerFactory.getLogger(DataCatalogLineageEmitter.class);
@@ -78,6 +115,10 @@ public final class DataCatalogLineageEmitter implements LineageEmitter, AutoClos
         this.client = Objects.requireNonNull(client, "client must not be null");
         this.entryName = Objects.requireNonNull(entryName, "entryName must not be null");
         this.tagTemplate = Objects.requireNonNull(tagTemplate, "tagTemplate must not be null");
+        LOG.warn("DataCatalogLineageEmitter targets the Data Catalog API, which began its "
+                + "phased shutdown on 2026-06-01. Lineage emitted via entry {} may be written "
+                + "to a backend that is read by nothing, or may start failing without notice. "
+                + "Migrate to the Data Lineage API (datalineage.googleapis.com).", entryName);
     }
 
     /**

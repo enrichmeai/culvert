@@ -8,12 +8,38 @@ Imports ``google.cloud.datacatalog_v1`` lazily so the module can be imported
 offline / in unit-test environments.  Pass a mock ``DataCatalogClient`` in
 tests; never call the real API.
 
-Sprint-19 / T19.2 — issue #125.
+.. deprecated:: sprint-23
+   **Data Catalog began its phased shutdown on 2026-06-01.**  It was
+   superseded by Knowledge Catalog (the Dataplex API), and lineage
+   specifically now has its own Data Lineage API
+   (``datalineage.googleapis.com``, with an OpenLineage-compatible producer
+   library).  Every :meth:`DataCatalogLineageEmitter.emit` call still targets
+   ``datacatalog_v1``, so depending on how far the shutdown has progressed in
+   a given project it will either write a tag nobody reads or fail outright.
+
+   Constructing this class raises a :class:`DeprecationWarning` and logs a
+   warning.  It is retained only for callers that construct it explicitly
+   against a project where Data Catalog still answers.
+
+   The Java sibling was additionally **de-registered** from
+   ``META-INF/services`` in sprint-23: there, ``ServiceLoader`` has to
+   *construct* the adapter, its only constructor takes three arguments, and
+   the resulting ``ServiceConfigurationError`` was swallowed — so Java had
+   been silently emitting nothing for months.  Python's registry differs by
+   design: ``autoconfig.py`` (lines 16-17) imports the named class **without
+   instantiating it** and the consumer supplies the constructor arguments.
+   The Python entry point therefore claims only "this class implements
+   LineageEmitter", which is still true, and is deliberately left in place —
+   removing it would drop lineage for callers whose project still answers,
+   a behaviour change this story cannot evaluate offline.
+
+Sprint-19 / T19.2 — issue #125.  Deprecated in sprint-23 / Story 1.5.
 """
 
 from __future__ import annotations
 
 import logging
+import warnings
 from typing import Any
 
 from data_pipeline_core.lineage.events import LineageEvent
@@ -24,7 +50,12 @@ logger = logging.getLogger(__name__)
 class DataCatalogLineageEmitter:
     """LineageEmitter that writes lineage events as Data Catalog tags.
 
-    Mirrors Java ``DataCatalogLineageEmitter`` (line 55).
+    .. deprecated:: sprint-23
+       Writes to the Data Catalog API, which began its phased shutdown on
+       2026-06-01.  Migrate to the Data Lineage API
+       (``datalineage.googleapis.com``).  Constructing this class warns.
+
+    Mirrors Java ``DataCatalogLineageEmitter``.
 
     Each ``LineageEvent`` becomes one tag attached to the configured Data
     Catalog entry.  The tag's fields mirror the four sub-dicts of
@@ -64,6 +95,24 @@ class DataCatalogLineageEmitter:
             raise TypeError("entry_name must not be None")
         if tag_template is None:
             raise TypeError("tag_template must not be None")
+        warnings.warn(
+            "DataCatalogLineageEmitter targets the Data Catalog API, which began "
+            "its phased shutdown on 2026-06-01. Lineage written through it may be "
+            "read by nothing, or may start failing without notice. Migrate to the "
+            "Data Lineage API (datalineage.googleapis.com).",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        # DeprecationWarning is hidden by default outside __main__, so mirror the
+        # Java constructor's LOG.warn so operators actually see this at runtime.
+        logger.warning(
+            "DataCatalogLineageEmitter targets the Data Catalog API, which began its "
+            "phased shutdown on 2026-06-01. Lineage emitted via entry %s may be "
+            "written to a backend that is read by nothing, or may start failing "
+            "without notice. Migrate to the Data Lineage API "
+            "(datalineage.googleapis.com).",
+            entry_name,
+        )
         self._client = client
         self._entry_name = entry_name
         self._tag_template = tag_template

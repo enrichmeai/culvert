@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.gcp.observability;
 
+import com.enrichmeai.culvert.contracts.LineageEmitter;
 import com.enrichmeai.culvert.lineage.LineageDestination;
 import com.enrichmeai.culvert.lineage.LineageEvent;
 import com.enrichmeai.culvert.lineage.LineagePipeline;
@@ -14,7 +15,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.ServiceLoader;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,6 +32,11 @@ import static org.mockito.Mockito.when;
  * credentials are required.
  */
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("deprecation") // DataCatalogLineageEmitter is deliberately
+// deprecated (Story 1.5): Data Catalog began its phased shutdown 2026-06-01.
+// The class is retained for explicit construction, so its behaviour is still
+// under test; the parent pom builds with -Xlint:all -Werror, so uses of a
+// deprecated type must be suppressed here.
 class DataCatalogLineageEmitterTest {
 
     private static final String ENTRY =
@@ -176,5 +185,29 @@ class DataCatalogLineageEmitterTest {
                 new DataCatalogLineageEmitter(client, ENTRY, TEMPLATE);
         emitter.close();
         verify(client).close();
+    }
+
+    // --- service registration (Story 1.5) ---------------------------------
+
+    /**
+     * Story 1.5 / Story 1.2 AC 3. This module must not advertise a
+     * LineageEmitter it cannot construct.
+     *
+     * <p>Before the fix, {@code META-INF/services/...LineageEmitter} listed
+     * {@link DataCatalogLineageEmitter}, whose only constructor takes three
+     * arguments. Iterating the {@link ServiceLoader} therefore threw
+     * {@link java.util.ServiceConfigurationError} - the exact throw
+     * {@code AutoConfig.loadServiceList} swallows, leaving the runtime on a
+     * silent no-op emitter.
+     *
+     * <p>Iterating must now complete without error and yield no provider.
+     */
+    @Test
+    void lineageEmitterServiceLoaderYieldsNoProviderAndDoesNotThrow() {
+        List<LineageEmitter> discovered = new ArrayList<>();
+        for (LineageEmitter impl : ServiceLoader.load(LineageEmitter.class)) {
+            discovered.add(impl);
+        }
+        assertThat(discovered).isEmpty();
     }
 }

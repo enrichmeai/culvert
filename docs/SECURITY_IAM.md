@@ -50,7 +50,7 @@ find data-pipeline-libraries-java -name "*.java" -not -path "*/test/*" \
 | `gcp-bigquery` | `BigQueryCostTracker`, `BigQueryAuditEventPublisher`, `BigQueryJobControlRepository`, `BigQueryWarehouse` | Log calls cover job IDs, `runId`, `BytesBilled`, `SlotMs` statistics — no credential/secret variables. Clean. |
 | `gcp-gcs` | `GcsBlobStore`, `GcsCostTracker`, `QuarantineHandler` | Log calls cover URI paths, byte counts, and `runId`. No credential handling at log sites. Clean. |
 | `gcp-pubsub` | `PubSubCostTracker` | Log calls on negative `messageCount` / `totalBytes` — operational counters only. Clean. |
-| `gcp-observability` | `CloudMonitoringMetricsHook`, `CloudTraceObservabilityHook`, `DataCatalogLineageEmitter`, `CulvertMdcPopulator` | Monitoring hook logs pipeline/stage names and an `entryName`; trace hook relays user-supplied log level + message string; Data Catalog emitter logs `entryName` at DEBUG. No credentials at log sites. Clean. |
+| `gcp-observability` | `CloudMonitoringMetricsHook`, `CloudTraceObservabilityHook`, `DataCatalogLineageEmitter`, `CulvertMdcPopulator` | Monitoring hook logs pipeline/stage names and an `entryName`; trace hook relays user-supplied log level + message string; Data Catalog emitter logs `entryName` at DEBUG, plus a deprecation WARN naming the entry on construction (Story 1.5). No credentials at log sites. Clean. |
 | `gcp-dataflow` | `DataflowPipeline`, `StageTransform` | No SLF4J logger declared; no `System.out`/`printStackTrace`. Clean. |
 | `core` | `BudgetGovernancePolicy` | Uses `java.util.logging.Logger.warning()` for budget violation messages — includes policy name and cost, not any secret material. Clean. |
 
@@ -139,7 +139,7 @@ Assign both roles if the same SA both produces and consumes.
 |---|---|---|---|
 | `CloudMonitoringMetricsHook` (`MetricServiceClient.createTimeSeries`) | `monitoring.timeSeries.create` | `roles/monitoring.metricWriter` | Grants only time-series write. Does not grant dashboard read or alert management. Do **not** use `monitoring.admin` or `monitoring.editor`. |
 | `CloudTraceObservabilityHook` (OpenTelemetry → Cloud Trace exporter) | `cloudtrace.traces.patch` | `roles/cloudtrace.agent` | Grants trace-write only (patch spans). Does not grant read or admin. |
-| `DataCatalogLineageEmitter` (`DataCatalogClient.createTag`) | `datacatalog.tags.create` (on entry) + use of tag template | `roles/datacatalog.tagEditor` on the entry's parent resource + `roles/datacatalog.tagTemplateUser` on the tag template | `tagEditor` grants create/update/delete of tags on catalog entries. `tagTemplateUser` is required to associate a tag with an existing template. Neither grants entry creation, schema edits, or admin. |
+| `DataCatalogLineageEmitter` (`DataCatalogClient.createTag`) — **deprecated, no longer auto-registered (Story 1.5); grant only if you construct it explicitly.** Data Catalog began its phased shutdown 2026-06-01, so this role may become grantable-but-useless; the Data Lineage API replacement will need `roles/datalineage.editor` instead | `datacatalog.tags.create` (on entry) + use of tag template | `roles/datacatalog.tagEditor` on the entry's parent resource + `roles/datacatalog.tagTemplateUser` on the tag template | `tagEditor` grants create/update/delete of tags on catalog entries. `tagTemplateUser` is required to associate a tag with an existing template. Neither grants entry creation, schema edits, or admin. |
 
 ### 2.6 `gcp-dataflow` — Cloud Dataflow
 
