@@ -125,6 +125,7 @@ def trigger():
         output_bucket=config.output_bucket,
         dataflow_service_account=config.dataflow_service_account,
         temp_location=config.temp_location,
+        job_control_table=config.job_control_table,
     )
 
     # 4. Record in job_control

@@ -439,15 +439,20 @@
         </div>
       </div>
       <div class="finding">
-        <span class="pill high">Live bug</span>
+        <span class="pill mine">Corrected</span>
         <div>
-          <h4>Duplicate Dataflow launches are happening today</h4>
+          <h4>The gate's own status finding was wrong — and inverted</h4>
           <p>
-            <code>JobStatus</code> emits lowercase <code>running</code>/<code>succeeded</code>;
-            <code>fdp-trigger/dedup.py:38</code> filters
-            <code>status IN ('RUNNING','SUCCESS')</code> — wrong case, and
-            <code>'SUCCESS'</code> is not a member at all. The query matches zero
-            rows and raises nothing. Independent of this rebuild; wants its own issue.
+            All four lenses reported duplicate Dataflow launches from a
+            lowercase/uppercase status mismatch. Building it disproved that:
+            <code>fdp-trigger</code> wrote <code>RUNNING</code> and read
+            <code>RUNNING</code>, so it was self-consistent. Nothing ever wrote a
+            <em>terminal</em> status, so the gate latched closed and blocked every
+            re-run — including retries after a failure. Fixing it as reported
+            would have removed <code>RUNNING</code> from the filter and
+            <em>created</em> the duplicate launches everyone believed existed.
+            Four reviewers read the same two files; none asked who writes the
+            completion.
           </p>
         </div>
       </div>
@@ -500,7 +505,7 @@
           <tr><td class="adid">AD-13</td><td>All three clouds pass the same contract test; Athena is built</td><td>An adapter left mutating against an append-only contract</td></tr>
           <tr class="new"><td class="adid">AD-14<span class="tag-new">gate</span></td><td>Every writer comes inside the port</td><td>The two bypass writers that already exist</td></tr>
           <tr class="new"><td class="adid">AD-16<span class="tag-new">gate</span></td><td><code>payload</code> keys bound per <code>event_kind</code>, fixture-pinned</td><td>~19 unbound fields; a key typo returning <code>NULL</code> silently</td></tr>
-          <tr class="new"><td class="adid">AD-17<span class="tag-new">gate</span></td><td>One status vocabulary</td><td>The duplicate-launch bug above</td></tr>
+          <tr class="new"><td class="adid">AD-17<span class="tag-new">gate</span></td><td>One status vocabulary</td><td>Writer/reader status drift becoming live</td></tr>
         </tbody>
       </table>
     </div>
@@ -594,7 +599,7 @@
     <div class="ask">
       <ol>
         <li><b>Split the epic?</b> Landing both halves together means the safe half waits on the risky one, and a single revert takes out both.</li>
-        <li><b>The two live bugs — separate issues?</b> Duplicate Dataflow launches and the bypass writers exist independently of this work. Absorbing them into a refactor hides both.</li>
+        <li><b>Split the bypass writers out?</b> They exist independently of this work. Note the segment-transform template <em>cannot launch at all</em> today — snake_case parameters against camelCase Beam options — so nothing has been running through that path.</li>
         <li><b>How does <code>contract_version</code> bump?</b> §2 has no bucket for a per-row → per-run <em>semantic</em> change, and §11's process requires fixtures that phase 1 is what creates.</li>
       </ol>
     </div>

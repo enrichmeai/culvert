@@ -182,7 +182,7 @@ as a defect, not a detail.
 ### AD-17 — One status vocabulary
 
 - **Binds:** `JobStatus`, the projection, every consumer that filters on status
-- **Prevents:** a live production bug: `JobStatus.java:12-14` emits lowercase (`running`, `succeeded`) while `fdp-trigger/dedup.py:38` filters `status IN ('RUNNING','SUCCESS')` — wrong case, and `'SUCCESS'` is not a member at all. The query matches zero rows, raises nothing, and **duplicate Dataflow launches are happening today**
+- **Prevents:** vocabulary drift between writers and readers of run status. *(Corrected 2026-09-04 after implementation: the original finding claimed `fdp-trigger/dedup.py` matched zero rows and caused duplicate Dataflow launches. It does not — `fdp-trigger` wrote `RUNNING` and read `RUNNING`, so it was internally consistent. The real defect was that **no terminal status was ever written**, latching the gate closed and blocking every re-run. Fixed in `spec-fdp-trigger-dedup-terminal-status.md`. The case mismatch was real but latent, and this AD is what keeps it from becoming live.)*
 - **Rule:** `JobStatus`'s lowercase wire values are the single vocabulary. §4 has no `status` column, so the projection derives it and its domain is exactly `JobStatus`. No consumer may invent a value.
 
 ### Dependency direction
@@ -284,7 +284,7 @@ deployments/postgres-cdc-streaming/  # second unregistered impl -> same
 | Review #13 — Java/Python parity | `tests/contract/` | AD-11 |
 | Review #1 — mismatch can never read green | the projection | AD-3 |
 | Shadow writers (found by the gate) | `fdp-trigger`, `postgres-cdc-streaming` | AD-14 |
-| Duplicate Dataflow launches (found by the gate) | `fdp-trigger/dedup.py` | AD-17 |
+| Run-status vocabulary drift (found by the gate) | `fdp-trigger`, `JobStatus` | AD-17 |
 
 ## Deferred
 

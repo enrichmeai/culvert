@@ -35,11 +35,13 @@ depends on the spine's decisions.
 | # | Work | Why first |
 | --- | --- | --- |
 | 0.1 | Remove `lifecycle { ignore_changes = [schema] }` from `pipeline_jobs` and `audit_trail` in `main.tf` | Every later phase's DDL change would otherwise **plan green and do nothing**. This is the single highest-value line in the plan. |
-| 0.2 | Fix `fdp-trigger/dedup.py:38` — `status IN ('RUNNING','SUCCESS')` vs `JobStatus`'s lowercase values, and `'SUCCESS'` is not a member | **Live bug: duplicate Dataflow launches today.** Independent of the rebuild; should not wait for it. Own issue. |
+| 0.2 | ~~Fix the dedup status filter~~ **DONE 2026-09-04** — but the diagnosis was wrong. `fdp-trigger` wrote `RUNNING` and read `RUNNING`; nothing ever wrote a *terminal* status, so the gate latched closed and blocked every re-run, including retries after failure. The inverse of the reported fault. See `spec-fdp-trigger-dedup-terminal-status.md`. |
 | 0.3 | Verify the emulator tier runs at all (`mvn -P it verify`) | Nothing in this surface has ever been exercised against an emulator. Building on an unverifiable tier is how the current four shapes survived. |
 
-> 0.2 deserves its own issue and its own PR. Absorbing a live production bug into
-> a refactor hides both.
+> Note: the segment-transform Flex Template **cannot launch at all today** —
+> `launcher.py` sends snake_case parameters against camelCase Beam options and
+> never sends the required `templatePath`. So no duplicate launches were ever
+> occurring through this path. Recorded in `deferred-work.md`.
 
 ---
 

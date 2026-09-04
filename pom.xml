@@ -45,10 +45,12 @@
         release scope is unchanged by this file.
 
         Deployment membership rule: a deployment belongs here if it has a
-        `pom.xml`. `mainframe-segment-transform-java` is included even though
-        it declares no `com.enrichmeai.culvert` dependency — it is Java code in
-        this repo, and "one command builds everything" is worth more than a
-        narrow definition of what depends on the library.
+        `pom.xml` — it is Java code in this repo, and "one command builds
+        everything" is worth more than a narrow definition of what depends on
+        the library. Every deployment now does depend on it: the last holdout,
+        `mainframe-segment-transform-java`, took a `data-pipeline-core` +
+        `data-pipeline-gcp-bigquery` dependency in 2026-09 so it could write
+        its terminal job-control status through the port.
     -->
 
     <groupId>com.enrichmeai.culvert</groupId>

@@ -11,19 +11,25 @@
       "name": "extractDate",
       "label": "Extract date",
       "helpText": "Extract date in YYYYMMDD format.",
-      "regexes": ["^[0-9]{8}$"]
+      "regexes": [
+        "^[0-9]{8}$"
+      ]
     },
     {
       "name": "periodStart",
       "label": "Period Start",
       "helpText": "Period start date in YYYY-MM-DD format.",
-      "regexes": ["^[0-9]{4}-[0-9]{2}-[0-9]{2}$"]
+      "regexes": [
+        "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      ]
     },
     {
       "name": "periodEnd",
       "label": "Period End",
       "helpText": "Period end date in YYYY-MM-DD format.",
-      "regexes": ["^[0-9]{4}-[0-9]{2}-[0-9]{2}$"]
+      "regexes": [
+        "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      ]
     },
     {
       "name": "outputBucket",
@@ -40,6 +46,12 @@
       "name": "gcpProjectId",
       "label": "GCP Project ID",
       "helpText": "GCP project ID for BigQuery source tables.",
+      "isOptional": true
+    },
+    {
+      "name": "jobControlTable",
+      "label": "Job control table",
+      "helpText": "Fully-qualified project.dataset.table for job_control. Must name the same table as fdp-trigger's JOB_CONTROL_TABLE: the trigger inserts the 'running' row and this pipeline writes the terminal status to it. Defaults to <gcpProjectId>.job_control.pipeline_jobs.",
       "isOptional": true
     }
   ]

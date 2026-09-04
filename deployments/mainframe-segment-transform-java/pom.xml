@@ -24,14 +24,35 @@
         <maven.compiler.target>17</maven.compiler.target>
         <maven.compiler.release>17</maven.compiler.release>
 
+        <!-- Pin to the reactor's library version, like the other Java deployments. -->
+        <culvert.version>0.2.0-SNAPSHOT</culvert.version>
         <beam.version>2.55.0</beam.version>
         <jackson.version>2.15.2</jackson.version>
         <slf4j.version>2.0.13</slf4j.version>
         <lombok.version>1.18.38</lombok.version>
         <junit.version>5.10.2</junit.version>
+        <assertj.version>3.25.3</assertj.version>
     </properties>
 
     <dependencies>
+        <!--
+            Culvert framework libraries. The pipeline writes its own terminal
+            job-control status through JobControlRepository (the port), never
+            as raw BigQuery DML - spine AD-14. data-pipeline-core supplies the
+            port and JobStatus; data-pipeline-gcp-bigquery supplies the
+            BigQuery-backed implementation.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-gcp-bigquery</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.beam</groupId>
             <artifactId>beam-sdks-java-core</artifactId>
@@ -54,6 +75,19 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+            jackson-core is pinned explicitly, not left to transitive
+            mediation. Beam 2.55 pulls jackson-core 2.14.x while
+            jackson-databind here is 2.15.2, and databind 2.15 calls
+            StreamReadConstraints, which does not exist in core 2.14 —
+            PipelineOptionsFactory then dies with NoClassDefFoundError at
+            class-init time, in the shaded jar as well as in tests.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -94,6 +128,20 @@
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            No Mockito here, deliberately. Beam 2.55 puts byte-buddy 1.12.14
+            on the compile classpath; Mockito 5.x needs 1.17.x, and its
+            MockMaker fails to initialise against the older one. Overriding
+            byte-buddy would change what ships inside the shaded Dataflow jar
+            for the sake of a test, so JobControlRepository is faked by hand
+            in MainframeSegmentPipelineTest instead.
+        -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

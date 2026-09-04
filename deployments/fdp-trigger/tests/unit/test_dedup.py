@@ -1,8 +1,22 @@
-"""Tests for dedup check."""
+"""Tests for dedup check.
+
+The status values in the filter are the load-bearing part of this module: the
+previous version of these tests mocked the client and asserted only on the
+return value, so the SQL could have named any status at all and every test
+would still have passed. That is how a filter naming a status nothing ever
+writes survived. These tests assert on the SQL text itself.
+"""
 
 from unittest.mock import MagicMock
 
 from fdp_trigger.dedup import already_triggered
+from fdp_trigger.job_control import (
+    STATUSES_BLOCKING_RELAUNCH,
+    STATUS_ON_COMPLETION,
+    STATUS_ON_LAUNCH,
+)
+
+TABLE = "proj.job_control.pipeline_jobs"
 
 
 def _mock_client(rows):
@@ -13,20 +27,27 @@ def _mock_client(rows):
     return client
 
 
+def _executed_sql(client):
+    """The SQL string handed to client.query (first positional argument)."""
+    return client.query.call_args.args[0]
+
+
 def test_no_existing_run_returns_false():
+    """First launch for a date: nothing matches, so the launch proceeds."""
     client = _mock_client([])
     assert already_triggered(
         client=client,
-        job_control_table="proj.job_control.pipeline_jobs",
+        job_control_table=TABLE,
         extract_date="2026-04-09",
     ) is False
 
 
 def test_existing_run_returns_true():
+    """A matching row (running or succeeded) suppresses the relaunch."""
     client = _mock_client([MagicMock()])
     assert already_triggered(
         client=client,
-        job_control_table="proj.job_control.pipeline_jobs",
+        job_control_table=TABLE,
         extract_date="2026-04-09",
     ) is True
 
@@ -36,7 +57,7 @@ def test_query_uses_parameterised_pipeline_name():
     client = _mock_client([])
     already_triggered(
         client=client,
-        job_control_table="proj.job_control.pipeline_jobs",
+        job_control_table=TABLE,
         extract_date="2026-04-09",
     )
     call_args = client.query.call_args
@@ -45,3 +66,47 @@ def test_query_uses_parameterised_pipeline_name():
     param_names = {p.name for p in params}
     assert "pipeline_name" in param_names
     assert "extract_date" in param_names
+
+
+def test_filter_uses_lowercase_culvert_status_values():
+    """The filter names Culvert's lowercase JobStatus wire values (AD-17)."""
+    client = _mock_client([])
+    already_triggered(
+        client=client, job_control_table=TABLE, extract_date="2026-04-09",
+    )
+    sql = _executed_sql(client)
+    assert "'running'" in sql
+    assert "'succeeded'" in sql
+    assert "status IN ('running', 'succeeded')" in sql
+
+
+def test_filter_does_not_use_the_dead_uppercase_vocabulary():
+    """'RUNNING'/'SUCCESS' are not JobStatus members; nothing ever writes them."""
+    client = _mock_client([])
+    already_triggered(
+        client=client, job_control_table=TABLE, extract_date="2026-04-09",
+    )
+    sql = _executed_sql(client)
+    assert "RUNNING" not in sql
+    assert "SUCCESS" not in sql
+
+
+def test_failed_runs_do_not_block_a_relaunch():
+    """
+    A 'failed' row must not match the filter -- re-running a failed extract
+    date is exactly the case this gate was latching closed.
+    """
+    client = _mock_client([])
+    already_triggered(
+        client=client, job_control_table=TABLE, extract_date="2026-04-09",
+    )
+    sql = _executed_sql(client)
+    assert "failed" not in sql
+    assert "failed" not in STATUSES_BLOCKING_RELAUNCH
+
+
+def test_blocking_statuses_match_the_writer_vocabulary():
+    """The gate blocks on exactly what the two writers produce."""
+    assert STATUSES_BLOCKING_RELAUNCH == (STATUS_ON_LAUNCH, STATUS_ON_COMPLETION)
+    assert STATUS_ON_LAUNCH == "running"
+    assert STATUS_ON_COMPLETION == "succeeded"

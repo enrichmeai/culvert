@@ -91,6 +91,66 @@ def test_happy_path_launches_dataflow(
 @patch("fdp_trigger.main.already_triggered")
 @patch("fdp_trigger.main.launch_segment_transform")
 @patch("fdp_trigger.main.record_trigger")
+def test_launch_happens_before_the_job_control_row_is_written(
+    mock_record, mock_launch, mock_dedup, mock_check, mock_bq, client
+):
+    """
+    Deliberate ordering, pinned so a refactor cannot quietly invert it.
+
+    Recording first would look safer, but a row written 'running' before a
+    launch that then fails would latch the dedup gate permanently -- exactly
+    the bug this flow was fixed for. Launching first is safe because the launch
+    call only submits the job (workers take minutes to start) while the insert
+    follows in milliseconds; and if the insert fails, the Dataflow job's
+    terminal write finds no row and fails loudly.
+    """
+    mock_check.return_value = MagicMock(is_ready=True, reason="OK", partitions=[])
+    mock_dedup.return_value = False
+    mock_launch.return_value = "auto_20260409_123456"
+
+    order = MagicMock()
+    order.attach_mock(mock_launch, "launch")
+    order.attach_mock(mock_record, "record")
+
+    resp = client.post("/trigger", json={"extract_date": "2026-04-09"})
+    assert resp.status_code == 200
+
+    called = [name for name, _, _ in order.mock_calls]
+    assert called == ["launch", "record"]
+
+
+@patch("fdp_trigger.main.bigquery.Client")
+@patch("fdp_trigger.main.check_fdp_ready")
+@patch("fdp_trigger.main.already_triggered")
+@patch("fdp_trigger.main.launch_segment_transform")
+@patch("fdp_trigger.main.record_trigger")
+def test_the_job_is_told_which_job_control_table_to_complete(
+    mock_record, mock_launch, mock_dedup, mock_check, mock_bq, client
+):
+    """
+    The Dataflow job writes its terminal status to whichever table it is given.
+    If that is not the table the dedup gate reads, the completion never reaches
+    the gate and it stays latched -- so the trigger's own JOB_CONTROL_TABLE has
+    to travel with the launch.
+    """
+    mock_check.return_value = MagicMock(is_ready=True, reason="OK", partitions=[])
+    mock_dedup.return_value = False
+    mock_launch.return_value = "auto_20260409_123456"
+
+    client.post("/trigger", json={"extract_date": "2026-04-09"})
+
+    launch_kwargs = mock_launch.call_args.kwargs
+    dedup_table = mock_dedup.call_args.kwargs["job_control_table"]
+    record_table = mock_record.call_args.kwargs["job_control_table"]
+    assert launch_kwargs["job_control_table"] == "test-project.job_control.pipeline_jobs"
+    assert launch_kwargs["job_control_table"] == dedup_table == record_table
+
+
+@patch("fdp_trigger.main.bigquery.Client")
+@patch("fdp_trigger.main.check_fdp_ready")
+@patch("fdp_trigger.main.already_triggered")
+@patch("fdp_trigger.main.launch_segment_transform")
+@patch("fdp_trigger.main.record_trigger")
 def test_default_segment_used_if_not_provided(
     mock_record, mock_launch, mock_dedup, mock_check, mock_bq, client
 ):
