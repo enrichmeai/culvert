@@ -25,11 +25,23 @@ Legend: ✅ done (on `main`) · 🟡 partial / wiring-only · ⬜ planned · �
 | `Source` | ✅ | `PubSubSource` | ✅ (pubsub emu) | ✅ |
 | `Sink` | ✅ | `PubSubSink` | ✅ (pubsub emu) | ✅ |
 | `ObservabilityHook` | ✅ | `CloudTraceObservabilityHook` | unit only | ✅ |
-| `LineageEmitter` | ✅ | `DataCatalogLineageEmitter` | unit only | ✅ |
+| `LineageEmitter` | ✅ | **none shipped** — `DataCatalogLineageEmitter` deprecated + de-registered (Story 1.5) | unit only | 🔴 **not emitting** — see note below |
 | `FinOpsSink` | ✅ | `BigQueryFinOpsSink` | unit only | ✅ |
 | `StageMetricsHook` | ✅ | `CloudMonitoringMetricsHook` | unit only | ✅ |
 | `AuditEventPublisher` | ✅ | `BigQueryAuditEventPublisher` | unit only | ✅ |
 | `GovernancePolicy` | ✅ | **none** (StaticGovernancePolicy default only) | — | 🔴 default only — **S14 T14.4 adds PiiMasking** |
+
+> **`LineageEmitter` has no working GCP adapter (sprint-23, Story 1.5).**
+> `DataCatalogLineageEmitter` was registered under `META-INF/services` but its
+> only constructor takes three arguments, so `ServiceLoader` raised
+> `ServiceConfigurationError`, `AutoConfig` swallowed it, and
+> `DefaultRuntimeContext` fell back to `NoOpLineageEmitter` — **no lineage was
+> emitted at all, silently, for months.** Its backend is also dying: Data
+> Catalog began its phased shutdown on 2026-06-01. The registration has been
+> removed and the class deprecated. The replacement over the Data Lineage API
+> (`datalineage.googleapis.com`, client `google-cloud-datalineage`) is
+> **blocked offline** — that client is absent from `~/.m2` and the build runs
+> `mvn -o`.
 | `Transform` | ✅ | **none** | — | 🔴 contract only — **S14 T14.1 adds DataQualityTransform** |
 | `Pipeline` / `PipelineStage` | ✅ | `DataflowPipeline` | DirectRunner | ✅ |
 | `RuntimeContext` | ✅ | `DefaultRuntimeContext` | ✅ | ✅ |

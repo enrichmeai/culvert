@@ -1,9 +1,32 @@
-# Pre-registered for sprint-4 auto-config. The implementation does NOT
-# expose a no-arg constructor — Data Catalog tagging requires an entry
-# name + tag template + a pre-built client (3 args), which exceeds the
-# pilot's "no-arg only if <=2 env vars of state" rule. Direct
-# ServiceLoader.load(LineageEmitter.class).findFirst() will fail with
-# ServiceConfigurationError until sprint-4 introduces a config-driven
-# constructor. Until then, instantiate explicitly with
-# `new DataCatalogLineageEmitter(client, entryName, tagTemplate)`.
-com.enrichmeai.culvert.gcp.observability.DataCatalogLineageEmitter
+# INTENTIONALLY EMPTY - no LineageEmitter is registered by this module.
+#
+# DataCatalogLineageEmitter used to be listed here. It was removed in
+# sprint-23 (Story 1.5) for two independent reasons:
+#
+#  1. NOT CONSTRUCTIBLE. Its only constructor takes three arguments
+#     (client, entryName, tagTemplate), so ServiceLoader raised
+#     ServiceConfigurationError on every discovery pass. AutoConfig
+#     swallowed that error (AutoConfig.java:227), truncating the provider
+#     list, and DefaultRuntimeContext.java:276 then substituted
+#     NoOpDefaults.NoOpLineageEmitter. The registration therefore
+#     advertised an emitter that never emitted - silently.
+#
+#  2. DEAD BACKEND. It writes com.google.cloud.datacatalog.v1 Tags, and
+#     Data Catalog entered its phased shutdown on 2026-06-01. Lineage has
+#     since moved to the Data Lineage API (datalineage.googleapis.com,
+#     Java client google-cloud-datalineage).
+#
+# Removing the line is behaviour-identical to the swallowed error it
+# replaces - discovery still yields no LineageEmitter, and the runtime
+# still falls back to the no-op - but it no longer advertises a lie, and
+# it satisfies Story 1.2 AC 3.
+#
+# The class itself is retained (deprecated) for callers that construct it
+# explicitly against a project where Data Catalog still answers. Re-listing
+# it here is NOT the fix: a working no-arg constructor over a shut-down API
+# would turn today's silent no-op into a runtime failure.
+#
+# Re-register a replacement here once the Data Lineage API adapter exists.
+# That migration is blocked offline: google-cloud-datalineage is absent
+# from ~/.m2 (only google-cloud-datalineage-bom poms are cached), and this
+# build runs with `mvn -o`. Tracked by Story 1.5 AC 2 / AC 5.

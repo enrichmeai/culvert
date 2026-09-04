@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "data-pipeline-gcp-observability"
 version = "0.1.0"
-description = "GCP observability adapter for the Culvert data pipeline framework. Implements ObservabilityHook (Cloud Trace/OTel), StageMetricsHook (Cloud Monitoring), LineageEmitter (Data Catalog), and CulvertMdcPopulator log-correlation helper."
+description = "GCP observability adapter for the Culvert data pipeline framework. Implements ObservabilityHook (Cloud Trace/OTel), StageMetricsHook (Cloud Monitoring), LineageEmitter (Data Catalog - DEPRECATED, backend entered phased shutdown 2026-06-01; migrate to the Data Lineage API), and CulvertMdcPopulator log-correlation helper."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
@@ -47,6 +47,11 @@ Homepage = "https://github.com/enrichmeai/culvert"
 [project.entry-points."data_pipeline_core.adapters"]
 observability  = "data_pipeline_gcp_observability:CloudTraceObservabilityHook"
 stage_metrics  = "data_pipeline_gcp_observability:CloudMonitoringMetricsHook"
+# DEPRECATED (sprint-23, Story 1.5): Data Catalog began its phased shutdown on
+# 2026-06-01. Kept because discover() imports the class without instantiating it
+# (autoconfig.py:16-17), so this entry only claims the class implements the
+# contract. The Java sibling IS de-registered -- ServiceLoader must construct it
+# there, and the failure was being swallowed into a silent no-op.
 lineage        = "data_pipeline_gcp_observability:DataCatalogLineageEmitter"
 
 [tool.setuptools.packages.find]

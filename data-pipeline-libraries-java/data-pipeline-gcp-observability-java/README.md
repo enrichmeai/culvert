@@ -5,7 +5,7 @@ Google Cloud observability adapters for the Culvert data pipeline framework, JVM
 | Class | Contract | Backend |
 |-------|----------|---------|
 | `CloudTraceObservabilityHook` | `ObservabilityHook` | Cloud Trace (via OpenTelemetry exporter) |
-| `DataCatalogLineageEmitter` | `LineageEmitter` | Data Catalog (tag-based lineage) |
+| `DataCatalogLineageEmitter` | `LineageEmitter` | Data Catalog (tag-based lineage) — **DEPRECATED, not registered** (see below) |
 | `CloudMonitoringMetricsHook` | `StageMetricsHook` | Cloud Monitoring (custom metrics) |
 
 ## Status
@@ -14,6 +14,10 @@ Google Cloud observability adapters for the Culvert data pipeline framework, JVM
 - `CloudTraceObservabilityHook` + `DataCatalogLineageEmitter` — Sprint 2 (issue [#24](https://github.com/enrichmeai/culvert/issues/24))
 - `CloudMonitoringMetricsHook` — Sprint 12 (issue [#65](https://github.com/enrichmeai/culvert/issues/65))
 - No-arg ServiceLoader-discoverable constructors on both hooks — Sprint 12 T12.6 (issue [#91](https://github.com/enrichmeai/culvert/issues/91))
+- `DataCatalogLineageEmitter` deprecated and **de-registered** from `META-INF/services` — Sprint 23 (Story 1.5)
+
+> **This module registers no `LineageEmitter`.** Discovery yields two hooks
+> (`ObservabilityHook`, `StageMetricsHook`), not three adapters.
 
 ## Install (Maven)
 
@@ -141,12 +145,34 @@ ObservabilityHook hook = new CloudTraceObservabilityHook(otel, "my-pipeline-name
 
 ---
 
-## DataCatalogLineageEmitter
+## DataCatalogLineageEmitter (DEPRECATED - not registered)
 
 `LineageEmitter` that writes `LineageEvent` objects as Data Catalog tags on a
 configurable entry. Each event becomes one `Tag` attached to the configured
 entry. Tag fields mirror the four sub-records of `LineageEvent` (source,
 pipeline, destination, audit), flattened to scalar strings.
+
+**Do not rely on this class for lineage.** Two independent problems, both
+fixed or flagged in Sprint 23 (Story 1.5):
+
+1. **It was never actually discoverable.** It was listed in
+   `META-INF/services/com.enrichmeai.culvert.contracts.LineageEmitter`, but its
+   only constructor takes three arguments, so `ServiceLoader` raised
+   `ServiceConfigurationError`. `AutoConfig.loadServiceList` swallowed that
+   error and `DefaultRuntimeContext` substituted `NoOpLineageEmitter` — so the
+   framework emitted **no lineage at all**, silently, for months. The
+   registration has been removed; the fallback to no-op is unchanged, but it is
+   no longer hidden behind a swallowed error.
+
+2. **Its backend is shutting down.** Data Catalog entered its phased shutdown
+   on **2026-06-01**. Lineage now has its own Data Lineage API
+   (`datalineage.googleapis.com`, Java client `google-cloud-datalineage`).
+
+Migrating to the Data Lineage API is **blocked offline**: that client is not
+present in `~/.m2` and this build runs `mvn -o`. Until an adapter exists, the
+class is retained (deprecated) only for callers that construct it explicitly
+against a project where Data Catalog still answers; it logs a WARN on
+construction.
 
 See the class Javadoc and `DataCatalogLineageEmitterTest` for construction
 and usage details.

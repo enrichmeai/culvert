@@ -17,13 +17,26 @@
     <name>Culvert :: data-pipeline-gcp-observability (Java)</name>
     <description>
         Google Cloud observability adapters for the Culvert framework. Provides
-        CloudTraceObservabilityHook (ObservabilityHook implementation backed by
-        OpenTelemetry exporting spans to Cloud Trace via the GCP exporter) and
-        DataCatalogLineageEmitter (LineageEmitter implementation that writes
-        lineage events as Data Catalog tags on a configurable entry). Both
-        registered via java.util.ServiceLoader. Sprint-2 deliverable
-        (issue #24). Multi-contract module — same shape as the bigquery-java
-        pilot which ships three contract impls under one pom.
+        CloudTraceObservabilityHook (ObservabilityHook backed by OpenTelemetry
+        exporting spans to Cloud Trace via the GCP exporter) and
+        CloudMonitoringMetricsHook (StageMetricsHook backed by Cloud
+        Monitoring), both registered via java.util.ServiceLoader. Sprint-2
+        deliverable (issue #24). Multi-contract module — same shape as the
+        bigquery-java pilot which ships three contract impls under one pom.
+
+        NO LineageEmitter IS REGISTERED BY THIS MODULE (sprint-23, Story 1.5;
+        removal sanctioned by Story 1.2 AC 3). DataCatalogLineageEmitter is
+        still shipped but is deprecated and de-registered, for two reasons:
+        (1) its only constructor takes three arguments, so ServiceLoader threw
+        ServiceConfigurationError on it — an error AutoConfig swallowed, so the
+        runtime silently fell back to NoOpLineageEmitter and the adapter had
+        emitted nothing for months; and (2) it writes Data Catalog tags, and
+        Data Catalog began its phased shutdown on 2026-06-01. Removing the
+        registration is behaviour-identical to the swallowed error and stops
+        the module advertising an emitter that never emitted. The replacement
+        over the Data Lineage API (datalineage.googleapis.com) is blocked
+        offline: google-cloud-datalineage is not present in ~/.m2 and this
+        build runs mvn -o.
     </description>
 
     <properties>
