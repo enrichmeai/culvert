@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.gcp.bigquery;
 
+import com.enrichmeai.culvert.contracts.FinOpsSink;
 import com.enrichmeai.culvert.contracts.JobControlRepository;
 import com.enrichmeai.culvert.contracts.Warehouse;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,8 @@ import java.lang.reflect.Modifier;
 import java.util.ServiceLoader;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Worker-side auto-config reconstruction of the BigQuery adapters.
@@ -64,6 +67,63 @@ class BigQueryWorkerAutoConfigTest {
             System.clearProperty("gcp.project");
             System.clearProperty("gcp.location");
         }
+    }
+
+    @Test
+    void bigQueryFinOpsSinkExposesPublicNoArgConstructor() throws Exception {
+        // Story 1.2: this registration existed but was unconstructable, so FinOpsSink
+        // was unreachable through auto-config and cost recording fell back to the no-op.
+        Constructor<BigQueryFinOpsSink> ctor =
+                BigQueryFinOpsSink.class.getDeclaredConstructor();
+        assertThat(Modifier.isPublic(ctor.getModifiers())).isTrue();
+    }
+
+    @Test
+    void serviceLoaderDiscoversFinOpsSinkWithoutInstantiating() {
+        boolean found = ServiceLoader.load(FinOpsSink.class).stream()
+                .anyMatch(p -> p.type().equals(BigQueryFinOpsSink.class));
+        assertThat(found).isTrue();
+    }
+
+    @Test
+    void noArgFinOpsSinkSelfConfiguresFromProperties() {
+        System.setProperty("gcp.project", "worker-test-proj");
+        System.setProperty("gcp.location", "europe-west2");
+        System.setProperty("gcp.finOpsDataset", "finops_ds");
+        try {
+            FinOpsSink sink = new BigQueryFinOpsSink();
+            assertThat(sink).isInstanceOf(BigQueryFinOpsSink.class);
+        } finally {
+            System.clearProperty("gcp.project");
+            System.clearProperty("gcp.location");
+            System.clearProperty("gcp.finOpsDataset");
+        }
+    }
+
+    @Test
+    void noArgFinOpsSinkFailsLoudlyWhenTheDatasetIsNotConfigured() {
+        // No default is invented for FINOPS_DATASET: this repo does not agree on one.
+        // The throw is now a named DiscoveryFailure (Story 1.1), not a swallowed error.
+        // Env beats property in BigQueryDefaults.resolve, so this asserts nothing on a
+        // machine that really has FINOPS_DATASET exported.
+        assumeTrue(System.getenv("FINOPS_DATASET") == null,
+                "FINOPS_DATASET is set in this environment");
+        System.setProperty("gcp.project", "worker-test-proj");
+        try {
+            assertThatThrownBy(BigQueryFinOpsSink::new)
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("FINOPS_DATASET");
+        } finally {
+            System.clearProperty("gcp.project");
+        }
+    }
+
+    @Test
+    void finOpsTableDefaultsToTheCrossLanguageConstant() {
+        // Table name IS settled: "cost_metrics" on both language sides. Only the
+        // dataset is left to the deployment.
+        assertThat(BigQueryDefaults.finOpsTable()).isEqualTo(BigQueryFinOpsSink.DEFAULT_TABLE);
+        assertThat(BigQueryFinOpsSink.DEFAULT_TABLE).isEqualTo("cost_metrics");
     }
 
     @Test

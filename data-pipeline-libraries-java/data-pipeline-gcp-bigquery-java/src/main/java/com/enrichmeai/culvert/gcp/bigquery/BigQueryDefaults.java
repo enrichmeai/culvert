@@ -85,6 +85,50 @@ final class BigQueryDefaults {
         return t != null ? t : "pipeline_jobs";
     }
 
+    /**
+     * The dataset {@code BigQueryFinOpsSink} streams cost rows into, from
+     * {@code FINOPS_DATASET} ({@code gcp.finOpsDataset} as the test hook).
+     *
+     * <p><strong>Deliberately has no default.</strong> Its two siblings above default
+     * because {@code job_control.pipeline_jobs} is a name this repo actually provisions
+     * and agrees on. The FinOps dataset is not: the docs and the reference deployment
+     * say {@code finops_dataset.cost_metrics} (docs/SLO_ALERTING.md:111,
+     * docs/RUNBOOK.md:254, deployments/reference-e2e-gcp/README.md:422) while the
+     * Grafana chart queries {@code job_control.finops_usage}
+     * (infrastructure/k8s/charts/pipeline-observability/templates/grafana-dashboards-configmap.yaml:722),
+     * and no Terraform in this repo creates either. Guessing between them would put
+     * cost rows somewhere nobody reads, so this asks instead.
+     *
+     * @throws IllegalStateException if neither the variable nor the property is set
+     */
+    static String finOpsDataset() {
+        String d = resolve("FINOPS_DATASET", "gcp.finOpsDataset");
+        if (d == null) {
+            throw new IllegalStateException(
+                    "BigQuery FinOps dataset not resolvable for worker-side auto-config: set "
+                            + "the FINOPS_DATASET environment variable to the dataset holding "
+                            + "the cost table. There is no default: this repo does not agree on "
+                            + "one (docs say finops_dataset, the Grafana dashboards query "
+                            + "job_control), so naming it is the deployment's call. Driver-side "
+                            + "construction with new BigQueryFinOpsSink(client, project, dataset, "
+                            + "table) is unaffected.");
+        }
+        return d;
+    }
+
+    /**
+     * The table {@code BigQueryFinOpsSink} streams cost rows into, from
+     * {@code FINOPS_TABLE} ({@code gcp.finOpsTable} as the test hook), defaulting to
+     * {@link BigQueryFinOpsSink#DEFAULT_TABLE}. Unlike the dataset, the table name is
+     * settled: {@code cost_metrics} is the constant on both language sides
+     * (BigQueryFinOpsSink.java:60 and the Python
+     * {@code data_pipeline_gcp_bigquery/finops_sink.py:26}).
+     */
+    static String finOpsTable() {
+        String t = resolve("FINOPS_TABLE", "gcp.finOpsTable");
+        return t != null ? t : BigQueryFinOpsSink.DEFAULT_TABLE;
+    }
+
     private static String resolve(String envKey, String propKey) {
         String v = System.getenv(envKey);
         if (v == null || v.isBlank()) {

@@ -83,10 +83,43 @@ public final class BigQueryFinOpsSink implements FinOpsSink {
         this.tableId = TableId.of(projectId, dataset, table);
     }
 
-    // TODO sprint-4 auto-config: no-arg constructor reading GCP_PROJECT,
-    // FINOPS_DATASET, FINOPS_TABLE. Skipped here because (client, projectId,
-    // dataset, table) bootstrap exceeds the pilot's "no-arg only if <=2 env
-    // vars" rule.
+    /**
+     * No-arg constructor for worker-side auto-config reconstruction, matching
+     * {@link BigQueryWarehouse#BigQueryWarehouse()} and
+     * {@link BigQueryJobControlRepository#BigQueryJobControlRepository()}.
+     *
+     * <p>A Beam worker rebuilds its {@code RuntimeContext} adapter registry from
+     * {@code ServiceLoader} (the driver-side registrations are {@code transient}), which
+     * needs a public no-arg constructor. Without one this class was registered in
+     * {@code META-INF/services} but raised {@code ServiceConfigurationError} on every
+     * discovery pass — so {@code FinOpsSink} was unreachable through auto-config and cost
+     * recording silently fell back to the no-op. Sprint-23 Story 1.2.
+     *
+     * <p>Configuration comes from the worker's own environment via
+     * {@code BigQueryDefaults}: project and dataset region from
+     * {@code GCP_PROJECT}/{@code GCP_LOCATION}, the cost table from
+     * {@code FINOPS_DATASET} and {@code FINOPS_TABLE} (the latter defaulting to
+     * {@link #DEFAULT_TABLE}). {@code FINOPS_DATASET} has no default and is required —
+     * see {@code BigQueryDefaults.finOpsDataset()} for why guessing it would be worse
+     * than asking.
+     *
+     * <p>Explicit driver-side construction with
+     * {@link #BigQueryFinOpsSink(BigQuery, String, String, String)} is preferred wherever
+     * a specific client or table is required, and is unaffected by any of this.
+     *
+     * @throws IllegalStateException if {@code CULVERT_CLOUD} selects a non-GCP family, or
+     *                               if the project or {@code FINOPS_DATASET} cannot be
+     *                               resolved from the environment
+     */
+    public BigQueryFinOpsSink() {
+        this(gateAndClient(), BigQueryDefaults.project(),
+                BigQueryDefaults.finOpsDataset(), BigQueryDefaults.finOpsTable());
+    }
+
+    private static BigQuery gateAndClient() {
+        BigQueryDefaults.requireGcpSelected();
+        return BigQueryDefaults.client();
+    }
 
     @Override
     public void record(CostMetrics metrics, FinOpsTag tags) {

@@ -1,9 +1,29 @@
-# Pre-registered for sprint-4 auto-config. The implementation does NOT
-# expose a no-arg constructor — PubSubSource needs a SubscriberStub and a
-# fully-qualified subscription name at construction time, which exceeds
-# the pilot's "no-arg only if <=2 env vars of state" rule. Direct
-# ServiceLoader.load(Source.class).findFirst() will fail with
-# ServiceConfigurationError until sprint-4 introduces a config-driven
-# constructor. Until then, instantiate explicitly with
-# `new PubSubSource(stub, subscriptionName)`.
-com.enrichmeai.culvert.gcp.pubsub.PubSubSource
+# INTENTIONALLY EMPTY - no Source is registered by this module.
+#
+# PubSubSource used to be listed here, "pre-registered for sprint-4
+# auto-config". It was removed in sprint-23 (Story 1.2) for two independent
+# reasons:
+#
+#  1. NOT CONSTRUCTIBLE. Its constructors take (SubscriberStub,
+#     subscriptionName) and (SubscriberStub, subscriptionName, maxMessages)
+#     - PubSubSource.java:70 and PubSubSource.java:87 - so ServiceLoader
+#     raised ServiceConfigurationError on every discovery pass. AutoConfig
+#     swallowed that error before Story 1.1, so nothing ever said so.
+#     Sprint 4 came and went; it is sprint 23.
+#
+#  2. Source IS NOT A ONE-PER-CLASSPATH CONTRACT. AutoConfig deliberately
+#     exposes no singular source() accessor - only the plural sources()
+#     (AutoConfig.java:264-266) - unlike warehouse(), blobStore() and
+#     jobControl(). A pipeline reads from as many subscriptions as it has
+#     input stages, and a subscription name is per-stage wiring, not
+#     per-environment configuration. So there is no honest no-arg
+#     constructor to write: a self-configuring PubSubSource would have to
+#     pick ONE subscription out of the environment, and would be wrong for
+#     every pipeline with two inputs.
+#
+# Removing the line is behaviour-identical to the swallowed error it
+# replaces - discovery still yields no Source from this module - but it no
+# longer advertises a lie, and it satisfies Story 1.2 AC 3.
+#
+# The class is unchanged and fully supported. Construct it per stage:
+#     new PubSubSource(stub, ProjectSubscriptionName.of(p, s).toString())

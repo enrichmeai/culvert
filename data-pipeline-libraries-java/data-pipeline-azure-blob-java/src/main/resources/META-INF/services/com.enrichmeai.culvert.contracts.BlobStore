@@ -1,1 +1,34 @@
-com.enrichmeai.culvert.azure.blob.AzureBlobStore
+# INTENTIONALLY EMPTY - no BlobStore is registered by this module.
+#
+# AzureBlobStore used to be listed here. It was removed in sprint-23
+# (Story 1.2) for three reasons, any one of which is sufficient:
+#
+#  1. NOT CONSTRUCTIBLE. Its only constructor takes a BlobServiceClient
+#     (AzureBlobStore.java:38), so ServiceLoader raised
+#     ServiceConfigurationError on every discovery pass. AutoConfig
+#     swallowed that error before Story 1.1, so nothing ever said so.
+#
+#  2. IT IS A SKELETON. Seven of its eight BlobStore methods throw
+#     UnsupportedOperationException (AzureBlobStore.java:51-84); only
+#     exists() is implemented. A DISCOVERABLE skeleton is worse than no
+#     registration at all: auto-config would hand a caller an object that
+#     satisfies the contract's type and fails on first real use.
+#
+#  3. REGISTERING IT WOULD BREAK CLASSPATHS THAT WORK TODAY. Since
+#     Story 1.1, AutoConfig.blobStore() fails fast when more than one
+#     BlobStore provider is available and no CULVERT_BLOBSTORE_PROVIDER
+#     selector chose between them (AutoConfig.java:357-362). GcsBlobStore
+#     and S3BlobStore both register; S3BlobStore declines outside AWS
+#     through ProviderAvailability.isAvailable() (S3BlobStore.java:108)
+#     rather than by throwing. A no-arg AzureBlobStore WITHOUT that opt-out
+#     would turn today's silent no-op into a hard IllegalStateException for
+#     every user carrying both the GCP and Azure jars. So "just add a no-arg
+#     constructor" is not the smaller change here - it is the breaking one.
+#
+# Re-register only when the adapter is complete AND implements
+# ProviderAvailability (com.enrichmeai.culvert.autoconfig) so it declines
+# outside Azure, the way S3BlobStore does. The expansion is tracked at
+# https://github.com/enrichmeai/culvert/issues/18.
+#
+# The class is unchanged. Construct it explicitly:
+#     new AzureBlobStore(serviceClient)

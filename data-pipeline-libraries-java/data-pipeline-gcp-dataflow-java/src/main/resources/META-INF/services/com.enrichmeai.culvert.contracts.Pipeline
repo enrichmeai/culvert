@@ -1,1 +1,25 @@
-com.enrichmeai.culvert.gcp.dataflow.DataflowPipeline
+# INTENTIONALLY EMPTY - no Pipeline is registered by this module.
+#
+# DataflowPipeline used to be listed here. It was removed in sprint-23
+# (Story 1.2) for two independent reasons:
+#
+#  1. NOT CONSTRUCTIBLE. Its only constructor is
+#     DataflowPipeline(String name, List<PipelineStage> stages)
+#     (DataflowPipeline.java:72), so ServiceLoader raised
+#     ServiceConfigurationError on every discovery pass. AutoConfig
+#     swallowed that error before Story 1.1, so nothing ever said so.
+#
+#  2. A PIPELINE CANNOT SELF-CONFIGURE, EVEN IN PRINCIPLE. The Pipeline
+#     contract IS a name plus a stage graph (Pipeline.java:18-21): the
+#     stages are the pipeline's entire identity, not a setting attached to
+#     it. No environment variable can supply a List<PipelineStage>, so
+#     there is no honest no-arg constructor to write - a stand-in would
+#     have to invent an empty or fake stage list, and DataflowPipeline
+#     rejects an empty one by design (DataflowPipeline.java:78-80).
+#
+# AutoConfig.pipeline() (AutoConfig.java:256-258) therefore resolves empty
+# on a GCP classpath. That is correct, not a gap: a pipeline is declared by
+# the deployment that owns it, never discovered from the classpath.
+#
+# The class is unchanged and fully supported. Construct it explicitly:
+#     new DataflowPipeline("my-pipeline", List.of(stageA, stageB))

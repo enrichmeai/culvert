@@ -1,7 +1,23 @@
-# Pre-registered for future auto-config. The implementation does NOT
-# expose a no-arg constructor — SqsSink wraps an SqsClient and requires a
-# queue URL at construction time. Direct ServiceLoader.load(Sink.class)
-# lookups will fail with ServiceConfigurationError until a config-driven
-# constructor lands. Until then, instantiate explicitly with
-# `new SqsSink(client, queueUrl)`.
-com.enrichmeai.culvert.aws.sqs.SqsSink
+# INTENTIONALLY EMPTY - no Sink is registered by this module.
+#
+# SqsSink used to be listed here, "pre-registered for future auto-config".
+# It was removed in sprint-23 (Story 1.2) for the same two reasons as its
+# GCP twin (see the gcp-pubsub module's Sink file):
+#
+#  1. NOT CONSTRUCTIBLE. Its only constructor takes (SqsClient, queueUrl)
+#     (SqsSink.java:71), so ServiceLoader raised ServiceConfigurationError
+#     on every discovery pass. AutoConfig swallowed that error before
+#     Story 1.1.
+#
+#  2. Sink IS NOT A ONE-PER-CLASSPATH CONTRACT. AutoConfig exposes no
+#     singular sink() accessor, only the plural sinks()
+#     (AutoConfig.java:268-270). A queue URL is per-stage wiring, not
+#     per-environment configuration, so there is no honest no-arg
+#     constructor to write.
+#
+# Story 1.2 AC 5 scoped the AWS entries as "fix only if it is a genuine
+# no-arg constructor; otherwise leave the registration removed and flag
+# it". It is not, so this is the removal branch.
+#
+# The class is unchanged and fully supported. Construct it per stage:
+#     new SqsSink(client, queueUrl)
