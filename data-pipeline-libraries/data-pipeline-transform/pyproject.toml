@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "dbt macro library for the Culvert data pipeline framework (audit columns, PII masking, data-quality checks). dbt-SQL only — no Apache Beam, no Airflow."
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 authors = [
     { name = "Joseph Aruja", email = "joseph.a.aruja@googlemail.com" },
 ]
@@ -16,7 +16,7 @@ keywords = ["data", "pipeline", "framework", "culvert", "dbt", "bigquery", "pii-
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

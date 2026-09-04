@@ -22,14 +22,14 @@ name = "culvert"
 version = "0.2.0.dev0"
 description = "Cloud-agnostic, polyglot data-pipeline framework: one contract set, adapters per cloud. Python side of Culvert (Java twin on Maven Central: com.enrichmeai.culvert)."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.10"
 authors = [{ name = "Joseph Aruja" }]
 keywords = ["data-pipeline", "framework", "cloud-agnostic", "gcp", "bigquery", "dbt", "airflow", "contracts"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

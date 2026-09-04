@@ -54,4 +54,4 @@ Eleven Protocols are the entire framework-to-cloud seam:
 
 ## License
 
-MIT — see [LICENSE](../../LICENSE) at the repository root.
+Apache-2.0 — see [LICENSE](../../LICENSE) at the repository root.

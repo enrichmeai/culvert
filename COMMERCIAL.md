@@ -1,6 +1,6 @@
 # Commercial use & support
 
-Culvert is free for commercial use under its open-source [MIT license](LICENSE).
+Culvert is free for commercial use under its open-source [Apache-2.0 license](LICENSE).
 No strings: use it in proprietary systems, modify it, ship it. You never need a
 commercial licence to run Culvert.
 

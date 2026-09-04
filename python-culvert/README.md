@@ -53,4 +53,4 @@ the source.
 Docs, architecture, worked example deployments, and the engineering story:
 **https://github.com/enrichmeai/culvert**
 
-MIT licensed.
+Apache-2.0 licensed.
