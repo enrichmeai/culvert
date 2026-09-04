@@ -87,7 +87,7 @@ reading affected rows from `getTotalRows()`) is the same root cause.
 1. `createJob` is insert-if-absent and fails if the `runId` already exists.
 2. Every status transition asserts the expected prior state and fails when it does not hold — not merely that the row exists.
 3. DML affected-row counts are read correctly, closing issue #99; `cleanupPartialLoad` returns a truthful count.
-4. `cleanupPartialLoad`'s javadoc states it removes **job-control records only** and does not clean the warehouse (AD-17).
+4. ~~`cleanupPartialLoad`'s javadoc states it removes job-control records only~~ — **this AC was wrong and was corrected during the sprint.** `cleanupPartialLoad` deletes from the caller-supplied **warehouse** table (`BigQueryJobControlRepository.java:392`; `RetryOrchestrator` passes `job.targetTable()`). The javadoc states that truthfully instead. The real defect AD-17 was reaching for is that a *warehouse* operation lives on the *job-control* port — invisible on GCP where both are BigQuery, but on AWS it asks a DynamoDB adapter to delete rows from Athena/S3, which it cannot reach.
 5. Tests cover: duplicate `createJob` rejected; a transition from the wrong prior state rejected; a transition against a missing row rejected.
 
 **Files:** `data-pipeline-gcp-bigquery-java/.../BigQueryJobControlRepository.java`
