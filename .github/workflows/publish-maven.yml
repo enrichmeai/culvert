@@ -38,18 +38,44 @@ jobs:
           cache: maven
       - name: Build + sources + javadoc (no secrets — proves the bundle assembles)
         run: mvn -B -f data-pipeline-libraries-java/pom.xml clean install -DskipTests
-      - name: Assert every module has main + sources + javadoc
+      - name: Assert every publishable module has main + sources + javadoc
         run: |
           cd data-pipeline-libraries-java
+
+          # Derive the version; never hardcode it. This gate previously globbed
+          # *-0.1.0.jar. When the reactor moved to 0.2.0-SNAPSHOT that matched
+          # nothing, so the gate reported every module as MISSING and would have
+          # blocked the release at its first step.
+          VERSION=$(mvn -B -q -N help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "reactor version: $VERSION"
+
           missing=0
+          checked=0
           for m in */ ; do
             [ -f "$m/pom.xml" ] || continue
             grep -q '<packaging>pom</packaging>' "$m/pom.xml" && continue
+            # Modules excluded from the Central bundle build no sources/javadoc
+            # jars, so requiring them here would fail the gate on a module that
+            # is deliberately not published (e.g. the registration-audit harness).
+            if grep -q '<maven.deploy.skip>true</maven.deploy.skip>' "$m/pom.xml"; then
+              echo "skip (not published to Central): $m"
+              continue
+            fi
+            checked=$((checked + 1))
             for suffix in "" "-sources" "-javadoc"; do
-              ls "$m"target/*-0.1.0${suffix}.jar >/dev/null 2>&1 || { echo "MISSING ${suffix:-main} jar in $m"; missing=1; }
+              ls "$m"target/*-${VERSION}${suffix}.jar >/dev/null 2>&1 \
+                || { echo "MISSING ${suffix:-main} jar in $m"; missing=1; }
             done
           done
-          [ "$missing" = 0 ] && echo "all modules carry main+sources+javadoc"
+
+          # A gate that checks nothing passes vacuously - the exact silent-success
+          # failure this workflow exists to prevent.
+          if [ "$checked" -eq 0 ]; then
+            echo "ERROR: no publishable modules were checked"
+            exit 1
+          fi
+
+          [ "$missing" = 0 ] && echo "OK: $checked publishable modules carry main+sources+javadoc"
           exit $missing
 
   deploy:
