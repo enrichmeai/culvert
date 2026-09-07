@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-gcp-observability"
-version = "0.2.0.dev0"
+version = "0.2.0"
 description = "GCP observability adapter for the Culvert data pipeline framework. Implements ObservabilityHook (Cloud Trace/OTel), StageMetricsHook (Cloud Monitoring), LineageEmitter (Data Catalog - DEPRECATED, backend entered phased shutdown 2026-06-01; migrate to the Data Lineage API), and CulvertMdcPopulator log-correlation helper."
 readme = "README.md"
 requires-python = ">=3.10"

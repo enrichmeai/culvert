@@ -42,7 +42,7 @@
         <maven.compiler.release>17</maven.compiler.release>
 
         <!-- Pin to same versions as data-pipeline-libraries-java parent. -->
-        <culvert.version>0.2.0-SNAPSHOT</culvert.version>
+        <culvert.version>0.2.0</culvert.version>
         <beam.version>2.55.0</beam.version>
         <jackson.version>2.15.2</jackson.version>
         <slf4j.version>2.0.13</slf4j.version>
