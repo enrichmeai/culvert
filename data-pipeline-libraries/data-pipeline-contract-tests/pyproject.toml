@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-contract-tests"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "Abstract pytest contract tests that every Culvert framework implementation must pass. Test-library — pytest + the data-pipeline-core Protocols are compile-time deps."
 readme = "README.md"
 requires-python = ">=3.10"

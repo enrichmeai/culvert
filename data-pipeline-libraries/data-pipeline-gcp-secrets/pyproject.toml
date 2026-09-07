@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-gcp-secrets"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "Google Cloud Secret Manager adapter for the Culvert data pipeline framework. Implements the cloud-neutral SecretProvider contract from data-pipeline-core."
 readme = "README.md"
 requires-python = ">=3.10"
