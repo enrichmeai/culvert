@@ -6,14 +6,24 @@ import com.enrichmeai.culvert.jobcontrol.PipelineJob;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Stateless helper that sequences the retry lifecycle for a failed pipeline run.
  *
- * <p>Sequences: detect prior partial load → {@code cleanupPartialLoad} → {@code markRetrying} →
- * return cleared state for the caller to re-submit the pipeline. This keeps the orchestration
- * logic out of the repository implementation and allows deterministic unit-testing with a
- * stub {@link JobControlRepository}.
+ * <p>Sequences: check the run is eligible to retry → detect prior partial load →
+ * {@code cleanupPartialLoad} → {@code markRetrying} → return cleared state for the caller to
+ * re-submit the pipeline. This keeps the orchestration logic out of the repository
+ * implementation and allows deterministic unit-testing with a stub
+ * {@link JobControlRepository}.
+ *
+ * <h2>Eligibility is checked before anything is deleted</h2>
+ * <p>The eligibility check comes first on purpose. {@code markRetrying} is a compare-and-set
+ * (see {@link BigQueryJobControlRepository}), so an ineligible run — a {@code SUCCEEDED} one,
+ * say — would be rejected there anyway; but by that point {@code cleanupPartialLoad} would
+ * already have deleted the rows that run legitimately loaded, leaving an emptied table behind
+ * a job record still reading SUCCEEDED. Checking first means an ineligible retry changes
+ * nothing at all.
  *
  * <h2>Idempotency guarantee</h2>
  * <p>If the job is already in {@link JobStatus#RETRYING} state (detected via {@link
@@ -68,7 +78,9 @@ public final class RetryOrchestrator {
      * @param runId The run identifier of the failed pipeline job. Required.
      * @return A {@link RetryResult} describing the post-retry state.
      * @throws NullPointerException     if {@code runId} is null.
-     * @throws IllegalStateException    if no job exists for the given {@code runId}.
+     * @throws IllegalStateException    if no job exists for the given {@code runId}, or the
+     *                                  job is in a state that may not be retried (e.g.
+     *                                  {@code SUCCEEDED}). Nothing is deleted in that case.
      */
     public RetryResult prepareRetry(String runId) {
         Objects.requireNonNull(runId, "runId must not be null");
@@ -80,6 +92,16 @@ public final class RetryOrchestrator {
         // Idempotency guard: if already RETRYING, don't double-increment.
         if (job.status() == JobStatus.RETRYING) {
             return new RetryResult(runId, job.retryCount(), 0);
+        }
+
+        // Eligibility guard, BEFORE any deletion — see the class javadoc. Same transition
+        // table markRetrying enforces, asked one step earlier.
+        Set<JobStatus> retryable =
+                BigQueryJobControlRepository.allowedPriorStates(JobStatus.RETRYING);
+        if (!retryable.contains(job.status())) {
+            throw new IllegalStateException("Cannot retry runId=" + runId + ": status is "
+                    + job.status() + ", expected one of " + retryable
+                    + ". Nothing was deleted.");
         }
 
         // Cleanup partial load if a target table is recorded.

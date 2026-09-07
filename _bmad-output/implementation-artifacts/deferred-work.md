@@ -1,0 +1,27 @@
+- source_spec: none
+  summary: Remove `lifecycle { ignore_changes = [schema] }` from the pipeline_jobs and audit_trail resources in infrastructure/terraform/systems/generic/main.tf.
+  evidence: Split from Phase 0 of the job_control migration plan (2026-09-04). Independently shippable infrastructure change; it blocks every later phase of the rebuild because while it is in place any DDL change plans green and silently does nothing (spine AD-9 rule 2). Deferred behind the dedup fix only because nothing is running against it today, whereas the dedup defect is live.
+
+- source_spec: none
+  summary: Verify the emulator integration tier actually runs (`mvn -P it verify` in data-pipeline-libraries-java).
+  evidence: Split from Phase 0 of the job_control migration plan (2026-09-04). Not a code deliverable but a standing verification gap - nothing in the job_control/audit surface has ever been exercised against an emulator. Docker Desktop's containerd was refusing image pulls earlier in the session (docker info succeeded; `docker pull testcontainers/ryuk:0.7.0` failed with containerd.sock connection refused).
+
+- source_spec: spec-fdp-trigger-dedup-terminal-status
+  summary: Repair the fdp-trigger -> mainframe-segment-transform-java Flex Template launch contract. launcher.py's parameter names, the required templatePath, and the Dockerfile's jar coordinates all disagree with the pipeline.
+  evidence: Probed empirically 2026-09-04 with PipelineOptionsFactory. Beam derives flag names from the getters, so `--run_id` raises "Class interface ...SegmentOptions missing a property named 'run_id'. Did you mean 'runId'?". launcher.py:56-63 sends run_id/extract_date/extract_month/output_bucket/gcp_project (snake_case) plus `segment`, for which SegmentOptions has no property, and never sends templatePath, which is @Validation.Required. metadata.json declares camelCase. jobControlTable joins the same surface: launcher.py now sends `job_control_table` so the coupling is explicit and the value travels, but the Java option is `--jobControlTable`, so until the naming is repaired the pipeline falls back to `<gcpProjectId>.job_control.pipeline_jobs`. The repair must cover this parameter too. Dockerfile copies mainframe-segment-transform-java-1.0-SNAPSHOT.jar while the pom builds 0.1.0, and builds on a Java 11 base against a pom set to <release>17</release>. Net effect: the trigger cannot launch this pipeline at all, so the terminal-status fix is unit-provable but not end-to-end provable. Not repaired in the dedup spec because renaming six parameters yields a deployment that looks fixed and still cannot launch, and verification needs a cost-gated Dataflow run.
+
+- source_spec: spec-fdp-trigger-dedup-terminal-status
+  summary: The shaded mainframe-segment-transform-java jar carries stale JAR signature files (META-INF/ECLIPSE_.SF/.RSA, META-INF/SIGNINGC.SF/.RSA) from eclipse-collections and conscrypt.
+  evidence: Pre-existing, confirmed against a HEAD worktree build on 2026-09-04 (present in the baseline jar too, so not a regression from adding the Culvert dependencies). Two consequences: `mvn package` twice without `clean` fails with "SecurityException: Invalid signature file digest for Manifest main attributes", and the same exception can surface at runtime when the JVM verifies the jar. Fix is a maven-shade-plugin filter excluding META-INF/*.SF, *.DSA, *.RSA.
+
+- source_spec: spec-fdp-trigger-dedup-terminal-status
+  summary: scripts/gcp/03_create_infrastructure.sh still declares its own 16-column pipeline_jobs schema, divergent from the 23-column Terraform/Java shape.
+  evidence: 03_create_infrastructure.sh:147-175 declares source_files REPEATED, total_records, failed_at and no pipeline_name/job_type/FinOps columns; main.tf:597-644 declares the shape BigQueryJobControlRepository#createJob writes. fdp-trigger's writer was targeting neither consistently and now writes the Terraform shape (AD-9 rule 1). Whichever schema the live `int` table actually has must be checked before this deploys, and AD-9 rule 2's `lifecycle { ignore_changes = [schema] }` has to come off pipeline_jobs first (already tracked above).
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fdp-trigger-dedup-terminal-status.md`
+  summary: The dedup filter omits entity_type, so triggering a SECOND segment for an extract date already processed is silently suppressed as "already_triggered" and its files are never produced.
+  evidence: Pre-existing, not caused by this change - the original filter also keyed only on (pipeline_name, extract_date), and PIPELINE_NAME is a constant while `segment` varies per call (dedup.py, launcher.py). Surfaced by the edge-case review. High consequence (silent data omission), but out of this spec's frozen intent, which only covered re-runs of the SAME work.
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-fdp-trigger-dedup-terminal-status.md`
+  summary: JobType has the same two-vocabulary split that AD-17 just fixed for JobStatus - JobType.java defines TRANSFORMATION("transformation") but BigQueryJobControlRepository writes jobType().name() (uppercase), and the Python side writes "TRANSFORMATION".
+  evidence: The two sides happen to agree today (both uppercase), so nothing is broken - but the declared wire value is lowercase and unused, which is exactly the latent condition that made the status vocabulary a live defect. Spine AD-17 covers status only; extending it to JobType is a contract-level decision, not a patch.

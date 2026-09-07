@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-gcp-pubsub"
-version = "0.1.0"
+version = "0.2.0"
 description = "Google Cloud Pub/Sub adapter for the Culvert data pipeline framework. Implements the cloud-neutral Source/Sink contracts from data-pipeline-core."
 readme = "README.md"
 requires-python = ">=3.10"

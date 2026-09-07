@@ -1,8 +1,26 @@
-# Pre-registered for future auto-config. The implementation does NOT
-# expose a no-arg constructor — SqsSource needs an SqsClient and a queue
-# URL at construction time, which exceeds the pilot's "no-arg only if <=2
-# env vars of state" rule. Direct ServiceLoader.load(Source.class)
-# lookups will fail with ServiceConfigurationError until a config-driven
-# constructor lands. Until then, instantiate explicitly with
-# `new SqsSource(client, queueUrl)`.
-com.enrichmeai.culvert.aws.sqs.SqsSource
+# INTENTIONALLY EMPTY - no Source is registered by this module.
+#
+# SqsSource used to be listed here, "pre-registered for future
+# auto-config". It was removed in sprint-23 (Story 1.2) for the same two
+# reasons as its GCP twin (see the gcp-pubsub module's Source file):
+#
+#  1. NOT CONSTRUCTIBLE. Its constructors take (SqsClient, queueUrl) and
+#     (SqsClient, queueUrl, maxNumberOfMessages, waitTimeSeconds) -
+#     SqsSource.java:86 and SqsSource.java:107 - so ServiceLoader raised
+#     ServiceConfigurationError on every discovery pass. AutoConfig
+#     swallowed that error before Story 1.1.
+#
+#  2. Source IS NOT A ONE-PER-CLASSPATH CONTRACT. AutoConfig exposes no
+#     singular source() accessor, only the plural sources()
+#     (AutoConfig.java:264-266). A queue URL is per-stage wiring, not
+#     per-environment configuration, so there is no honest no-arg
+#     constructor to write.
+#
+# Story 1.2 AC 5 scoped the AWS entries as "fix only if it is a genuine
+# no-arg constructor; otherwise leave the registration removed and flag
+# it". It is not, so this is the removal branch, taken deliberately rather
+# than by invention of a CULVERT_SQS_QUEUE_URL variable that no deployment
+# sets.
+#
+# The class is unchanged and fully supported. Construct it per stage:
+#     new SqsSource(client, queueUrl)

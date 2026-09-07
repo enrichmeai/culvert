@@ -29,7 +29,7 @@ Culvert is a framework for building data pipelines that are **defined once again
 ## Repository layout
 
 ```
-data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (18 modules)
+data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (19 modules)
   data-pipeline-core-java          # contracts + records + AutoConfig (ServiceLoader)
   data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability,dataflow}-java
   data-pipeline-aws-{s3,secrets,sqs,dynamodb}-java   # real AWS adapter family (BlobStore, SecretProvider, Source/Sink, JobControlRepository)
@@ -96,7 +96,9 @@ pip install -e data-pipeline-libraries/data-pipeline-gcp-bigquery   # plus which
 pytest data-pipeline-libraries/data-pipeline-core/tests
 ```
 
-Adapters self-register with the core — Python via entry-points under the `data_pipeline_core.adapters` group, Java via `ServiceLoader` — so `AutoConfig.discover()` finds every installed implementation.
+Adapters self-register with the core — Python via entry-points under the `data_pipeline_core.adapters` group, Java via `ServiceLoader` — so `AutoConfig.discover()` finds every registered implementation.
+
+What registers is deliberate. **Per-environment** adapters do: a warehouse, a blob store, a secret provider, a job-control repository, the cost and observability sinks — one per deployment, resolvable from the environment the code is running in. **Per-stage** components do not: a `Source`, a `Sink` or a `Pipeline` is wiring the deployment declares (this subscription, that queue, this stage graph), not configuration to be discovered from a classpath, so you construct those explicitly. A registration that `ServiceLoader` cannot construct fails the build (`data-pipeline-registration-audit-java`).
 
 ## Contracts
 

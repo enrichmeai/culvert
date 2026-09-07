@@ -66,6 +66,62 @@ Eleven interfaces in `com.enrichmeai.culvert.contracts` — the entire framework
 mvn -f data-pipeline-libraries-java/pom.xml clean install
 ```
 
+## Adapter discovery: loud failures, explicit selection (Story 1.1)
+
+`AutoConfig.discover()` reads every `META-INF/services/com.enrichmeai.culvert.contracts.<Contract>`
+file on the classpath. Two rules govern what happens next.
+
+**Failures are per provider, and never silent.** A provider that cannot be loaded — no public
+no-arg constructor, a constructor that throws, a class that is not on the classpath — does not
+stop the others. Each failure is logged at WARN with the provider class and cause, and captured
+for programmatic inspection:
+
+```java
+AutoConfig config = AutoConfig.discover();
+for (DiscoveryFailure failure : config.failures()) {
+    // failure.contract(), failure.providerClass(), failure.cause()
+}
+```
+
+Before this change the whole `ServiceLoader` iteration sat inside `catch (Throwable ignored)`,
+so one throwing provider truncated the list and everything after it was lost with no error.
+
+**Selection is explicit when there is a choice.** The single-value accessors (`warehouse()`,
+`blobStore()`, …) resolve in three steps:
+
+1. Providers that implement `ProviderAvailability` and report `isAvailable() == false` are
+   dropped. This happens *before* the ambiguity check, so an adapter gated out of the current
+   environment never causes a spurious ambiguity failure. The filter runs at discovery time,
+   so the plural getters (`blobStores()`, `warehouses()`, …) list *candidates* rather than
+   every registration found on the classpath.
+2. Exactly one remaining candidate resolves to that candidate — the common case, unchanged.
+3. More than one remaining candidate requires a selector. Without one the call throws
+   `IllegalStateException` naming the candidates and the variable to set. Classpath order
+   never decides.
+
+The selector for contract `Foo` is `CULVERT_FOO_PROVIDER`, falling back to the system property
+`culvert.foo.provider` (e.g. `CULVERT_BLOBSTORE_PROVIDER` / `culvert.blobstore.provider`). Its
+value is the provider's fully-qualified or simple class name. A selector matching none of the
+discovered candidates fails fast rather than falling back.
+
+**Declining is "unavailable", not "throw".** An adapter that must not be selected in the current
+environment implements `ProviderAvailability`:
+
+```java
+public final class S3BlobStore implements BlobStore, ProviderAvailability {
+    @Override
+    public boolean isAvailable() {
+        return awsSelected();  // CULVERT_CLOUD=aws
+    }
+}
+```
+
+Throwing from the constructor is what caused the original defect, and an AWS jar on the classpath
+could disable a GCP adapter with no error. Reporting unavailable drops the provider cleanly.
+
+`AutoConfig.discover(ClassLoader)` runs discovery against an explicit loader, for tests and for
+hosts that isolate plugin classpaths.
+
 ## Observability auto-wiring (Sprint 12 T12.4 + T12.6)
 
 `DefaultRuntimeContext` now auto-wires observability by default. Two hooks
@@ -285,8 +341,9 @@ worker-side after Beam deserialization (T10.6 pattern).
 
 `BudgetGovernancePolicy` requires a `ceilingUsd` + `mode` constructor — it has
 **no no-arg constructor**. ServiceLoader cannot instantiate it. A
-`META-INF/services` entry for it would be silently skipped by `AutoConfig`'s
-swallow-on-error logic. Use `budgetPolicy(...)` or
+`META-INF/services` entry for it would therefore fail to load — since Story 1.1
+that failure is reported (`AutoConfig.failures()` + a WARN) rather than swallowed,
+but the policy still would not be discovered. Use `budgetPolicy(...)` or
 `register(GovernancePolicy.class, ...)` explicitly on the driver. Worker-side,
 if cost-ceiling enforcement is required post-deserialization, register the
 policy after rebuilding the context from config values.

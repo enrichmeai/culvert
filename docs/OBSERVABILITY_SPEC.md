@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-Wire the full monitoring, alerting, auditing, and observability capabilities from the framework libraries into the orchestration layer (generated DAGs). On Culvert these building blocks live in `data_pipeline_core.contracts.observability` (the `ObservabilityHook` protocol), the `data-pipeline-gcp-observability` adapter package (`CloudMonitoringMetricsHook`, `CloudTraceObservabilityHook`, `DataCatalogLineageEmitter`), `data_pipeline_core.audit` / `data_pipeline_core.lineage` (event shapes), and `data_pipeline_orchestration.callbacks` (error handling) — this spec defines how each is connected to the pipeline DAGs.
+Wire the full monitoring, alerting, auditing, and observability capabilities from the framework libraries into the orchestration layer (generated DAGs). On Culvert these building blocks live in `data_pipeline_core.contracts.observability` (the `ObservabilityHook` protocol), the `data-pipeline-gcp-observability` adapter package (`CloudMonitoringMetricsHook`, `CloudTraceObservabilityHook`, and `DataCatalogLineageEmitter` — **deprecated and no longer registered for discovery**; see the lineage note in §2), `data_pipeline_core.audit` / `data_pipeline_core.lineage` (event shapes), and `data_pipeline_orchestration.callbacks` (error handling) — this spec defines how each is connected to the pipeline DAGs.
 
 ## 2. Current State
 
@@ -150,8 +150,13 @@ in-library Dynatrace/ServiceNow client code.
 from data_pipeline_core.audit import AuditRecord
 from data_pipeline_core.contracts.audit import AuditEventPublisher  # protocol
 # Lineage: data_pipeline_core.lineage.LineageEvent, emitted through the
-# LineageEmitter contract (GCP adapter: DataCatalogLineageEmitter in
-# data-pipeline-gcp-observability).
+# LineageEmitter contract. NOTE (sprint-23, Story 1.5): there is currently NO
+# working GCP LineageEmitter. DataCatalogLineageEmitter is deprecated -- Data
+# Catalog began its phased shutdown on 2026-06-01 -- and the Java adapter has
+# been de-registered from META-INF/services, so the runtime falls back to a
+# no-op emitter. The Data Lineage API replacement
+# (datalineage.googleapis.com) is blocked offline: the google-cloud-datalineage
+# client is absent from ~/.m2.
 
 def _publish_audit_record(publisher: AuditEventPublisher,
                           run_id, pipeline_name, entity, source_file,

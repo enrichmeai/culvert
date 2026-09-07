@@ -188,11 +188,13 @@ SELECT 1
 FROM `your-project.job_control.pipeline_jobs`
 WHERE pipeline_name = 'mainframe-segment-transform'
   AND extract_date = DATE('2026-04-09')
-  AND status IN ('RUNNING', 'SUCCESS')
+  AND status IN ('running', 'succeeded')
 LIMIT 1
 ```
 
 If a row exists, the service exits cleanly. This is the idempotency boundary -- the scheduler can fire repeatedly with no side effects.
+
+Statuses are Culvert's lowercase `JobStatus` wire values (`running`, `succeeded`, `failed`) -- one vocabulary across the trigger, the Dataflow job and the library. A `failed` run deliberately does **not** match: retrying a failed extract date has to be allowed, and the filter blocking it was the bug fixed in 2026-09.
 
 ### Step 5: Launch Dataflow Flex Template
 
@@ -215,17 +217,27 @@ The service calls `dataflow.projects.locations.flexTemplates.launch` with:
 }
 ```
 
-The service inserts a `RUNNING` row into `job_control.pipeline_jobs` and returns `200 OK`.
+The service inserts a `running` row into `job_control.pipeline_jobs` and returns `200 OK`.
+
+The insert is a parameterised DML `INSERT` run as a query job, not `insert_rows_json`. Streamed rows sit in BigQuery's streaming buffer and cannot be `UPDATE`d until it flushes, so a streamed row would be invisible to the Dataflow job's terminal write -- and the row would stay `running` forever.
 
 ### Step 6: Dataflow runs the segment transform
 
-The Dataflow worker:
-1. Loads the segment template from the bundled config
+The live implementation is Java (`deployments/mainframe-segment-transform-java/`); the Python deployment beside it was removed and only untracked build residue remains on disk.
+
+Beam's DAG, running on Dataflow workers:
+1. Loads the segment template from the bundled YAML config (`SegmentTemplate`)
 2. Resolves the query placeholders (`{project}`, `{period_start}`, `{period_end}`)
-3. Executes the SQL via `ReadFromBigQuery.Method.DIRECT_READ` against the FDP tables (cross-project)
+3. Executes the SQL via `BigQueryIO.readTableRows()` with `Method.DIRECT_READ` against the FDP tables (cross-project)
 4. Formats each row to a 200-char fixed-width string via `FormatFixedWidthDoFn`
-5. Writes sharded files via `WriteToText` with `max_records_per_shard=1000000`
-6. Writes a manifest JSON via `Count.Globally` -> `Map(_build_manifest)` -> `WriteToText`
+5. Writes sharded files via `TextIO.write()` with the template's shard-name template
+6. Writes a manifest JSON via `Count.globally()` -> `MapElements` -> `TextIO.write().withoutSharding()`
+
+Then, back in the **Flex Template launcher process** -- not on a worker -- `main()` blocks on `waitUntilFinish()` and writes the run's terminal job-control status: `succeeded` on `DONE`, `failed` on a thrown `Throwable` or any other terminal state. A non-terminal state is refused rather than recorded as a failure.
+
+That terminal write is what reopens the dedup gate. It goes through Culvert's `JobControlRepository` port (never raw BigQuery DML), keyed on the `run_id` the trigger passed in, and targets the table named by `--jobControlTable` -- which must be the same table as the trigger's `JOB_CONTROL_TABLE`. If the write itself fails, the launcher throws and exits non-zero rather than reporting success over a stale `running` row.
+
+Because the write lives in the launcher process rather than in the pipeline, it depends on that process surviving until the job finishes. A launcher that is killed -- OOM, preemption, a lost connection -- leaves the Dataflow job to run to completion with no one to record the outcome, and the row stays `running`, suppressing relaunches until someone corrects it by hand. That gap is recorded rather than papered over: a time-boxed "stale RUNNING" heuristic was considered and rejected, because a timeout is a guess about job duration and would silently reopen the duplicate-launch path.
 
 The hardening from the production audit (input validation, structured logging, manifest validation, partition-pruned reads) is unchanged.
 
@@ -564,6 +576,7 @@ gcloud dataflow flex-template run "segment-transform-rerun-$(date +%s)" \
 | Cloud Run logs show "partition not found" | Wrong date or producing team hasn't run yet | Check date; check with producing team |
 | Dataflow job fails with "Permission denied" | Cross-project IAM missing | Verify `roles/bigquery.dataViewer` on FDP dataset |
 | Two Dataflow jobs running simultaneously | Dedup race condition (very rare) | Cancel one; check `job_control` insert is in a transaction |
+| Every re-trigger returns `204 already_triggered`, even after a failure | The run's row is still `running` -- the job never wrote a terminal status | Check the Dataflow job's logs for the terminal-write step; a crashed job leaves a stale `running` row that has to be corrected by hand |
 | Manifest `total_records` is 0 | Query returned no rows | Check WHERE clause; check FDP partition has data |
 
 ---

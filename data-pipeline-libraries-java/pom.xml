@@ -20,7 +20,7 @@
 
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-libraries-parent</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
 
     <name>Culvert :: data-pipeline-libraries (parent)</name>
@@ -105,6 +105,14 @@
             T11.3.
         -->
         <module>data-pipeline-orchestration-java</module>
+        <!--
+            Sprint-23 (Story 1.2): build gate, not a library. Publishes
+            nothing; depends test-scope on every module that carries a
+            META-INF/services registration so it can assert each registered
+            class is one ServiceLoader can actually construct. Last in the
+            list because nothing depends on it.
+        -->
+        <module>data-pipeline-registration-audit-java</module>
     </modules>
 
     <properties>
@@ -119,7 +127,13 @@
 
         <!-- Centralised dependency versions. Bump here, not in modules. -->
         <junit.version>5.10.2</junit.version>
-        <mockito.version>5.11.0</mockito.version>
+        <mockito.version>5.23.0</mockito.version>
+        <!-- Pinned to match the byte-buddy-agent Mockito ships. A transitive
+             dependency otherwise drags byte-buddy 1.14.11 onto the test
+             classpath, which cannot resolve the class-file version of a JDK 25
+             VM ("Unknown Java version: 0") and takes every mock-based test with
+             it. Same version-skew failure mode as review finding #11. -->
+        <bytebuddy.version>1.17.7</bytebuddy.version>
         <slf4j.version>2.0.13</slf4j.version>
         <assertj.version>3.25.3</assertj.version>
         <!-- Sprint-10: Testcontainers for emulator integration tests. -->
@@ -143,6 +157,16 @@
                 <version>${junit.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy</artifactId>
+                <version>${bytebuddy.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.bytebuddy</groupId>
+                <artifactId>byte-buddy-agent</artifactId>
+                <version>${bytebuddy.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.mockito</groupId>
@@ -199,6 +223,14 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven.surefire.plugin.version}</version>
+                    <configuration>
+                        <!-- JDK 21+ progressively disallows a JVM attaching an agent to
+                             itself (JEP 451); on JDK 25 Mockito's inline mock maker fails
+                             outright with "your JDK does not supply a working agent
+                             attachment mechanism". Re-enabling it keeps the suite runnable
+                             on modern JDKs without pinning contributors to an old one. -->
+                        <argLine>-XX:+EnableDynamicAgentLoading</argLine>
+                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>

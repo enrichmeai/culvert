@@ -1,0 +1,613 @@
+<title>Culvert Job Control Spine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;0,600;1,400&display=swap">
+
+<style>
+  :root {
+    --ground:      #eef1f4;
+    --surface:     #ffffff;
+    --surface-2:   #e4e9ee;
+    --ink:         #0f151c;
+    --ink-2:       #3d4a58;
+    --ink-3:       #6b7987;
+    --rule:        #cfd8e0;
+    --rule-strong: #a9b6c2;
+
+    --accent:      #1f6d68;
+    --accent-soft: #d8ebe9;
+    --warn:        #96501a;
+    --warn-soft:   #f6e6d5;
+    --crit:        #8f2626;
+    --crit-soft:   #f6dcdc;
+    --ok:          #2c6034;
+    --ok-soft:     #dcecdd;
+
+    --measure: 66ch;
+    --sp: 1.5rem;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #0c1116;
+      --surface:     #141b23;
+      --surface-2:   #1c252f;
+      --ink:         #e8edf2;
+      --ink-2:       #b3c0cd;
+      --ink-3:       #7d8b99;
+      --rule:        #2a343f;
+      --rule-strong: #3d4a57;
+
+      --accent:      #5fb8b1;
+      --accent-soft: #17322f;
+      --warn:        #d99a5b;
+      --warn-soft:   #33210f;
+      --crit:        #e07070;
+      --crit-soft:   #351617;
+      --ok:          #7cb884;
+      --ok-soft:     #16281a;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #0c1116;
+    --surface:     #141b23;
+    --surface-2:   #1c252f;
+    --ink:         #e8edf2;
+    --ink-2:       #b3c0cd;
+    --ink-3:       #7d8b99;
+    --rule:        #2a343f;
+    --rule-strong: #3d4a57;
+
+    --accent:      #5fb8b1;
+    --accent-soft: #17322f;
+    --warn:        #d99a5b;
+    --warn-soft:   #33210f;
+    --crit:        #e07070;
+    --crit-soft:   #351617;
+    --ok:          #7cb884;
+    --ok-soft:     #16281a;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "IBM Plex Serif", Georgia, serif;
+    font-size: 16.5px;
+    line-height: 1.62;
+    margin: 0;
+    padding: 0 1.25rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 62rem; margin: 0 auto; }
+
+  h1, h2, h3, .ui, .eyebrow, th, .pill, .adid, .phase-n {
+    font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  }
+
+  code, .mono, .adid, .chain-op {
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 3px solid var(--ink);
+    padding: 3.5rem 0 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: .13em;
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 0 0 1rem;
+  }
+  h1 {
+    font-size: clamp(2.1rem, 5.2vw, 3.4rem);
+    line-height: 1.06;
+    font-weight: 700;
+    letter-spacing: -.02em;
+    text-wrap: balance;
+    margin: 0 0 1rem;
+  }
+  .standfirst {
+    font-size: 1.16rem;
+    color: var(--ink-2);
+    max-width: var(--measure);
+    margin: 0 0 1.75rem;
+  }
+  .meta {
+    display: flex; flex-wrap: wrap; gap: .5rem 1.75rem;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: .8rem; color: var(--ink-3);
+    border-top: 1px solid var(--rule);
+    padding-top: 1rem;
+  }
+  .meta b { color: var(--ink-2); font-weight: 600; }
+
+  /* ---------- sections ---------- */
+  section { margin: 0 0 3.5rem; }
+  h2 {
+    font-size: 1.55rem; font-weight: 600; letter-spacing: -.012em;
+    margin: 0 0 .4rem; text-wrap: balance;
+  }
+  h2 .num {
+    color: var(--accent); font-variant-numeric: tabular-nums;
+    margin-right: .6rem; font-weight: 500;
+  }
+  .lede { color: var(--ink-2); max-width: var(--measure); margin: 0 0 1.5rem; }
+  p { max-width: var(--measure); }
+  a { color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  /* ---------- the reframe ---------- */
+  .reframe {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--accent);
+    padding: 1.6rem 1.75rem;
+    display: grid; gap: 1.25rem;
+  }
+  .cols2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+  @media (max-width: 640px) { .cols2 { grid-template-columns: 1fr; } }
+  .kind-list { list-style: none; margin: .5rem 0 0; padding: 0;
+    display: flex; flex-wrap: wrap; gap: .4rem; }
+  .kind-list li {
+    font-family: "IBM Plex Mono", monospace; font-size: .76rem;
+    padding: .22rem .5rem; border: 1px solid var(--rule-strong);
+    color: var(--ink-2); background: var(--surface-2);
+  }
+  .kind-list li.match { border-color: var(--accent); color: var(--accent);
+    background: var(--accent-soft); font-weight: 500; }
+  .col-h {
+    font-family: "IBM Plex Sans", sans-serif; font-size: .74rem;
+    text-transform: uppercase; letter-spacing: .1em; font-weight: 600;
+    color: var(--ink-3); margin: 0;
+  }
+
+  /* ---------- the data-loss chain ---------- */
+  .chain-block {
+    background: var(--surface);
+    border: 1px solid var(--crit);
+    padding: 1.75rem;
+  }
+  .chain-head {
+    display: flex; align-items: baseline; gap: .75rem; flex-wrap: wrap;
+    margin-bottom: 1.25rem;
+  }
+  .chain-head h3 { margin: 0; font-size: 1.15rem; font-weight: 600; }
+  .chain { display: grid; gap: 0; margin: 0 0 1.25rem; }
+  .step {
+    display: grid; grid-template-columns: 2.1rem 1fr; gap: .9rem;
+    padding: .8rem 0; border-top: 1px solid var(--rule);
+    align-items: start;
+  }
+  .step:first-child { border-top: 0; }
+  .step-n {
+    font-family: "IBM Plex Mono", monospace; font-size: .8rem;
+    color: var(--ink-3); padding-top: .15rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .step-body { font-size: .95rem; }
+  .step-body .src {
+    display: block; font-family: "IBM Plex Mono", monospace;
+    font-size: .76rem; color: var(--ink-3); margin-top: .25rem;
+  }
+  .step.terminal .step-n,
+  .step.terminal .step-body { color: var(--crit); }
+  .step.terminal .step-body strong { color: var(--crit); }
+  .chain-op {
+    display: inline-block; background: var(--crit-soft); color: var(--crit);
+    padding: .18rem .45rem; font-size: .82rem; font-weight: 500;
+  }
+  .verdict {
+    background: var(--crit-soft); color: var(--crit);
+    padding: .85rem 1rem; font-size: .93rem;
+    font-family: "IBM Plex Sans", sans-serif; font-weight: 500;
+  }
+
+  /* ---------- findings ---------- */
+  .findings { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .finding {
+    background: var(--surface); padding: 1.1rem 1.25rem;
+    display: grid; grid-template-columns: 5.5rem 1fr; gap: 1.1rem;
+  }
+  @media (max-width: 640px) { .finding { grid-template-columns: 1fr; gap: .5rem; } }
+  .pill {
+    font-size: .66rem; text-transform: uppercase; letter-spacing: .09em;
+    font-weight: 600; padding: .22rem .45rem; text-align: center;
+    height: fit-content; white-space: nowrap;
+  }
+  .pill.crit { background: var(--crit-soft); color: var(--crit); }
+  .pill.high { background: var(--warn-soft); color: var(--warn); }
+  .pill.mine { background: var(--surface-2); color: var(--ink-2); border: 1px solid var(--rule-strong); }
+  .finding h4 {
+    margin: 0 0 .3rem; font-family: "IBM Plex Sans", sans-serif;
+    font-size: .97rem; font-weight: 600;
+  }
+  .finding p { margin: 0; font-size: .91rem; color: var(--ink-2); max-width: none; }
+
+  /* ---------- AD table ---------- */
+  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); background: var(--surface); }
+  table { border-collapse: collapse; width: 100%; min-width: 34rem; }
+  th, td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--rule); font-size: .89rem; }
+  th {
+    font-size: .7rem; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--ink-3); font-weight: 600; background: var(--surface-2);
+    position: sticky; top: 0;
+  }
+  tr:last-child td { border-bottom: 0; }
+  .adid { font-size: .8rem; color: var(--accent); font-weight: 500; white-space: nowrap; }
+  td.new { position: relative; }
+  .tag-new {
+    font-family: "IBM Plex Sans", sans-serif; font-size: .6rem;
+    text-transform: uppercase; letter-spacing: .08em; color: var(--warn);
+    border: 1px solid var(--warn); padding: .05rem .28rem; margin-left: .4rem;
+    vertical-align: middle;
+  }
+
+  /* ---------- phases ---------- */
+  .phases { display: grid; gap: 1px; background: var(--rule); border: 1px solid var(--rule); }
+  .phase { background: var(--surface); padding: 1.25rem 1.4rem;
+    display: grid; grid-template-columns: 3.2rem 1fr; gap: 1.1rem; }
+  @media (max-width: 640px) { .phase { grid-template-columns: 1fr; gap: .4rem; } }
+  .phase-n {
+    font-size: 1.6rem; font-weight: 300; color: var(--rule-strong);
+    font-variant-numeric: tabular-nums; line-height: 1;
+  }
+  .phase.risk .phase-n { color: var(--crit); }
+  .phase.safe .phase-n { color: var(--ok); }
+  .phase h4 { margin: 0 0 .3rem; font-family: "IBM Plex Sans", sans-serif;
+    font-size: 1rem; font-weight: 600; display: flex; gap: .6rem;
+    align-items: baseline; flex-wrap: wrap; }
+  .phase p { margin: 0; font-size: .91rem; color: var(--ink-2); max-width: none; }
+  .tag {
+    font-family: "IBM Plex Sans", sans-serif; font-size: .63rem;
+    text-transform: uppercase; letter-spacing: .08em; padding: .12rem .38rem;
+    font-weight: 600;
+  }
+  .tag.risk { background: var(--crit-soft); color: var(--crit); }
+  .tag.safe { background: var(--ok-soft); color: var(--ok); }
+
+  /* ---------- split table ---------- */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+    background: var(--rule); border: 1px solid var(--rule); }
+  @media (max-width: 640px) { .split { grid-template-columns: 1fr; } }
+  .half { background: var(--surface); padding: 1.3rem 1.4rem; }
+  .half h4 { margin: 0 0 .1rem; font-family: "IBM Plex Mono", monospace;
+    font-size: .95rem; font-weight: 500; }
+  .half .sub { font-family: "IBM Plex Sans", sans-serif; font-size: .72rem;
+    text-transform: uppercase; letter-spacing: .09em; margin: 0 0 .9rem; }
+  .half.safe .sub { color: var(--ok); }
+  .half.risk .sub { color: var(--crit); }
+  .half dl { display: grid; grid-template-columns: auto 1fr; gap: .35rem .9rem;
+    margin: 0; font-size: .88rem; }
+  .half dt { color: var(--ink-3); font-family: "IBM Plex Sans", sans-serif; font-size: .82rem; }
+  .half dd { margin: 0; font-variant-numeric: tabular-nums; }
+
+  /* ---------- ask ---------- */
+  .ask { background: var(--surface); border: 1px solid var(--rule-strong); padding: 1.6rem 1.75rem; }
+  .ask ol { margin: 0; padding-left: 1.2rem; display: grid; gap: .9rem; }
+  .ask li { max-width: var(--measure); }
+  .ask li b { font-family: "IBM Plex Sans", sans-serif; }
+
+  footer { border-top: 1px solid var(--rule); margin-top: 3rem; padding-top: 1.25rem;
+    font-family: "IBM Plex Sans", sans-serif; font-size: .78rem; color: var(--ink-3); }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Architecture spine · Sprint 23 · Epic 1</p>
+    <h1>Job control and the audit trail were never two things</h1>
+    <p class="standfirst">
+      They were one thing modelled twice — which is how four incompatible shapes
+      for a single table name came to exist. This is the spine that collapses
+      them, and what four reviewer lenses found wrong with it before any code
+      was written.
+    </p>
+    <div class="meta">
+      <span><b>Decision</b> (A) — the contract is normative</span>
+      <span><b>Gate</b> 4 lenses, 4 returned changes</span>
+      <span><b>Status</b> revised, awaiting scope call</span>
+      <span><b>Date</b> 4 Sep 2026</span>
+    </div>
+  </header>
+
+  <section>
+    <h2><span class="num">01</span>The reframe</h2>
+    <p class="lede">
+      Story 1.4 stalled because <code>docs/CONTRACT.md</code> and the shipped code
+      described the same table four incompatible ways. The way out was not picking
+      a winner — it was noticing what §4 already says.
+    </p>
+    <div class="reframe">
+      <div>
+        <p class="col-h">Contract §4 — <code>event_kind</code></p>
+        <ul class="kind-list">
+          <li class="match">RUN_START</li>
+          <li class="match">RUN_END</li>
+          <li>RECORD_VALIDATED</li>
+          <li>RECORD_REJECTED</li>
+          <li class="match">RECONCILIATION</li>
+          <li class="match">ERROR_RAISED</li>
+          <li class="match">RETRY_ATTEMPTED</li>
+        </ul>
+      </div>
+      <div class="cols2">
+        <div>
+          <p class="col-h">Highlighted values</p>
+          <p style="margin:.5rem 0 0;font-size:.93rem;">
+            Those five <em>are</em> the job-control lifecycle —
+            <code>createJob</code>, <code>updateStatus</code>,
+            <code>markFailed</code>, <code>markRetrying</code> — under different names.
+          </p>
+        </div>
+        <div>
+          <p class="col-h">Consequence</p>
+          <p style="margin:.5rem 0 0;font-size:.93rem;">
+            <code>audit_events</code> <em>is</em> the job-control log.
+            <code>pipeline_jobs</code> becomes a projection over it, and the
+            append-only requirement falls out for free.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">02</span>What the gate caught</h2>
+    <p class="lede">
+      Four independent lenses reviewed the draft. Every load-bearing claim was
+      then re-verified against the code before being accepted — three of the
+      architect's own decisions turned out to be factually wrong.
+    </p>
+
+    <div class="chain-block">
+      <div class="chain-head">
+        <span class="pill crit">Critical</span>
+        <h3>Two safe decisions that delete data together</h3>
+      </div>
+      <p style="margin:0 0 1.1rem;font-size:.95rem;color:var(--ink-2);max-width:var(--measure);">
+        Neither AD-2 (append-only) nor AD-3 (failure wins) is wrong alone. Chained,
+        they reach a <code>DELETE</code> on a run that succeeded.
+      </p>
+
+      <div class="chain">
+        <div class="step">
+          <div class="step-n">01</div>
+          <div class="step-body">
+            Today, <strong>SUCCEEDED requires a prior state of RUNNING</strong> — a
+            compare-and-set that blocks late events from flipping a finished run.
+            <span class="src">BigQueryJobControlRepository.java:613–617</span>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">02</div>
+          <div class="step-body">
+            <strong>AD-2 removes compare-and-set.</strong> Append-only stores have
+            no prior state to test against.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">03</div>
+          <div class="step-body">
+            <strong>AD-3 makes failure win.</strong> A late first
+            <code>ERROR_RAISED</code> now makes a <em>successful</em> run read as
+            FAILED.
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-n">04</div>
+          <div class="step-body">
+            <strong>FAILED is retryable</strong>, so the retry path calls
+            <code>cleanupPartialLoad</code>.
+            <span class="src">:618–621 → RetryOrchestrator.java:111</span>
+          </div>
+        </div>
+        <div class="step terminal">
+          <div class="step-n">05</div>
+          <div class="step-body">
+            <span class="chain-op">DELETE FROM &lt;targetTable&gt; WHERE _run_id</span>
+            — <strong>the successful run's data is gone.</strong>
+            <span class="src">BigQueryJobControlRepository.java:541</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="verdict">
+        Fixed by making terminal states immutable: once a run is terminal, later
+        contradicting events are recorded but never change the projection, and
+        never make it retryable.
+      </p>
+    </div>
+
+    <div class="findings" style="margin-top:1.5rem;">
+      <div class="finding">
+        <span class="pill high">Silent no-op</span>
+        <div>
+          <h4><code>ignore_changes = [schema]</code> on both job_control tables</h4>
+          <p>
+            The DDL work would have planned green and changed nothing — a silent
+            success, in the very tool this epic uses to fix silent failures. Must
+            be removed before any schema work begins.
+          </p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="pill mine">Corrected</span>
+        <div>
+          <h4>The gate's own status finding was wrong — and inverted</h4>
+          <p>
+            All four lenses reported duplicate Dataflow launches from a
+            lowercase/uppercase status mismatch. Building it disproved that:
+            <code>fdp-trigger</code> wrote <code>RUNNING</code> and read
+            <code>RUNNING</code>, so it was self-consistent. Nothing ever wrote a
+            <em>terminal</em> status, so the gate latched closed and blocked every
+            re-run — including retries after a failure. Fixing it as reported
+            would have removed <code>RUNNING</code> from the filter and
+            <em>created</em> the duplicate launches everyone believed existed.
+            Four reviewers read the same two files; none asked who writes the
+            completion.
+          </p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="pill high">Shadow model</span>
+        <div>
+          <h4>Two writers already bypass the port</h4>
+          <p>
+            <code>fdp-trigger</code> and <code>postgres-cdc-streaming</code> write
+            <code>pipeline_jobs</code> directly. AD-1 forbids a shadow job-control
+            model; two instances already exist.
+          </p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="pill mine">Author error</span>
+        <div>
+          <h4>AD-6 contradicted the contract it implemented</h4>
+          <p>
+            §9 mandates <code>RETRY_ATTEMPTED</code> before each retry, capped at
+            three — so keying idempotency on <code>(run_id, event_kind)</code> would
+            have collapsed three required events into one. Also corrected: AD-9
+            cited a divergence between two declarations that are identical, and the
+            stack table named an AWS SDK property that does not exist.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">03</span>The invariants</h2>
+    <p class="lede">
+      Seventeen decisions, of which four were added by the gate. Full text with
+      <em>Binds</em> and <em>Prevents</em> in <code>ARCHITECTURE-SPINE.md</code>.
+    </p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>Rule</th><th>Prevents</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="adid">AD-1</td><td><code>audit_events</code> is the job-control log</td><td>A shadow model outside the contract</td></tr>
+          <tr><td class="adid">AD-2</td><td>No <code>UPDATE</code> or <code>DELETE</code> on <code>job_control</code></td><td>A failure being overwritten by a later success</td></tr>
+          <tr><td class="adid">AD-3</td><td>Terminal states immutable; before terminal, failure beats recency</td><td>The delete chain above, and review finding #1</td></tr>
+          <tr><td class="adid">AD-4</td><td>Event identity is <code>(run_id, entity, event_kind)</code></td><td>5M audit rows per extract; unimplementable <code>getEntityStatus</code></td></tr>
+          <tr><td class="adid">AD-5</td><td>Run-level appends throw; aggregates dead-letter; nothing is swallowed</td><td>The <code>WARN</code>-and-continue that hid this for months</td></tr>
+          <tr><td class="adid">AD-6</td><td>Duplicates resolved by semantics, not a uniqueness key</td><td>Collapsing events the contract requires to repeat</td></tr>
+          <tr><td class="adid">AD-9</td><td>One DDL owner; <code>ignore_changes</code> removed; verify the schema <em>changed</em></td><td>A green plan that does nothing</td></tr>
+          <tr><td class="adid">AD-13</td><td>All three clouds pass the same contract test; Athena is built</td><td>An adapter left mutating against an append-only contract</td></tr>
+          <tr class="new"><td class="adid">AD-14<span class="tag-new">gate</span></td><td>Every writer comes inside the port</td><td>The two bypass writers that already exist</td></tr>
+          <tr class="new"><td class="adid">AD-16<span class="tag-new">gate</span></td><td><code>payload</code> keys bound per <code>event_kind</code>, fixture-pinned</td><td>~19 unbound fields; a key typo returning <code>NULL</code> silently</td></tr>
+          <tr class="new"><td class="adid">AD-17<span class="tag-new">gate</span></td><td>One status vocabulary</td><td>Writer/reader status drift becoming live</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">04</span>Why this is two epics, not one</h2>
+    <p class="lede">
+      Epic 1 was scoped as five defect fixes. The job-control half is a migration
+      with live writers and readers. The two halves share a spine but not a risk
+      profile.
+    </p>
+    <div class="split">
+      <div class="half safe">
+        <h4>audit_events</h4>
+        <p class="sub">Effectively greenfield</p>
+        <dl>
+          <dt>Live writers</dt><dd>0 — the publisher never worked</dd>
+          <dt>Live readers</dt><dd>0</dd>
+          <dt>Data at risk</dt><dd>None</dd>
+          <dt>Drop &amp; recreate</dt><dd>Yes</dd>
+        </dl>
+      </div>
+      <div class="half risk">
+        <h4>pipeline_jobs</h4>
+        <p class="sub">A cutover</p>
+        <dl>
+          <dt>Live writers</dt><dd>3 — port + 2 bypassing it</dd>
+          <dt>Live readers</dt><dd>4, plus Grafana panels</dd>
+          <dt>Data at risk</dt><dd>Yes</dd>
+          <dt>Drop &amp; recreate</dt><dd>No — must be migrated</dd>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">05</span>Sequence</h2>
+    <p class="lede">
+      Numbered because it genuinely is one — phase 3 can lose data and is gated on
+      phase 2 finishing.
+    </p>
+    <div class="phases">
+      <div class="phase">
+        <div class="phase-n">0</div>
+        <div>
+          <h4>Unblock</h4>
+          <p>Remove <code>ignore_changes</code>; fix the dedup bug on its own issue; prove the emulator tier runs at all. Nothing downstream is trustworthy without these.</p>
+        </div>
+      </div>
+      <div class="phase safe">
+        <div class="phase-n">1</div>
+        <div>
+          <h4>audit_events greenfield <span class="tag safe">safe</span></h4>
+          <p>Event type, fixtures <em>before</em> emitters, payload key contract, corrected table target. Closes Story 1.6.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-n">2</div>
+        <div>
+          <h4>Writers come inside the port</h4>
+          <p>Must precede phase 3: a streaming insert against a projection hard-fails, and <code>fdp-trigger</code>'s fires <em>after</em> the Dataflow launch has committed.</p>
+        </div>
+      </div>
+      <div class="phase risk">
+        <div class="phase-n">3</div>
+        <div>
+          <h4>pipeline_jobs becomes a projection <span class="tag risk">risky</span></h4>
+          <p>Readers move first, one at a time. Terminal-immutability lands <em>with</em> this phase — append-only without it is worse than the mutable store it replaces.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-n">4</div>
+        <div>
+          <h4>Multi-cloud</h4>
+          <p>Behavioural contract test, then BigQuery, DynamoDB and a new Athena implementation. Verified feasible — Athena supports <code>INSERT INTO</code> on non-Iceberg tables.</p>
+        </div>
+      </div>
+      <div class="phase">
+        <div class="phase-n">5</div>
+        <div>
+          <h4>Consumers and the deferred sections</h4>
+          <p>Grafana ported. §6 has no producer but five panels query it; §5 has six. Neither is free, and both are contract decisions.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">06</span>What needs a decision</h2>
+    <div class="ask">
+      <ol>
+        <li><b>Split the epic?</b> Landing both halves together means the safe half waits on the risky one, and a single revert takes out both.</li>
+        <li><b>Split the bypass writers out?</b> They exist independently of this work. Note the segment-transform template <em>cannot launch at all</em> today — snake_case parameters against camelCase Beam options — so nothing has been running through that path.</li>
+        <li><b>How does <code>contract_version</code> bump?</b> §2 has no bucket for a per-row → per-run <em>semantic</em> change, and §11's process requires fixtures that phase 1 is what creates.</li>
+      </ol>
+    </div>
+  </section>
+
+  <footer>
+    Culvert · <code>_bmad-output/planning-artifacts/architecture/architecture-culvert-2026-09-04/</code> ·
+    spine, migration plan and four review files. Lint clean before and after revision.
+  </footer>
+
+</div>

@@ -24,6 +24,7 @@ def launch_segment_transform(
     output_bucket: str,
     dataflow_service_account: str,
     temp_location: str,
+    job_control_table: str,
 ) -> str:
     """
     Launch the mainframe-segment-transform Dataflow Flex Template.
@@ -37,6 +38,11 @@ def launch_segment_transform(
         output_bucket: GCS bucket for segment output files
         dataflow_service_account: SA email for Dataflow workers
         temp_location: gs:// path for Dataflow temp files
+        job_control_table: Fully-qualified project.dataset.table the job must
+            write its terminal status to. This has to be the SAME table the
+            dedup gate reads (``TriggerConfig.job_control_table``): if the job
+            completes a row in a different table, the gate never sees the
+            completion and stays latched.
 
     Returns:
         run_id assigned to the job (also used as Dataflow job name suffix)
@@ -60,6 +66,7 @@ def launch_segment_transform(
                 "output_bucket": output_bucket,
                 "run_id": run_id,
                 "gcp_project": gcp_project,
+                "job_control_table": job_control_table,
             },
             "environment": {
                 "serviceAccountEmail": dataflow_service_account,

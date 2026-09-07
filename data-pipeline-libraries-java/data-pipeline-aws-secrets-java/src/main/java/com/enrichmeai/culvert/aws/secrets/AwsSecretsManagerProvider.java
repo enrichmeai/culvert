@@ -48,9 +48,11 @@ import java.util.Objects;
  *       reads of our own, unlike the GCP adapter's {@code GCP_PROJECT_ID} —
  *       AWS's {@code getSecretValue} needs only the secret name, not a
  *       project/account qualifier, so region is purely a client-construction
- *       concern here). See {@code AutoConfig}'s javadoc: adapters without a
- *       usable no-arg constructor are silently skipped by {@code
- *       ServiceLoader} discovery today.</li>
+ *       concern here). See {@code AutoConfig}'s javadoc: an adapter without a
+ *       usable no-arg constructor is skipped by {@code ServiceLoader}
+ *       discovery, and since Story 1.1 that skip is recorded in
+ *       {@code AutoConfig.failures()} and logged at WARN rather than
+ *       discarded.</li>
  * </ul>
  *
  * <p>This class is {@link AutoCloseable}; closing it closes the wrapped

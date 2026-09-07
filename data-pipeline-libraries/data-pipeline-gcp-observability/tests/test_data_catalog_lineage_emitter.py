@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import pytest
 from unittest.mock import MagicMock, patch
 
@@ -178,3 +180,30 @@ class TestLifecycle:
         mock_client.close.side_effect = RuntimeError("gone")
         em = DataCatalogLineageEmitter(mock_client, "e", "t")
         em.close()  # Should not raise
+
+
+class TestDeprecation:
+    """Sprint-23 / Story 1.5.
+
+    Data Catalog began its phased shutdown on 2026-06-01, so constructing this
+    emitter must say so rather than silently pointing at a dying backend. The
+    Java sibling logs the equivalent WARN in its constructor.
+    """
+
+    def test_construction_raises_deprecation_warning(self, mock_client):
+        with pytest.warns(DeprecationWarning, match="2026-06-01"):
+            DataCatalogLineageEmitter(mock_client, "e", "t")
+
+    def test_deprecation_warning_names_the_replacement_api(self, mock_client):
+        with pytest.warns(DeprecationWarning, match="datalineage.googleapis.com"):
+            DataCatalogLineageEmitter(mock_client, "e", "t")
+
+    def test_construction_also_logs_a_warning_for_operators(self, mock_client, caplog):
+        # DeprecationWarning is hidden by default outside __main__, so the log
+        # line is what an operator actually sees at runtime.
+        with caplog.at_level(logging.WARNING):
+            DataCatalogLineageEmitter(mock_client, "entry-x", "t")
+        assert any(
+            "phased shutdown" in r.getMessage() for r in caplog.records
+        ), caplog.text
+        assert any("entry-x" in r.getMessage() for r in caplog.records), caplog.text

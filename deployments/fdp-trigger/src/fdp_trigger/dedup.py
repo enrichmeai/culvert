@@ -1,17 +1,29 @@
 """
 Dedup check via job_control.pipeline_jobs.
 
-Before launching a Dataflow job, confirm there is no existing run
-for the same (pipeline_name, extract_date) in RUNNING or SUCCESS state.
+Before launching a Dataflow job, confirm there is no existing run for the same
+(pipeline_name, extract_date) in ``running`` or ``succeeded`` state.
+
+A ``failed`` run deliberately does NOT suppress a relaunch -- that is the whole
+point of the gate. It suppresses work that is in flight or already done, never
+a legitimate retry of work that failed.
+
+Statuses are Culvert's lowercase ``JobStatus`` wire values (spine AD-17) and
+are imported from ``job_control`` rather than restated here, so this filter
+cannot drift away from the writer.
 """
 
 import logging
 
 from google.cloud import bigquery
 
+from .job_control import PIPELINE_NAME, STATUSES_BLOCKING_RELAUNCH
+
 logger = logging.getLogger(__name__)
 
-PIPELINE_NAME = "mainframe-segment-transform"
+# Rendered from module constants, never from request input -- the values are
+# Culvert's fixed status vocabulary, so there is nothing to inject.
+_BLOCKING_STATUS_SQL = ", ".join(f"'{s}'" for s in STATUSES_BLOCKING_RELAUNCH)
 
 
 def already_triggered(
@@ -36,7 +48,7 @@ def already_triggered(
     FROM `{job_control_table}`
     WHERE pipeline_name = @pipeline_name
       AND extract_date = DATE(@extract_date)
-      AND status IN ('RUNNING', 'SUCCESS')
+      AND status IN ({_BLOCKING_STATUS_SQL})
     LIMIT 1
     """
     job_config = bigquery.QueryJobConfig(

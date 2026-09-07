@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.aws.s3;
 
+import com.enrichmeai.culvert.autoconfig.ProviderAvailability;
 import com.enrichmeai.culvert.contracts.BlobStore;
 import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
@@ -58,11 +59,20 @@ import java.util.Objects;
  * {@link #put}, {@link #list}, {@link #delete}, {@link #copy}) are now
  * implemented; only {@link #exists(String)} predates this change.
  */
-public final class S3BlobStore implements BlobStore {
+public final class S3BlobStore implements BlobStore, ProviderAvailability {
 
     public static final String SCHEME = "s3";
 
-    private final S3Client client;
+    /** Cloud-family selector. Environment variable first, system property as the test hook. */
+    static final String ENV_CULVERT_CLOUD = "CULVERT_CLOUD";
+    static final String SYSPROP_CULVERT_CLOUD = "culvert.cloud";
+
+    /**
+     * {@code null} only for an instance built by the no-arg (ServiceLoader) constructor,
+     * which defers client creation to first use so that construction itself never throws.
+     * Guarded by {@code this} on the lazy path.
+     */
+    private volatile S3Client client;
 
     public S3BlobStore(S3Client client) {
         this.client = Objects.requireNonNull(client, "client must not be null");
@@ -70,26 +80,65 @@ public final class S3BlobStore implements BlobStore {
 
     /**
      * No-arg constructor for worker-side auto-config reconstruction, gated on
-     * {@code CULVERT_CLOUD=aws}: fat jars can carry both cloud families and
-     * the worker registry rebuild takes the first ServiceLoader-constructable
-     * impl per contract — the selector makes that deterministic (mirror of
-     * the GCP family's {@code BigQueryDefaults.requireGcpSelected()}).
-     * Region/credentials come from the AWS default chains.
+     * {@code CULVERT_CLOUD=aws}: fat jars can carry both cloud families, and the selector
+     * makes it deterministic which family's adapters are candidates.
+     *
+     * <p><strong>This constructor does not throw when the gate is closed.</strong> Declining
+     * by throwing is what let one adapter truncate the whole provider list
+     * ({@code AutoConfig.loadServiceList}'s {@code catch (Throwable ignored)}); the gate now
+     * reports itself through {@link #isAvailable()} instead, so {@code AutoConfig} drops this
+     * provider from the candidate set without losing any other. Story 1.1, AC 4.
+     *
+     * <p>Client creation is therefore deferred to first use — region and credentials come
+     * from the AWS default chains at that point. Calling a {@link BlobStore} method on an
+     * instance built this way while the gate is closed still fails loudly with
+     * {@link IllegalStateException}: being unavailable means "do not select me", not
+     * "silently do nothing".
      */
     public S3BlobStore() {
-        this(gatedDefaultClient());
+        this.client = null;
     }
 
-    private static S3Client gatedDefaultClient() {
-        String cloud = System.getenv("CULVERT_CLOUD");
+    /**
+     * {@code false} when the {@code CULVERT_CLOUD} selector does not name AWS, so that
+     * auto-config does not treat this adapter as a candidate on a non-AWS classpath.
+     * Always {@code true} for an instance built with an explicit {@link S3Client}.
+     */
+    @Override
+    public boolean isAvailable() {
+        return client != null || awsSelected();
+    }
+
+    /** The S3 client, created on first use for a no-arg (ServiceLoader) instance. */
+    private S3Client client() {
+        S3Client existing = this.client;
+        if (existing != null) {
+            return existing;
+        }
+        synchronized (this) {
+            if (this.client == null) {
+                if (!awsSelected()) {
+                    throw new IllegalStateException(
+                            "AWS adapters are gated to " + ENV_CULVERT_CLOUD
+                                    + "=aws; current selector: " + cloudSelector());
+                }
+                this.client = S3Client.create();
+            }
+            return this.client;
+        }
+    }
+
+    private static boolean awsSelected() {
+        String cloud = cloudSelector();
+        return cloud != null && cloud.equalsIgnoreCase("aws");
+    }
+
+    private static String cloudSelector() {
+        String cloud = System.getenv(ENV_CULVERT_CLOUD);
         if (cloud == null || cloud.isBlank()) {
-            cloud = System.getProperty("culvert.cloud");
+            cloud = System.getProperty(SYSPROP_CULVERT_CLOUD);
         }
-        if (cloud == null || !cloud.equalsIgnoreCase("aws")) {
-            throw new IllegalStateException(
-                    "AWS adapters are gated to CULVERT_CLOUD=aws; current selector: " + cloud);
-        }
-        return S3Client.create();
+        return (cloud == null || cloud.isBlank()) ? null : cloud;
     }
 
     @Override
@@ -97,7 +146,7 @@ public final class S3BlobStore implements BlobStore {
         Objects.requireNonNull(uri, "uri must not be null");
         S3Uri parsed = S3Uri.parse(uri);
         try {
-            client.headObject(HeadObjectRequest.builder()
+            client().headObject(HeadObjectRequest.builder()
                     .bucket(parsed.bucket())
                     .key(parsed.key())
                     .build());
@@ -118,7 +167,7 @@ public final class S3BlobStore implements BlobStore {
         Objects.requireNonNull(uri, "uri must not be null");
         S3Uri parsed = S3Uri.parse(uri);
         try {
-            return client.getObjectAsBytes(GetObjectRequest.builder()
+            return client().getObjectAsBytes(GetObjectRequest.builder()
                     .bucket(parsed.bucket())
                     .key(parsed.key())
                     .build())
@@ -134,7 +183,7 @@ public final class S3BlobStore implements BlobStore {
         Objects.requireNonNull(uri, "uri must not be null");
         S3Uri parsed = S3Uri.parse(uri);
         try {
-            ResponseInputStream<GetObjectResponse> response = client.getObject(GetObjectRequest.builder()
+            ResponseInputStream<GetObjectResponse> response = client().getObject(GetObjectRequest.builder()
                     .bucket(parsed.bucket())
                     .key(parsed.key())
                     .build());
@@ -162,7 +211,7 @@ public final class S3BlobStore implements BlobStore {
                 }
                 closed = true;
                 super.close();
-                client.putObject(PutObjectRequest.builder()
+                client().putObject(PutObjectRequest.builder()
                         .bucket(parsed.bucket())
                         .key(parsed.key())
                         .build(), RequestBody.fromBytes(toByteArray()));
@@ -175,7 +224,7 @@ public final class S3BlobStore implements BlobStore {
         Objects.requireNonNull(uri, "uri must not be null");
         Objects.requireNonNull(data, "data must not be null");
         S3Uri parsed = S3Uri.parse(uri);
-        client.putObject(PutObjectRequest.builder()
+        client().putObject(PutObjectRequest.builder()
                 .bucket(parsed.bucket())
                 .key(parsed.key())
                 .build(), RequestBody.fromBytes(data));
@@ -215,7 +264,7 @@ public final class S3BlobStore implements BlobStore {
             if (nextContinuationToken != null) {
                 builder.continuationToken(nextContinuationToken);
             }
-            ListObjectsV2Response response = client.listObjectsV2(builder.build());
+            ListObjectsV2Response response = client().listObjectsV2(builder.build());
             currentPage = response.contents().iterator();
             nextContinuationToken = Boolean.TRUE.equals(response.isTruncated())
                     ? response.nextContinuationToken()
@@ -248,7 +297,7 @@ public final class S3BlobStore implements BlobStore {
         // DeleteObject is idempotent by design in the S3 API itself: it
         // returns 204 whether or not the key existed, so there is no 404 to
         // swallow here (unlike GcsBlobStore.delete).
-        client.deleteObject(DeleteObjectRequest.builder()
+        client().deleteObject(DeleteObjectRequest.builder()
                 .bucket(parsed.bucket())
                 .key(parsed.key())
                 .build());
@@ -260,7 +309,7 @@ public final class S3BlobStore implements BlobStore {
         Objects.requireNonNull(destinationUri, "destinationUri must not be null");
         S3Uri source = S3Uri.parse(sourceUri);
         S3Uri destination = S3Uri.parse(destinationUri);
-        client.copyObject(CopyObjectRequest.builder()
+        client().copyObject(CopyObjectRequest.builder()
                 .sourceBucket(source.bucket())
                 .sourceKey(source.key())
                 .destinationBucket(destination.bucket())

@@ -22,7 +22,7 @@
     <!--
         Whole-repo build aggregator.
 
-        `mvn test` from the repo root builds the 18-module library reactor AND
+        `mvn test` from the repo root builds the 19-module library reactor AND
         every Java deployment in one command, on a clean checkout, with no
         prior `install` step. That is the point of this file: before it existed,
         the deployments were standalone poms pinned to a *released* library
@@ -45,15 +45,17 @@
         release scope is unchanged by this file.
 
         Deployment membership rule: a deployment belongs here if it has a
-        `pom.xml`. `mainframe-segment-transform-java` is included even though
-        it declares no `com.enrichmeai.culvert` dependency — it is Java code in
-        this repo, and "one command builds everything" is worth more than a
-        narrow definition of what depends on the library.
+        `pom.xml` — it is Java code in this repo, and "one command builds
+        everything" is worth more than a narrow definition of what depends on
+        the library. Every deployment now does depend on it: the last holdout,
+        `mainframe-segment-transform-java`, took a `data-pipeline-core` +
+        `data-pipeline-gcp-bigquery` dependency in 2026-09 so it could write
+        its terminal job-control status through the port.
     -->
 
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>culvert-build-aggregator</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
 
     <name>Culvert :: whole-repo build aggregator</name>
@@ -75,7 +77,7 @@
     </licenses>
 
     <modules>
-        <!-- The 18-module library reactor (itself an aggregator). -->
+        <!-- The 19-module library reactor (itself an aggregator). -->
         <module>data-pipeline-libraries-java</module>
 
         <!--

@@ -184,10 +184,12 @@ ORDER BY timestamp DESC;
 ```
 1. getJob(runId)                          — load current job state from BigQuery
 2. if status == RETRYING → return (idempotency guard, no double-increment)
-3. if targetTable present → cleanupPartialLoad(runId, tableId)
+3. if status not in {CREATED, RUNNING, FAILED} → throw, delete nothing
+   -- eligibility BEFORE cleanup: a SUCCEEDED run must not have its rows removed
+4. if targetTable present → cleanupPartialLoad(runId, tableId)
    -- DELETE FROM <table> WHERE _run_id = @run_id
-4. markRetrying(runId, retryCount + 1)    — sets status=RETRYING, bumps retry_count
-5. return RetryResult(runId, retryCount, rowsCleaned)
+5. markRetrying(runId, retryCount + 1)    — sets status=RETRYING, bumps retry_count
+6. return RetryResult(runId, retryCount, rowsCleaned)
 ```
 
 Caller re-submits the pipeline with the same `runId` after `prepareRetry()` returns.
@@ -205,6 +207,22 @@ Without this column, `cleanupPartialLoad` cannot remove partial rows from a fail
 ### 3.3 Idempotency guard
 
 Calling `RetryOrchestrator.prepareRetry()` on a job already in `RETRYING` status returns immediately without calling `markRetrying` again. This prevents counter double-increment when the orchestrating DAG retries the task itself.
+
+A job in a status that may not be retried at all — `SUCCEEDED` or `CANCELLED` — raises `IllegalStateException` **before** `cleanupPartialLoad` runs, so an ineligible retry leaves both the target table and the job record untouched. Retrying a run that already succeeded is precisely how a re-run duplicates data.
+
+### 3.3.1 Every job-control write is conditional
+
+Since Sprint 23, `BigQueryJobControlRepository` makes every write a compare-and-set rather than a fire-and-forget `UPDATE`:
+
+| Call | Condition | On violation |
+|------|-----------|--------------|
+| `createJob` | `MERGE ... WHEN NOT MATCHED THEN INSERT` | `IllegalStateException` — the `runId` already exists |
+| `updateStatus`, `markFailed`, `markRetrying` | `WHERE run_id = @run_id AND status IN (<allowed prior states>)` | `IllegalStateException` naming the actual status, or reporting that no such run exists |
+| `updateCostMetrics` | `WHERE run_id = @run_id` | `IllegalStateException` — no such run |
+
+Allowed prior states: `RUNNING` from `CREATED`/`RETRYING`; `SUCCEEDED` from `RUNNING`; `FAILED` from `CREATED`/`RUNNING`/`RETRYING`/`FAILED`; `RETRYING` from `CREATED`/`RUNNING`/`FAILED`; `CANCELLED` from `CREATED`/`RUNNING`/`RETRYING`. `FAILED` → `FAILED` is allowed on purpose: `QuarantineHandler` marks a run failed when it quarantines rows, and the ingestion runner's reconciliation check can then mark the same run failed again with a more specific error code.
+
+An operator seeing `IllegalStateException: ... expected one of [...]` in a task log is looking at a transition that would previously have passed silently against the wrong row — or against no row at all.
 
 ### 3.4 Tracking retry state
 

@@ -3,7 +3,7 @@
 #
 # Replaces the retired predecessor's Python-only CI with a polyglot
 # workflow that covers:
-#   1. Java reactor  — 18 modules under data-pipeline-libraries-java/
+#   1. Java reactor  — 19 modules under data-pipeline-libraries-java/
 #   2. Python (Culvert adapters) — 3 GCP adapter modules under
 #      data-pipeline-libraries/  (bigquery, gcs, pubsub)
 #   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
@@ -83,7 +83,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check all 18 modules are enumerated
+      - name: Check all 19 modules are enumerated
         run: |
           set -euo pipefail
           # Authoritative list from pom.xml (order-independent)
@@ -111,6 +111,7 @@ jobs:
           data-pipeline-gcp-secrets-java
           data-pipeline-it-support-java
           data-pipeline-orchestration-java
+          data-pipeline-registration-audit-java
           data-pipeline-tester-java
           MODEOF
           echo "$WORKFLOW_MODULES" | tr -d ' ' | grep -v '^$' | sort)
@@ -126,11 +127,11 @@ jobs:
             echo "$DIFF"
             exit 1
           fi
-          echo "OK: all 18 modules are enumerated"
+          echo "OK: all 19 modules are enumerated"
 
 # ============================================================================
 # ── Job 2: Java reactor build + unit tests ──────────────────────────────────
-# Runs the full reactor (all 18 modules) via -pl <module> -am so each module
+# Runs the full reactor (all 19 modules) via -pl <module> -am so each module
 # only builds the modules it depends on, making individual matrix legs fast.
 # The surefire default excludes *IT.java (integration tests) — Testcontainers
 # jobs come in T15.2.
@@ -162,6 +163,10 @@ jobs:
           - data-pipeline-aws-sqs-java
           - data-pipeline-azure-blob-java
           - data-pipeline-orchestration-java
+          # Build gate, publishes nothing: audits every META-INF/services
+          # registration in the reactor (Story 1.2). Last because it depends
+          # on every adapter module.
+          - data-pipeline-registration-audit-java
 
     steps:
       - uses: actions/checkout@v4

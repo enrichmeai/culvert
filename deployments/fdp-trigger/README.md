@@ -16,12 +16,32 @@ Cloud Scheduler (every 10 min during expected window)
     -> Cloud Run (this service):
          1. Query INFORMATION_SCHEMA.PARTITIONS for all FDP tables
          2. If all partitions stable (>15 min quiet) and have data:
-         3. Check job_control for existing run (dedup)
+         3. Check job_control for an existing 'running' or 'succeeded' run (dedup)
          4. Launch Dataflow Flex Template
-         5. Insert RUNNING row into job_control
+         5. Insert a 'running' row into job_control (DML INSERT, not a streaming insert)
     -> Dataflow segment-transform job runs
+    -> its Flex Template launcher, still blocked on waitUntilFinish(),
+       writes 'succeeded' / 'failed' back to the same job_control row
     -> GCS segment files appear for mainframe pickup
 ```
+
+Statuses are Culvert's lowercase `JobStatus` wire values. A `failed` run does
+not block a relaunch -- retrying a failed extract date is exactly what the gate
+must allow.
+
+The terminal status is written by `MainframeSegmentPipeline.reportTerminalStatus`
+through `JobControlRepository`. It runs in the **Flex Template launcher process**,
+which blocks on `waitUntilFinish()` -- not on a Dataflow worker. Two consequences
+worth knowing:
+
+- If the write fails, the launcher exits non-zero rather than reporting success
+  over a stale `running` row.
+- If the launcher process itself dies before the job finishes, nothing records
+  the outcome and the row stays `running` -- the one remaining way this gate can
+  latch. It has to be corrected by hand.
+
+`JOB_CONTROL_TABLE` here and the job's `--jobControlTable` must name the same
+table, or the completion never reaches the gate.
 
 ## Endpoints
 

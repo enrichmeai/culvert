@@ -1,1 +1,17 @@
+# Auto-config registration. BigQueryFinOpsSink gained a no-arg constructor in
+# sprint-23 (Story 1.2) so worker-side ServiceLoader reconstruction can rebuild
+# it; before that this line was registered but unconstructable, so FinOpsSink
+# was unreachable through auto-config and cost recording silently fell back to
+# the no-op. Same convention as BigQueryWarehouse and
+# BigQueryJobControlRepository: project/region from GCP_PROJECT/GCP_LOCATION,
+# gated on CULVERT_CLOUD (BigQueryDefaults).
+#
+# Cost table: FINOPS_DATASET (REQUIRED - no default, see
+# BigQueryDefaults.finOpsDataset()) and FINOPS_TABLE (defaults to
+# BigQueryFinOpsSink.DEFAULT_TABLE, "cost_metrics"). With FINOPS_DATASET unset
+# the constructor throws, which since Story 1.1 is recorded as a named
+# DiscoveryFailure with an actionable message rather than swallowed - other
+# providers are unaffected.
+#
+# The (client, projectId, dataset, table) constructor is used driver-side.
 com.enrichmeai.culvert.gcp.bigquery.BigQueryFinOpsSink
