@@ -121,7 +121,8 @@ as a defect, not a detail.
 
 - **Binds:** `AuditRecord.java`, `records.py`, both emitters, every test double
 - **Prevents:** two audit shapes live at once — which a dual-write window would have reintroduced
-- **Rule:** Clean break at 0.2.0. No dual-write, no shim, no parallel types. 0.1.x stays published and frozen. *(Settled by: no external consumers exist.)*
+- **Rule:** Clean break at 0.2.0. No dual-write, no shim, no parallel types. 0.1.x stays published and frozen.
+- **Premise corrected 2026-09-08.** This was originally marked `[ADOPTED]` on the stated grounds that *no external consumers exist*. That is **no longer true** — Culvert's libraries support valuedocs. The clean break still stands, but for a different and weaker reason: `AuditEvent` is **not yet built** (it is Phase 1 of the migration plan), so nothing has shipped to break. The decision must be re-taken, not assumed, at the moment Phase 1 lands — and if valuedocs has adopted by then, a deprecation window is back on the table. Any shipped breaking change now needs a `MIGRATION.md` entry; the 0.2.0 `loadFromUri` change has one.
 
 ### AD-9 — One owner for the `job_control` DDL, and the schema must actually change
 

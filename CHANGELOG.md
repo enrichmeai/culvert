@@ -2,6 +2,51 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
+## [0.2.0] — unreleased
+
+### Breaking
+
+- **`Warehouse.loadFromUri` now takes a required `LoadOptions`** (Java and
+  Python). Before this, the method had no way to express what should happen to
+  data already in the target, so each backend chose — and BigQuery applied its
+  own default of `WRITE_APPEND`, which meant **re-running the same extract
+  silently doubled the data**. There is deliberately no three-argument
+  overload: a defaulted disposition is precisely what caused the bug. Pass
+  `LoadOptions.append()` to keep the 0.1.x behaviour exactly. Full upgrade
+  instructions in [MIGRATION.md](MIGRATION.md).
+- Backends that cannot honour a requested disposition must now **throw, naming
+  it**, rather than silently downgrading to append. `AthenaWarehouse` refuses
+  anything but `APPEND` (no DML on non-Iceberg tables).
+
+### Fixed
+
+- **A reconciliation mismatch can no longer end `SUCCEEDED`.** The ingestion
+  runner recorded the mismatch with `markFailed` and then returned normally, so
+  the caller went on to `updateStatus(SUCCEEDED)` — an `UPDATE … SET status`
+  that overwrote the failure it had just written. A load that did not reconcile
+  reported green in the one table an operator would check. Reconciliation now
+  runs **before** the target is written, and both it and the post-load
+  integrity check are terminal.
+- **Re-running an extract leaves one copy of the data, not two** — the load
+  deletes the extract date's prior rows before appending.
+- **The segment-transform job now reports completion**, so `fdp-trigger`'s
+  dedup gate stops blocking every re-run. Nothing had ever written a terminal
+  status, so a row stayed `running` forever and suppressed all later runs,
+  including retries after a failure.
+- **The Maven publish gate hardcoded `0.1.0`** and would have failed every
+  future release at its first step.
+- The whole-repo build works on JDK 25 as well as 21.
+
+### Added
+
+- `MIGRATION.md` — breaking changes and how to upgrade.
+- Root aggregator POM: one command builds the libraries and every deployment,
+  with a CI guard that no deployment pins a library version other than the
+  reactor's.
+- `ExecutionSubstrate` / `SubstrateDagRenderer`: the orchestration substrate
+  (Composer 2 + GKE pods, Composer 3, or Cloud Run jobs) is selected by
+  configuration rather than hardcoded.
+
 ## [Unreleased]
 
 ### Changed
