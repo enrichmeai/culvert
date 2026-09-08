@@ -54,6 +54,10 @@ import java.util.UUID;
  *   --runner=DirectRunner|DataflowRunner   (default: DirectRunner)
  *   --region=us-central1                   (DataflowRunner only)
  *   --stagingLocation=gs://bucket/dataflow-staging  (DataflowRunner only)
+ *
+ *   Any other Beam/Dataflow flag is passed through to the runner, e.g.
+ *   --tempLocation, --workerZone, --numWorkers, --maxNumWorkers,
+ *   --machineType, --subnetwork, --serviceAccount, --usePublicIps.
  *   --cloud=gcp|aws                        (default: gcp — selects the adapter family)
  *   --athenaDatabase=analytics                          (aws only, required)
  *   --athenaOutputLocation=s3://bucket/athena-results/  (aws only, required)
@@ -127,10 +131,7 @@ public final class IngestionMain {
         pipeline.validate();
 
         if ("DataflowRunner".equalsIgnoreCase(runner)) {
-            DataflowPipelineOptions options = PipelineOptionsFactory.as(DataflowPipelineOptions.class);
-            options.setProject(project);
-            options.setRegion(argMap.get("region"));
-            options.setStagingLocation(argMap.get("stagingLocation"));
+            DataflowPipelineOptions options = buildDataflowOptions(args, argMap, project);
             PipelineResult result = pipeline.runOnDataflow(options, context);
             result.waitUntilFinish();
         } else {
@@ -139,6 +140,58 @@ public final class IngestionMain {
             org.apache.beam.sdk.Pipeline beam = pipeline.buildBeam(options, context);
             beam.run().waitUntilFinish();
         }
+    }
+
+    /**
+     * Build the Dataflow options, letting Beam's own flags through.
+     *
+     * <p>This used to be {@code PipelineOptionsFactory.as(...)}, which creates
+     * options from nothing and reads no command line at all. Only
+     * {@code project}, {@code region} and {@code stagingLocation} were then set
+     * by hand, so <strong>every other Beam flag was silently ignored</strong> —
+     * {@code --workerZone}, {@code --numWorkers}, {@code --machineType},
+     * {@code --subnetwork}, {@code --serviceAccount}, {@code --tempLocation}.
+     * The job accepted them on the command line and discarded them, which is
+     * the worst of both worlds: no effect and no error.
+     *
+     * <p>Found on 2026-09-08 trying to run this against real GCP. Dataflow kept
+     * placing workers in a zone that was returning
+     * {@code ZONE_RESOURCE_POOL_EXHAUSTED}, and there was no way to move them —
+     * {@code --workerZone} was accepted and dropped. It also explains the
+     * {@code "No tempLocation specified"} warning on a run that passed one, and
+     * why a job asked to run in London staged itself to a {@code us-central1}
+     * bucket.
+     *
+     * <p>This matters beyond stockouts: most enterprise estates mandate a
+     * specific {@code --subnetwork} and {@code --serviceAccount} for Dataflow
+     * workers, and neither could be supplied.
+     *
+     * <p>{@code withoutStrictParsing()} is required, not incidental: this class
+     * defines its own flags ({@code --entity}, {@code --sourceUri}, …) which
+     * Beam does not know. Strict parsing would reject them and the job would
+     * refuse to start.
+     *
+     * <p>The three application-owned values are re-applied after parsing so the
+     * app's required-argument validation stays authoritative — they come from
+     * the same flags, so this changes nothing about them.
+     *
+     * <p>Package-private so the pass-through is directly testable; exercising
+     * it through {@code main} would submit a real Dataflow job.
+     */
+    static DataflowPipelineOptions buildDataflowOptions(
+            String[] args, Map<String, String> argMap, String project) {
+        DataflowPipelineOptions options = PipelineOptionsFactory
+                .fromArgs(args)
+                .withoutStrictParsing()
+                .as(DataflowPipelineOptions.class);
+        options.setProject(project);
+        if (argMap.get("region") != null) {
+            options.setRegion(argMap.get("region"));
+        }
+        if (argMap.get("stagingLocation") != null) {
+            options.setStagingLocation(argMap.get("stagingLocation"));
+        }
+        return options;
     }
 
     private static Map<String, String> parseArgs(String[] args) {
