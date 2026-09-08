@@ -332,7 +332,6 @@ resource "google_bigquery_table" "odp_customers" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_customers_errors" {
@@ -352,7 +351,6 @@ resource "google_bigquery_table" "odp_customers_errors" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_accounts" {
@@ -380,7 +378,6 @@ resource "google_bigquery_table" "odp_accounts" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_accounts_errors" {
@@ -400,7 +397,6 @@ resource "google_bigquery_table" "odp_accounts_errors" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_decision" {
@@ -425,7 +421,6 @@ resource "google_bigquery_table" "odp_decision" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_decision_errors" {
@@ -445,7 +440,6 @@ resource "google_bigquery_table" "odp_decision_errors" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_applications" {
@@ -475,7 +469,6 @@ resource "google_bigquery_table" "odp_applications" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 resource "google_bigquery_table" "odp_applications_errors" {
@@ -495,7 +488,6 @@ resource "google_bigquery_table" "odp_applications_errors" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================
@@ -640,35 +632,49 @@ resource "google_bigquery_table" "pipeline_jobs" {
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
-resource "google_bigquery_table" "audit_trail" {
+# docs/CONTRACT.md section 4. Renamed from `audit_trail` and reshaped in 0.2.0.
+#
+# The old table was the stage-summary shape (pipeline_name, processing_duration_
+# seconds, success, audit_hash). Nothing ever wrote to it: the emitter defaulted
+# to a dataset called `audit` that this file never created, and swallowed every
+# resulting failure at WARN. So there is no data to migrate - the rename is safe
+# precisely because the table has always been empty.
+#
+# NOTE the absent `lifecycle { ignore_changes = [schema] }`. It was set on this
+# table and on pipeline_jobs, which meant a schema change here would PLAN GREEN
+# AND DO NOTHING - a silent success, in the tool used to fix silent failures.
+# Do not reintroduce it: the schema is owned here (spine AD-9) and must be able
+# to change.
+resource "google_bigquery_table" "audit_events" {
   dataset_id          = google_bigquery_dataset.job_control.dataset_id
-  table_id            = "audit_trail"
+  table_id            = "audit_events"
   deletion_protection = false
 
   time_partitioning {
     type  = "DAY"
-    field = "processed_timestamp"
+    field = "event_ts"
   }
-  clustering = ["pipeline_name", "entity_type"]
+  clustering = ["run_id", "entity"]
 
+  # Mirrors com.enrichmeai.culvert.audit.AuditEvent and the Python AuditEvent
+  # dataclass, both asserted against tests/contract/fixtures/audit_events.json.
+  # Only the six columns section 4 marks REQUIRED are REQUIRED here.
   schema = jsonencode([
-    { name = "run_id", type = "STRING", mode = "NULLABLE" },
-    { name = "pipeline_name", type = "STRING", mode = "NULLABLE" },
-    { name = "entity_type", type = "STRING", mode = "NULLABLE" },
-    { name = "source_file", type = "STRING", mode = "NULLABLE" },
-    { name = "record_count", type = "INTEGER", mode = "NULLABLE" },
-    { name = "processed_timestamp", type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "processing_duration_seconds", type = "FLOAT", mode = "NULLABLE" },
-    { name = "success", type = "BOOLEAN", mode = "NULLABLE" },
-    { name = "error_count", type = "INTEGER", mode = "NULLABLE" },
-    { name = "audit_hash", type = "STRING", mode = "NULLABLE" }
+    { name = "run_id", type = "STRING", mode = "REQUIRED" },
+    { name = "system_id", type = "STRING", mode = "REQUIRED" },
+    { name = "entity", type = "STRING", mode = "REQUIRED" },
+    { name = "event_kind", type = "STRING", mode = "REQUIRED" },
+    { name = "event_ts", type = "TIMESTAMP", mode = "REQUIRED" },
+    { name = "extract_date", type = "DATE", mode = "NULLABLE" },
+    { name = "payload", type = "JSON", mode = "NULLABLE" },
+    { name = "producer", type = "STRING", mode = "NULLABLE" },
+    { name = "contract_version", type = "STRING", mode = "REQUIRED" },
+    { name = "environment", type = "STRING", mode = "NULLABLE" }
   ])
 
   labels = local.common_labels
-  lifecycle { ignore_changes = [schema] }
 }
 
 # ============================================================================

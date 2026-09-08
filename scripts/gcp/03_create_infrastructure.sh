@@ -176,10 +176,22 @@ SCHEMA
     fi
     rm -f "$JOBS_SCHEMA_FILE"
 
-    # audit_trail: matches AuditRecord from data_pipeline_core.audit
-    create_bq_table "job_control.audit_trail" \
-        "run_id:STRING,pipeline_name:STRING,entity_type:STRING,source_file:STRING,record_count:INTEGER,processed_timestamp:TIMESTAMP,processing_duration_seconds:FLOAT,success:BOOLEAN,error_count:INTEGER,audit_hash:STRING" \
-        "--time_partitioning_field processed_timestamp --clustering_fields pipeline_name,entity_type"
+    # job_control.audit_events is NOT created here.
+    #
+    # Terraform owns the job_control schemas (spine AD-9). This script used to
+    # declare audit_trail too, and pipeline_jobs is still declared above with a
+    # 16-column shape while Terraform declares 23 - two owners of one schema,
+    # already disagreeing. That is the divergence AD-9 exists to end, so no new
+    # declaration is added here.
+    #
+    # The table this replaces (job_control.audit_trail, the pre-0.2.0
+    # stage-summary shape) was never written to: the emitter defaulted to an
+    # `audit` dataset nothing provisioned, and swallowed the failures. Nothing
+    # to migrate.
+    #
+    # Create it with:
+    #   terraform -chdir=infrastructure/terraform/systems/generic apply
+    echo "  Skipped: job_control.audit_events (owned by Terraform - see AD-9)"
 
     echo ""
     echo "BigQuery Tables (cdp_generic):"

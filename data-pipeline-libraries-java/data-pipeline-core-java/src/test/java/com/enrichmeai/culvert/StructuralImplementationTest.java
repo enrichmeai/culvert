@@ -50,13 +50,12 @@ class StructuralImplementationTest {
     @Test
     void recording_audit_event_publisher_implements_interface() {
         RecordingAuditPublisher pub = new RecordingAuditPublisher();
-        AuditRecord rec = AuditRecord.builder()
-                .runId("r1").pipelineName("p").entityType("c")
-                .sourceFile("gs://b").recordCount(1)
-                .processedTimestamp(Instant.now())
-                .processingDurationSeconds(0.1)
-                .success(true).build();
-        pub.publish(rec);
+        com.enrichmeai.culvert.audit.AuditEvent event =
+                com.enrichmeai.culvert.audit.AuditEvent.of(
+                        "r1", "Generic", "customers",
+                        com.enrichmeai.culvert.audit.EventKind.RUN_START,
+                        Instant.now(), java.util.Map.of("source_file", "gs://b/f.csv"));
+        pub.publish(event);
         pub.flush();
         assertThat(pub.published).hasSize(1);
         assertThat(pub.flushCalls).isEqualTo(1);
@@ -134,9 +133,11 @@ class StructuralImplementationTest {
     }
 
     private static final class RecordingAuditPublisher implements AuditEventPublisher {
-        final List<AuditRecord> published = new ArrayList<>();
+        final List<com.enrichmeai.culvert.audit.AuditEvent> published = new ArrayList<>();
         int flushCalls;
-        @Override public void publish(AuditRecord record) { published.add(record); }
+        @Override public void publish(com.enrichmeai.culvert.audit.AuditEvent event) {
+            published.add(event);
+        }
         @Override public void flush() { flushCalls++; }
     }
 

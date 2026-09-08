@@ -1,6 +1,6 @@
 package com.enrichmeai.culvert.gcp.bigquery;
 
-import com.enrichmeai.culvert.audit.AuditRecord;
+import com.enrichmeai.culvert.audit.AuditEvent;
 import com.enrichmeai.culvert.contracts.AuditEventPublisher;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
@@ -90,7 +90,7 @@ public final class BigQueryAuditEventPublisher implements AuditEventPublisher {
     private static final Logger LOG = LoggerFactory.getLogger(BigQueryAuditEventPublisher.class);
 
     /** Default dataset when none is configured. */
-    public static final String DEFAULT_DATASET = "audit";
+    public static final String DEFAULT_DATASET = "job_control";
 
     /** Default table when none is configured. */
     public static final String DEFAULT_TABLE = "audit_events";
@@ -176,78 +176,88 @@ public final class BigQueryAuditEventPublisher implements AuditEventPublisher {
     }
 
     /**
-     * Writes the audit record as a row in the BigQuery audit table.
+     * Write one audit event to {@code job_control.audit_events}.
      *
-     * <p>Uses a parameterised {@code INSERT ... VALUES} DML statement executed
-     * via {@code client.query}. Any exception is caught, logged at WARN, and
-     * swallowed — audit write failures must never interrupt the pipeline.
+     * <h2>What was wrong before</h2>
+     * <p>This method INSERTed a twelve-column stage-summary row into a default
+     * target of {@code <project>.audit.audit_events}. The repository provisions
+     * {@code job_control} — the {@code audit} dataset was never created — so
+     * every write failed. Each failure was caught and logged at WARN with the
+     * words "audit error swallowed", and the pipeline carried on. The result:
+     * an audit trail that had never once written, reporting healthy for months.
      *
-     * @param record the audit record to publish; must not be null.
+     * <p>Two things changed. The target is now the dataset the repo actually
+     * provisions, and a failure is no longer swallowed.
+     *
+     * <h2>How a failure surfaces</h2>
+     * <p>The event decides, via {@link AuditEvent#failureIsFatal()}:
+     * run-level events throw, aggregates log at ERROR and continue. Nothing is
+     * swallowed either way.
+     *
+     * <p><strong>Honest limitation.</strong> The spine calls for a failed
+     * aggregate to be dead-lettered to a blob. That needs a {@code BlobStore}
+     * this class does not have, and adding one changes its constructor, so the
+     * event is instead logged at ERROR in full — recoverable from logs, but not
+     * from a queryable dead-letter. Tracked as follow-up; the important half
+     * (never silent) is here.
      */
     @Override
-    public void publish(AuditRecord record) {
-        Objects.requireNonNull(record, "record must not be null");
+    public void publish(AuditEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
 
         String sql = "INSERT INTO " + fqtn + " ("
-                + "run_id, pipeline_name, entity_type, source_file, "
-                + "record_count, processed_timestamp, processing_duration_seconds, "
-                + "success, error_count, audit_hash, metadata_json, published_at"
+                + "run_id, system_id, entity, event_kind, event_ts, extract_date, "
+                + "payload, producer, contract_version, environment"
                 + ") VALUES ("
-                + "@run_id, @pipeline_name, @entity_type, @source_file, "
-                + "@record_count, @processed_timestamp, @processing_duration_seconds, "
-                + "@success, @error_count, @audit_hash, @metadata_json, "
-                + "CURRENT_TIMESTAMP()"
+                + "@run_id, @system_id, @entity, @event_kind, @event_ts, @extract_date, "
+                + "PARSE_JSON(@payload), @producer, @contract_version, @environment"
                 + ")";
 
         QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
-                .addNamedParameter("run_id",
-                        QueryParameterValue.string(record.runId()))
-                .addNamedParameter("pipeline_name",
-                        QueryParameterValue.string(record.pipelineName()))
-                .addNamedParameter("entity_type",
-                        QueryParameterValue.string(record.entityType()))
-                .addNamedParameter("source_file",
-                        QueryParameterValue.string(record.sourceFile()))
-                .addNamedParameter("record_count",
-                        QueryParameterValue.int64(record.recordCount()))
-                .addNamedParameter("processed_timestamp",
-                        QueryParameterValue.timestamp(
-                                BQ_TIMESTAMP_FMT.format(
-                                        record.processedTimestamp().atOffset(ZoneOffset.UTC))))
-                .addNamedParameter("processing_duration_seconds",
-                        QueryParameterValue.float64(record.processingDurationSeconds()))
-                .addNamedParameter("success",
-                        QueryParameterValue.bool(record.success()))
-                .addNamedParameter("error_count",
-                        QueryParameterValue.int64(record.errorCount()))
-                .addNamedParameter("audit_hash",
-                        QueryParameterValue.string(
-                                record.auditHash() == null ? "" : record.auditHash()))
-                .addNamedParameter("metadata_json",
-                        QueryParameterValue.string(toJsonString(record.metadata())))
+                .addNamedParameter("run_id", QueryParameterValue.string(event.runId()))
+                .addNamedParameter("system_id", QueryParameterValue.string(event.systemId()))
+                .addNamedParameter("entity", QueryParameterValue.string(event.entity()))
+                .addNamedParameter("event_kind",
+                        QueryParameterValue.string(event.eventKind().wireValue()))
+                .addNamedParameter("event_ts",
+                        QueryParameterValue.timestamp(event.eventTs().toEpochMilli() * 1000L))
+                .addNamedParameter("extract_date",
+                        QueryParameterValue.date(event.extractDate().map(Object::toString).orElse(null)))
+                .addNamedParameter("payload", QueryParameterValue.string(toJsonString(event.payload())))
+                .addNamedParameter("producer",
+                        QueryParameterValue.string(event.producer().orElse(null)))
+                .addNamedParameter("contract_version",
+                        QueryParameterValue.string(event.contractVersion()))
+                .addNamedParameter("environment",
+                        QueryParameterValue.string(event.environment().orElse(null)))
                 .build();
 
         try {
             client.query(config);
         } catch (InterruptedException e) {
-            // Restore the interrupt flag before swallowing — the caller may check it.
             Thread.currentThread().interrupt();
             auditFailures.incrementAndGet();
-            LOG.warn("BigQueryAuditEventPublisher: publish interrupted for runId={}; "
-                    + "audit write skipped", record.runId(), e);
-        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Audit publish interrupted for runId=" + event.runId(), e);
+        } catch (RuntimeException e) {
             auditFailures.incrementAndGet();
-            LOG.warn("BigQueryAuditEventPublisher: failed to publish audit record for "
-                    + "runId={} pipeline={}; audit error swallowed",
-                    record.runId(), record.pipelineName(), e);
+            if (event.failureIsFatal()) {
+                // Run-level: this event IS the run's state. Continuing without
+                // it is exactly the defect this class is being rebuilt to remove.
+                throw new IllegalStateException(
+                        "Audit publish FAILED for run-level event " + event.eventKind()
+                                + " runId=" + event.runId() + " -> " + fqtn
+                                + ". Failing the pipeline rather than reporting a success "
+                                + "that was never recorded.", e);
+            }
+            // Aggregate: loud, counted, and recoverable from the log - but not
+            // fatal, because a counter must not halt ingestion.
+            LOG.error("Audit publish failed for aggregate event {} runId={} entity={} "
+                            + "payload={}; ingestion continues, event recoverable from this log",
+                    event.eventKind(), event.runId(), event.entity(), event.payload(), e);
         }
     }
 
-    /**
-     * No-op flush — every {@link #publish} call writes immediately and
-     * synchronously. Satisfies the contract requirement that flush is
-     * idempotent and safe to call on an empty buffer.
-     */
     @Override
     public void flush() {
         // Write-through: no buffer to flush.
@@ -327,7 +337,7 @@ public final class BigQueryAuditEventPublisher implements AuditEventPublisher {
      * <p>Uses a simple hand-rolled serialiser to avoid pulling in a JSON
      * library as a compile dependency. Handles String, Number, Boolean, and
      * null values; anything else is converted via {@code toString()}. Nested
-     * maps are not supported (the contract's {@link AuditRecord#metadata()}
+     * maps are not supported (the contract's an event's {@code payload}
      * uses shallow string/primitive values in practice).
      */
     static String toJsonString(java.util.Map<String, Object> metadata) {
