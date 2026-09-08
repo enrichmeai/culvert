@@ -63,10 +63,17 @@ import java.util.UUID;
  *   --athenaOutputLocation=s3://bucket/athena-results/  (aws only, required)
  * </pre>
  *
- * <p><strong>Honest status:</strong> the {@link DirectRunner} path and the unit
- * tests exercise the full ingestion flow in-process against real or in-memory
- * adapters. The {@code DataflowRunner} path has not been run against live GCP
- * as part of T20.5 — see the deployment README "Known gaps" section.
+ * <p><strong>Status:</strong> the {@link DirectRunner} path and the unit tests
+ * exercise the full ingestion flow in-process. The {@code DataflowRunner} path
+ * was proven against live GCP on 2026-09-08: two consecutive runs of the same
+ * extract left <em>three</em> rows in {@code odp_generic.customers}, not six,
+ * carrying the second run's {@code _run_id} — the idempotency guarantee, on
+ * real BigQuery rather than a test double. Both runs recorded
+ * {@code succeeded} in {@code job_control.pipeline_jobs}.
+ *
+ * <p>That run also needed {@code --workerZone} and {@code --workerMachineType}
+ * to route around a zone stockout, which is what exposed that Beam flags were
+ * being discarded here; see {@link #buildDataflowOptions}.
  */
 public final class IngestionMain {
 
