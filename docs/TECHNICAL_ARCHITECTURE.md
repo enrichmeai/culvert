@@ -173,7 +173,9 @@ This table manages the state machine for every pipeline run. Schema is owned by 
 
 ### 4.3 Audit Trail Schema (`job_control.audit_trail`)
 
-Stores `AuditRecord` events published through the `AuditEventPublisher` contract (`data_pipeline_core.contracts.audit`). Records are also streamed to Pub/Sub (`generic-pipeline-events`) for real-time observability.
+Stores `AuditEvent`s published through the `AuditEventPublisher` contract (`data_pipeline_core.contracts.audit`). Events are also streamed to Pub/Sub (`generic-pipeline-events`) for real-time observability.
+
+> The emitters moved to `AuditEvent` (`docs/CONTRACT.md` §4) at 0.2.0; the table below is the pre-0.2.0 `audit_trail` shape and has not moved yet. The Terraform rename to `job_control.audit_events` with §4's ten columns is migration-plan Phase 1 step 4.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -472,7 +474,7 @@ run_sproc = BigQueryValueCheckOperator(
 
 Even when the reference Ingestion or Transformation units are replaced, `data-pipeline-core` remains the **mandatory foundation** of the platform. It provides:
 
-1. **Standardised Metadata Contract**: Shared data models (`PipelineJob`, `AuditRecord`) used by the `job_control` table. Without these, in-house tools would break cross-unit coordination.
+1. **Standardised Metadata Contract**: Shared data models (`PipelineJob`, `AuditEvent`) used by the `job_control` tables. Without these, in-house tools would break cross-unit coordination.
 2. **Unified State Management**: `JobControlRepository` provides a standardised way to update pipeline status (`PENDING → RUNNING → SUCCESS`), ensuring correct participation in the platform's state machine.
 3. **End-to-End Observability**: Structured JSON logging and standardised metrics ensure that logs from any tool are searchable and alertable. The `run_id` is consistently propagated as a correlation ID.
 4. **Data Integrity & Auditability**: `AuditTrail` and `ReconciliationEngine` are tool-agnostic. Integrating the core library provides source-to-target reconciliation and lineage tracking regardless of which technology performed the data movement.

@@ -6,7 +6,7 @@ implementations satisfy the contract by structural typing without
 explicit inheritance.
 """
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Iterator, List, Mapping, Optional
 
 import pytest
@@ -19,7 +19,7 @@ from data_pipeline_core import (
     LineageEmitter,
     SecretProvider,
 )
-from data_pipeline_core.audit.records import AuditRecord
+from data_pipeline_core.audit.events import AuditEvent, EventKind
 from data_pipeline_core.finops_api.labels import FinOpsTag
 from data_pipeline_core.finops_api.models import CostMetrics
 from data_pipeline_core.job_control_api.models import (
@@ -72,12 +72,20 @@ class _FakeSecretProvider:
 
 
 class _FakeAuditEventPublisher:
+    """Structural AuditEventPublisher impl over the contract's AuditEvent.
+
+    ``@runtime_checkable`` compares method *names* only, so this double would
+    pass ``isinstance`` even if it were still typed against the retired
+    ``AuditRecord``. It is migrated deliberately: a test double left on the old
+    type is how a protocol change looks green while nothing implements it.
+    """
+
     def __init__(self) -> None:
-        self.published: List[AuditRecord] = []
+        self.published: List[AuditEvent] = []
         self.flushed = 0
 
-    def publish(self, record: AuditRecord) -> None:
-        self.published.append(record)
+    def publish(self, event: AuditEvent) -> None:
+        self.published.append(event)
 
     def flush(self) -> None:
         self.flushed += 1
@@ -176,6 +184,30 @@ def test_fake_secret_provider_satisfies_protocol() -> None:
 
 def test_fake_audit_publisher_satisfies_protocol() -> None:
     assert isinstance(_FakeAuditEventPublisher(), AuditEventPublisher)
+
+
+def test_audit_publisher_carries_audit_events_not_audit_records() -> None:
+    """The publisher path takes contract events (section 4), not stage summaries.
+
+    ``isinstance`` against a ``@runtime_checkable`` Protocol only checks method
+    names, so it cannot catch a double still bound to ``AuditRecord``. Actually
+    pushing an ``AuditEvent`` through the double can.
+    """
+    publisher = _FakeAuditEventPublisher()
+    event = AuditEvent(
+        run_id="20260417T091400Z-7f3a",
+        system_id="generic",
+        entity="customers",
+        event_kind=EventKind.RUN_START,
+        event_ts=datetime(2026, 4, 17, 9, 14, tzinfo=timezone.utc),
+        payload={"source_file": "gs://bucket/landing/customers.csv"},
+    )
+
+    publisher.publish(event)
+    publisher.flush()
+
+    assert publisher.published == [event]
+    assert publisher.flushed == 1
 
 
 def test_fake_lineage_emitter_satisfies_protocol() -> None:

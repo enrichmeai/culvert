@@ -18,12 +18,20 @@ import java.util.Set;
  * {@link JobControlRepository}.
  *
  * <h2>Eligibility is checked before anything is deleted</h2>
- * <p>The eligibility check comes first on purpose. {@code markRetrying} is a compare-and-set
- * (see {@link BigQueryJobControlRepository}), so an ineligible run — a {@code SUCCEEDED} one,
+ * <p>The eligibility check comes first on purpose. {@code markRetrying} reads the run's
+ * projected state and rejects a prior state it may not leave (see
+ * {@link BigQueryJobControlRepository}), so an ineligible run — a {@code SUCCEEDED} one,
  * say — would be rejected there anyway; but by that point {@code cleanupPartialLoad} would
  * already have deleted the rows that run legitimately loaded, leaving an emptied table behind
  * a job record still reading SUCCEEDED. Checking first means an ineligible retry changes
  * nothing at all.
+ *
+ * <p>The append-only ledger closes the other half of that hole. Under AD-3 the first terminal
+ * state a run reaches is final, so a {@code failed} row appended after a run succeeded does
+ * not make the run read {@code FAILED} — and therefore cannot route it into this class at
+ * all. Recency-based state would: it would flip the run to {@code FAILED}, which is
+ * retryable, and {@code cleanupPartialLoad} would delete the data the successful run had just
+ * loaded.
  *
  * <h2>Idempotency guarantee</h2>
  * <p>If the job is already in {@link JobStatus#RETRYING} state (detected via {@link

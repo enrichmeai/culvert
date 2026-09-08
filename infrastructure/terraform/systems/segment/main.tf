@@ -147,30 +147,19 @@ resource "google_bigquery_table" "pipeline_jobs" {
   ])
 }
 
-resource "google_bigquery_table" "audit_trail" {
-  dataset_id          = google_bigquery_dataset.job_control.dataset_id
-  table_id            = "audit_trail"
-  deletion_protection = false
-
-  time_partitioning {
-    type  = "DAY"
-    field = "processed_timestamp"
-  }
-
-  clustering = ["pipeline_name", "entity_type"]
-
-  labels = local.common_labels
-
-  schema = jsonencode([
-    { name = "run_id",                       type = "STRING",    mode = "NULLABLE" },
-    { name = "pipeline_name",                type = "STRING",    mode = "NULLABLE" },
-    { name = "entity_type",                  type = "STRING",    mode = "NULLABLE" },
-    { name = "source_file",                  type = "STRING",    mode = "NULLABLE" },
-    { name = "record_count",                 type = "INTEGER",   mode = "NULLABLE" },
-    { name = "processed_timestamp",          type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "processing_duration_seconds",  type = "FLOAT",     mode = "NULLABLE" },
-    { name = "success",                      type = "BOOLEAN",   mode = "NULLABLE" },
-    { name = "error_count",                  type = "INTEGER",   mode = "NULLABLE" },
-    { name = "audit_hash",                   type = "STRING",    mode = "NULLABLE" },
-  ])
-}
+# job_control.audit_trail is NOT created here (removed 2026-09-08).
+#
+# Two reasons. It was the pre-0.2.0 stage-summary shape, which no longer exists
+# - the audit table is now job_control.audit_events, matching docs/CONTRACT.md
+# section 4 and owned by the generic root (spine AD-9, one owner per schema).
+# And nothing in deployments/mainframe-segment-transform-java ever published an
+# audit record to it, so it was provisioned and never written - the same
+# condition that let the generic audit trail look healthy for months while
+# failing every write.
+#
+# FLAGGED, NOT FIXED: this root and infrastructure/terraform/systems/generic
+# BOTH declare `resource "google_bigquery_dataset" "job_control"` with
+# dataset_id "job_control" in the same project (segment main.tf:109, generic
+# main.tf:294). Two roots, two states, one real resource. Deciding which root
+# owns shared job-control infrastructure is a change across both, so it is
+# raised rather than made here.

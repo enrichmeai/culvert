@@ -164,11 +164,15 @@ class IngestionRunnerTest {
      * an operator would look. Parity with a permissive reference is not a
      * reason to report a bad load as a good one.
      *
-     * <p>Deliberately asserted against the CURRENT mutating
+     * <p>Deliberately asserted against the mutating
      * {@link RecordingJobControlRepository}: the fix is in the runner's control
-     * flow, so it must hold regardless of whether job control is later made
-     * append-only. An append-only store alone would NOT fix this — SUCCEEDED
-     * appended after the failure still wins a newest-row-per-key read.
+     * flow, so it holds whatever the store does underneath. The storage model
+     * is not a substitute for it. A newest-row-per-key append-only store would
+     * not fix this at all — the SUCCEEDED appended after the failure would
+     * simply win the read. The BigQuery adapter's AD-3 projection does better,
+     * since the earlier terminal row wins, but it decides which recorded state
+     * is read, not whether the runner emits a success after a failure. That is
+     * this test's subject.
      */
     @Test
     void loadCountMismatch_failsTheRunAndNeverReportsSucceeded() {

@@ -13,6 +13,10 @@ dependencies = [
     "gunicorn>=22.0.0",
     "google-cloud-bigquery>=3.25.0",
     "google-api-python-client>=2.137.0",
+    # job_control writes go through Culvert's JobControlRepository port
+    # (spine AD-14). The Python adapter lands in 0.2.0, so this deployment
+    # cannot be built until the libraries are published at that version.
+    "culvert[gcp]>=0.2.0",
 ]
 
 [project.optional-dependencies]

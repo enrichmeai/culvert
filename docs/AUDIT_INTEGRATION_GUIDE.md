@@ -37,8 +37,10 @@ pip install culvert[gcp]     # adds the GCP adapters (BigQuery, GCS, Pub/Sub, ob
 
 | Class | Module | Purpose |
 |-------|--------|---------|
-| `AuditRecord` | `data_pipeline_core.audit` | Cloud-neutral audit event dataclass |
+| `AuditEvent` | `data_pipeline_core.audit` | Cloud-neutral audit event dataclass (`docs/CONTRACT.md` §4) |
+| `EventKind` | `data_pipeline_core.audit` | The seven `event_kind` values, their required `payload` keys, and the run-level/aggregate split |
 | `AuditEventPublisher` | `data_pipeline_core.contracts.audit` | Protocol for publishing audit events |
+| `AuditRecord` | `data_pipeline_core.audit` | Retired pre-0.2.0 stage summary. Still importable, no longer on the publisher path. |
 | `JobControlRepository` | `data_pipeline_core.contracts.job_control` | Protocol for CRUD on the `pipeline_jobs` table |
 | `PipelineJob` | `data_pipeline_core.job_control_api` | Job record dataclass |
 
@@ -264,8 +266,8 @@ The ingestion pipeline is the Java deployment
 [`deployments/original-data-to-bigqueryload-java`](../deployments/original-data-to-bigqueryload-java/).
 Its `IngestionRunner` records the run in `job_control.pipeline_jobs` and stamps
 the audit columns (`_run_id`, `_source_file`, `_extract_date`, `_processed_at`)
-onto every row it loads. Audit events are shaped by the `AuditRecord` type and
-emitted through the `AuditEventPublisher` contract
+onto every row it loads. Audit events are shaped by the `AuditEvent` type
+(`docs/CONTRACT.md` §4) and emitted through the `AuditEventPublisher` contract
 (`com.enrichmeai.culvert.audit` / `com.enrichmeai.culvert.contracts` in
 `data-pipeline-core-java`; the Python equivalents are `data_pipeline_core.audit`
 and `data_pipeline_core.contracts.audit`).

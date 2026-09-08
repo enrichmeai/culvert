@@ -100,15 +100,21 @@ Each NDJSON line:
 
 ### 2.3 Audit events
 
-`BigQueryAuditEventPublisher` writes one row per stage completion to `<project>.audit.audit_events`. Audit write failures are swallowed and logged at WARN — they never interrupt the pipeline. The `success` column is `false` for failed stages; `error_count` mirrors the DQ error count.
+`BigQueryAuditEventPublisher` writes one row per event to `<project>.job_control.audit_events` — the ten columns of `docs/CONTRACT.md` §4. Event-specific detail (record counts, error messages) lives in the `payload` JSON column, not in bare columns.
+
+**A failed write is never silent.** How it surfaces depends on the `event_kind` (spine AD-5):
+
+| Event class | `event_kind` | On write failure |
+|---|---|---|
+| Run-level | `RUN_START`, `RUN_END`, `ERROR_RAISED`, `RECONCILIATION`, `RETRY_ATTEMPTED` | **Throws — the pipeline fails.** These events *are* the run's state; continuing without one is how a run reports success it never had. |
+| Aggregate | `RECORD_VALIDATED`, `RECORD_REJECTED` | Logged at `ERROR` with the full event, counted, ingestion continues. |
 
 **Query recent audit events for a run:**
 ```sql
-SELECT run_id, pipeline_name, entity_type, success, error_count,
-       record_count, processing_duration_seconds, processed_timestamp
-FROM `<project>.audit.audit_events`
+SELECT event_ts, event_kind, entity, payload, producer, contract_version
+FROM `<project>.job_control.audit_events`
 WHERE run_id = '<run-id>'
-ORDER BY processed_timestamp;
+ORDER BY event_ts;
 ```
 
 ### 2.4 Cloud Monitoring metrics
@@ -210,19 +216,40 @@ Calling `RetryOrchestrator.prepareRetry()` on a job already in `RETRYING` status
 
 A job in a status that may not be retried at all — `SUCCEEDED` or `CANCELLED` — raises `IllegalStateException` **before** `cleanupPartialLoad` runs, so an ineligible retry leaves both the target table and the job record untouched. Retrying a run that already succeeded is precisely how a re-run duplicates data.
 
-### 3.3.1 Every job-control write is conditional
+### 3.3.1 The job-control ledger is append-only, and every write is conditional
 
-Since Sprint 23, `BigQueryJobControlRepository` makes every write a compare-and-set rather than a fire-and-forget `UPDATE`:
+Since Sprint 23, `BigQueryJobControlRepository` issues **no `UPDATE` and no `DELETE`** against `job_control.pipeline_jobs`. The table holds one row per state change, not one row per run. Each state change reads the run's current projected state, carries it forward, applies its change and `INSERT`s a new row.
 
-| Call | Condition | On violation |
-|------|-----------|--------------|
-| `createJob` | `MERGE ... WHEN NOT MATCHED THEN INSERT` | `IllegalStateException` — the `runId` already exists |
-| `updateStatus`, `markFailed`, `markRetrying` | `WHERE run_id = @run_id AND status IN (<allowed prior states>)` | `IllegalStateException` naming the actual status, or reporting that no such run exists |
-| `updateCostMetrics` | `WHERE run_id = @run_id` | `IllegalStateException` — no such run |
+| Call | Condition, checked before the append | On violation |
+|------|--------------------------------------|--------------|
+| `createJob` | `MERGE ... WHEN NOT MATCHED THEN INSERT` — the `runId` must have no rows at all | `IllegalStateException` — the `runId` already exists |
+| `updateStatus`, `markFailed`, `markRetrying` | the run's **projected** status must be one of the allowed prior states | `IllegalStateException` naming the actual status, or reporting that no such run exists |
+| `updateCostMetrics` | the run must exist | `IllegalStateException` — no such run |
 
-Allowed prior states: `RUNNING` from `CREATED`/`RETRYING`; `SUCCEEDED` from `RUNNING`; `FAILED` from `CREATED`/`RUNNING`/`RETRYING`/`FAILED`; `RETRYING` from `CREATED`/`RUNNING`/`FAILED`; `CANCELLED` from `CREATED`/`RUNNING`/`RETRYING`. `FAILED` → `FAILED` is allowed on purpose: `QuarantineHandler` marks a run failed when it quarantines rows, and the ingestion runner's reconciliation check can then mark the same run failed again with a more specific error code.
+Allowed prior states: `RUNNING` from `CREATED`/`RETRYING`; `SUCCEEDED` from `RUNNING`; `FAILED` from `CREATED`/`RUNNING`/`RETRYING`/`FAILED`; `RETRYING` from `CREATED`/`RUNNING`/`FAILED`; `CANCELLED` from `CREATED`/`RUNNING`/`RETRYING`. `FAILED` → `FAILED` is allowed on purpose: `QuarantineHandler` marks a run failed when it quarantines rows, and the ingestion runner's reconciliation check can then mark the same run failed again with a more specific error code — but see the projection rule below, which decides **which** of the two failures an operator reads.
 
 An operator seeing `IllegalStateException: ... expected one of [...]` in a task log is looking at a transition that would previously have passed silently against the wrong row — or against no row at all.
+
+### 3.3.2 Querying the ledger: use the projection, not the raw table
+
+Because a run has many rows, **`SELECT * FROM pipeline_jobs WHERE run_id = ...` returns a history, not a state.** The repository ranks the rows and keeps one per `run_id`; an ad-hoc query must do the same or it will read a superseded state:
+
+```sql
+WITH ranked AS (
+  SELECT *, ROW_NUMBER() OVER (
+    PARTITION BY run_id
+    ORDER BY
+      CASE WHEN status IN ('succeeded','failed','cancelled') THEN 0 ELSE 1 END,
+      CASE WHEN status IN ('succeeded','failed','cancelled') THEN updated_at END ASC,
+      updated_at DESC
+  ) AS rn FROM `<project>.job_control.pipeline_jobs`
+) SELECT * FROM ranked WHERE rn = 1 AND run_id = '<run-id>';
+```
+
+A terminal row (`succeeded`, `failed`, `cancelled`) beats a non-terminal one; among terminal rows the **earliest** wins; with no terminal row the latest wins. Two operational consequences:
+
+- **The first terminal state a run reaches is the one it keeps.** A `failed` row appended after a run succeeded does not make the run failed, and therefore does not make it retryable. That is deliberate: a retry runs `cleanupPartialLoad`, a `DELETE` against the target table, and a late failure flipping a green run would delete the data that run had just loaded. If you see contradictory rows for one run, the projection is the answer and the extra rows are evidence of the writer that produced them.
+- **`ORDER BY updated_at DESC LIMIT 1` is wrong** for the same reason. Any dashboard, DAG or script doing that against `pipeline_jobs` is reading recency, which is exactly what this design rejects.
 
 ### 3.4 Tracking retry state
 
@@ -233,11 +260,13 @@ FROM `<project>.job_control.pipeline_jobs`
 WHERE run_id = '<run-id>';
 ```
 
-`BigQueryJobControlRepository.markRetrying(runId, retryCount)` sets `status = 'RETRYING'` and stamps `updated_at`. When the re-run succeeds, `updateStatus(runId, SUCCEEDED, totalRecords)` stamps `completed_at`.
+`BigQueryJobControlRepository.markRetrying(runId, retryCount)` appends a row with `status = 'retrying'` and a fresh `updated_at`. When the re-run succeeds, `updateStatus(runId, SUCCEEDED, totalRecords)` appends another with `completed_at` stamped. Neither overwrites anything — query through the projection in §3.3.2 to see the current state.
 
 ### 3.5 Cost metrics on re-run
 
-`BigQueryJobControlRepository.updateCostMetrics(runId, estimatedCostUsd, billedBytesScanned, billedBytesWritten)` updates the FinOps columns in-place after the BigQuery job completes. On a retry, this overwrites the prior run's cost estimate with the successful re-run's actual cost.
+`BigQueryJobControlRepository.updateCostMetrics(runId, estimatedCostUsd, billedBytesScanned, billedBytesWritten)` appends a row carrying the FinOps columns and the run's current status. Nothing is overwritten, and on a retry the prior run's cost estimate stays in the ledger alongside the new one.
+
+**Call it before the run reaches a terminal state.** Under §3.3.2's projection an appended row is only read back if it wins the ranking; a cost row appended after the run finished carries the run's terminal status with a later `updated_at`, so the original terminal row keeps winning and the figures do not read back through `getJob`. The row is still in the ledger and a direct query over the raw table finds it.
 
 ---
 
@@ -247,7 +276,7 @@ WHERE run_id = '<run-id>';
 |---|---|---|
 | Job state / failures | BigQuery `<project>.job_control.pipeline_jobs` | SQL query (see §2.1) |
 | DQ quarantine files | GCS `gs://<error-bucket>/errors/<pipeline-id>/quarantine/<runId>/` | `gsutil cat` or Cloud Console |
-| Audit events | BigQuery `<project>.audit.audit_events` | SQL query (see §2.3) |
+| Audit events | BigQuery `<project>.job_control.audit_events` | SQL query (see §2.3) |
 | Custom metrics | Cloud Monitoring `custom.googleapis.com/culvert/*` | `gcloud monitoring time-series list` or Cloud Console |
 | Trace spans | Cloud Trace, span name prefix `culvert.stage/` | Cloud Trace UI |
 | Structured logs | Cloud Logging, field `labels.run_id` | `gcloud logging read` |
@@ -323,11 +352,15 @@ DELETE FROM `<project>.<dataset>.<table>` WHERE _run_id = '<run-id>';
 
 ### 5.5 Audit event write failures
 
-**Symptom:** `audit.audit_events` table is missing rows; pipeline ran successfully.
+**Symptom:** `job_control.audit_events` is missing aggregate rows (`RECORD_VALIDATED` / `RECORD_REJECTED`) while the pipeline ran successfully.
 
-`BigQueryAuditEventPublisher` swallows all publish errors (logged at WARN). The pipeline is never interrupted by audit failures.
+Only aggregate events can be missing from a successful run. A failed run-level write fails the run, so a *successful* run with no `RUN_START` / `RUN_END` row is not possible — if you see that, the rows were deleted or you are querying the wrong table.
 
 **Steps:**
-1. Check Cloud Logging for `WARN` lines from `BigQueryAuditEventPublisher`.
+1. Check Cloud Logging for `ERROR` lines from `BigQueryAuditEventPublisher` / `PubSubAuditPublisher`. The full event is logged, so the missing row is recoverable from the log.
 2. Common causes: missing `roles/bigquery.dataEditor` role, wrong `culvert.audit.dataset` / `culvert.audit.table` config.
-3. Missing audit rows cannot be reconstructed retroactively from the failed publish. Check `pipeline_jobs` for job-level success/failure state as an alternative source of truth.
+3. Aggregate counts also appear in the DQ quarantine files (§2.2), which are an independent source for the same numbers.
+
+**Symptom:** the pipeline failed with `Audit publish FAILED for run-level event ...`.
+
+This is working as designed — the run stopped rather than reporting a state it never recorded. Fix the audit write path (IAM, dataset/table config, topic), then re-run. The run has no partial audit trail to clean up: the events are append-only and the run took a new `run_id`.

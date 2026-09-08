@@ -21,12 +21,9 @@ import com.google.cloud.bigquery.TableResult;
 
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
@@ -54,23 +51,59 @@ import java.util.Set;
  * table is quoted with backticks as {@code `project.dataset.table`} in every
  * query.
  *
- * <h2>Conditional writes</h2>
+ * <h2>Append-only writes (AD-2)</h2>
  *
- * <p>Every write is a compare-and-set. BigQuery has no row lock and no
- * {@code INSERT ... IF NOT EXISTS}, but a single DML statement is atomic and
- * reports how many rows it matched, so the guard goes in the statement itself
- * and the affected-row count is the answer:
+ * <p>The ledger is an append-only log: {@code job_control.pipeline_jobs} holds
+ * one row per state change, not one row per run. No statement this class builds
+ * against the ledger is an {@code UPDATE} or a {@code DELETE}. Every state
+ * change — {@link #updateStatus}, {@link #markFailed}, {@link #markRetrying},
+ * {@link #updateCostMetrics} — reads the run's current projected state, carries
+ * the whole of it forward, applies its own change and {@code INSERT}s the
+ * result as a new row stamped {@code updated_at = CURRENT_TIMESTAMP()}.
+ * {@link #createJob} stays a {@code MERGE ... WHEN NOT MATCHED THEN INSERT}: a
+ * second create for a {@code runId} that already has any row is rejected rather
+ * than starting a second history for it.
+ *
+ * <p>{@link #cleanupPartialLoad} holds the only {@code DELETE} in the class,
+ * and it targets the <em>caller-supplied warehouse table</em>, never the
+ * ledger. AD-2 binds {@code job_control.*}; the partial-load cleanup is the
+ * mechanism AD-3 exists to keep an already-succeeded run away from.
+ *
+ * <h2>Reads are a projection; the first terminal state is final (AD-3)</h2>
+ *
+ * <p>A run has many rows, so every read ranks them and keeps one per
+ * {@code run_id} — see {@link #rankedCte}:
  *
  * <ul>
- *   <li>{@link #createJob} is a {@code MERGE ... WHEN NOT MATCHED THEN INSERT}
- *       — 0 affected rows means the {@code runId} already exists, and it
- *       throws rather than writing a second row for the same run.
- *   <li>Every status transition carries {@code AND status IN (...)} naming the
- *       states it may legally leave. 0 affected rows means either the wrong
- *       prior state or no row at all; both throw
- *       {@link IllegalStateException}, distinguished by a follow-up
- *       {@link #getJob} on the failure path only.
+ *   <li>a terminal row ({@code succeeded}, {@code failed}, {@code cancelled})
+ *       beats a non-terminal one;
+ *   <li>among terminal rows the <strong>earliest</strong> {@code updated_at}
+ *       wins;
+ *   <li>with no terminal row at all, the latest {@code updated_at} wins.
  * </ul>
+ *
+ * <p>Earliest-terminal rather than latest-row is the point, not an
+ * optimisation. Under plain recency a late {@code failed} append would flip a
+ * finished {@code succeeded} run to {@code failed}; {@code failed} is
+ * retryable, so {@link RetryOrchestrator#prepareRetry} would then call
+ * {@link #cleanupPartialLoad} and delete the rows the successful run had just
+ * loaded. Making the first terminal state final closes that data-loss path.
+ *
+ * <p>Only immutable columns — {@code run_id}, {@code system_id},
+ * {@code extract_date}, {@code job_type}, {@code pipeline_name} — may be
+ * filtered <em>inside</em> the ranking CTE. A {@code status} predicate must go
+ * on the outer query, after {@code rn = 1}. Filtering on status first would
+ * rank a partition whose winning row had already been removed, resurrecting the
+ * superseded state the projection exists to hide.
+ *
+ * <h2>Illegal transitions</h2>
+ *
+ * <p>An append cannot fail on a guard the way the compare-and-set DML it
+ * replaced did, so the guard moves ahead of the write: each transition reads
+ * the projected current state and rejects a prior state
+ * {@link #allowedPriorStates} does not permit, raising the same
+ * {@link IllegalStateException} as before. A transition that would change
+ * nothing still does not report success.
  *
  * <p>The allowed prior states, from {@link #allowedPriorStates}:
  *
@@ -89,21 +122,68 @@ import java.util.Set;
  * transition. It is a live path, not an oversight: {@code QuarantineHandler}
  * marks a run FAILED when it quarantines rows, and the ingestion runner's
  * reconciliation check can then mark the same run FAILED again with a more
- * specific error code. The second call overwrites the first call's error
- * detail — pre-existing behaviour, left as it is.
+ * specific error code. Both calls are accepted and both rows survive, but
+ * under AD-3 the <strong>first</strong> failure is the one that reads back —
+ * the second call no longer overwrites the first call's error detail, which is
+ * a deliberate reversal of the pre-append-only behaviour.
  *
- * <p>Atomicity here rests on BigQuery's DML concurrency model, not on a row
- * lock: BigQuery serialises mutating DML against a single table, so the guard
- * predicate is evaluated against a state no concurrent mutation can have
- * changed underneath it. Two writers racing the same transition therefore
- * produce one winner and one {@link IllegalStateException}, not two winners.
+ * <h2>Two consequences worth stating plainly</h2>
+ *
+ * <ul>
+ *   <li><strong>Read-then-append is not atomic.</strong> Two writers racing the
+ *       same transition can both read the same prior state and both append; the
+ *       DML compare-and-set that used to produce one winner and one
+ *       {@link IllegalStateException} is gone with the {@code UPDATE}. Nothing
+ *       is overwritten, both rows survive, and the projection still resolves
+ *       the read deterministically. That is the trade AD-2 asks for: a store no
+ *       backend has to be able to {@code UPDATE}.
+ *   <li><strong>{@link #updateCostMetrics} on a run that has already reached a
+ *       terminal state is write-only.</strong> The appended row carries the
+ *       run's terminal status with a later {@code updated_at}, so the earliest
+ *       terminal row still wins the projection and the new cost figures never
+ *       read back through this class. The row is in the ledger and a direct
+ *       query still finds it. Call it before the run finishes if the figure has
+ *       to be visible.
+ * </ul>
  *
  * <p>Sprint-1 deliverable for issue #8; made conditional in Sprint 23
- * (story 1.3), which also fixes issue #99 — DML affected rows come from
+ * (story 1.3) — which also fixed issue #99, DML affected rows come from
  * {@code QueryStatistics.getNumDmlAffectedRows()}, not from
- * {@link TableResult#getTotalRows()}, which is 0 for a DML statement.
+ * {@link TableResult#getTotalRows()}, which is 0 for a DML statement — and made
+ * append-only in Sprint 23 (AD-2/AD-3/AD-12).
  */
 public final class BigQueryJobControlRepository implements JobControlRepository {
+
+    /**
+     * The statuses a run cannot leave (AD-3). A row in one of these beats every
+     * non-terminal row in the projection, and the earliest of them beats the
+     * rest — so the first terminal state a run reaches is the one it keeps.
+     */
+    private static final Set<JobStatus> TERMINAL_STATES =
+            EnumSet.of(JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED);
+
+    /** {@code status IN ('succeeded','failed','cancelled')} — the wire values. */
+    private static final String IS_TERMINAL = "status IN (" + terminalLiterals() + ")";
+
+    /** Every ledger column, in insert order. Shared by the two writers. */
+    private static final String LEDGER_COLUMNS =
+            "run_id, system_id, pipeline_name, extract_date, status, job_type, "
+            + "entity_type, source_file, target_table, "
+            + "record_count, error_count, retry_count, "
+            + "failure_stage, error_code, error_message, error_file_path, "
+            + "estimated_cost_usd, billed_bytes_scanned, billed_bytes_written, "
+            + "created_at, updated_at, started_at, completed_at";
+
+    /**
+     * The bound parameters for {@link #LEDGER_COLUMNS} up to (not including)
+     * the four timestamps, which each writer stamps or carries for itself.
+     */
+    private static final String LEDGER_VALUE_PARAMS =
+            "@run_id, @system_id, @pipeline_name, @extract_date, @status, @job_type, "
+            + "@entity_type, @source_file, @target_table, "
+            + "@record_count, @error_count, @retry_count, "
+            + "@failure_stage, @error_code, @error_message, @error_file_path, "
+            + "@estimated_cost_usd, @billed_bytes_scanned, @billed_bytes_written";
 
     private final BigQuery client;
     private final String projectId;
@@ -149,11 +229,11 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
     /**
      * {@inheritDoc}
      *
-     * <p>Insert-if-absent. Runs as a {@code MERGE ... WHEN NOT MATCHED THEN
-     * INSERT}, so a {@code runId} that already has a row matches, inserts
-     * nothing, and reports 0 affected rows. A plain {@code INSERT} would write
-     * a second row for the same run — the defect that let a re-run duplicate
-     * data.
+     * <p>Insert-if-absent, and the one write that is not a state change. It
+     * runs as a {@code MERGE ... WHEN NOT MATCHED THEN INSERT}, so a
+     * {@code runId} that already has <em>any</em> row in the append-only ledger
+     * matches, inserts nothing, and reports 0 affected rows. The clause set
+     * carries no {@code WHEN MATCHED}, so nothing is updated or deleted.
      *
      * @throws IllegalStateException if a job with this {@code runId} already exists.
      */
@@ -163,46 +243,12 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
 
         String sql = "MERGE INTO " + fqtn + " AS T "
                 + "USING (SELECT @run_id AS run_id) AS S ON T.run_id = S.run_id "
-                + "WHEN NOT MATCHED THEN INSERT ("
-                + "run_id, system_id, pipeline_name, extract_date, status, job_type, "
-                + "entity_type, source_file, target_table, "
-                + "record_count, error_count, retry_count, "
-                + "failure_stage, error_code, error_message, error_file_path, "
-                + "estimated_cost_usd, billed_bytes_scanned, billed_bytes_written, "
-                + "created_at, updated_at, started_at, completed_at"
-                + ") VALUES ("
-                + "@run_id, @system_id, @pipeline_name, @extract_date, @status, @job_type, "
-                + "@entity_type, @source_file, @target_table, "
-                + "@record_count, @error_count, @retry_count, "
-                + "@failure_stage, @error_code, @error_message, @error_file_path, "
-                + "@estimated_cost_usd, @billed_bytes_scanned, @billed_bytes_written, "
-                + "CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), @started_at, @completed_at"
-                + ")";
+                + "WHEN NOT MATCHED THEN INSERT (" + LEDGER_COLUMNS + ") VALUES ("
+                + LEDGER_VALUE_PARAMS + ", "
+                + "CURRENT_TIMESTAMP(), CURRENT_TIMESTAMP(), @started_at, @completed_at)";
 
-        QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
-                .addNamedParameter("run_id", QueryParameterValue.string(job.runId()))
-                .addNamedParameter("system_id", QueryParameterValue.string(job.systemId()))
-                .addNamedParameter("pipeline_name", QueryParameterValue.string(job.pipelineName()))
-                .addNamedParameter("extract_date", QueryParameterValue.date(job.extractDate().toString()))
-                .addNamedParameter("status", QueryParameterValue.string(job.status().getValue()))
-                .addNamedParameter("job_type", QueryParameterValue.string(job.jobType().name()))
-                .addNamedParameter("entity_type", QueryParameterValue.string(job.entityType().orElse(null)))
-                .addNamedParameter("source_file", QueryParameterValue.string(job.sourceFile().orElse(null)))
-                .addNamedParameter("target_table", QueryParameterValue.string(job.targetTable().orElse(null)))
-                .addNamedParameter("record_count", QueryParameterValue.int64(job.recordCount()))
-                .addNamedParameter("error_count", QueryParameterValue.int64(job.errorCount()))
-                .addNamedParameter("retry_count", QueryParameterValue.int64((long) job.retryCount()))
-                .addNamedParameter("failure_stage",
-                        QueryParameterValue.string(job.failureStage().map(FailureStage::getValue).orElse(null)))
-                .addNamedParameter("error_code", QueryParameterValue.string(job.errorCode().orElse(null)))
-                .addNamedParameter("error_message", QueryParameterValue.string(job.errorMessage().orElse(null)))
-                .addNamedParameter("error_file_path", QueryParameterValue.string(job.errorFilePath().orElse(null)))
-                .addNamedParameter("estimated_cost_usd",
-                        QueryParameterValue.float64(job.estimatedCostUsd()))
-                .addNamedParameter("billed_bytes_scanned",
-                        QueryParameterValue.int64(job.billedBytesScanned()))
-                .addNamedParameter("billed_bytes_written",
-                        QueryParameterValue.int64(job.billedBytesWritten()))
+        QueryJobConfiguration config =
+                bindLedgerColumns(QueryJobConfiguration.newBuilder(sql), job)
                 .addNamedParameter("started_at",
                         QueryParameterValue.timestamp(toTimestampMicros(job.startedAt())))
                 .addNamedParameter("completed_at",
@@ -216,11 +262,19 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         }
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The projected current state of the run: one row out of however many
+     * the run has appended, chosen by {@link #rankedCte}. A run whose first
+     * terminal row is {@code succeeded} reads {@code SUCCEEDED} however many
+     * later rows say otherwise.
+     */
     @Override
     public Optional<PipelineJob> getJob(String runId) {
         Objects.requireNonNull(runId, "runId must not be null");
 
-        String sql = "SELECT * FROM " + fqtn + " WHERE run_id = @run_id";
+        String sql = rankedCte("run_id = @run_id") + "SELECT * FROM ranked WHERE rn = 1";
         QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
                 .addNamedParameter("run_id", QueryParameterValue.string(runId))
                 .build();
@@ -235,16 +289,22 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
     /**
      * {@inheritDoc}
      *
-     * <p>Compare-and-set: the states this transition may legally leave are in
-     * the {@code WHERE} clause, so a transition from the wrong prior state
-     * matches no row and is rejected instead of silently passing.
+     * <p>Appends the run's next state. The projected current state is read
+     * first and a prior state this transition may not leave is rejected before
+     * anything is written, so a transition that would change nothing still does
+     * not report success.
+     *
+     * <p>{@code RUNNING} stamps {@code started_at} and {@code SUCCEEDED} stamps
+     * {@code completed_at} + {@code record_count} on the appended row, as the
+     * three {@code UPDATE} flavours this replaced did; every other column is
+     * carried forward from the projected state.
      *
      * @throws IllegalArgumentException if {@code status} is
      *                                  {@link JobStatus#CREATED} — a job enters
      *                                  that state only via {@link #createJob}.
-     * @throws IllegalStateException    if no row exists for {@code runId}, or its
-     *                                  status is not one of the allowed prior
-     *                                  states for {@code status}.
+     * @throws IllegalStateException    if the run has no row at all, or its
+     *                                  projected status is not one of the
+     *                                  allowed prior states for {@code status}.
      */
     @Override
     public void updateStatus(String runId, JobStatus status, Optional<Long> totalRecords) {
@@ -252,50 +312,31 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         Objects.requireNonNull(status, "status must not be null");
         Objects.requireNonNull(totalRecords, "totalRecords must not be null");
 
+        // Ahead of the read: CREATED is not a transition target whatever the
+        // ledger says, and the caller should not pay for a query to hear it.
         Set<JobStatus> allowed = allowedPriorStates(status);
-        Map<String, QueryParameterValue> priorParams = new LinkedHashMap<>();
-        String guard = priorStatePredicate(allowed, priorParams);
+        PipelineJob current = requireTransitionFrom("updateStatus", runId, allowed);
 
-        // Three SQL flavours per the Python source: RUNNING stamps started_at,
-        // SUCCEEDED stamps completed_at + record_count, everything else just
-        // bumps status + updated_at. All three carry the same prior-state guard.
-        String sql;
-        QueryJobConfiguration.Builder builder;
-        if (status == JobStatus.RUNNING) {
-            sql = "UPDATE " + fqtn + " SET status = @status, "
-                    + "started_at = CURRENT_TIMESTAMP(), updated_at = CURRENT_TIMESTAMP() "
-                    + "WHERE run_id = @run_id" + guard;
-            builder = QueryJobConfiguration.newBuilder(sql);
-        } else if (status == JobStatus.SUCCEEDED) {
-            sql = "UPDATE " + fqtn + " SET status = @status, "
-                    + "completed_at = CURRENT_TIMESTAMP(), record_count = @record_count, "
-                    + "updated_at = CURRENT_TIMESTAMP() "
-                    + "WHERE run_id = @run_id" + guard;
-            builder = QueryJobConfiguration.newBuilder(sql)
-                    .addNamedParameter("record_count",
-                            QueryParameterValue.int64(totalRecords.orElse(0L)));
-        } else {
-            sql = "UPDATE " + fqtn + " SET status = @status, "
-                    + "updated_at = CURRENT_TIMESTAMP() "
-                    + "WHERE run_id = @run_id" + guard;
-            builder = QueryJobConfiguration.newBuilder(sql);
+        PipelineJob.Builder next = carryForward(current, status);
+        if (status == JobStatus.SUCCEEDED) {
+            next.recordCount(totalRecords.orElse(0L));
         }
-
-        builder.addNamedParameter("run_id", QueryParameterValue.string(runId))
-                .addNamedParameter("status", QueryParameterValue.string(status.getValue()));
-        priorParams.forEach(builder::addNamedParameter);
-        applyTransition(builder.build(), "updateStatus", runId, allowed);
+        append("updateStatus", next.build(),
+                status == JobStatus.RUNNING, status == JobStatus.SUCCEEDED);
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Compare-and-set on the prior state, which must be one of
-     * {@code CREATED}, {@code RUNNING}, {@code RETRYING} or {@code FAILED}. A
-     * run that already {@code SUCCEEDED} cannot be re-marked failed.
+     * <p>Appends a {@code failed} row. The projected prior state must be one of
+     * {@code CREATED}, {@code RUNNING}, {@code RETRYING} or {@code FAILED} — a
+     * run that already {@code SUCCEEDED} cannot be re-marked failed, and under
+     * AD-3 could not read as failed even if a row were appended behind this
+     * method's back.
      *
-     * @throws IllegalStateException if no row exists for {@code runId}, or its
-     *                               status is not an allowed prior state.
+     * @throws IllegalStateException if the run has no row at all, or its
+     *                               projected status is not an allowed prior
+     *                               state.
      */
     @Override
     public void markFailed(String runId, String errorCode, String errorMessage,
@@ -307,37 +348,28 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         Objects.requireNonNull(errorFilePath, "errorFilePath must not be null");
 
         Set<JobStatus> allowed = allowedPriorStates(JobStatus.FAILED);
-        Map<String, QueryParameterValue> priorParams = new LinkedHashMap<>();
-        String guard = priorStatePredicate(allowed, priorParams);
+        PipelineJob current = requireTransitionFrom("markFailed", runId, allowed);
 
-        String sql = "UPDATE " + fqtn + " SET status = @status, "
-                + "error_code = @error_code, error_message = @error_message, "
-                + "failure_stage = @failure_stage, error_file_path = @error_file_path, "
-                + "completed_at = CURRENT_TIMESTAMP(), updated_at = CURRENT_TIMESTAMP() "
-                + "WHERE run_id = @run_id" + guard;
-
-        QueryJobConfiguration.Builder builder = QueryJobConfiguration.newBuilder(sql)
-                .addNamedParameter("run_id", QueryParameterValue.string(runId))
-                .addNamedParameter("status", QueryParameterValue.string(JobStatus.FAILED.getValue()))
-                .addNamedParameter("error_code", QueryParameterValue.string(errorCode))
-                .addNamedParameter("error_message", QueryParameterValue.string(errorMessage))
-                .addNamedParameter("failure_stage", QueryParameterValue.string(failureStage.getValue()))
-                .addNamedParameter("error_file_path",
-                        QueryParameterValue.string(errorFilePath.orElse(null)));
-        priorParams.forEach(builder::addNamedParameter);
-        applyTransition(builder.build(), "markFailed", runId, allowed);
+        PipelineJob next = carryForward(current, JobStatus.FAILED)
+                .errorCode(errorCode)
+                .errorMessage(errorMessage)
+                .failureStage(failureStage)
+                .errorFilePath(errorFilePath.orElse(null))
+                .build();
+        append("markFailed", next, false, true);
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>Compare-and-set on the prior state, which must be one of
-     * {@code CREATED}, {@code RUNNING} or {@code FAILED}. Retrying a run that
+     * <p>Appends a {@code retrying} row. The projected prior state must be one
+     * of {@code CREATED}, {@code RUNNING} or {@code FAILED}. Retrying a run that
      * already {@code SUCCEEDED} is exactly how a re-run duplicates data, so it
      * is rejected.
      *
-     * @throws IllegalStateException if no row exists for {@code runId}, or its
-     *                               status is not an allowed prior state.
+     * @throws IllegalStateException if the run has no row at all, or its
+     *                               projected status is not an allowed prior
+     *                               state.
      */
     @Override
     public void markRetrying(String runId, int retryCount) {
@@ -347,22 +379,22 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         }
 
         Set<JobStatus> allowed = allowedPriorStates(JobStatus.RETRYING);
-        Map<String, QueryParameterValue> priorParams = new LinkedHashMap<>();
-        String guard = priorStatePredicate(allowed, priorParams);
+        PipelineJob current = requireTransitionFrom("markRetrying", runId, allowed);
 
-        String sql = "UPDATE " + fqtn + " SET status = @status, "
-                + "retry_count = @retry_count, updated_at = CURRENT_TIMESTAMP() "
-                + "WHERE run_id = @run_id" + guard;
-
-        QueryJobConfiguration.Builder builder = QueryJobConfiguration.newBuilder(sql)
-                .addNamedParameter("run_id", QueryParameterValue.string(runId))
-                .addNamedParameter("status",
-                        QueryParameterValue.string(JobStatus.RETRYING.getValue()))
-                .addNamedParameter("retry_count", QueryParameterValue.int64((long) retryCount));
-        priorParams.forEach(builder::addNamedParameter);
-        applyTransition(builder.build(), "markRetrying", runId, allowed);
+        PipelineJob next = carryForward(current, JobStatus.RETRYING)
+                .retryCount(retryCount)
+                .build();
+        append("markRetrying", next, false, false);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>The status filter sits on the projection, never inside it: a run that
+     * has since succeeded still has its old {@code running} row in the ledger,
+     * and ranking a partition pre-filtered on status would hand that row back
+     * as pending.
+     */
     @Override
     public List<PipelineJob> getPendingJobs(Optional<String> systemId) {
         Objects.requireNonNull(systemId, "systemId must not be null");
@@ -370,14 +402,16 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         String sql;
         QueryJobConfiguration.Builder builder;
         if (systemId.isPresent()) {
-            sql = "SELECT * FROM " + fqtn + " "
-                    + "WHERE status IN (@created, @running) AND system_id = @system_id "
+            sql = rankedCte("system_id = @system_id")
+                    + "SELECT * FROM ranked "
+                    + "WHERE rn = 1 AND status IN (@created, @running) "
                     + "ORDER BY created_at";
             builder = QueryJobConfiguration.newBuilder(sql)
                     .addNamedParameter("system_id", QueryParameterValue.string(systemId.get()));
         } else {
-            sql = "SELECT * FROM " + fqtn + " "
-                    + "WHERE status IN (@created, @running) "
+            sql = rankedCte("")
+                    + "SELECT * FROM ranked "
+                    + "WHERE rn = 1 AND status IN (@created, @running) "
                     + "ORDER BY created_at";
             builder = QueryJobConfiguration.newBuilder(sql);
         }
@@ -400,9 +434,9 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         Objects.requireNonNull(systemId, "systemId must not be null");
         Objects.requireNonNull(extractDate, "extractDate must not be null");
 
-        String sql = "SELECT entity_type, status, run_id, record_count, error_count, "
-                + "started_at, completed_at FROM " + fqtn + " "
-                + "WHERE system_id = @system_id AND extract_date = @extract_date";
+        String sql = rankedCte("system_id = @system_id AND extract_date = @extract_date")
+                + "SELECT entity_type, status, run_id, record_count, error_count, "
+                + "started_at, completed_at FROM ranked WHERE rn = 1";
 
         QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
                 .addNamedParameter("system_id", QueryParameterValue.string(systemId))
@@ -431,10 +465,14 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         Objects.requireNonNull(systemId, "systemId must not be null");
         Objects.requireNonNull(extractDate, "extractDate must not be null");
 
-        String sql = "SELECT run_id, entity_type, failure_stage, error_code, error_message, "
-                + "error_file_path, completed_at AS failed_at, retry_count FROM " + fqtn + " "
-                + "WHERE system_id = @system_id AND extract_date = @extract_date "
-                + "AND status = @status";
+        // status = @status is applied AFTER rn = 1. Inside the CTE it would
+        // rank a partition stripped of its winning row, so a run whose first
+        // terminal state was `succeeded` would come back failed — and a failed
+        // job is a retryable job (RetryOrchestrator), which deletes data.
+        String sql = rankedCte("system_id = @system_id AND extract_date = @extract_date")
+                + "SELECT run_id, entity_type, failure_stage, error_code, error_message, "
+                + "error_file_path, completed_at AS failed_at, retry_count FROM ranked "
+                + "WHERE rn = 1 AND status = @status";
 
         QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
                 .addNamedParameter("system_id", QueryParameterValue.string(systemId))
@@ -472,10 +510,10 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         // dbt_model_name column, so we use pipeline_name as the model
         // identifier (the Java schema unifies these). job_type comes from the
         // JobType enum.
-        String sql = "SELECT run_id, pipeline_name, status, record_count, "
-                + "started_at, completed_at FROM " + fqtn + " "
-                + "WHERE system_id = @system_id AND extract_date = @extract_date "
-                + "AND job_type = @job_type AND pipeline_name = @model_name "
+        String sql = rankedCte("system_id = @system_id AND extract_date = @extract_date "
+                + "AND job_type = @job_type AND pipeline_name = @model_name")
+                + "SELECT run_id, pipeline_name, status, record_count, "
+                + "started_at, completed_at FROM ranked WHERE rn = 1 "
                 + "ORDER BY created_at DESC LIMIT 1";
 
         QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
@@ -558,30 +596,31 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
      * {@inheritDoc}
      *
      * <p>Not a status transition — cost metrics are attached to a job in any
-     * state — so the only condition is that the row exists.
+     * state — so the only condition is that the run exists. The appended row
+     * carries the projected status forward unchanged.
      *
-     * @throws IllegalStateException if no row exists for {@code runId}.
+     * <p><strong>Write-only on a finished run.</strong> If the run has already
+     * reached a terminal state, the appended row is terminal too and carries a
+     * later {@code updated_at}, so AD-3's earliest-terminal rule keeps the
+     * original row winning and these figures never read back through this
+     * class. See the class javadoc.
+     *
+     * @throws IllegalStateException if the run has no row at all.
      */
     @Override
     public void updateCostMetrics(String runId, double estimatedCostUsd,
                                   long billedBytesScanned, long billedBytesWritten) {
         Objects.requireNonNull(runId, "runId must not be null");
 
-        String sql = "UPDATE " + fqtn + " SET estimated_cost_usd = @cost, "
-                + "billed_bytes_scanned = @scanned, billed_bytes_written = @written, "
-                + "updated_at = CURRENT_TIMESTAMP() "
-                + "WHERE run_id = @run_id";
+        PipelineJob current = getJob(runId).orElseThrow(() -> new IllegalStateException(
+                "updateCostMetrics rejected: no job with runId=" + runId));
 
-        QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
-                .addNamedParameter("run_id", QueryParameterValue.string(runId))
-                .addNamedParameter("cost", QueryParameterValue.float64(estimatedCostUsd))
-                .addNamedParameter("scanned", QueryParameterValue.int64(billedBytesScanned))
-                .addNamedParameter("written", QueryParameterValue.int64(billedBytesWritten))
+        PipelineJob next = carryForward(current, current.status())
+                .estimatedCostUsd(estimatedCostUsd)
+                .billedBytesScanned(billedBytesScanned)
+                .billedBytesWritten(billedBytesWritten)
                 .build();
-        if (runDml(config, "updateCostMetrics") == 0L) {
-            throw new IllegalStateException(
-                    "updateCostMetrics affected no rows: no job with runId=" + runId);
-        }
+        append("updateCostMetrics", next, false, false);
     }
 
     // --- helpers -----------------------------------------------------------
@@ -631,48 +670,164 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
         }
     }
 
-    /**
-     * Renders the {@code AND status IN (@prior_0, ...)} guard and collects the
-     * parameters it references into {@code params}, in
-     * {@link JobStatus} declaration order.
-     */
-    private static String priorStatePredicate(Set<JobStatus> allowed,
-                                              Map<String, QueryParameterValue> params) {
-        StringBuilder sb = new StringBuilder(" AND status IN (");
-        int i = 0;
-        for (JobStatus prior : allowed) {
-            if (i > 0) {
-                sb.append(", ");
+    /** The terminal wire values as SQL string literals, in enum order. */
+    private static String terminalLiterals() {
+        StringBuilder sb = new StringBuilder();
+        for (JobStatus terminal : EnumSet.of(JobStatus.SUCCEEDED, JobStatus.FAILED,
+                JobStatus.CANCELLED)) {
+            if (sb.length() > 0) {
+                sb.append(',');
             }
-            String name = "prior_" + i;
-            sb.append('@').append(name);
-            params.put(name, QueryParameterValue.string(prior.getValue()));
-            i++;
+            sb.append('\'').append(terminal.getValue()).append('\'');
         }
-        return sb.append(')').toString();
+        return sb.toString();
     }
 
     /**
-     * Runs a guarded status transition and rejects it if it matched no row.
+     * The latest-state projection over the append-only ledger (AD-3): ranks a
+     * run's rows terminal-first, earliest-terminal next, most recent last, and
+     * leaves the caller to keep {@code rn = 1}.
      *
-     * <p>A zero affected-row count means one of two things and the caller
-     * deserves to know which, so the failure path — and only the failure path —
-     * pays for one extra read to tell them apart: no such run, or a run in a
-     * state this transition may not leave.
+     * <p>Every read in this class is built on this and none may re-implement
+     * it — recency logic of its own is exactly what AD-3 forbids.
+     *
+     * @param immutableFilter A predicate pushed inside the CTE, or {@code ""}.
+     *                        <strong>Only columns a state change carries
+     *                        forward unchanged</strong> may appear here:
+     *                        {@code run_id}, {@code system_id},
+     *                        {@code extract_date}, {@code job_type},
+     *                        {@code pipeline_name}. Such a predicate removes
+     *                        whole partitions and cannot change which row wins
+     *                        inside one. A {@code status} predicate would, so
+     *                        it belongs on the outer query beside
+     *                        {@code rn = 1}.
      */
-    private void applyTransition(QueryJobConfiguration config, String op, String runId,
-                                 Set<JobStatus> allowed) {
-        if (runDml(config, op) > 0L) {
-            return;
+    private String rankedCte(String immutableFilter) {
+        return "WITH ranked AS (SELECT *, ROW_NUMBER() OVER ("
+                + "PARTITION BY run_id ORDER BY "
+                + "CASE WHEN " + IS_TERMINAL + " THEN 0 ELSE 1 END, "
+                + "CASE WHEN " + IS_TERMINAL + " THEN updated_at END ASC, "
+                + "updated_at DESC) AS rn FROM " + fqtn
+                + (immutableFilter.isEmpty() ? "" : " WHERE " + immutableFilter)
+                + ") ";
+    }
+
+    /**
+     * Reads the run's projected state and rejects a transition it may not make.
+     *
+     * <p>This is where story 1.3's guarantee lives now that the compare-and-set
+     * DML that used to carry it is gone: a transition out of a state
+     * {@code allowed} does not name changes nothing, so it must not report
+     * success. The exception types and wording are the ones the CAS path
+     * raised.
+     */
+    private PipelineJob requireTransitionFrom(String op, String runId,
+                                              Set<JobStatus> allowed) {
+        PipelineJob current = getJob(runId).orElseThrow(() -> new IllegalStateException(
+                op + " rejected: no job with runId=" + runId));
+        if (!allowed.contains(current.status())) {
+            throw new IllegalStateException(op + " rejected: job runId=" + runId + " is "
+                    + current.status() + ", expected one of " + allowed);
         }
-        Optional<PipelineJob> current = getJob(runId);
-        if (current.isEmpty()) {
+        return current;
+    }
+
+    /**
+     * Copies every field of the projected state onto a builder, under a new
+     * status. {@code updated_at} is deliberately not carried — the appended row
+     * gets a fresh one, and it is the ordering key the projection ranks on.
+     */
+    private static PipelineJob.Builder carryForward(PipelineJob current, JobStatus status) {
+        return PipelineJob.builder(current.runId(), current.systemId(),
+                        current.pipelineName(), current.extractDate(), status)
+                .jobType(current.jobType())
+                .entityType(current.entityType().orElse(null))
+                .sourceFile(current.sourceFile().orElse(null))
+                .targetTable(current.targetTable().orElse(null))
+                .recordCount(current.recordCount())
+                .errorCount(current.errorCount())
+                .retryCount(current.retryCount())
+                .failureStage(current.failureStage().orElse(null))
+                .errorCode(current.errorCode().orElse(null))
+                .errorMessage(current.errorMessage().orElse(null))
+                .errorFilePath(current.errorFilePath().orElse(null))
+                .estimatedCostUsd(current.estimatedCostUsd())
+                .billedBytesScanned(current.billedBytesScanned())
+                .billedBytesWritten(current.billedBytesWritten())
+                .createdAt(current.createdAt())
+                .startedAt(current.startedAt().orElse(null))
+                .completedAt(current.completedAt().orElse(null));
+    }
+
+    /**
+     * Appends one full-state row for a run. Never an {@code UPDATE}: the row
+     * carries every ledger column plus a fresh {@code updated_at}, and the
+     * run's earlier rows are left exactly as they are.
+     *
+     * @param stampStartedNow   Stamp {@code started_at} server-side rather than
+     *                          carrying the projected value forward — a
+     *                          {@code RUNNING} transition.
+     * @param stampCompletedNow The same for {@code completed_at} — a
+     *                          {@code SUCCEEDED} or {@code FAILED} transition.
+     */
+    private void append(String op, PipelineJob job, boolean stampStartedNow,
+                        boolean stampCompletedNow) {
+        String startedAt = stampStartedNow ? "CURRENT_TIMESTAMP()" : "@started_at";
+        String completedAt = stampCompletedNow ? "CURRENT_TIMESTAMP()" : "@completed_at";
+
+        String sql = "INSERT INTO " + fqtn + " (" + LEDGER_COLUMNS + ") VALUES ("
+                + LEDGER_VALUE_PARAMS + ", "
+                + "@created_at, CURRENT_TIMESTAMP(), " + startedAt + ", " + completedAt + ")";
+
+        QueryJobConfiguration.Builder builder =
+                bindLedgerColumns(QueryJobConfiguration.newBuilder(sql), job)
+                .addNamedParameter("created_at", QueryParameterValue.timestamp(
+                        toTimestampMicros(Optional.of(job.createdAt()))));
+        if (!stampStartedNow) {
+            builder.addNamedParameter("started_at",
+                    QueryParameterValue.timestamp(toTimestampMicros(job.startedAt())));
+        }
+        if (!stampCompletedNow) {
+            builder.addNamedParameter("completed_at",
+                    QueryParameterValue.timestamp(toTimestampMicros(job.completedAt())));
+        }
+        if (runDml(builder.build(), op) == 0L) {
             throw new IllegalStateException(
-                    op + " affected no rows: no job with runId=" + runId);
+                    op + " appended no row for runId=" + job.runId());
         }
-        throw new IllegalStateException(
-                op + " affected no rows: job runId=" + runId + " is "
-                        + current.get().status() + ", expected one of " + allowed);
+    }
+
+    /**
+     * Binds {@link #LEDGER_VALUE_PARAMS} from {@code job}. The four timestamp
+     * columns are the caller's business — {@link #createJob} stamps two of them
+     * and {@link #append} carries or stamps each one.
+     */
+    private static QueryJobConfiguration.Builder bindLedgerColumns(
+            QueryJobConfiguration.Builder builder, PipelineJob job) {
+        return builder
+                .addNamedParameter("run_id", QueryParameterValue.string(job.runId()))
+                .addNamedParameter("system_id", QueryParameterValue.string(job.systemId()))
+                .addNamedParameter("pipeline_name", QueryParameterValue.string(job.pipelineName()))
+                .addNamedParameter("extract_date", QueryParameterValue.date(job.extractDate().toString()))
+                .addNamedParameter("status", QueryParameterValue.string(job.status().getValue()))
+                .addNamedParameter("job_type", QueryParameterValue.string(job.jobType().name()))
+                .addNamedParameter("entity_type", QueryParameterValue.string(job.entityType().orElse(null)))
+                .addNamedParameter("source_file", QueryParameterValue.string(job.sourceFile().orElse(null)))
+                .addNamedParameter("target_table", QueryParameterValue.string(job.targetTable().orElse(null)))
+                .addNamedParameter("record_count", QueryParameterValue.int64(job.recordCount()))
+                .addNamedParameter("error_count", QueryParameterValue.int64(job.errorCount()))
+                .addNamedParameter("retry_count", QueryParameterValue.int64((long) job.retryCount()))
+                .addNamedParameter("failure_stage",
+                        QueryParameterValue.string(job.failureStage().map(FailureStage::getValue).orElse(null)))
+                .addNamedParameter("error_code", QueryParameterValue.string(job.errorCode().orElse(null)))
+                .addNamedParameter("error_message", QueryParameterValue.string(job.errorMessage().orElse(null)))
+                .addNamedParameter("error_file_path", QueryParameterValue.string(job.errorFilePath().orElse(null)))
+                .addNamedParameter("estimated_cost_usd",
+                        QueryParameterValue.float64(job.estimatedCostUsd()))
+                .addNamedParameter("billed_bytes_scanned",
+                        QueryParameterValue.int64(job.billedBytesScanned()))
+                .addNamedParameter("billed_bytes_written",
+                        QueryParameterValue.int64(job.billedBytesWritten()));
     }
 
     /**
@@ -687,9 +842,10 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
      * {@code BigQueryWarehouse.waitFor} (BigQueryWarehouse.java:423-453) and
      * {@code BigQueryCostTracker.estimateDryRun} (BigQueryCostTracker.java:201-221).
      *
-     * <p>A missing statistic is a hard failure, never "assume it worked" — the
-     * whole point of this class's conditional writes is that an unverified
-     * write is indistinguishable from a silently discarded one.
+     * <p>A missing statistic is a hard failure, never "assume it worked" — an
+     * unverified write is indistinguishable from a silently discarded one, and
+     * that is as true of an append as it was of the compare-and-set it
+     * replaced.
      */
     private long runDml(QueryJobConfiguration config, String op) {
         Job submitted = client.create(JobInfo.of(config));
@@ -821,13 +977,22 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
     }
 
     /**
-     * Convert an {@code Optional<Instant>} to a BigQuery TIMESTAMP parameter
-     * value, encoded as an ISO-8601 UTC string. {@code null} when empty.
+     * Convert an {@code Optional<Instant>} to microseconds since the epoch for
+     * {@link QueryParameterValue#timestamp(Long)}. {@code null} when empty.
+     *
+     * <p>The {@code Long} overload, not the {@code String} one: the latter
+     * accepts only {@code "yyyy-MM-dd HH:mm:ss.SSSSSSZZ"} and rejects the
+     * ISO-8601 rendering this method used to hand it
+     * (QueryParameterValue.java:308-313). Nothing exercised it while the only
+     * timestamps bound were {@code createJob}'s usually-absent
+     * {@code started_at} / {@code completed_at}; an append binds
+     * {@code created_at}, which is never absent, so it does now.
      */
-    private static String toTimestampMicros(Optional<Instant> instant) {
+    private static Long toTimestampMicros(Optional<Instant> instant) {
         if (instant == null || instant.isEmpty()) {
             return null;
         }
-        return instant.get().atOffset(ZoneOffset.UTC).toString();
+        Instant value = instant.get();
+        return value.getEpochSecond() * 1_000_000L + value.getNano() / 1_000L;
     }
 }

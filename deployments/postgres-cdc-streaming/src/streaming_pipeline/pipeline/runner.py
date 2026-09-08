@@ -5,11 +5,15 @@ Real-time CDC streaming: PostgreSQL → Kafka → Beam (Streaming) → ODP → F
 
 Built on Culvert (`culvert[gcp]` on PyPI):
   - PipelineJob / JobStatus / FailureStage: the job-control types
-    (data_pipeline_core.job_control_api); writes go through the
-    deployment-local BigQueryJobControlRepository, which implements the
-    JobControlRepository Protocol's write path.
-  - AuditRecord: published at start/end via the deployment-local
-    PubSubAuditPublisher (implements the AuditEventPublisher Protocol).
+    (data_pipeline_core.job_control_api); writes go through the library's
+    BigQueryJobControlRepository (data_pipeline_gcp_bigquery), the single
+    Python adapter for the JobControlRepository port. This deployment used
+    to carry its own copy of that class - a second, unregistered
+    implementation, which is the shadow model spine AD-14 forbids.
+  - AuditEvent / EventKind: published at start/end via the
+    deployment-local PubSubAuditPublisher (implements the
+    AuditEventPublisher Protocol). Run-level events (RUN_START, RUN_END,
+    ERROR_RAISED) fail the run if their append fails - spine AD-5.
   - StageMetrics + CloudMonitoringMetricsHook: launcher-side run metrics.
 
 This pipeline demonstrates:
@@ -25,13 +29,14 @@ import logging
 import time
 import uuid
 from datetime import date, datetime, timezone
+from importlib import metadata
 
 import apache_beam as beam
 from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions
 from apache_beam.io.gcp.bigquery import WriteToBigQuery, BigQueryDisposition
 
 # Culvert framework imports
-from data_pipeline_core.audit.records import AuditRecord
+from data_pipeline_core.audit.events import AuditEvent, EventKind
 from data_pipeline_core.contracts.stage_metrics import StageMetrics
 from data_pipeline_core.job_control_api import (
     FailureStage,
@@ -39,9 +44,10 @@ from data_pipeline_core.job_control_api import (
     PipelineJob,
 )
 
+from data_pipeline_gcp_bigquery import BigQueryJobControlRepository
+
 # Local adapters (implement the Culvert Protocols at the deployment seam)
 from streaming_pipeline.pipeline.audit import PubSubAuditPublisher
-from streaming_pipeline.pipeline.job_control import BigQueryJobControlRepository
 
 # Local transforms
 from streaming_pipeline.pipeline.cdc_parser import ParseCDCEventDoFn
@@ -57,6 +63,18 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 PIPELINE_NAME = "postgres-cdc-streaming"
+
+# Source system identifier: the same value the PipelineJob is registered under,
+# so job control and the audit trail agree on one name for one system.
+SYSTEM_ID = "postgres_cdc"
+
+try:
+    _VERSION = metadata.version("postgres-cdc-streaming")
+except metadata.PackageNotFoundError:  # running from a source checkout
+    _VERSION = "0.0.0+source"
+
+# docs/CONTRACT.md section 4: emitter library name and version.
+PRODUCER = f"{PIPELINE_NAME}@{_VERSION}"
 
 
 class StreamingCDCOptions(PipelineOptions):
@@ -169,26 +187,66 @@ def build_fdp_schema():
     }
 
 
-def _audit_record(run_id: str, entity_name: str, source: str, *,
-                  success: bool, duration_seconds: float,
-                  event: str) -> AuditRecord:
-    return AuditRecord(
+def _audit_event(run_id: str, entity_name: str, kind: EventKind,
+                 payload: dict) -> AuditEvent:
+    """Build one docs/CONTRACT.md section 4 event.
+
+    ``contract_version`` is stamped by AuditEvent itself, and the payload keys
+    the kind requires are checked at construction - so a missing key fails
+    here, not as a NULL in a query months later.
+    """
+    return AuditEvent(
         run_id=run_id,
-        pipeline_name=PIPELINE_NAME,
-        entity_type=entity_name,
-        source_file=source,
-        record_count=0,  # streaming: per-record counts live in the ODP audit columns
-        processed_timestamp=datetime.now(timezone.utc),
-        processing_duration_seconds=duration_seconds,
-        success=success,
-        metadata={"event": event},
+        system_id=SYSTEM_ID,
+        entity=entity_name,
+        event_kind=kind,
+        event_ts=datetime.now(timezone.utc),
+        payload=payload,
+        # Streaming has no HDR business date; the run's own date is the closest
+        # honest answer, and it matches what the PipelineJob records.
+        extract_date=date.today(),
+        producer=PRODUCER,
     )
 
 
+def _run_start_event(run_id: str, entity_name: str, source: str) -> AuditEvent:
+    return _audit_event(run_id, entity_name, EventKind.RUN_START,
+                        {"source_file": source})
+
+
+def _run_end_event(run_id: str, entity_name: str,
+                   duration_seconds: float) -> AuditEvent:
+    return _audit_event(run_id, entity_name, EventKind.RUN_END, {
+        # Streaming: per-record counts live in the ODP audit columns, so the
+        # run-level total is not knowable here.
+        "record_count": 0,
+        "duration_seconds": duration_seconds,
+    })
+
+
+def _error_raised_event(run_id: str, entity_name: str, error: Exception,
+                        duration_seconds: float) -> AuditEvent:
+    return _audit_event(run_id, entity_name, EventKind.ERROR_RAISED, {
+        "error_code": type(error).__name__,
+        "error_message": str(error)[:500],
+        # docs/CONTRACT.md section 9 allows validation / integration /
+        # resource. Anything escaping the Beam pipeline here is a failure of an
+        # external system (Pub/Sub, BigQuery, Dataflow) rather than of the data,
+        # so "integration" is the honest bucket. Per-exception classification
+        # needs a classifier this deployment does not have yet.
+        "error_category": "integration",
+        "duration_seconds": duration_seconds,
+    })
+
+
 def _finish_run(job_repo, audit, project_id: str, run_id: str,
-                entity_name: str, source: str, started: float, *,
+                entity_name: str, started: float, *,
                 error: Exception | None) -> None:
-    """Shared success/failure epilogue: job status, metrics, audit end."""
+    """Shared success/failure epilogue: job status, metrics, audit end event.
+
+    Takes no ``source``: RUN_START already recorded it, and neither RUN_END nor
+    ERROR_RAISED carries it.
+    """
     duration = time.monotonic() - started
     if error is None:
         job_repo.update_status(run_id, JobStatus.SUCCEEDED)
@@ -201,15 +259,16 @@ def _finish_run(job_repo, audit, project_id: str, run_id: str,
         )
     _emit_run_metrics(project_id, run_id, duration_seconds=duration,
                       error_count=0 if error is None else 1)
-    if audit:
-        try:
-            audit.publish(_audit_record(
-                run_id, entity_name, source,
-                success=error is None, duration_seconds=duration,
-                event="processing_end"))
-            audit.flush()
-        except Exception:
-            pass
+
+    # No try/except here, deliberately. RUN_END and ERROR_RAISED are run-level
+    # (spine AD-5): a failed append fails the run rather than reporting a
+    # success that was never recorded. This block used to end in
+    # `except Exception: pass`.
+    if error is None:
+        audit.publish(_run_end_event(run_id, entity_name, duration))
+    else:
+        audit.publish(_error_raised_event(run_id, entity_name, error, duration))
+    audit.flush()
 
 
 def _emit_run_metrics(project_id: str, run_id: str, *,
@@ -240,7 +299,7 @@ def run_streaming_pipeline():
 
     Culvert integration:
     - Job control: registers the streaming job in job_control.pipeline_jobs
-    - Audit trail: publishes AuditRecords to the pipeline-events topic
+    - Audit trail: publishes AuditEvents to the pipeline-events topic
     - Metrics: emits launcher-side StageMetrics to Cloud Monitoring
 
     Flow:
@@ -288,18 +347,16 @@ def run_streaming_pipeline():
     job_repo.update_status(run_id, JobStatus.RUNNING)
 
     # --- Culvert: Audit Trail ---
-    try:
-        audit = PubSubAuditPublisher(
-            project_id=project_id,
-            topic_name="generic-pipeline-events",
-        )
-        audit.publish(_audit_record(
-            run_id, entity_name, source,
-            success=True, duration_seconds=0.0, event="processing_start"))
-        audit.flush()
-    except Exception as audit_err:
-        logger.warning("Audit trail init failed (non-fatal): %s", audit_err)
-        audit = None
+    # RUN_START is run-level (spine AD-5): if it cannot be recorded, the run
+    # does not start. This used to log at WARN and continue with `audit = None`,
+    # which is exactly how a pipeline runs for months with no audit trail while
+    # looking healthy.
+    audit = PubSubAuditPublisher(
+        project_id=project_id,
+        topic_name="generic-pipeline-events",
+    )
+    audit.publish(_run_start_event(run_id, entity_name, source))
+    audit.flush()
 
     try:
         with beam.Pipeline(options=options) as p:
@@ -367,17 +424,27 @@ def run_streaming_pipeline():
                 method="STREAMING_INSERTS",
             )
 
-        # --- Success ---
-        _finish_run(job_repo, audit, project_id, run_id, entity_name,
-                    source, started, error=None)
-        logger.info("Streaming pipeline completed — run_id=%s", run_id)
-
     except Exception as exc:
         # --- Failure: record structured error context ---
+        # Log the original cause FIRST. The ERROR_RAISED append below is
+        # run-level and may now raise; if it does, the pipeline failure that
+        # triggered it must already be on the record rather than being masked
+        # by the audit failure.
+        logger.error("Streaming pipeline failed - run_id=%s: %s", run_id, exc)
         _finish_run(job_repo, audit, project_id, run_id, entity_name,
-                    source, started, error=exc)
-        logger.error("Streaming pipeline failed — run_id=%s: %s", run_id, exc)
+                    started, error=exc)
         raise
+
+    # --- Success ---
+    # Deliberately OUTSIDE the try. RUN_END is run-level and may raise, and if
+    # that raise were caught by the handler above the run would be marked
+    # SUCCEEDED and then immediately mark_failed()'d, with a permanent
+    # ERROR_RAISED row asserting a pipeline failure that never happened. That
+    # is the late-ERROR_RAISED flip AD-3 exists to prevent. Out here, an audit
+    # failure propagates as itself and job control keeps its true state.
+    _finish_run(job_repo, audit, project_id, run_id, entity_name,
+                started, error=None)
+    logger.info("Streaming pipeline completed - run_id=%s", run_id)
 
 
 if __name__ == "__main__":

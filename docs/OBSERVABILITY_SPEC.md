@@ -59,7 +59,7 @@ The original 4 hardcoded DAGs had basic auditing but no Dynatrace, no ServiceNow
 |---|------|-------|------|
 | **1** | **Dynatrace + ServiceNow alerts on failure** | All 4 generated DAGs | `DynatraceAlertBackend` → sends events to Dynatrace Events API v2 (appears in Problems feed, triggers Davis AI). `ServiceNowAlertBackend` → creates incidents via Table API with severity mapping. Graceful no-op if not configured. |
 | **2** | **Reconciliation verification** | Ingestion + Transformation DAGs | Already wired — verify generated code matches factory. No new work needed if generator output is correct. |
-| **3** | **Audit publishing to Pub/Sub** | Ingestion + Transformation DAGs | After each successful job, publish `AuditRecord` to `generic-pipeline-events` topic via `AuditPublisher`. Includes run_id, entity, record counts, duration, success/fail, audit hash. |
+| **3** | **Audit publishing to Pub/Sub** | Ingestion + Transformation DAGs | After each job, publish an `AuditEvent` (`RUN_END` on success, `ERROR_RAISED` on failure) to the `generic-pipeline-events` topic via `AuditEventPublisher`. Carries run_id, system_id, entity, event_kind, event_ts, and a per-kind `payload`. |
 
 ### Phase 2: Medium Term — Items 4–5
 
@@ -140,14 +140,14 @@ in-library Dynatrace/ServiceNow client code.
 
 ### 4.3 Audit Publishing to Pub/Sub
 
-**Approach:** After each successful pipeline run, publish an `AuditRecord` to the `generic-pipeline-events` Pub/Sub topic.
+**Approach:** After each pipeline run, publish an `AuditEvent` (`docs/CONTRACT.md` §4) to the `generic-pipeline-events` Pub/Sub topic.
 
 **Airflow Variable:** `audit_pubsub_topic` (default: `generic-pipeline-events`)
 
 **Implementation in generated DAGs:**
 
 ```python
-from data_pipeline_core.audit import AuditRecord
+from data_pipeline_core.audit import AuditEvent, EventKind
 from data_pipeline_core.contracts.audit import AuditEventPublisher  # protocol
 # Lineage: data_pipeline_core.lineage.LineageEvent, emitted through the
 # LineageEmitter contract. NOTE (sprint-23, Story 1.5): there is currently NO
@@ -158,35 +158,34 @@ from data_pipeline_core.contracts.audit import AuditEventPublisher  # protocol
 # (datalineage.googleapis.com) is blocked offline: the google-cloud-datalineage
 # client is absent from ~/.m2.
 
-def _publish_audit_record(publisher: AuditEventPublisher,
-                          run_id, pipeline_name, entity, source_file,
-                          record_count, duration_seconds, success, error_count, metadata=None):
-    """Publish audit record for downstream consumers (Pub/Sub-backed publisher)."""
-    try:
-        record = AuditRecord(
-            run_id=run_id,
-            pipeline_name=pipeline_name,
-            entity_type=entity,
-            source_file=source_file,
-            record_count=record_count,
-            processed_timestamp=datetime.now(tz=timezone.utc),
-            processing_duration_seconds=duration_seconds,
-            success=success,
-            error_count=error_count,
-            audit_hash="",  # computed by the publisher implementation
-            metadata=metadata or {},
-        )
-        publisher.publish(record)
-        publisher.flush()
-        logger.info(f"Published audit record for {run_id}")
-    except Exception as e:
-        logger.warning(f"Audit publishing failed (non-fatal): {e}")
+def _publish_run_end(publisher: AuditEventPublisher,
+                     run_id, system_id, entity, record_count, extra=None):
+    """Publish the run's terminal event.
+
+    Deliberately NOT wrapped in a try/except. RUN_END is run-level, so a failed
+    publish raises and fails the run (spine AD-5) rather than reporting a
+    success that was never recorded. Only aggregate events
+    (RECORD_VALIDATED / RECORD_REJECTED) log at ERROR and continue.
+    """
+    publisher.publish(AuditEvent(
+        run_id=run_id,
+        system_id=system_id,
+        entity=entity,
+        event_kind=EventKind.RUN_END,
+        event_ts=datetime.now(tz=timezone.utc),
+        # Everything past §4's ten columns lives in payload; RUN_END requires
+        # `record_count`. §10.3 forbids adding bare columns to a well-known table.
+        payload={"record_count": record_count, **(extra or {})},
+    ))
+    publisher.flush()
+    logger.info(f"Published RUN_END for {run_id}")
 ```
 
 **Where applied:**
-- Ingestion DAG: `update_job_success()` — publish after marking SUCCESS
-- Transformation DAG: `update_fdp_job_success()` — publish after marking SUCCESS
-- Both: `mark_*_failed()` callbacks — publish on failure too (success=False)
+- Ingestion DAG: `update_job_success()` — publish `RUN_END` after marking SUCCESS
+- Transformation DAG: `update_fdp_job_success()` — publish `RUN_END` after marking SUCCESS
+- Both: `mark_*_failed()` callbacks — publish `ERROR_RAISED` instead, whose payload
+  requires `error_code` and an `error_category` of `validation` / `integration` / `resource`
 
 ---
 

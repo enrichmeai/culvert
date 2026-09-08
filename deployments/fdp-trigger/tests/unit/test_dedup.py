@@ -101,8 +101,15 @@ def test_failed_runs_do_not_block_a_relaunch():
         client=client, job_control_table=TABLE, extract_date="2026-04-09",
     )
     sql = _executed_sql(client)
-    assert "failed" not in sql
+    # Assert the PROPERTY, not the absence of a substring. 'failed' now appears
+    # legitimately in the terminal-precedence CASE expression, so the old
+    # `"failed" not in sql` check broke on a correct change - a substring proxy
+    # standing in for the real invariant.
     assert "failed" not in STATUSES_BLOCKING_RELAUNCH
+    blocking = sql.split("status IN (")[-1].split(")")[0]
+    assert "failed" not in blocking, (
+        f"a failed run must not block a relaunch; blocking set was: {blocking}"
+    )
 
 
 def test_blocking_statuses_match_the_writer_vocabulary():
@@ -110,3 +117,21 @@ def test_blocking_statuses_match_the_writer_vocabulary():
     assert STATUSES_BLOCKING_RELAUNCH == (STATUS_ON_LAUNCH, STATUS_ON_COMPLETION)
     assert STATUS_ON_LAUNCH == "running"
     assert STATUS_ON_COMPLETION == "succeeded"
+
+def test_dedup_reads_the_projection_not_raw_rows():
+    """job_control is append-only, so one run leaves several rows.
+
+    Matching raw rows would let a stale 'running' row from a since-failed run
+    block every retry - the defect fixed in d89bf95, reintroduced by the
+    append-only change. The dedup must therefore project per run_id with
+    terminal precedence before testing status.
+    """
+    client = _mock_client([])
+    already_triggered(client=client, job_control_table=TABLE, extract_date="2026-04-09")
+    sql = _executed_sql(client)
+
+    assert "ROW_NUMBER() OVER" in sql, "must project per run, not scan raw rows"
+    assert "PARTITION BY run_id" in sql
+    # Earliest terminal wins, so a terminal state cannot be flipped by a later row.
+    assert "THEN 0 ELSE 1 END" in sql
+    assert "rn = 1" in sql

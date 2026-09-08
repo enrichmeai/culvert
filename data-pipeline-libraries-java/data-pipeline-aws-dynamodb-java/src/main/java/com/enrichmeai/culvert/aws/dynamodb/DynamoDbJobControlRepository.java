@@ -43,15 +43,23 @@ import java.util.Optional;
  * <p><b>Where this adapter currently stands against BigQuery.</b> An earlier
  * version of this javadoc claimed the BigQuery adapter "structurally cannot"
  * offer a conditional write. That is no longer true, and the comparison now
- * runs the other way. As of Sprint 23 (story 1.3)
- * {@code BigQueryJobControlRepository} guards every transition on the
- * <em>observed prior state</em> — {@code UPDATE ... WHERE run_id = @run_id AND
- * status IN (...)}, rejected when it matches no row. This adapter's condition
- * is only {@code attribute_exists(run_id)}: it proves the run exists, not that
- * it is in a state the transition may legally leave, and two concurrent writers
- * racing the same transition both satisfy it. Bringing this adapter up to
- * prior-state conditions is open follow-up work, not something story 1.3
- * changed.
+ * runs the other way — twice over.
+ *
+ * <ul>
+ *   <li><b>Prior-state guarding.</b> {@code BigQueryJobControlRepository}
+ *       rejects a transition out of a state the transition table does not
+ *       permit. This adapter's condition is only
+ *       {@code attribute_exists(run_id)}: it proves the run exists, not that it
+ *       is in a state the transition may legally leave.
+ *   <li><b>Append-only (AD-2/AD-3).</b> The BigQuery adapter no longer issues
+ *       any {@code UPDATE} against the ledger at all — every state change is a
+ *       new row, and reads project one row per {@code run_id} with the first
+ *       terminal state winning. This adapter still mutates the item in place,
+ *       so a late contradicting write overwrites a recorded terminal state.
+ * </ul>
+ *
+ * <p>Bringing this adapter up to either is open follow-up work (AD-13); neither
+ * story 1.3 nor the append-only change touched it.
  *
  * <h2>Table schema</h2>
  *

@@ -2,7 +2,12 @@
 Dedup check via job_control.pipeline_jobs.
 
 Before launching a Dataflow job, confirm there is no existing run for the same
-(pipeline_name, extract_date) in ``running`` or ``succeeded`` state.
+(pipeline_name, extract_date) whose PROJECTED state is ``running`` or
+``succeeded``.
+
+The projection matters: job_control is append-only, so one run leaves several
+rows. Matching raw rows would let a stale ``running`` row from a since-failed
+run block every retry.
 
 A ``failed`` run deliberately does NOT suppress a relaunch -- that is the whole
 point of the gate. It suppresses work that is in flight or already done, never
@@ -43,11 +48,35 @@ def already_triggered(
     Returns:
         True if a duplicate run exists; False otherwise.
     """
+    # Read the PROJECTED state per run, not the raw rows.
+    #
+    # job_control is append-only (spine AD-2): a state change INSERTs a new row
+    # rather than updating one, so a single run leaves several rows behind. A
+    # naive `status IN (...)` therefore matches the historical `running` row of
+    # a run that has since FAILED - which would re-block every re-run of that
+    # extract date, reintroducing exactly the defect fixed in d89bf95.
+    #
+    # Terminal precedence (AD-3): the EARLIEST terminal row wins, so a terminal
+    # state is immutable and a late contradicting row cannot flip it. Only if a
+    # run has reached no terminal state at all does the latest row decide.
     sql = f"""
+    WITH ranked AS (
+      SELECT
+        status,
+        ROW_NUMBER() OVER (
+          PARTITION BY run_id
+          ORDER BY
+            CASE WHEN status IN ('succeeded', 'failed', 'cancelled') THEN 0 ELSE 1 END,
+            CASE WHEN status IN ('succeeded', 'failed', 'cancelled') THEN updated_at END ASC,
+            updated_at DESC
+        ) AS rn
+      FROM `{job_control_table}`
+      WHERE pipeline_name = @pipeline_name
+        AND extract_date = DATE(@extract_date)
+    )
     SELECT 1
-    FROM `{job_control_table}`
-    WHERE pipeline_name = @pipeline_name
-      AND extract_date = DATE(@extract_date)
+    FROM ranked
+    WHERE rn = 1
       AND status IN ({_BLOCKING_STATUS_SQL})
     LIMIT 1
     """

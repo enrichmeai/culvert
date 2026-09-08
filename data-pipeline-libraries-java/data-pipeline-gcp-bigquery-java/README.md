@@ -136,6 +136,34 @@ All five share this module's `pom.xml`.
 
 Implementation of [`JobControlRepository`](../data-pipeline-core-java/src/main/java/com/enrichmeai/culvert/contracts/JobControlRepository.java) — the pipeline-job state-machine contract. Eleven public methods of parameterised SQL against the `job_control.pipeline_jobs` ledger, covering the full `PipelineJob` record schema (`pipeline_name`, `source_file`, `target_table`, `record_count`, `error_count`, FinOps fields).
 
+### The ledger is append-only (AD-2/AD-3)
+
+`pipeline_jobs` holds **one row per state change**, not one row per run. No statement this class builds against the ledger is an `UPDATE` or a `DELETE`. Each state change reads the run's current projected state, carries the whole of it forward, applies its own change, and `INSERT`s the result with a fresh `updated_at`.
+
+Reads therefore rank a run's rows and keep one:
+
+```sql
+WITH ranked AS (
+  SELECT *, ROW_NUMBER() OVER (
+    PARTITION BY run_id
+    ORDER BY
+      CASE WHEN status IN ('succeeded','failed','cancelled') THEN 0 ELSE 1 END,
+      CASE WHEN status IN ('succeeded','failed','cancelled') THEN updated_at END ASC,
+      updated_at DESC
+  ) AS rn FROM `<fqtn>`
+) SELECT * FROM ranked WHERE rn = 1
+```
+
+A terminal row beats a non-terminal one; among terminal rows the **earliest** wins; with no terminal row the latest wins. Earliest-terminal is the point, not an optimisation — under plain recency a late `failed` append flips a finished `succeeded` run to `failed`, `failed` is retryable, and `RetryOrchestrator` then calls `cleanupPartialLoad`, deleting the rows the successful run had just loaded.
+
+Three consequences to know before you call this class:
+
+- **Only immutable columns may be filtered inside the CTE** (`run_id`, `system_id`, `extract_date`, `job_type`, `pipeline_name`). A `status` predicate goes on the outer query after `rn = 1`; inside, it would rank a partition whose winning row had already been removed.
+- **Read-then-append is not atomic.** Two writers racing the same transition can both append. Nothing is overwritten and the projection still resolves the read deterministically; the DML compare-and-set that used to make one of them lose went with the `UPDATE`.
+- **`updateCostMetrics` after a run reaches a terminal state is write-only.** The appended row is terminal with a later `updated_at`, so the earlier terminal row keeps winning and the new figures do not read back through this class. Record cost before the run finishes if the figure must be visible.
+
+`cleanupPartialLoad` is the one `DELETE`, and it targets the caller-supplied warehouse table, never the ledger.
+
 ### Construction
 
 ```java
@@ -151,24 +179,30 @@ Like `BigQueryWarehouse`, this class does not implement `AutoCloseable`. Consume
 
 ### Method → SQL pattern
 
+*`projection`* below is the ranking CTE from the previous section.
+
 | Contract method | SQL |
 |---|---|
-| `createJob(PipelineJob)` | `INSERT INTO ` *`fqtn`* ` (...) VALUES (...)` — all 23 PipelineJob fields, `created_at`/`updated_at` use `CURRENT_TIMESTAMP()` |
-| `getJob(String runId)` | `SELECT * FROM ` *`fqtn`* ` WHERE run_id = @run_id` |
-| `updateStatus(runId, status, totalRecords)` | Three flavours: `RUNNING` stamps `started_at`; `SUCCEEDED` stamps `completed_at` + `record_count`; all others bump `status` + `updated_at` |
-| `markFailed(runId, code, msg, stage, errorFile)` | `UPDATE` sets `status = 'failed'`, error fields, `completed_at = CURRENT_TIMESTAMP()` |
-| `markRetrying(runId, retryCount)` | `UPDATE` sets `status = 'retrying'`, `retry_count = @retry_count` |
-| `getPendingJobs(systemId?)` | `SELECT * WHERE status IN ('created', 'running')`, optionally `AND system_id = @system_id`, ordered by `created_at` |
-| `getEntityStatus(systemId, date)` | `SELECT entity_type, status, run_id, record_count, error_count, started_at, completed_at WHERE system_id = ? AND extract_date = ?` |
-| `getFailedJobs(systemId, date)` | Like above but filtered to `status = 'failed'`, returns failure context columns |
-| `getFdpJobStatus(systemId, date, modelName)` | Filtered to `job_type = 'TRANSFORMATION'` and `pipeline_name = @model_name`, ordered DESC LIMIT 1 |
-| `cleanupPartialLoad(runId, tableId)` | `DELETE FROM \`<tableId>\` WHERE _run_id = @run_id` — returns DML affected rows |
-| `updateCostMetrics(runId, cost, scanned, written)` | `UPDATE` sets the three FinOps columns |
+| `createJob(PipelineJob)` | `MERGE INTO ` *`fqtn`* ` ... WHEN NOT MATCHED THEN INSERT (...)` — all 23 PipelineJob fields; insert-if-absent, so a `runId` that already has any row is refused |
+| `getJob(String runId)` | *`projection`* (CTE filtered `WHERE run_id = @run_id`) ` SELECT * FROM ranked WHERE rn = 1` |
+| `updateStatus(runId, status, totalRecords)` | Reads the projection, then `INSERT`s the next state. `RUNNING` stamps `started_at`; `SUCCEEDED` stamps `completed_at` + `record_count`; every other column is carried forward |
+| `markFailed(runId, code, msg, stage, errorFile)` | Reads, then `INSERT`s a row with `status = 'failed'`, the error fields and a stamped `completed_at` |
+| `markRetrying(runId, retryCount)` | Reads, then `INSERT`s a row with `status = 'retrying'`, `retry_count = @retry_count` |
+| `getPendingJobs(systemId?)` | *`projection`* ` SELECT * FROM ranked WHERE rn = 1 AND status IN (@created, @running)`, ordered by `created_at`; `system_id` narrows the CTE |
+| `getEntityStatus(systemId, date)` | *`projection`* (CTE filtered on `system_id` + `extract_date`) ` SELECT entity_type, status, run_id, record_count, error_count, started_at, completed_at FROM ranked WHERE rn = 1` |
+| `getFailedJobs(systemId, date)` | As above, plus `AND status = @status` **outside** the CTE; returns failure-context columns |
+| `getFdpJobStatus(systemId, date, modelName)` | CTE also filtered on `job_type = 'TRANSFORMATION'` and `pipeline_name = @model_name`; `ORDER BY created_at DESC LIMIT 1` applied to the projection |
+| `cleanupPartialLoad(runId, tableId)` | `DELETE FROM \`<tableId>\` WHERE _run_id = @run_id` — the caller's table, never the ledger; returns DML affected rows |
+| `updateCostMetrics(runId, cost, scanned, written)` | Reads, then `INSERT`s a row with the three FinOps columns and the projected status unchanged |
 
 ### Errors
 
 | Cause | Thrown |
 |---|---|
+| `createJob` for a `runId` that already has a row | `IllegalStateException` |
+| A transition from a state `allowedPriorStates` does not permit | `IllegalStateException` naming the actual status — raised before anything is appended |
+| A transition against a run with no rows at all | `IllegalStateException` — distinct message |
+| `updateStatus` targeting `CREATED` | `IllegalArgumentException` — raised without reading |
 | `markRetrying` with negative `retryCount` | `IllegalArgumentException` |
 | `cleanupPartialLoad` affected-row count exceeds `Integer.MAX_VALUE` | `ArithmeticException` (real-world this shouldn't happen — defensive) |
 | Thread interrupted during a `client.query` | `RuntimeException` (interrupt flag restored) |
@@ -190,6 +224,8 @@ mvn -f data-pipeline-libraries-java/pom.xml -pl data-pipeline-gcp-bigquery-java 
 ```
 
 Live-cloud integration tests against a real BigQuery dataset (or the BigQuery emulator) are sprint-2+ scope.
+
+`BigQueryJobControlRepositoryTest` pins the SQL's shape — that no ledger statement is an `UPDATE` or `DELETE`, that every read carries the same projection, and that no status predicate leaks inside it. A mocked client never executes the SQL, so shape tests cannot tell a correct ranking from a broken one; `BigQueryJobControlProjectionTest` closes that with a fake ledger that holds the appended rows and **parses the ranking out of the submitted SQL**, so AD-12's guarantees (failure-then-success reads `FAILED`; success-then-late-failure stays `SUCCEEDED` and non-retryable) fail if terminal precedence is changed.
 
 ### Contract test coverage (Sprint-15, T15.4)
 
@@ -291,8 +327,10 @@ System.out.printf("Job ready to re-submit: retryCount=%d, rowsCleaned=%d%n",
 
 | Method | SQL |
 |---|---|
-| `markRetrying(runId, retryCount)` | `UPDATE <fqtn> SET status = 'retrying', retry_count = @retry_count, updated_at = CURRENT_TIMESTAMP() WHERE run_id = @run_id` |
+| `markRetrying(runId, retryCount)` | Reads the projection, then `INSERT INTO <fqtn> (...) VALUES (...)` with `status = 'retrying'`, `retry_count = @retry_count` and a fresh `updated_at`. Never an `UPDATE` — see [The ledger is append-only](#the-ledger-is-append-only-ad-2ad-3) |
 | `cleanupPartialLoad(runId, tableId)` | `DELETE FROM \`<tableId>\` WHERE _run_id = @run_id` — returns DML affected rows |
+
+**A succeeded run can no longer be dragged into this path.** `prepareRetry` reads `getJob`, and the projection makes the first terminal state final, so a late `failed` row appended after a success does not make the run retryable and `cleanupPartialLoad` is never reached for it.
 
 ## BigQueryCostTracker
 

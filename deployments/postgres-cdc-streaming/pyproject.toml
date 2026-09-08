@@ -14,7 +14,9 @@ dependencies = [
     "confluent-kafka>=2.3.0",
     "google-cloud-bigquery>=3.14.0",
     "google-cloud-storage>=2.14.0",
-    "culvert[gcp]>=0.1.1",
+    # 0.2.0 is the first release carrying the Python
+    # BigQueryJobControlRepository adapter (spine AD-14).
+    "culvert[gcp]>=0.2.0",
 ]
 
 [project.optional-dependencies]

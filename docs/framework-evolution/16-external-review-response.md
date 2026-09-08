@@ -217,22 +217,41 @@ section names five outcomes. Those five were the scope.
 | Re-running the same extract twice leaves one copy, with a test proving it | ✅ | `LoadOptions` contract + `IngestionRunnerIdempotencyTest` (5 tests, against a double that holds real rows) |
 | A deployment can be pointed at Composer 2 + pods, Composer 3, or Cloud Run by configuration alone | ✅ | `ExecutionSubstrate`, `SubstrateDagRenderer`, orchestrator Terraform — see [17-execution-substrates.md](17-execution-substrates.md) |
 | A clean checkout builds the libraries and every deployment in one command | ✅ | root `pom.xml` aggregator + CI `whole-repo-build` job with a version-drift guard |
-| Job control has no `UPDATE` statements, and a contract test Athena also passes | ❌ **not started** | see below |
+| Job control has no `UPDATE` statements, and a contract test Athena also passes | 🟡 **half** — BigQuery is append-only; DynamoDB and the absent Athena implementation are not | `BigQueryJobControlRepository` (AD-2/AD-3), `BigQueryJobControlProjectionTest`; see below |
 
-### Not started: findings 4 and 12 (append-only job control)
+### Half-landed: findings 4 and 12 (append-only job control)
 
-Verified as real (six `UPDATE … SET status` statements at
-`BigQueryJobControlRepository.java:173, 178, 186, 208, 233, 414`) but not
-attempted, because it is a larger change than the other four combined and a
-half-landed storage migration is worse than none:
+The six `UPDATE … SET status` statements are **gone from
+`BigQueryJobControlRepository`**. Every state change (`updateStatus`,
+`markFailed`, `markRetrying`, `updateCostMetrics`) now reads the run's projected
+state, carries it forward and `INSERT`s a new row; `createJob` was already an
+insert-if-absent `MERGE`. The class builds no `UPDATE` and no `DELETE` against
+`job_control.*` — its one `DELETE`, `cleanupPartialLoad`, targets the
+caller-supplied warehouse table, which AD-2 does not bind.
 
-- **Two** mutating implementations, not one — `BigQueryJobControlRepository`
-  (SQL `UPDATE`) and `DynamoDbJobControlRepository` (conditional `UpdateItem`).
-- Every **read** path (`getJob`, `getPendingJobs`, `getEntityStatus`,
-  `getFailedJobs`, `getFdpJobStatus`) has to become newest-row-per-key.
-- The `job_control.pipeline_jobs` DDL assumes one row per `runId`
-  (`scripts/gcp/03_create_infrastructure.sh:226`); append-only changes the
-  table's grain, and the e2e scripts that poll it.
+Reads project rather than select: all five read paths rank a run's rows
+terminal-first, **earliest**-terminal next, most-recent last. Earliest-terminal,
+not newest-row-per-key, because the two are not interchangeable — see AD-3 in
+`ARCHITECTURE-SPINE.md`. Newest-row-per-key plus the removal of the
+compare-and-set would let a late `ERROR_RAISED` flip a `SUCCEEDED` run to
+`FAILED`, `FAILED` is retryable, and `RetryOrchestrator.prepareRetry` then runs
+`cleanupPartialLoad` — `DELETE FROM <targetTable> WHERE _run_id` — against the
+data the successful run had just loaded. Making the first terminal state final
+closes that. `BigQueryJobControlProjectionTest` asserts both AD-12 behaviours
+against a fake that ranks rows by parsing the ordering out of the submitted SQL,
+so removing terminal precedence fails the suite rather than passing it quietly.
+
+What is **not** done, and why the row above is amber rather than green:
+
+- **`DynamoDbJobControlRepository` still mutates** (conditional `UpdateItem`).
+  AD-13 binds it too; it was out of this change's scope.
+- **There is still no Athena job-control implementation**, so "a contract test
+  Athena also passes" remains unsatisfiable — see the framing correction below.
+- **The `job_control.pipeline_jobs` DDL still assumes one row per `runId`**
+  (`scripts/gcp/03_create_infrastructure.sh:226`), and the e2e scripts and
+  dashboards that poll it read the raw table rather than the projection (AD-14
+  rule 2). Append-only changes the table's grain; those consumers have to be cut
+  over before this is safe to run against a live ledger.
 
 A correction to the review's framing while it is still open: it says the
 mutation "blocks Athena entirely" and asks for "a contract test that Athena's
@@ -243,7 +262,11 @@ writing that implementation too, not just a contract test.
 
 Also worth carrying forward: an append-only log does **not** on its own fix
 finding #1 (see above), so the control-flow fix that landed is not made
-redundant by doing #4 later.
+redundant by the append-only work. AD-3's terminal precedence gets closer than
+newest-row-per-key would — a success appended after a failure loses the
+projection — but it decides which *recorded* state is read, not whether the
+runner emits a success event after a failure. The `IngestionRunner` fix is still
+the one doing that job.
 
 ### Verified and deferred
 

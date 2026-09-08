@@ -2,3 +2,5 @@ flask==3.0.3
 gunicorn==22.0.0
 google-cloud-bigquery==3.25.0
 google-api-python-client==2.137.0
+# Culvert's JobControlRepository port -- see pyproject.toml.
+culvert[gcp]>=0.2.0

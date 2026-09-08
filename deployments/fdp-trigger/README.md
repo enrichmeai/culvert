@@ -18,7 +18,8 @@ Cloud Scheduler (every 10 min during expected window)
          2. If all partitions stable (>15 min quiet) and have data:
          3. Check job_control for an existing 'running' or 'succeeded' run (dedup)
          4. Launch Dataflow Flex Template
-         5. Insert a 'running' row into job_control (DML INSERT, not a streaming insert)
+         5. Record a 'running' row in job_control through JobControlRepository
+            (the library's BigQuery adapter -- DML, not a streaming insert)
     -> Dataflow segment-transform job runs
     -> its Flex Template launcher, still blocked on waitUntilFinish(),
        writes 'succeeded' / 'failed' back to the same job_control row
@@ -28,6 +29,10 @@ Cloud Scheduler (every 10 min during expected window)
 Statuses are Culvert's lowercase `JobStatus` wire values. A `failed` run does
 not block a relaunch -- retrying a failed extract date is exactly what the gate
 must allow.
+
+Both writes go through Culvert's `JobControlRepository` port (spine AD-14): the
+launch row via the Python adapter `data_pipeline_gcp_bigquery.BigQueryJobControlRepository`,
+the terminal status via the Java one. Neither builds `job_control` SQL here.
 
 The terminal status is written by `MainframeSegmentPipeline.reportTerminalStatus`
 through `JobControlRepository`. It runs in the **Flex Template launcher process**,

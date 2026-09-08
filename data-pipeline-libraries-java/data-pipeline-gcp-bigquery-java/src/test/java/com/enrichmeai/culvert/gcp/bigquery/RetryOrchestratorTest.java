@@ -192,7 +192,7 @@ class RetryOrchestratorTest {
 
     /**
      * The eligibility check must come before the deletion. markRetrying would
-     * reject a SUCCEEDED run anyway now that it is compare-and-set, but by then
+     * reject a SUCCEEDED run anyway — it reads the projected prior state — but by then
      * cleanupPartialLoad would already have deleted the rows that run
      * legitimately loaded — an emptied table behind a job record still reading
      * SUCCEEDED.

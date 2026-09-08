@@ -1,7 +1,12 @@
 """Tests for the job_control writer.
 
-Two things must hold and neither is visible from the return value, so both are
-asserted against the SQL and its parameters:
+The SQL itself now lives in the library adapter
+(``data_pipeline_gcp_bigquery.BigQueryJobControlRepository``) -- spine AD-14,
+no deployment writes ``job_control.*`` outside the port -- and is covered by
+``data-pipeline-gcp-bigquery/tests/test_job_control.py``. What has to hold
+*here* is that this deployment goes through that port, and that the two
+guarantees it depends on survive the delegation. Neither is visible from the
+return value, so both are asserted against the SQL and its parameters:
 
 1. The row is written with DML, not the streaming insert API. A streamed row is
    invisible to the Dataflow job's terminal ``UPDATE`` until the streaming
@@ -10,11 +15,19 @@ asserted against the SQL and its parameters:
    the authoritative ``pipeline_jobs`` shape the Java port reads.
 """
 
+from datetime import date
 from unittest.mock import MagicMock
 
 import pytest
 
-from fdp_trigger.job_control import STATUS_ON_LAUNCH, record_trigger
+from fdp_trigger.job_control import (
+    JOB_TYPE,
+    PIPELINE_NAME,
+    STATUS_ON_COMPLETION,
+    STATUS_ON_LAUNCH,
+    SYSTEM_ID,
+    record_trigger,
+)
 
 TABLE = "proj.job_control.pipeline_jobs"
 SOURCE_FILES = ["fdp:ds.event_txn", "fdp:ds.portfolio"]
@@ -44,11 +57,32 @@ def _params(client):
     return {p.name: p.value for p in job_config.query_parameters}
 
 
+def test_writes_through_the_job_control_port():
+    """AD-14: this module must not hand-roll its own job_control SQL."""
+    import inspect
+
+    import fdp_trigger.job_control as module
+
+    source = inspect.getsource(module)
+    for sql_keyword in ("INSERT INTO", "UPDATE ", "MERGE "):
+        assert sql_keyword not in source, (
+            f"job_control.py builds its own {sql_keyword} statement again"
+        )
+    assert module.BigQueryJobControlRepository.__module__.startswith(
+        "data_pipeline_gcp_bigquery"
+    )
+
+
 def test_writes_lowercase_running_status():
     client = _mock_client()
     _record(client)
     assert _params(client)["status"] == "running"
     assert STATUS_ON_LAUNCH == "running"
+
+
+def test_completion_status_is_the_lowercase_wire_value():
+    """dedup.py imports this; the Dataflow job writes it (AD-17)."""
+    assert STATUS_ON_COMPLETION == "succeeded"
 
 
 def test_does_not_write_the_dead_uppercase_vocabulary():
@@ -91,11 +125,34 @@ def test_writes_the_authoritative_pipeline_jobs_columns():
     assert _params(client)["source_file"] == ",".join(SOURCE_FILES)
 
 
+def test_writes_this_deployments_identity():
+    client = _mock_client()
+    _record(client)
+    params = _params(client)
+    assert params["pipeline_name"] == PIPELINE_NAME
+    assert params["system_id"] == SYSTEM_ID
+    assert params["entity_type"] == "customer"
+    assert params["job_type"] == JOB_TYPE.name
+
+
+def test_binds_the_extract_date_as_a_date():
+    client = _mock_client()
+    _record(client)
+    assert _params(client)["extract_date"] == date(2026, 4, 9)
+
+
 def test_stamps_created_at_the_partition_column():
     client = _mock_client()
     _record(client)
     sql = client.query.call_args.args[0]
     assert "CURRENT_TIMESTAMP()" in sql
+
+
+def test_marks_the_run_as_started():
+    """The run is in flight from the moment the template is launched."""
+    client = _mock_client()
+    _record(client)
+    assert _params(client)["started_at"] is not None
 
 
 def test_raises_when_the_insert_affects_no_rows():
