@@ -1,0 +1,142 @@
+{
+  "_comment": [
+    "Canonical audit_events rows - docs/CONTRACT.md section 4.",
+    "READ BY BOTH LANGUAGES. This file is the cross-language parity guard:",
+    "Java and Python assert against these same bytes, so the two emitters",
+    "cannot drift on column names, event kinds, or payload keys.",
+    "A missing counterpart FAILS - it must never skip. A parity test that",
+    "skips when its target is absent reports green while checking nothing."
+  ],
+  "contract_version": "1.0.0",
+  "required_columns": [
+    "run_id", "system_id", "entity", "event_kind", "event_ts", "contract_version"
+  ],
+  "nullable_columns": ["extract_date", "payload", "producer", "environment"],
+  "cases": [
+    {
+      "name": "run_start",
+      "run_level": true,
+      "row": {
+        "run_id": "20260908T091400Z-7f3a",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RUN_START",
+        "event_ts": "2026-09-08T09:14:00Z",
+        "extract_date": "2026-09-08",
+        "payload": {"source_file": "gs://bucket/landing/customers_20260908.csv"},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "record_validated_is_aggregated_per_run_entity",
+      "run_level": false,
+      "row": {
+        "run_id": "20260908T091400Z-7f3a",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RECORD_VALIDATED",
+        "event_ts": "2026-09-08T09:15:00Z",
+        "extract_date": "2026-09-08",
+        "payload": {"count": 4999998},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "record_rejected_points_at_the_quarantine",
+      "run_level": false,
+      "row": {
+        "run_id": "20260908T091400Z-7f3a",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RECORD_REJECTED",
+        "event_ts": "2026-09-08T09:15:01Z",
+        "extract_date": "2026-09-08",
+        "payload": {"count": 2, "quarantine_uri": "gs://bucket/errors/quarantine/run-1/x.jsonl"},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "reconciliation_carries_the_verdict_not_just_counts",
+      "run_level": true,
+      "row": {
+        "run_id": "20260908T091400Z-7f3a",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RECONCILIATION",
+        "event_ts": "2026-09-08T09:16:00Z",
+        "extract_date": "2026-09-08",
+        "payload": {"expected_count": 5000000, "accounted_count": 5000000, "reconciled": true},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "error_raised_records_the_section_9_category",
+      "run_level": true,
+      "row": {
+        "run_id": "20260908T091400Z-7f3a",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "ERROR_RAISED",
+        "event_ts": "2026-09-08T09:16:30Z",
+        "extract_date": "2026-09-08",
+        "payload": {"error_code": "RECONCILIATION_MISMATCH", "error_category": "validation"},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "retry_attempted_links_back_to_the_previous_run",
+      "run_level": true,
+      "row": {
+        "run_id": "20260908T093000Z-9b21",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RETRY_ATTEMPTED",
+        "event_ts": "2026-09-08T09:30:00Z",
+        "extract_date": "2026-09-08",
+        "payload": {"attempt": 1, "previous_run_id": "20260908T091400Z-7f3a"},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    },
+    {
+      "name": "run_end",
+      "run_level": true,
+      "row": {
+        "run_id": "20260908T093000Z-9b21",
+        "system_id": "Generic",
+        "entity": "customers",
+        "event_kind": "RUN_END",
+        "event_ts": "2026-09-08T09:35:00Z",
+        "extract_date": "2026-09-08",
+        "payload": {"record_count": 5000000},
+        "producer": "culvert@0.2.0",
+        "contract_version": "1.0.0",
+        "environment": "int"
+      }
+    }
+  ],
+  "required_payload_keys": {
+    "RUN_START": ["source_file"],
+    "RUN_END": ["record_count"],
+    "RECORD_VALIDATED": ["count"],
+    "RECORD_REJECTED": ["count", "quarantine_uri"],
+    "RECONCILIATION": ["expected_count", "accounted_count", "reconciled"],
+    "ERROR_RAISED": ["error_code", "error_category"],
+    "RETRY_ATTEMPTED": ["attempt", "previous_run_id"]
+  },
+  "run_level_kinds": [
+    "RUN_START", "RUN_END", "RECONCILIATION", "ERROR_RAISED", "RETRY_ATTEMPTED"
+  ],
+  "aggregate_kinds": ["RECORD_VALIDATED", "RECORD_REJECTED"]
+}
