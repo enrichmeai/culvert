@@ -14,7 +14,7 @@ fix. The two halves have completely different risk profiles:
 
 | | `audit_events` (Story 1.4 / 1.6) | `pipeline_jobs` (findings #4/#12) |
 | --- | --- | --- |
-| Live writers | 0 — publisher never worked | **3** — port + 2 bypass writers |
+| Live writers | 0 — publisher never worked | **3** at the gate — port + 2 bypass writers; **1** since Phase 2 (2026-09-08) |
 | Live readers | 0 | **4** (+ Grafana panels) |
 | Data to preserve | none | yes |
 | Can drop & recreate? | **Yes** | **No** |
@@ -69,11 +69,14 @@ Must precede Phase 3: converting `pipeline_jobs` to a projection while a
 streaming insert still targets it produces a **hard failure after
 `launch_segment_transform` has already committed**.
 
-1. `fdp-trigger/job_control.py` → `JobControlRepository` (AD-14).
-2. `postgres-cdc-streaming/.../job_control.py` → the port, or deleted if redundant.
-3. `_job_control.py:60-61` — its `QUALIFY ROW_NUMBER() … ORDER BY updated_at DESC` is exactly the recency logic AD-3 forbids; replaced by the projection.
+1. ~~`fdp-trigger/job_control.py` → `JobControlRepository`~~ **DONE 2026-09-08.** The Python side had no implementation of the port at all, which is *why* both writers hand-rolled SQL. `data_pipeline_gcp_bigquery.BigQueryJobControlRepository` is now that implementation — write path only (`create_job`, `update_status`, `mark_failed`), registered under the `job_control` entry-point slot. `record_trigger` builds a `PipelineJob` and calls it.
+2. ~~`postgres-cdc-streaming/.../job_control.py` → the port, or deleted if redundant.~~ **DONE 2026-09-08** — deleted; the runner imports the library adapter. It was redundant with the class it became.
+3. ~~`_job_control.py:60-61`~~ **DONE 2026-09-08.** Recency-wins is replaced by terminal-state precedence: `failed` outranks everything, `succeeded` outranks every non-terminal state, and `updated_at DESC` survives only as the tie-break among undecided rows. **Operational consequence:** a retry that succeeds no longer clears a failed entity for the dependency checker (AD-3 rule 3 — the failed run stays failed). Intended, but it is a live change to when downstream FDP/CDP transforms fire.
+   *Note:* the file is `data-pipeline-libraries/data-pipeline-orchestration/.../_job_control.py` — a published library, not a deployment.
 
-**Exit test:** `grep` finds no write to `job_control.*` outside the port.
+**Exit test:** `grep` finds no write to `job_control.*` outside the port. Passing as of 2026-09-08: `grep -rnE "INSERT INTO|MERGE INTO|UPDATE \`|DELETE FROM" --include="*.py"` matches only `data_pipeline_gcp_bigquery/job_control.py`.
+
+**Still outstanding for Phase 2:** the full port surface is Java-only. The Python adapter covers the three write methods its callers use; the reads stay in `_job_control.py` until Phase 3 makes them a projection, rather than being duplicated now.
 
 ---
 

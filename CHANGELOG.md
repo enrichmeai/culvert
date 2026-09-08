@@ -20,6 +20,21 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Fixed
 
+- **Nothing writes `job_control.*` outside the port any more.** `fdp-trigger`
+  built its own parameterised `INSERT`, and `postgres-cdc-streaming` carried a
+  second, unregistered `JobControlRepository` implementation — the shadow model
+  the architecture forbids. Both now call the library adapter; the CDC copy is
+  deleted.
+- **The orchestration job-control reader no longer lets recency bury a
+  failure.** `BigQueryJobControl.get_entity_status` collapsed several rows per
+  entity with `ROW_NUMBER() … ORDER BY updated_at DESC`, so a later row could
+  hide a recorded failure and the dependency checker would let downstream
+  FDP/CDP transforms fire over an entity whose load had failed. Collapse is now
+  by terminal-state precedence: `failed` outranks everything, `succeeded`
+  outranks every non-terminal status, and recency only breaks ties among
+  undecided rows. **Consequence:** a retry that succeeds does not clear a failed
+  entity — per the contract a retry takes a new `run_id` and the failed run
+  stays failed.
 - **A reconciliation mismatch can no longer end `SUCCEEDED`.** The ingestion
   runner recorded the mismatch with `markFailed` and then returned normally, so
   the caller went on to `updateStatus(SUCCEEDED)` — an `UPDATE … SET status`
@@ -39,6 +54,13 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`BigQueryJobControlRepository` (Python)** — the BigQuery adapter for the
+  write path of the `JobControlRepository` port (`create_job`, `update_status`,
+  `mark_failed`), registered under the `job_control` entry-point slot. The
+  Python side previously had *no* implementation of that port, which is why two
+  deployments hand-rolled their own `job_control` SQL. Reads stay in
+  `data_pipeline_orchestration._job_control` until `pipeline_jobs` becomes a
+  projection.
 - `MIGRATION.md` — breaking changes and how to upgrade.
 - Root aggregator POM: one command builds the libraries and every deployment,
   with a CI guard that no deployment pins a library version other than the

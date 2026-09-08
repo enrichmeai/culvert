@@ -83,6 +83,7 @@ all = [
 blob_store = "data_pipeline_gcp_gcs:GcsBlobStore"
 warehouse = "data_pipeline_gcp_bigquery:BigQueryWarehouse"
 finops = "data_pipeline_gcp_bigquery:BigQueryFinOpsSink"
+job_control = "data_pipeline_gcp_bigquery:BigQueryJobControlRepository"
 source = "data_pipeline_gcp_pubsub:PubSubSource"
 sink = "data_pipeline_gcp_pubsub:PubSubSink"
 secrets = "data_pipeline_gcp_secrets:SecretManagerProvider"
