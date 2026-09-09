@@ -1,5 +1,6 @@
 package com.enrichmeai.culvert.aws.dynamodb;
 
+import com.enrichmeai.culvert.jobcontrol.FailureStage;
 import com.enrichmeai.culvert.jobcontrol.JobStatus;
 import com.enrichmeai.culvert.jobcontrol.PipelineJob;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,19 +11,19 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.ConditionalCheckFailedException;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.DeleteItemResponse;
-import software.amazon.awssdk.services.dynamodb.model.GetItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.GetItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutItemResponse;
+import software.amazon.awssdk.services.dynamodb.model.QueryRequest;
+import software.amazon.awssdk.services.dynamodb.model.QueryResponse;
 import software.amazon.awssdk.services.dynamodb.model.ScanRequest;
 import software.amazon.awssdk.services.dynamodb.model.ScanResponse;
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest;
-import software.amazon.awssdk.services.dynamodb.model.UpdateItemResponse;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,17 +32,24 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Mocked-client unit tests for {@link DynamoDbJobControlRepository}.
+ * Mocked-client unit tests for {@link DynamoDbJobControlRepository}: the
+ * <em>shape</em> of the requests it sends.
  *
- * <p>Request-shape coverage for all 11 contract methods: the conditional-write
- * guards ({@code attribute_not_exists} on create, {@code attribute_exists} on
- * every status transition), scan filters, item parsing, and null-rejection.
- * Real round-trips against DynamoDB run in {@code DynamoDbJobControlLocalStackIT}
- * under {@code mvn -P it verify}.
+ * <p>What a mock can prove, it proves here — that every write is a
+ * {@code PutItem} and never an {@code UpdateItem} (AD-2), that
+ * {@code createJob} carries the {@code attribute_not_exists} condition at the
+ * sentinel sort key, that reads paginate, and that no scan filters on
+ * {@code status} (AD-3: the status test belongs after the fold, never inside
+ * the scan). What a mock cannot prove — that the projection resolves a run's
+ * items correctly — belongs to {@link DynamoDbJobControlProjectionTest} and
+ * {@link DynamoDbJobControlContractTest}, which run against a real ledger in
+ * {@link InMemoryDynamoDb}. Round-trips against DynamoDB itself run in
+ * {@code DynamoDbJobControlLocalStackIT} under {@code mvn -P it verify}.
  */
 @ExtendWith(MockitoExtension.class)
 @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
@@ -65,32 +73,54 @@ class DynamoDbJobControlRepositoryTest {
                 LocalDate.of(2026, 1, 15), JobStatus.CREATED).build();
     }
 
-    private static Map<String, AttributeValue> minimalItem(String runId, String status) {
-        return Map.of(
-                DynamoDbJobControlRepository.ATTR_RUN_ID, AttributeValue.fromS(runId),
-                DynamoDbJobControlRepository.ATTR_SYSTEM_ID, AttributeValue.fromS("GENERIC"),
-                DynamoDbJobControlRepository.ATTR_PIPELINE_NAME, AttributeValue.fromS("ingest_customers"),
-                DynamoDbJobControlRepository.ATTR_EXTRACT_DATE, AttributeValue.fromS("2026-01-15"),
-                DynamoDbJobControlRepository.ATTR_STATUS, AttributeValue.fromS(status));
+    /** One ledger item, as the repository would have written it. */
+    private static Map<String, AttributeValue> item(String runId, String eventSeq, String status) {
+        Map<String, AttributeValue> item = new HashMap<>();
+        item.put(DynamoDbJobControlRepository.ATTR_RUN_ID, AttributeValue.fromS(runId));
+        item.put(DynamoDbJobControlRepository.ATTR_EVENT_SEQ, AttributeValue.fromS(eventSeq));
+        item.put(DynamoDbJobControlRepository.ATTR_SYSTEM_ID, AttributeValue.fromS("GENERIC"));
+        item.put(DynamoDbJobControlRepository.ATTR_PIPELINE_NAME,
+                AttributeValue.fromS("ingest_customers"));
+        item.put(DynamoDbJobControlRepository.ATTR_EXTRACT_DATE, AttributeValue.fromS("2026-01-15"));
+        item.put(DynamoDbJobControlRepository.ATTR_STATUS, AttributeValue.fromS(status));
+        return item;
+    }
+
+    /** The repository's read of one run returns exactly this item. */
+    private void ledgerHolds(Map<String, AttributeValue> item) {
+        when(client.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of(item)).build());
+    }
+
+    private PutItemRequest capturePut() {
+        ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
+        verify(client).putItem(captor.capture());
+        return captor.getValue();
+    }
+
+    private static String valueOf(PutItemRequest request, String attribute) {
+        AttributeValue value = request.item().get(attribute);
+        return value == null ? null : (value.s() != null ? value.s() : value.n());
     }
 
     // ------------------------------------------------------------------ //
-    // createJob — attribute_not_exists guard
+    // createJob — attribute_not_exists at the sentinel sort key
     // ------------------------------------------------------------------ //
 
     @Test
-    void createJobPutsItemWithNotExistsCondition() {
+    void createJobPutsTheCreatedItemAtTheSentinelSortKeyWithTheNotExistsGuard() {
         when(client.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
 
         repo.createJob(job("run-1"));
 
-        ArgumentCaptor<PutItemRequest> captor = ArgumentCaptor.forClass(PutItemRequest.class);
-        verify(client).putItem(captor.capture());
-        PutItemRequest req = captor.getValue();
+        PutItemRequest req = capturePut();
         assertThat(req.tableName()).isEqualTo(TABLE);
-        assertThat(req.conditionExpression()).contains("attribute_not_exists");
-        assertThat(req.item().get(DynamoDbJobControlRepository.ATTR_RUN_ID).s()).isEqualTo("run-1");
-        assertThat(req.item().get(DynamoDbJobControlRepository.ATTR_STATUS).s()).isEqualTo("created");
+        assertThat(req.conditionExpression()).isEqualTo("attribute_not_exists(run_id)");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_RUN_ID)).isEqualTo("run-1");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_STATUS)).isEqualTo("created");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_EVENT_SEQ))
+                .as("the fixed sentinel is what keeps createJob an atomic INSERT")
+                .isEqualTo(DynamoDbJobControlRepository.CREATE_EVENT_SEQ);
     }
 
     @Test
@@ -108,15 +138,22 @@ class DynamoDbJobControlRepositoryTest {
     }
 
     // ------------------------------------------------------------------ //
-    // getJob
+    // getJob — a single-partition, ascending, paginated Query
     // ------------------------------------------------------------------ //
 
     @Test
-    void getJobParsesItem() {
-        when(client.getItem(any(GetItemRequest.class))).thenReturn(
-                GetItemResponse.builder().item(minimalItem("run-1", "RUNNING")).build());
+    void getJobQueriesOnePartitionAscendingAndParsesTheItem() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "running"));
 
         Optional<PipelineJob> found = repo.getJob("run-1");
+
+        ArgumentCaptor<QueryRequest> captor = ArgumentCaptor.forClass(QueryRequest.class);
+        verify(client).query(captor.capture());
+        QueryRequest req = captor.getValue();
+        assertThat(req.tableName()).isEqualTo(TABLE);
+        assertThat(req.keyConditionExpression()).isEqualTo("#run_id = :run_id");
+        assertThat(req.scanIndexForward()).isTrue();
+        assertThat(req.expressionAttributeValues().get(":run_id").s()).isEqualTo("run-1");
 
         assertThat(found).isPresent();
         assertThat(found.get().runId()).isEqualTo("run-1");
@@ -125,8 +162,34 @@ class DynamoDbJobControlRepositoryTest {
     }
 
     @Test
+    void getJobFollowsTheLastEvaluatedKeyUntilItIsEmpty() {
+        // The AWS SDK auto-constructs response maps, so the final page's
+        // lastEvaluatedKey is an EMPTY MAP, not null. A null check alone would
+        // spin forever; this pins the terminating condition.
+        Map<String, AttributeValue> page1Key = Map.of(
+                DynamoDbJobControlRepository.ATTR_RUN_ID, AttributeValue.fromS("run-1"),
+                DynamoDbJobControlRepository.ATTR_EVENT_SEQ,
+                AttributeValue.fromS("00000000000000000001-aaaaaaaa"));
+        when(client.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder()
+                        .items(List.of(item("run-1", "00000000000000000001-aaaaaaaa", "created")))
+                        .lastEvaluatedKey(page1Key)
+                        .build())
+                .thenReturn(QueryResponse.builder()
+                        .items(List.of(item("run-1", "00000000000000000002-bbbbbbbb", "running")))
+                        .build());
+
+        assertThat(repo.getJob("run-1")).get()
+                .extracting(PipelineJob::status)
+                .as("both pages are folded, so the second page's item wins")
+                .isEqualTo(JobStatus.RUNNING);
+        verify(client, org.mockito.Mockito.times(2)).query(any(QueryRequest.class));
+    }
+
+    @Test
     void getJobMissingReturnsEmpty() {
-        when(client.getItem(any(GetItemRequest.class))).thenReturn(GetItemResponse.builder().build());
+        when(client.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
 
         assertThat(repo.getJob("nope")).isEmpty();
     }
@@ -137,133 +200,206 @@ class DynamoDbJobControlRepositoryTest {
     }
 
     // ------------------------------------------------------------------ //
-    // Status transitions — attribute_exists compare-and-swap guard
+    // State changes — appends, never UpdateItem (AD-2)
     // ------------------------------------------------------------------ //
 
     @Test
-    void updateStatusUsesExistsConditionAndSetsStatus() {
-        when(client.updateItem(any(UpdateItemRequest.class))).thenReturn(UpdateItemResponse.builder().build());
+    void updateStatusAppendsANewItemAndNeverUpdatesInPlace() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "running"));
+        when(client.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
 
         repo.updateStatus("run-1", JobStatus.SUCCEEDED, Optional.of(5_000L));
 
-        ArgumentCaptor<UpdateItemRequest> captor = ArgumentCaptor.forClass(UpdateItemRequest.class);
-        verify(client).updateItem(captor.capture());
-        UpdateItemRequest req = captor.getValue();
-        assertThat(req.conditionExpression()).contains("attribute_exists");
-        assertThat(req.key().get(DynamoDbJobControlRepository.ATTR_RUN_ID).s()).isEqualTo("run-1");
-        assertThat(req.expressionAttributeValues().values())
-                .anyMatch(v -> "succeeded".equals(v.s()));
-        assertThat(req.expressionAttributeValues().values())
-                .anyMatch(v -> "5000".equals(v.n()));
+        PutItemRequest req = capturePut();
+        assertThat(req.conditionExpression())
+                .as("an append needs no condition: it collides with nothing")
+                .isNull();
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_STATUS)).isEqualTo("succeeded");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_RECORD_COUNT)).isEqualTo("5000");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_EVENT_SEQ))
+                .as("a fresh sort key — overwriting the previous item is the one thing AD-2 forbids")
+                .isNotEqualTo(DynamoDbJobControlRepository.CREATE_EVENT_SEQ);
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_COMPLETED_AT)).isNotNull();
+        verify(client, never()).updateItem(any(UpdateItemRequest.class));
     }
 
     @Test
-    void updateStatusOnMissingJobFailsHard() {
-        when(client.updateItem(any(UpdateItemRequest.class)))
-                .thenThrow(ConditionalCheckFailedException.builder().message("missing").build());
+    void updateStatusOnAMissingRunIsRejectedBeforeAnythingIsWritten() {
+        when(client.query(any(QueryRequest.class)))
+                .thenReturn(QueryResponse.builder().items(List.of()).build());
 
         assertThatThrownBy(() -> repo.updateStatus("nope", JobStatus.RUNNING, Optional.empty()))
-                .isInstanceOf(ConditionalCheckFailedException.class);
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no job with runId=nope");
+        verify(client, never()).putItem(any(PutItemRequest.class));
     }
 
     @Test
-    void markFailedRecordsErrorFieldsConditionally() {
-        when(client.updateItem(any(UpdateItemRequest.class))).thenReturn(UpdateItemResponse.builder().build());
+    void updateStatusOutOfAnIllegalPriorStateIsRejectedBeforeAnythingIsWritten() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "succeeded"));
 
-        repo.markFailed("run-1", "E42", "boom",
-                com.enrichmeai.culvert.jobcontrol.FailureStage.LOAD,
-                Optional.of("gs://errors/run-1.json"));
-
-        ArgumentCaptor<UpdateItemRequest> captor = ArgumentCaptor.forClass(UpdateItemRequest.class);
-        verify(client).updateItem(captor.capture());
-        UpdateItemRequest req = captor.getValue();
-        assertThat(req.conditionExpression()).contains("attribute_exists");
-        assertThat(req.expressionAttributeValues().values())
-                .anyMatch(v -> "E42".equals(v.s()));
-        assertThat(req.expressionAttributeValues().values())
-                .anyMatch(v -> "boom".equals(v.s()));
+        assertThatThrownBy(() -> repo.updateStatus("run-1", JobStatus.RUNNING, Optional.empty()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("expected one of");
+        verify(client, never()).putItem(any(PutItemRequest.class));
     }
 
     @Test
-    void markRetryingBumpsRetryCountConditionally() {
-        when(client.updateItem(any(UpdateItemRequest.class))).thenReturn(UpdateItemResponse.builder().build());
+    void updateStatusRejectsCreatedAsATransitionTarget() {
+        assertThatThrownBy(() -> repo.updateStatus("run-1", JobStatus.CREATED, Optional.empty()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CREATED is not a transition target");
+    }
+
+    @Test
+    void markFailedAppendsTheErrorFields() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "running"));
+        when(client.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
+
+        repo.markFailed("run-1", "E42", "boom", FailureStage.LOAD,
+                Optional.of("s3://errors/run-1.json"));
+
+        PutItemRequest req = capturePut();
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_STATUS)).isEqualTo("failed");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_ERROR_CODE)).isEqualTo("E42");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_ERROR_MESSAGE)).isEqualTo("boom");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_ERROR_FILE_PATH))
+                .isEqualTo("s3://errors/run-1.json");
+        verify(client, never()).updateItem(any(UpdateItemRequest.class));
+    }
+
+    @Test
+    void markRetryingAppendsTheRetryCount() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "failed"));
+        when(client.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
 
         repo.markRetrying("run-1", 2);
 
-        ArgumentCaptor<UpdateItemRequest> captor = ArgumentCaptor.forClass(UpdateItemRequest.class);
-        verify(client).updateItem(captor.capture());
-        assertThat(captor.getValue().conditionExpression()).contains("attribute_exists");
-        assertThat(captor.getValue().expressionAttributeValues().values())
-                .anyMatch(v -> "2".equals(v.n()));
+        PutItemRequest req = capturePut();
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_STATUS)).isEqualTo("retrying");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_RETRY_COUNT)).isEqualTo("2");
+        verify(client, never()).updateItem(any(UpdateItemRequest.class));
     }
 
     @Test
-    void updateCostMetricsWritesAllFourFields() {
-        when(client.updateItem(any(UpdateItemRequest.class))).thenReturn(UpdateItemResponse.builder().build());
+    void markRetryingRejectsANegativeCount() {
+        assertThatThrownBy(() -> repo.markRetrying("run-1", -1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void updateCostMetricsAppendsAllThreeFiguresAndCarriesTheStatusForward() {
+        ledgerHolds(item("run-1", "00000000000000000001-aaaaaaaa", "running"));
+        when(client.putItem(any(PutItemRequest.class))).thenReturn(PutItemResponse.builder().build());
 
         repo.updateCostMetrics("run-1", 1.25, 10L, 20L);
 
-        ArgumentCaptor<UpdateItemRequest> captor = ArgumentCaptor.forClass(UpdateItemRequest.class);
-        verify(client).updateItem(captor.capture());
-        UpdateItemRequest req = captor.getValue();
-        assertThat(req.conditionExpression()).contains("attribute_exists");
-        assertThat(req.expressionAttributeNames().values())
-                .contains(DynamoDbJobControlRepository.ATTR_ESTIMATED_COST_USD,
-                        DynamoDbJobControlRepository.ATTR_BILLED_BYTES_SCANNED,
-                        DynamoDbJobControlRepository.ATTR_BILLED_BYTES_WRITTEN);
+        PutItemRequest req = capturePut();
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_ESTIMATED_COST_USD)).isEqualTo("1.25");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_BILLED_BYTES_SCANNED)).isEqualTo("10");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_BILLED_BYTES_WRITTEN)).isEqualTo("20");
+        assertThat(valueOf(req, DynamoDbJobControlRepository.ATTR_STATUS))
+                .as("not a transition: the projected status rides along unchanged")
+                .isEqualTo("running");
+        verify(client, never()).updateItem(any(UpdateItemRequest.class));
     }
 
     // ------------------------------------------------------------------ //
-    // Queries (scan-backed)
+    // Queries (scan-backed) — no status predicate may reach the scan
     // ------------------------------------------------------------------ //
 
     @Test
-    void getPendingJobsParsesScanResults() {
-        when(client.scan(any(ScanRequest.class))).thenReturn(
-                ScanResponse.builder().items(List.of(minimalItem("run-9", "CREATED"))).build());
+    void getPendingJobsScansOnSystemIdOnlyAndFiltersStatusAfterTheFold() {
+        when(client.scan(any(ScanRequest.class))).thenReturn(ScanResponse.builder()
+                .items(List.of(item("run-9", "00000000000000000001-aaaaaaaa", "created")))
+                .build());
 
         List<PipelineJob> pending = repo.getPendingJobs(Optional.of("GENERIC"));
+
+        ArgumentCaptor<ScanRequest> captor = ArgumentCaptor.forClass(ScanRequest.class);
+        verify(client).scan(captor.capture());
+        assertThat(captor.getValue().filterExpression())
+                .as("a status predicate here would rank a partition stripped of its winning item")
+                .isEqualTo("#system_id = :system_id");
+        assertThat(captor.getValue().expressionAttributeNames().values())
+                .doesNotContain(DynamoDbJobControlRepository.ATTR_STATUS);
 
         assertThat(pending).hasSize(1);
         assertThat(pending.get(0).runId()).isEqualTo("run-9");
     }
 
     @Test
+    void getPendingJobsWithNoSystemIdScansUnfiltered() {
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of()).build());
+
+        assertThat(repo.getPendingJobs(Optional.empty())).isEmpty();
+
+        ArgumentCaptor<ScanRequest> captor = ArgumentCaptor.forClass(ScanRequest.class);
+        verify(client).scan(captor.capture());
+        assertThat(captor.getValue().filterExpression()).isNull();
+    }
+
+    @Test
+    void getFailedJobsScanCarriesNoStatusPredicate() {
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of()).build());
+
+        assertThat(repo.getFailedJobs("GENERIC", LocalDate.of(2026, 1, 15))).isEmpty();
+
+        ArgumentCaptor<ScanRequest> captor = ArgumentCaptor.forClass(ScanRequest.class);
+        verify(client).scan(captor.capture());
+        assertThat(captor.getValue().filterExpression())
+                .isEqualTo("#system_id = :system_id AND #extract_date = :extract_date");
+    }
+
+    @Test
     void getEntityStatusEmptyScanYieldsEmptyList() {
-        when(client.scan(any(ScanRequest.class))).thenReturn(ScanResponse.builder().items(List.of()).build());
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of()).build());
 
         assertThat(repo.getEntityStatus("GENERIC", LocalDate.of(2026, 1, 15))).isEmpty();
     }
 
     @Test
-    void getFailedJobsEmptyScanYieldsEmptyList() {
-        when(client.scan(any(ScanRequest.class))).thenReturn(ScanResponse.builder().items(List.of()).build());
-
-        assertThat(repo.getFailedJobs("GENERIC", LocalDate.of(2026, 1, 15))).isEmpty();
-    }
-
-    @Test
     void getFdpJobStatusEmptyScanYieldsEmpty() {
-        when(client.scan(any(ScanRequest.class))).thenReturn(ScanResponse.builder().items(List.of()).build());
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of()).build());
 
-        assertThat(repo.getFdpJobStatus("GENERIC", LocalDate.of(2026, 1, 15), "fdp_table")).isEmpty();
+        assertThat(repo.getFdpJobStatus("GENERIC", LocalDate.of(2026, 1, 15), "fdp_table"))
+                .isEmpty();
     }
 
     // ------------------------------------------------------------------ //
-    // cleanupPartialLoad — scan-then-delete
+    // cleanupPartialLoad — scan-then-batch-delete, against the caller's table
     // ------------------------------------------------------------------ //
 
     @Test
-    void cleanupPartialLoadDeletesEachMatchAndReturnsCount() {
-        when(client.scan(any(ScanRequest.class))).thenReturn(ScanResponse.builder()
-                .items(List.of(minimalItem("run-1", "FAILED"), minimalItem("run-1", "FAILED")))
-                .build());
-        when(client.deleteItem(any(DeleteItemRequest.class)))
-                .thenReturn(DeleteItemResponse.builder().build());
+    void cleanupPartialLoadBatchDeletesEachMatchAndReturnsTheCount() {
+        Map<String, AttributeValue> loaded = Map.of("_run_id", AttributeValue.fromS("run-1"));
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of(loaded, loaded)).build());
+        when(client.batchWriteItem(any(BatchWriteItemRequest.class)))
+                .thenReturn(BatchWriteItemResponse.builder().build());
 
         int deleted = repo.cleanupPartialLoad("run-1", "odp.customers");
 
         assertThat(deleted).isEqualTo(2);
+        ArgumentCaptor<BatchWriteItemRequest> captor =
+                ArgumentCaptor.forClass(BatchWriteItemRequest.class);
+        verify(client).batchWriteItem(captor.capture());
+        assertThat(captor.getValue().requestItems())
+                .as("the deletes target the caller's warehouse table, never the ledger")
+                .containsOnlyKeys("odp.customers");
+    }
+
+    @Test
+    void cleanupPartialLoadDeletesNothingWhenTheRunLoadedNothing() {
+        when(client.scan(any(ScanRequest.class)))
+                .thenReturn(ScanResponse.builder().items(List.of()).build());
+
+        assertThat(repo.cleanupPartialLoad("run-1", "odp.customers")).isZero();
+        verify(client, never()).batchWriteItem(any(BatchWriteItemRequest.class));
     }
 
     // ------------------------------------------------------------------ //

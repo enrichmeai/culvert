@@ -31,8 +31,8 @@ shared seam; each runtime owns the layers it's best at.
 into a real Java adapter family as of Sprint 21 (epic #144): `S3BlobStore`
 (`data-pipeline-aws-s3-java`, all 8 `BlobStore` methods), `AwsSecretsManagerProvider`
 (`data-pipeline-aws-secrets-java`), `SqsSource`/`SqsSink`
-(`data-pipeline-aws-sqs-java`), and a transactional `DynamoDbJobControlRepository`
-(`data-pipeline-aws-dynamodb-java`); Athena (`Warehouse`) and CloudWatch
+(`data-pipeline-aws-sqs-java`), and a `DynamoDbJobControlRepository`
+(`data-pipeline-aws-dynamodb-java`, append-only since Sprint 23); Athena (`Warehouse`) and CloudWatch
 observability hooks are in progress. Azure remains a Java skeleton
 (`data-pipeline-azure-blob-java`, `BlobStore.exists()` only). Python cloud-neutral
 adapters (AWS or Azure) are **out of scope** for this release (defer to a later

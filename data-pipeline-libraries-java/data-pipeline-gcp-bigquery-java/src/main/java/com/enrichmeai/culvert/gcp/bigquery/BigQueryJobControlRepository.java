@@ -156,8 +156,28 @@ public final class BigQueryJobControlRepository implements JobControlRepository 
 
     /**
      * The statuses a run cannot leave (AD-3). A row in one of these beats every
-     * non-terminal row in the projection, and the earliest of them beats the
-     * rest — so the first terminal state a run reaches is the one it keeps.
+     * other row in the projection, and the earliest of them beats the rest — so
+     * the first such state a run reaches is the one it keeps.
+     *
+     * <h2>{@code FAILED} is terminal, and a retry is a NEW run</h2>
+     * <p>This looks like it makes {@link #markRetrying} inert — a
+     * {@code retrying} row appended after a terminal {@code failed} row can
+     * never win the projection. That is intended, and it is what the contract
+     * says: {@code docs/CONTRACT.md} §7 requires a retried pipeline to take a
+     * <strong>new {@code run_id}</strong>, recording the previous one in the
+     * {@code RETRY_ATTEMPTED} event's {@code payload.previous_run_id}. The
+     * failed run stays failed forever; the retry is a different run.
+     *
+     * <p>So resurrecting a failed run in place is not a feature being lost, it
+     * is a model the contract does not have. Narrowing this set to let
+     * {@code retrying} win would contradict §7 and reopen the question the
+     * terminal rule exists to close.
+     *
+     * <p><strong>Known consequence, flagged not fixed:</strong>
+     * {@code RetryOrchestrator} still calls {@code markRetrying} on the
+     * original {@code runId} and expects the run to move to {@code RETRYING}.
+     * Under this projection it does not, so its idempotency guard cannot fire.
+     * It needs to mint a new {@code run_id} per §7. Tracked as follow-up.
      */
     private static final Set<JobStatus> TERMINAL_STATES =
             EnumSet.of(JobStatus.SUCCEEDED, JobStatus.FAILED, JobStatus.CANCELLED);

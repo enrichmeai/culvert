@@ -39,12 +39,21 @@ from typing import Any, List, Optional
 #       (str-Enum; values are lowercase, e.g. SUCCEEDED = "succeeded")
 #
 # Migration notes:
-#   1. The legacy JobStatus.SUCCESS = "SUCCESS" (uppercase) while the Culvert
-#      enum uses SUCCEEDED = "succeeded". The comparison in
-#      get_loaded_entities() uses s["status"] == _SUCCESS_STATUS which is
-#      set to the legacy uppercase value here. When the concrete BigQuery
-#      adapter migrates to data_pipeline_core, this constant must change
-#      to match the new value (or the adapter normalises it before returning).
+#   1. DONE. The legacy JobStatus.SUCCESS was "SUCCESS" (uppercase); the
+#      Culvert enum uses SUCCEEDED = "succeeded". _SUCCESS_STATUS below now
+#      holds the Culvert wire value, matching what the adapters store. This
+#      note previously said the constant was still the legacy uppercase value
+#      -- it is not, and a stale note like that reads as truth. A mismatch here
+#      would be silent and total: every comparison fails, no entity is ever
+#      "loaded", and downstream waits forever (spine AD-17).
+#
+#      NOTE on append-only (AD-2/AD-3): job_control keeps one row per state
+#      change, and a retried pipeline takes a NEW run_id (CONTRACT.md section
+#      7). get_entity_status therefore returns one row per RUN, so an entity
+#      that failed and was later retried successfully yields TWO rows. That is
+#      handled: get_loaded_entities filters to succeeded and collects into a
+#      SET, so the successful retry clears the entity and the older failed row
+#      is simply absent from the set.
 #   2. The legacy get_entity_status() returns List[dict]. The Culvert
 #      Protocol's return type is List[EntityStatus] (TypedDict) — same
 #      shape, dict-compatible, so s["entity_type"] / s["status"] still work.

@@ -18,9 +18,10 @@
     <description>
         AWS DynamoDB adapter for the Culvert framework. Sprint-21 module
         (epic #144, T21.4 / issue #148). Implements JobControlRepository over
-        DynamoDB, giving the framework a transactional control plane (atomic
-        conditional-write status transitions) that the BigQuery adapter's
-        UPDATE-based approach cannot provide.
+        DynamoDB as an append-only ledger (Sprint 23, AD-2/AD-3/AD-13): one
+        item per state change under a (run_id, event_seq) composite key, reads
+        projected with the earliest terminal state winning, and no UpdateItem
+        anywhere. createJob stays an atomic conditional insert.
     </description>
 
     <properties>
@@ -60,6 +61,19 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!--
+            Sprint-23 (AD-12/AD-13): the shared abstract contract-test bases,
+            which DynamoDbJobControlContractTest extends. The module ships them
+            as compile-scope classes (it IS a test library), so test scope here
+            keeps them on this module's test classpaths only. Mirrors
+            data-pipeline-aws-s3-java's S3BlobStoreContractTest wiring.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- LocalStack IT (DynamoDbJobControlLocalStackIT) — compiled by

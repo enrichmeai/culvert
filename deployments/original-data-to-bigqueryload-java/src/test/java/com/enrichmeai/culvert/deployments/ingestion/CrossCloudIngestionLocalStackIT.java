@@ -88,12 +88,21 @@ class CrossCloudIngestionLocalStackIT {
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(LOCALSTACK.getAccessKey(), LOCALSTACK.getSecretKey())))
                 .build();
+        // Composite key: DynamoDbJobControlRepository's ledger is append-only,
+        // one item per state change, so the table needs the event_seq range key
+        // as well as run_id. A PK-only table cannot serve it.
         dynamo.createTable(CreateTableRequest.builder()
                 .tableName(JOB_TABLE)
-                .attributeDefinitions(AttributeDefinition.builder()
-                        .attributeName("run_id").attributeType(ScalarAttributeType.S).build())
-                .keySchema(KeySchemaElement.builder()
-                        .attributeName("run_id").keyType(KeyType.HASH).build())
+                .attributeDefinitions(
+                        AttributeDefinition.builder()
+                                .attributeName("run_id").attributeType(ScalarAttributeType.S).build(),
+                        AttributeDefinition.builder()
+                                .attributeName("event_seq").attributeType(ScalarAttributeType.S).build())
+                .keySchema(
+                        KeySchemaElement.builder()
+                                .attributeName("run_id").keyType(KeyType.HASH).build(),
+                        KeySchemaElement.builder()
+                                .attributeName("event_seq").keyType(KeyType.RANGE).build())
                 .billingMode(BillingMode.PAY_PER_REQUEST)
                 .build());
 
@@ -131,7 +140,8 @@ class CrossCloudIngestionLocalStackIT {
         assertThat(new String(blobStore.get(stagingUri), java.nio.charset.StandardCharsets.UTF_8))
                 .contains("\"customer_id\":\"cust-1\"");
 
-        // Job control really transitioned in DynamoDB (conditional writes and all).
+        // Job control really transitioned in DynamoDB, and the append-only
+        // ledger projects the run as succeeded.
         assertThat(jobControl.getJob("aws-run-1"))
                 .isPresent()
                 .get()

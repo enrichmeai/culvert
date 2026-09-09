@@ -217,7 +217,7 @@ section names five outcomes. Those five were the scope.
 | Re-running the same extract twice leaves one copy, with a test proving it | ✅ | `LoadOptions` contract + `IngestionRunnerIdempotencyTest` (5 tests, against a double that holds real rows) |
 | A deployment can be pointed at Composer 2 + pods, Composer 3, or Cloud Run by configuration alone | ✅ | `ExecutionSubstrate`, `SubstrateDagRenderer`, orchestrator Terraform — see [17-execution-substrates.md](17-execution-substrates.md) |
 | A clean checkout builds the libraries and every deployment in one command | ✅ | root `pom.xml` aggregator + CI `whole-repo-build` job with a version-drift guard |
-| Job control has no `UPDATE` statements, and a contract test Athena also passes | 🟡 **half** — BigQuery is append-only; DynamoDB and the absent Athena implementation are not | `BigQueryJobControlRepository` (AD-2/AD-3), `BigQueryJobControlProjectionTest`; see below |
+| Job control has no `UPDATE` statements, and a contract test Athena also passes | 🟡 **most** — all three adapters are append-only and pass the shared contract test; the `pipeline_jobs` DDL and its consumers still assume one row per run | `BigQueryJobControlRepository` + `AthenaJobControlRepository` + `DynamoDbJobControlRepository` (AD-2/AD-3), `JobControlRepositoryContractTest` with a subclass per backend, plus each backend's projection suite; see below |
 
 ### Half-landed: findings 4 and 12 (append-only job control)
 
@@ -241,24 +241,58 @@ closes that. `BigQueryJobControlProjectionTest` asserts both AD-12 behaviours
 against a fake that ranks rows by parsing the ordering out of the submitted SQL,
 so removing terminal precedence fails the suite rather than passing it quietly.
 
-What is **not** done, and why the row above is amber rather than green:
+What has since been closed, and what is still open — the row above is amber
+rather than green because of the one open item:
 
-- **`DynamoDbJobControlRepository` still mutates** (conditional `UpdateItem`).
-  AD-13 binds it too; it was out of this change's scope.
-- **There is still no Athena job-control implementation**, so "a contract test
-  Athena also passes" remains unsatisfiable — see the framing correction below.
+- ~~**`DynamoDbJobControlRepository` still mutates**~~ — **done.** The
+  conditional `UpdateItem` calls are gone (AD-13). The table is re-keyed on a
+  `(run_id, event_seq)` composite key, every state change is a `PutItem` of a
+  new item, and reads fold a run's items with the earliest terminal state
+  winning. `createJob` keeps its atomic INSERT: the `created` item is written at
+  a fixed sentinel sort key, so `attribute_not_exists(run_id)` still decides a
+  duplicate server-side. `DynamoDbJobControlContractTest` runs the shared suite
+  and `DynamoDbJobControlProjectionTest` pins terminal precedence against a
+  contradicting item injected straight into the ledger — removing the rule
+  turns both suites red. Two consequences worth naming: the sort key is a
+  **breaking schema change** (a PK-only table cannot serve the adapter), and a
+  transition on a missing run now raises `IllegalStateException` rather than
+  `ConditionalCheckFailedException`, because the guard moved ahead of the write.
+- ~~**There is still no Athena job-control implementation**~~ — **done.**
+  `AthenaJobControlRepository` is built (AD-13), and
+  `AthenaJobControlContractTest` runs the same shared
+  `JobControlRepositoryContractTest` the BigQuery adapter is held to. Every
+  write is an `INSERT INTO`; `createJob` is a plain insert rather than
+  BigQuery's `MERGE`, because non-Iceberg Athena has neither `MERGE` nor a
+  conditional insert (AD-6) — a duplicate `CREATED` row is de-duplicated by the
+  projection. One method is honestly unimplemented: `cleanupPartialLoad` is a
+  `DELETE` against the caller-supplied target table, which Athena cannot do
+  outside Iceberg, so it throws `UnsupportedOperationException` naming the
+  limitation rather than reporting 0 rows cleaned. Validated against a mocked
+  `AthenaClient` only — LocalStack does not emulate Athena, so the SQL has not
+  been run against a real workgroup.
 - **The `job_control.pipeline_jobs` DDL still assumes one row per `runId`**
   (`scripts/gcp/03_create_infrastructure.sh:226`), and the e2e scripts and
   dashboards that poll it read the raw table rather than the projection (AD-14
   rule 2). Append-only changes the table's grain; those consumers have to be cut
   over before this is safe to run against a live ledger.
 
-A correction to the review's framing while it is still open: it says the
-mutation "blocks Athena entirely" and asks for "a contract test that Athena's
-implementation also passes". There is **no Athena job-control implementation** —
-AWS job control is DynamoDB-backed, and DynamoDB *can* update. The finding is
-about a hypothetical Athena-backed job control, so satisfying that bullet means
-writing that implementation too, not just a contract test.
+A correction to the review's framing, now resolved: it said the mutation
+"blocks Athena entirely" and asked for "a contract test that Athena's
+implementation also passes". At the time there was **no Athena job-control
+implementation** at all — AWS job control was DynamoDB-backed, and DynamoDB
+*can* update — so the finding was about a hypothetical Athena-backed job
+control, and satisfying it meant writing that implementation, not just a
+contract test. That implementation now exists, which settles the argument in the
+only way it could be settled: Athena runs the ledger append-only, and passes the
+same suite BigQuery does.
+
+Writing it also earned its keep as a design check. The shared contract test
+originally asserted that `markRetrying` moves a run out of `FAILED`; Athena
+could not satisfy that *and* terminal precedence at once, and neither could
+BigQuery. `docs/CONTRACT.md` §7 settled it — a retry takes a **new** `run_id` —
+so the test was corrected to `aFailedRunStaysFailedAndTheRetryIsANewRun`. A
+second backend is what surfaced the contradiction, which is the argument for
+having one.
 
 Also worth carrying forward: an append-only log does **not** on its own fix
 finding #1 (see above), so the control-flow fix that landed is not made
