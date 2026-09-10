@@ -14,9 +14,33 @@ import java.util.Optional;
 /**
  * Pipeline-job state-machine contract.
  *
- * <p>Implementations are expected to be transactional within a single
- * {@code runId} (state transitions cannot interleave with a concurrent
- * update of the same run).
+ * <p><strong>The ledger is append-only.</strong> A transition records a new
+ * event; it does not mutate the run's existing row, and concurrent appends for
+ * the same {@code runId} may interleave. No cross-row transaction is required
+ * — which is exactly what makes this implementable on a store with no
+ * {@code UPDATE} at all, such as Athena over non-Iceberg tables.
+ *
+ * <p>Ordering is therefore resolved on <em>read</em>, by projection:
+ * <strong>a terminal state is immutable and the earliest terminal event
+ * wins.</strong> A late failure cannot flip a run that already succeeded —
+ * without that rule, dropping compare-and-set opens a data-loss path, because
+ * a flipped run becomes retryable and the retry deletes the rows the
+ * successful run loaded. Implementations MUST pass
+ * {@code JobControlRepositoryContractTest}, which pins the rule behaviourally
+ * rather than by SQL inspection.
+ *
+ * <p>A failed run is never resurrected in place. Per {@code docs/CONTRACT.md}
+ * §7 a retry takes a NEW {@code runId}, recording the previous one in the
+ * {@code RETRY_ATTEMPTED} event's {@code payload.previous_run_id}, so
+ * {@link #markRetrying} records intent and does not move a run out of
+ * {@code FAILED}.
+ *
+ * <p><strong>Honest limitation — {@link #createJob} is not uniformly
+ * atomic.</strong> BigQuery ({@code MERGE … WHEN NOT MATCHED}) and DynamoDB
+ * ({@code attribute_not_exists}) both reject a duplicate {@code runId}
+ * server-side. Athena cannot: it issues a plain {@code INSERT}, so two callers
+ * racing on one {@code runId} both succeed and the projection de-duplicates
+ * them. Do not rely on {@code createJob} as a distributed lock.
  *
  * <p>Java mirror of the Python {@code JobControlRepository} Protocol. The
  * eleven methods match the existing Python repository's public surface

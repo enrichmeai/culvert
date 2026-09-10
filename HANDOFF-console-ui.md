@@ -51,12 +51,13 @@ A **generic operations console** for any Culvert deployment, on any cloud.
 contracts** — never to a cloud SDK. If it needs data, it goes through
 `JobControlRepository`, `Warehouse` (for the wire-contract `job_control.*`
 tables), or `AutoConfig.discover()`. The same console must work against the
-BigQuery job control on GCP and `DynamoDbJobControlRepository` on AWS with
+BigQuery job control on GCP and `DynamoDbJobControlRepository` or
+`AthenaJobControlRepository` on AWS with
 zero code changes — that property IS the product.
 
 ## 3. Read surface already available (no new contracts needed for MVP)
 
-`JobControlRepository` (11 methods, transactional per runId) already gives:
+`JobControlRepository` (11 methods; an append-only ledger projected on read) already gives:
 
 | Console view | Contract call |
 |---|---|

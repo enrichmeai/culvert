@@ -27,9 +27,29 @@ from data_pipeline_core.job_control_api.types import FailureStage, JobStatus
 class JobControlRepository(Protocol):
     """CRUD against a pipeline-job ledger.
 
-    Implementations are expected to be transactional within a single
-    `run_id` (state transitions cannot interleave with a concurrent
-    update of the same run).
+    **The ledger is append-only.** A transition records a new event rather
+    than mutating the run's existing row, and concurrent appends for the same
+    `run_id` may interleave. No cross-row transaction is required - which is
+    what makes this implementable on a store with no `UPDATE` at all, such as
+    Athena over non-Iceberg tables.
+
+    Ordering is therefore resolved on *read*, by projection: **a terminal
+    state is immutable and the earliest terminal event wins.** A late failure
+    cannot flip a run that already succeeded - without that rule a flipped run
+    becomes retryable and the retry deletes the rows the successful run
+    loaded.
+
+    A failed run is never resurrected in place. Per `docs/CONTRACT.md` section
+    7 a retry takes a NEW `run_id`, recording the previous one in the
+    `RETRY_ATTEMPTED` event's `payload.previous_run_id`, so `mark_retrying`
+    records intent and does not move a run out of `FAILED`.
+
+    Honest limitation: `create_job` is not uniformly atomic across backends.
+    BigQuery (`MERGE ... WHEN NOT MATCHED`) and DynamoDB
+    (`attribute_not_exists`) reject a duplicate `run_id` server-side; Athena
+    issues a plain `INSERT` and cannot, so two callers racing on one `run_id`
+    both succeed and the projection de-duplicates them. Do not rely on
+    `create_job` as a distributed lock.
     """
 
     def create_job(self, job: PipelineJob) -> None:

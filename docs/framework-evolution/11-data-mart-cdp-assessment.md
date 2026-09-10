@@ -14,9 +14,13 @@ engine configured per-deployment, no job-to-job chaining.
 **Verdict:** a strong fit and a good build candidate. ~80% is **configuration
 over existing Culvert mechanisms** (a new `data-mart-cdp` deployment). But it
 surfaces **one genuine library gap** that's architecturally important: a
-**transactional (Cloud SQL / Spanner) `JobControlRepository`** — Culvert today
-has only `BigQueryJobControlRepository`, and the PDF is explicit (and correct)
-that BigQuery is the wrong store for an orchestration control plane.
+**transactional (Cloud SQL / Spanner) `JobControlRepository`** — Culvert now
+has three job-control adapters (BigQuery, Athena, DynamoDB), but all three are
+append-only ledgers projected on read, and none is a low-latency transactional
+store. The PDF is explicit (and correct) that BigQuery is the wrong store for
+an orchestration control plane; the append-only rebuild (Sprint 23) does not
+change that verdict — it writes one row per transition rather than one per run,
+so a control-plane read is now a ranking query, not a point lookup.
 
 So this is **one epic = a deployment + one real library adapter + a renderer**,
 not just "a deployment."
