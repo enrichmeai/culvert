@@ -124,6 +124,11 @@ class StructuralImplementationTest {
         @Override public boolean exists(String uri) {
             return store.containsKey(uri);
         }
+        @Override public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+            byte[] b = get(uri);
+            return new com.enrichmeai.culvert.contracts.BlobMetadata(
+                    uri, b.length, "mem-" + java.util.Arrays.hashCode(b), java.util.Optional.empty(), Map.of());
+        }
         @Override public void delete(String uri) {
             store.remove(uri);
         }

@@ -49,6 +49,21 @@ public interface BlobStore {
     /** Return true if an object exists at {@code uri}. */
     boolean exists(String uri);
 
+    /**
+     * Describe the object at {@code uri} without reading it: size, the
+     * store's version token (ETag), last-modified time and custom metadata.
+     *
+     * <p>The version token is the point. A loader that must be idempotent
+     * keys on {@code (uri, etag)}: an object already loaded at that ETag is
+     * skipped, a republished one (new ETag) is loaded as new. {@link #list}
+     * and {@link #exists} cannot answer that, and reading the object to find
+     * out costs the bytes the question exists to avoid.
+     *
+     * <p>A missing object fails the way {@link #get(String)} does:
+     * {@link FileNotFoundException}, wrapped where necessary.
+     */
+    BlobMetadata head(String uri);
+
     /** Delete the object at {@code uri}. Idempotent. */
     void delete(String uri);
 

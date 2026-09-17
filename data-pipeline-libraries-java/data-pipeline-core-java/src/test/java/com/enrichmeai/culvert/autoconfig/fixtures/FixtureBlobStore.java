@@ -44,6 +44,11 @@ public abstract class FixtureBlobStore implements BlobStore {
     }
 
     @Override
+    public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+        throw new UnsupportedOperationException("discovery fixture");
+    }
+
+    @Override
     public void delete(String uri) {
         throw new UnsupportedOperationException("discovery fixture");
     }

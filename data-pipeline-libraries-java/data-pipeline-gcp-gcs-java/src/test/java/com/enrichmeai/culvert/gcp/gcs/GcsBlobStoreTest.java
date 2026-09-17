@@ -52,6 +52,55 @@ class GcsBlobStoreTest {
     }
 
     @Test
+    void headReadsMetadataAndNeverTheBytes() {
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+        when(blob.getSize()).thenReturn(1_048_576L);
+        when(blob.getEtag()).thenReturn("CKih16bqlPUCEAE=");
+        when(blob.getUpdateTimeOffsetDateTime())
+                .thenReturn(java.time.OffsetDateTime.parse("2026-09-16T20:39:30Z"));
+        java.util.Map<String, String> custom = new java.util.HashMap<>();
+        custom.put("upstreamEtag", "d41d8cd98f00b204e9800998ecf8427e");
+        custom.put("cleared", null);   // GCS spells a removed key as a null value
+        when(blob.getMetadata()).thenReturn(custom);
+        when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(blob);
+
+        com.enrichmeai.culvert.contracts.BlobMetadata metadata = new GcsBlobStore(storage).head(URI);
+
+        assertThat(metadata.uri()).isEqualTo(URI);
+        assertThat(metadata.size()).isEqualTo(1_048_576L);
+        assertThat(metadata.etag()).isEqualTo("CKih16bqlPUCEAE=");
+        assertThat(metadata.lastModified()).contains(java.time.Instant.parse("2026-09-16T20:39:30Z"));
+        assertThat(metadata.metadata()).containsExactly(
+                java.util.Map.entry("upstreamEtag", "d41d8cd98f00b204e9800998ecf8427e"));
+        verify(blob, org.mockito.Mockito.never()).getContent();
+        verify(blob, org.mockito.Mockito.never()).reader();
+    }
+
+    /** A degraded or mocked client that reports no ETag yields "", never a null three frames away. */
+    @Test
+    void headWithoutAnEtagOrTimestampsIsStillAnAnswer() {
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+        when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(blob);
+
+        com.enrichmeai.culvert.contracts.BlobMetadata metadata = new GcsBlobStore(storage).head(URI);
+
+        assertThat(metadata.etag()).isEmpty();
+        assertThat(metadata.size()).isZero();
+        assertThat(metadata.lastModified()).isEmpty();
+        assertThat(metadata.metadata()).isEmpty();
+    }
+
+    @Test
+    void headThrowsWhenObjectMissing() {
+        when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(null);
+
+        assertThatThrownBy(() -> new GcsBlobStore(storage).head(URI))
+                .isInstanceOf(UncheckedIOException.class)
+                .hasCauseInstanceOf(java.io.FileNotFoundException.class)
+                .hasMessageContaining(URI);
+    }
+
+    @Test
     void getThrowsWhenObjectMissing() {
         when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(null);
 

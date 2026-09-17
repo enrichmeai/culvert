@@ -152,6 +152,43 @@ public final class GcsBlobStore implements BlobStore, AutoCloseable {
     }
 
     @Override
+    public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+        BlobId id = parse(uri);
+        // One metadata roundtrip, no content: Storage#get returns the object's
+        // metadata; the bytes are fetched only by getContent()/reader().
+        Blob blob = client.get(id);
+        if (blob == null) {
+            throw new UncheckedIOException(
+                    new java.io.FileNotFoundException("Object not found: " + uri));
+        }
+        // GCS reports an ETag on every object; a null here is a mocked or
+        // degraded client, and the contract wants a string, so it becomes ""
+        // rather than a NullPointerException three frames away from here.
+        String etag = blob.getEtag() == null ? "" : blob.getEtag();
+        java.time.OffsetDateTime updated = blob.getUpdateTimeOffsetDateTime();
+        java.util.Map<String, String> metadata = blob.getMetadata() == null
+                ? java.util.Map.of()
+                : withoutNullValues(blob.getMetadata());
+        return new com.enrichmeai.culvert.contracts.BlobMetadata(
+                uri,
+                blob.getSize() == null ? 0L : blob.getSize(),
+                etag,
+                java.util.Optional.ofNullable(updated).map(java.time.OffsetDateTime::toInstant),
+                metadata);
+    }
+
+    /** GCS represents a deleted custom-metadata key as a null value; Map.copyOf refuses nulls. */
+    private static java.util.Map<String, String> withoutNullValues(java.util.Map<String, String> metadata) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        metadata.forEach((k, v) -> {
+            if (k != null && v != null) {
+                out.put(k, v);
+            }
+        });
+        return out;
+    }
+
+    @Override
     public void delete(String uri) {
         BlobId id = parse(uri);
         // Storage#delete returns false if the object did not exist. The

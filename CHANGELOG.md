@@ -54,6 +54,19 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`BlobStore.head(uri)` → `BlobMetadata`** (Java; #200) — size, the store's
+  version token (ETag), last-modified and custom metadata, without reading the
+  object. For loaders that must be idempotent by object version: a loader
+  keyed on `(uri, etag)` skips what it has loaded and loads a republished
+  object as new. Implemented for GCS and S3; the Azure skeleton throws like its
+  other methods; `BlobStoreContractTest`, `BlobStoreFixtures` and every
+  in-memory double carry it. **Breaking for third-party `BlobStore`
+  implementations**, which must add the method. Python parity is its own issue.
+- **`NoOpJobControlRepository`** (Java; #200) — for a deployment whose run
+  state is written by an external orchestrator from a run summary the
+  component emits. Explicitly registered, never auto-discovered and never a
+  fallback: choosing it is a decision a deployment states in its own code.
+  Reads answer empty; writes record nothing.
 - **`BigQueryJobControlRepository` (Python)** — the BigQuery adapter for the
   write path of the `JobControlRepository` port (`create_job`, `update_status`,
   `mark_failed`), registered under the `job_control` entry-point slot. The

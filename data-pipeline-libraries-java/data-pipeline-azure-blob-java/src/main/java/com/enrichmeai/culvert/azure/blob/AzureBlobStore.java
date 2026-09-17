@@ -49,6 +49,11 @@ public final class AzureBlobStore implements BlobStore {
     }
 
     @Override
+    public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+        throw post8("head");
+    }
+
+    @Override
     public byte[] get(String uri) {
         throw post8("get");
     }

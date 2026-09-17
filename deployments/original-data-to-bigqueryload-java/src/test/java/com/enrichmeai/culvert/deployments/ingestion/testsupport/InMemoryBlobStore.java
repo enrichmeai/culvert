@@ -77,6 +77,14 @@ public final class InMemoryBlobStore implements BlobStore {
     }
 
     @Override
+    public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+        byte[] bytes = get(uri);
+        return new com.enrichmeai.culvert.contracts.BlobMetadata(
+                uri, bytes.length, "mem-" + java.util.Arrays.hashCode(bytes),
+                java.util.Optional.empty(), java.util.Map.of());
+    }
+
+    @Override
     public void delete(String uri) {
         store.remove(uri);
     }

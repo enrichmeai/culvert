@@ -44,6 +44,13 @@ class GcsBlobStoreContractTest extends BlobStoreContractTest {
         // Known blob — returns a real-ish Blob whose getContent() yields "hello".
         Blob knownBlob = mock(Blob.class);
         when(knownBlob.getContent()).thenReturn("hello".getBytes());
+        // What a real GCS object reports on a metadata read, for head(): the size of
+        // "hello", an ETag (GCS's is base64 of the MD5-ish; the value here is a real
+        // ETag shape), and an update time.
+        when(knownBlob.getSize()).thenReturn(5L);
+        when(knownBlob.getEtag()).thenReturn("CKih16bqlPUCEAE=");
+        when(knownBlob.getUpdateTimeOffsetDateTime())
+                .thenReturn(java.time.OffsetDateTime.parse("2026-09-16T20:39:30Z"));
         when(storage.get(BlobId.of(BUCKET, KNOWN_OBJECT))).thenReturn(knownBlob);
 
         // Missing blob — client returns null (GcsBlobStore maps this to UncheckedIOException).
