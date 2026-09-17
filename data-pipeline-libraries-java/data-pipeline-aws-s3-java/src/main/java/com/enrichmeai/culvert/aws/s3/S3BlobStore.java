@@ -163,6 +163,37 @@ public final class S3BlobStore implements BlobStore, ProviderAvailability {
     }
 
     @Override
+    public com.enrichmeai.culvert.contracts.BlobMetadata head(String uri) {
+        Objects.requireNonNull(uri, "uri must not be null");
+        S3Uri parsed = S3Uri.parse(uri);
+        software.amazon.awssdk.services.s3.model.HeadObjectResponse response;
+        try {
+            response = client().headObject(HeadObjectRequest.builder()
+                    .bucket(parsed.bucket())
+                    .key(parsed.key())
+                    .build());
+        } catch (NoSuchKeyException e) {
+            throw new java.io.UncheckedIOException(
+                    new java.io.FileNotFoundException("Object not found: " + uri));
+        } catch (SdkException e) {
+            // The same 404-by-message case exists() tolerates: a missing object, not a fault.
+            if (e.getMessage() != null && e.getMessage().contains("404")) {
+                throw new java.io.UncheckedIOException(
+                        new java.io.FileNotFoundException("Object not found: " + uri));
+            }
+            throw e;
+        }
+        // S3 quotes its ETag ("\"d41d8…\""); the quotes are transport, not version.
+        String etag = response.eTag() == null ? "" : response.eTag().replace("\"", "");
+        return new com.enrichmeai.culvert.contracts.BlobMetadata(
+                uri,
+                response.contentLength() == null ? 0L : response.contentLength(),
+                etag,
+                java.util.Optional.ofNullable(response.lastModified()),
+                response.metadata() == null ? java.util.Map.of() : response.metadata());
+    }
+
+    @Override
     public byte[] get(String uri) {
         Objects.requireNonNull(uri, "uri must not be null");
         S3Uri parsed = S3Uri.parse(uri);

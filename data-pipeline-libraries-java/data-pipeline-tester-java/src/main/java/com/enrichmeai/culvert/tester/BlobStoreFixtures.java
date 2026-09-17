@@ -102,6 +102,22 @@ public final class BlobStoreFixtures {
                     .iterator();
         });
 
+        // head: the size from the bytes, a version token derived from them (two
+        // fixtures with the same content share a version; different content does
+        // not), no last-modified, no custom metadata. A missing object fails as
+        // get does.
+        Mockito.when(mock.head(Mockito.anyString())).thenAnswer(invocation -> {
+            String uri = invocation.getArgument(0);
+            byte[] bytes = sorted.get(uri);
+            if (bytes == null) {
+                throw new UncheckedIOException(
+                        new FileNotFoundException("No object at " + uri));
+            }
+            return new com.enrichmeai.culvert.contracts.BlobMetadata(
+                    uri, bytes.length, "fixture-" + java.util.Arrays.hashCode(bytes),
+                    java.util.Optional.empty(), Collections.emptyMap());
+        });
+
         // put / openOutput / delete / copy default to Mockito no-op /
         // null returns. Consumers stub these on top when needed.
         return mock;

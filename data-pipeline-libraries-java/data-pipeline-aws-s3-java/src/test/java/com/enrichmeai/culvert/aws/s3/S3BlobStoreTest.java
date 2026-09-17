@@ -65,6 +65,40 @@ class S3BlobStoreTest {
     }
 
     @Test
+    void headUnquotesTheEtagAndCarriesSizeTimeAndMetadata() {
+        when(client.headObject(any(HeadObjectRequest.class)))
+                .thenReturn(HeadObjectResponse.builder()
+                        .contentLength(1_048_576L)
+                        // S3 quotes the ETag on the wire; the quotes are transport, not version.
+                        .eTag("\"5d41402abc4b2a76b9719d911017c592\"")
+                        .lastModified(java.time.Instant.parse("2026-09-16T20:39:30Z"))
+                        .metadata(java.util.Map.of("upstream-etag", "abc"))
+                        .build());
+
+        com.enrichmeai.culvert.contracts.BlobMetadata metadata =
+                new S3BlobStore(client).head("s3://my-bucket/path/to/file");
+
+        assertThat(metadata.uri()).isEqualTo("s3://my-bucket/path/to/file");
+        assertThat(metadata.size()).isEqualTo(1_048_576L);
+        assertThat(metadata.etag()).isEqualTo("5d41402abc4b2a76b9719d911017c592");
+        assertThat(metadata.lastModified()).contains(java.time.Instant.parse("2026-09-16T20:39:30Z"));
+        assertThat(metadata.metadata()).containsExactly(java.util.Map.entry("upstream-etag", "abc"));
+        verify(client, never()).getObject(any(GetObjectRequest.class));
+        verify(client, never()).getObjectAsBytes(any(GetObjectRequest.class));
+    }
+
+    @Test
+    void headOnAMissingObjectFailsAsGetDoes() {
+        when(client.headObject(any(HeadObjectRequest.class)))
+                .thenThrow(NoSuchKeyException.builder().message("not found").build());
+
+        assertThatThrownBy(() -> new S3BlobStore(client).head("s3://my-bucket/missing"))
+                .isInstanceOf(UncheckedIOException.class)
+                .hasCauseInstanceOf(java.io.FileNotFoundException.class)
+                .hasMessageContaining("s3://my-bucket/missing");
+    }
+
+    @Test
     void constructorRejectsNullClient() {
         assertThatThrownBy(() -> new S3BlobStore(null))
                 .isInstanceOf(NullPointerException.class);

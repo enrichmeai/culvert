@@ -48,8 +48,14 @@ class S3BlobStoreContractTest extends BlobStoreContractTest {
         S3Client client = mock(S3Client.class);
 
         // Known object — HeadObject succeeds, GetObject returns "hello".
+        // What S3 reports on a HEAD, for head(): the size of "hello", the quoted
+        // MD5 ETag of a single-part upload, and a last-modified time.
         when(client.headObject(HeadObjectRequest.builder().bucket(BUCKET).key(KNOWN_OBJECT).build()))
-                .thenReturn(HeadObjectResponse.builder().build());
+                .thenReturn(HeadObjectResponse.builder()
+                        .contentLength(5L)
+                        .eTag("\"5d41402abc4b2a76b9719d911017c592\"")
+                        .lastModified(java.time.Instant.parse("2026-09-16T20:39:30Z"))
+                        .build());
         when(client.getObjectAsBytes(GetObjectRequest.builder().bucket(BUCKET).key(KNOWN_OBJECT).build()))
                 .thenReturn(ResponseBytes.fromByteArray(
                         GetObjectResponse.builder().build(), "hello".getBytes()));
