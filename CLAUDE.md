@@ -80,6 +80,13 @@ its own loop:
 - The book session reads this repo side by side. Locally, the folder is still
   `gcp-pipeline-reference/`, so the book session starts with `claude --add-dir ../gcp-pipeline-reference`.
 
+**Releases are batched (Joseph, 2026-09-26).** Features merge into `main` one PR at a time, but a
+release happens only once a chunk of features is done: the `wave:W1` set on the Release board. No PR
+bumps a version, tags or publishes. Each PR adds its line under `## [Unreleased]` in `CHANGELOG.md`.
+When every W1 item is closed, `/groom` proposes the release on the board, and Joseph decides. Then one
+release PR sets the version and turns `[Unreleased]` into the version's section. Joseph tags it and runs
+the publish by hand (`RELEASE.md`: the Maven Central Portal, then PyPI). Claude never publishes.
+
 **Every release reaches the site (Joseph, 2026-09-26).** `enrichmeai.github.io/culvert/` shows the released
 versions, every library, every pip extra and what each release added. Its `release-sync` workflow checks
 the page against PyPI, Maven Central and this repo's `main` every day, and opens a `culvert-sync` issue there

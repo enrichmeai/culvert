@@ -71,7 +71,8 @@ Leave the branch pushed and the PR as a draft. Do not widen scope to route aroun
   link this PR from there. Never link the book from here.
 - Run the `/compound` skill. Then mark the PR ready and end with: branch, head SHA, files changed,
   gates run with their results, the reviewer verdict, the Compound lines, and anything for Joseph.
-  **Joseph merges.** Never merge, tag or publish.
+  **Joseph merges.** Never merge, tag or publish, and never bump a version: releases are batched
+  (CLAUDE.md § "Releases are batched"). A version bump happens only in the release PR, after Joseph's go.
 - **DCO** (`CONTRIBUTING.md` § "Sign your commits"): the `DCO` check needs a `Signed-off-by` matching
   each commit's author. A sign-off certifies the Developer Certificate of Origin, which only a person
   can do. Never add one for Claude, and never forge Joseph's. List it in the hand-over as a Joseph action:

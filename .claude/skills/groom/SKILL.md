@@ -22,6 +22,14 @@ always lives in one place and survives every session.
 - **Where the plan disagrees:** `docs/framework-evolution/06-sprint-plan-9-16.md` and
   `08-groomed-backlog-9-16.md` are the canonical plan (CLAUDE.md). When a label and the plan
   disagree, list it under Drift. Do not silently pick one.
+- **Releases are batched** (CLAUDE.md § "Releases are batched"): W1 is the chunk of features the next
+  release ships. There is no release per PR. When every W1 item is closed, the board's Release gate says
+  **"W1 complete, ready to release <version>"** and puts the release in the Joseph queue:
+  1. a release PR (Claude): the version in every `pom.xml` and `pyproject.toml`, `[Unreleased]` →
+     `[<version>] — <date>` in `CHANGELOG.md`, and `MIGRATION.md` for anything breaking;
+  2. Joseph: merge it, tag it, and publish by hand per `RELEASE.md` (Maven Central Portal, then PyPI);
+  3. the site's `release-sync` then opens a `culvert-sync` issue for the page.
+  Until Joseph says go, keep the gate open. Don't move items out of W1 to make it close.
 - **Use the existing labels, not a new taxonomy:** `wave:W1|W2|W3`, `area:*`, and the owner labels
   `claude-ready` (Claude can build it unattended: tests prove it, no cloud, no Docker ITs),
   `founder` (Joseph: releases, keys, accounts, rulings, brand) and `mac-session` (needs a GCP project,
