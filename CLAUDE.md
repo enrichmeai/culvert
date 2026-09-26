@@ -66,7 +66,8 @@ design and debugging.
 
 **Where things for Joseph go.** Anything that needs Joseph (a merge, a release, a key, a ruling, a GCP
 run) goes on the PR or issue it belongs to. `/groom` lists it in the Joseph queue of the Release
-board. **Never** post a secret or credential value anywhere on GitHub. Post only counts, SHAs and run IDs.
+board. That includes the **DCO sign-off** on Claude-authored commits: only a person can certify it
+(`CONTRIBUTING.md` § "Sign your commits"), so the `DCO` check stays red until Joseph signs off or overrides it. **Never** post a secret or credential value anywhere on GitHub. Post only counts, SHAs and run IDs.
 
 **One session per repo.** Only one Claude session works in this repo at a time, and it changes code
 only in this repo. The GitHub Action builder (the `claude` label, `.github/workflows/claude.yml`) counts

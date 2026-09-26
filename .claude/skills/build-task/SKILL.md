@@ -72,3 +72,8 @@ Leave the branch pushed and the PR as a draft. Do not widen scope to route aroun
 - Run the `/compound` skill. Then mark the PR ready and end with: branch, head SHA, files changed,
   gates run with their results, the reviewer verdict, the Compound lines, and anything for Joseph.
   **Joseph merges.** Never merge, tag or publish.
+- **DCO** (`CONTRIBUTING.md` § "Sign your commits"): the `DCO` check needs a `Signed-off-by` matching
+  each commit's author. A sign-off certifies the Developer Certificate of Origin, which only a person
+  can do. Never add one for Claude, and never forge Joseph's. List it in the hand-over as a Joseph action:
+  `git rebase --signoff origin/main` on the branch (then `git push --force-with-lease`), or the DCO app's
+  override on the check page. (2026-09-26: #203 was the first PR to hit this.)
