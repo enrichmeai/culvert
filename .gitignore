@@ -105,8 +105,13 @@ NEXT_PROMPT.md
 ANALYSIS_AND_PROMPT.md
 docs/COPILOT_NEXT_SESSION_PROMPT.md
 
-# Claude Code local settings (per-user, not shared)
-.claude/
+# Claude Code: per-user settings and worktrees stay local; the build loop's shared config is tracked
+# (CLAUDE.md § "Autonomous build loop"). `.claude/*` rather than `.claude/` so the ! rules can re-include.
+.claude/*
+!.claude/settings.json
+!.claude/hooks/
+!.claude/agents/
+!.claude/skills/
 
 # Scratch CLI output and test logs that should never be committed
 /1pip

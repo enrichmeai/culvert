@@ -1,0 +1,9 @@
+# Python packages whose unit suite is offline and runs in seconds (measured 2026-09-26, all < 1 s).
+# The Stop hook (stop-fast-gates.sh) runs `pytest tests -q -x` in each one this branch changed.
+# The rest (orchestration: Airflow, #88; observability, secrets, tester, transform) are CI's or the
+# DoD recipe's, not the Stop hook's. Add a package only after timing its suite.
+data-pipeline-libraries/data-pipeline-core
+data-pipeline-libraries/data-pipeline-contract-tests
+data-pipeline-libraries/data-pipeline-gcp-bigquery
+data-pipeline-libraries/data-pipeline-gcp-gcs
+data-pipeline-libraries/data-pipeline-gcp-pubsub

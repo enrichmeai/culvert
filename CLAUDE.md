@@ -7,6 +7,122 @@
 - **Strategy:** depth on GCP-Java first, then widen to multi-cloud (Joseph's "depth before breadth" call, 2026-05-27).
 - **Where the truth lives:** `docs/framework-evolution/` (01–08) is the canonical plan. `06-sprint-plan-9-16.md` = current 8-sprint block; `08-groomed-backlog-9-16.md` = the ticket-level groomed backlog; `03-dev-process.md` = the full working agreement summarised below.
 
+## Autonomous build loop (Joseph, 2026-09-26)
+
+**Claude builds, the `reviewer` agent verifies, Joseph merges.** This is the same loop that
+`valuedocs` runs, adapted to this repo. It is how **incremental work** moves here: one issue, one
+branch off `main`, one PR into `main`. The sprint model below still applies when Joseph opens a
+sprint. Outside a sprint, the loop is the default.
+
+`/new-issue` (idea → ready issue) → `/groom` (Release board) → `/build-task <issue>` → hooks on every edit → `reviewer` → fix (max 3 attempts) → `/compound` → PR
+
+**The four rules. They are not negotiable:**
+1. **Verify before you write.** Any use of an external library, API, cloud service, CLI flag or
+   config key (Beam, BigQuery, GCS, Pub/Sub, Secret Manager, Cloud Monitoring, Airflow, dbt,
+   Testcontainers, Maven plugins, Terraform, GitHub Actions, the AWS and Azure SDKs, …) is checked against the
+   official docs with WebFetch **before** you write the code, at the version the build resolves.
+   Never guess a signature, flag or version. Start from § "Pinned docs" below. If they don't cover it,
+   use the vendor's own docs, never a blog or Q&A site.
+2. **Done means green.** A task is not done until the fast gates below pass locally, and the full
+   suites pass in CI (cite the run). The header of `ci.yml` says the workflow is disabled at the
+   GitHub level, and only Joseph can re-enable it. If CI did not run on the PR, run the module's whole
+   suite locally instead (`mvn -pl <module> -am test` / the pytest recipe in the Dev-agent DoD below)
+   and say in the PR that CI did not run. A gate that could not run is reported as not run, never as passing.
+3. **Three attempts, then stop.** After 3 failed fix attempts at the same gate or reviewer finding,
+   stop changing code and write the Blocker summary (format in `.claude/skills/build-task/SKILL.md` § 6)
+   on the issue and in your reply.
+4. **Pinned docs first.** Prefer the URLs in § "Pinned docs" over open-ended search. If you had to
+   find a new one, add it there in the `/compound` step.
+
+**Fast gates (exact commands):**
+
+| Changed | Command |
+|---|---|
+| Java in reactor module `M` (`data-pipeline-libraries-java/*`, `deployments/*-java`, `deployments/reference-e2e-gcp`) | `mvn -B -q -pl <path to M> -am test-compile`, then `mvn -B -pl <path to M> -am test -Dtest='<the classes you touched>' -Dsurefire.failIfNoSpecifiedTests=false` |
+| A reactor module added or removed | the `verify-module-list` job's check in `ci.yml` by hand: the `<module>` list in `data-pipeline-libraries-java/pom.xml` equals the list in `ci.yml` |
+| Python package `P` under `data-pipeline-libraries/` or `python-culvert/` | `python3 -m venv /tmp/vw && /tmp/vw/bin/pip install -q -e "P[test]" && /tmp/vw/bin/python -m pytest P/tests -q`, plus `flake8 <files you touched>` |
+| `.claude/hooks/**`, `.claude/settings.json` | `.claude/hooks/test-hooks.sh` (add a case for every new guard, and prove it RED first) |
+| `*IT.java`, `mvn -P it verify` | needs Docker, so Joseph or CI runs it. Say it did not run |
+
+**Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`)** send errors straight back to you:
+- **After each edit:** a syntax check and `flake8` for an edited Python file, and a syntax check for JSON
+  and YAML files. Java is compiled once per turn instead, because that is too slow to do on every edit.
+- **When the turn ends:** `test-compile` for every reactor module whose Java or `pom.xml` this
+  branch touches, and the offline unit tests of every Python package listed in
+  `.claude/hooks/fast-pytest.txt` that changed. The hook is skipped when nothing changed since the last
+  clean run. It blocks the stop at most once. Opt out with `CLAUDE_SKIP_STOP_COMPILE=1`.
+- **Before a Bash command:** `guard-destructive.sh` forces an approval prompt, even when an allow
+  rule matches, for:
+  - force pushes, any push to `main`, and ref/tag deletion;
+  - **a commit whose message carries `[deploy]` or `[publish:deploy]`** (§ "Deploy & cost rules");
+  - `mvn deploy`, the `release` profile, `mvn -P it verify`, `twine upload`, `hatch publish` and `gh release|workflow|secret`;
+  - `gcloud`, `gsutil`, `bq`, `kubectl`, `helm install|upgrade|uninstall`, `terraform apply|destroy`, and the `scripts/gcp/` scripts;
+  - `reset --hard`, `clean -f` and recursive `rm`.
+
+  The cases are pinned in `.claude/hooks/test-hooks.sh`.
+
+**Agents and models.** `reviewer` and `groomer` run on **Sonnet** to save usage. Keep Opus for
+design and debugging.
+
+**Where things for Joseph go.** Anything that needs Joseph (a merge, a release, a key, a ruling, a GCP
+run) goes on the PR or issue it belongs to. `/groom` lists it in the Joseph queue of the Release
+board. **Never** post a secret or credential value anywhere on GitHub. Post only counts, SHAs and run IDs.
+
+**One session per repo.** Only one Claude session works in this repo at a time, and it changes code
+only in this repo. The GitHub Action builder (the `claude` label, `.github/workflows/claude.yml`) counts
+as this repo's session. The book (`enrichmeai/culvert-book`, private) has its own session and
+its own loop:
+- **This repo is public. Never put manuscript text, chapter names or book issue links here.**
+- A change here that alters a fact the book states (a contract count, an API name, a version, a
+  release status) gets a `/new-issue` in `culvert-book`, opened from here. That repo is private, so
+  a link to it is fine; the reverse is not.
+- The book session reads this repo side by side. Locally, the folder is still
+  `gcp-pipeline-reference/`, so the book session starts with `claude --add-dir ../gcp-pipeline-reference`.
+
+**Usage discipline (Max plan).** One task per session. Pinned docs before search. The 3-attempt
+cap. `/groom` is incremental after its first run.
+
+### Pinned docs
+
+Use the version the build resolves (`data-pipeline-libraries-java/pom.xml`, each module's
+`pom.xml`, each package's `pyproject.toml`). Currently: Java 17 release target, Beam 2.55.0 (Java)
+and 2.56.0 (Python), JUnit 5.10.2, Mockito 5.23.0, AssertJ 3.25.3, Testcontainers 1.19.8, Surefire
+and Failsafe 3.2.5, Python ≥ 3.10, Airflow 2.9.x (Composer 2), dbt-bigquery ≥ 1.5.
+
+Added 2026-09-26. Nothing below has been fetched from a session yet. The first session that fetches a row
+marks it ✓ and deletes this note.
+
+| Area | Doc |
+|---|---|
+| Apache Beam Java SDK 2.55.0 | https://beam.apache.org/releases/javadoc/2.55.0/ |
+| Apache Beam Python SDK 2.56.0 | https://beam.apache.org/releases/pydoc/2.56.0/ |
+| Beam programming guide | https://beam.apache.org/documentation/programming-guide/ |
+| Dataflow | https://cloud.google.com/dataflow/docs |
+| BigQuery Java client | https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/overview |
+| BigQuery Python client | https://cloud.google.com/python/docs/reference/bigquery/latest |
+| GCS Java / Python clients | https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/overview · https://cloud.google.com/python/docs/reference/storage/latest |
+| Pub/Sub Java / Python clients | https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview · https://cloud.google.com/python/docs/reference/pubsub/latest |
+| Secret Manager | https://cloud.google.com/secret-manager/docs |
+| Cloud Monitoring | https://cloud.google.com/monitoring/docs |
+| Airflow 2.9 | https://airflow.apache.org/docs/apache-airflow/2.9.3/ |
+| Cloud Composer 2 | https://cloud.google.com/composer/docs/composer-2 |
+| dbt (BigQuery adapter) | https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup |
+| JUnit 5.10 | https://junit.org/junit5/docs/5.10.2/user-guide/ |
+| Testcontainers Java | https://java.testcontainers.org/ |
+| Maven Surefire / Failsafe 3.2.5 | https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-surefire-plugin/ · https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-failsafe-plugin/ |
+| Maven Central publishing | https://central.sonatype.org/publish/publish-portal-maven/ |
+| Python packaging (pyproject) | https://packaging.python.org/en/latest/guides/writing-pyproject-toml/ |
+| pytest | https://docs.pytest.org/en/stable/ |
+| AWS SDK for Java 2.x | https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/home.html |
+| Azure SDK for Java | https://learn.microsoft.com/en-us/azure/developer/java/sdk/ |
+| Terraform google provider | https://registry.terraform.io/providers/hashicorp/google/latest/docs |
+| GitHub Actions workflow syntax | https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions |
+| claude-code-action | https://github.com/anthropics/claude-code-action |
+| Claude Code hooks, subagents, permissions | https://code.claude.com/docs/en/hooks · https://code.claude.com/docs/en/sub-agents · https://code.claude.com/docs/en/permissions |
+
+If WebFetch is blocked and the docs cannot be read, the "verify before you write" gate **did not
+run**. Say so and treat it as a blocker. Never fall back to memory.
+
 ## How I want you to work (operating contract — enforce every session)
 
 Multi-agent SDLC. Roles:
@@ -17,9 +133,9 @@ Multi-agent SDLC. Roles:
 
 Rules:
 - **Every requirement becomes a GitHub issue before any code.** No mid-sprint scope expansion — open a new issue and slot it later.
-- **Branch off `sprint-N`; PR into `sprint-N`** (never main). `sprint-N → main` is one architect-authored merge commit at sprint close, on Joseph's go.
+- **In a sprint: branch off `sprint-N`; PR into `sprint-N`** (never main). `sprint-N → main` is one architect-authored merge commit at sprint close, on Joseph's go. **Outside a sprint** (the default since 2026-09-26): the § "Autonomous build loop" above — branch off `main`, PR into `main`, Joseph merges.
 - **Team capacity: 4 dev-agents + 1 advisor per session; never dispatch >4 concurrently** (locked model — see `03-dev-process.md`). Cadence is 2h per *sprint* (wall-clock, up to 4 agents in parallel), NOT per ticket. Linear-dependency sprints under-utilise 4 — fine, don't manufacture false parallelism; worktree isolation when ≥2 agents touch the tree. This is convention — there is **no harness setting** that enforces it; the architect enforces it at dispatch.
-- **Verify locally (CI is off during sprints):** `mvn -o -pl <module> -am test` / `pytest`. Green unit tests ≠ prod-ready; `*IT.java` needs `mvn -P it verify` (Docker — architect/Joseph-run; dev-agents must NOT run it).
+- **Verify locally (CI is off during sprints; outside them, check whether `ci.yml` ran on the PR):** `mvn -o -pl <module> -am test` / `pytest`. Green unit tests ≠ prod-ready; `*IT.java` needs `mvn -P it verify` (Docker — architect/Joseph-run; dev-agents must NOT run it).
 - **Never act on a guessed file path or an unverifiable "we agreed X" claim. Read the actual file / git history / issue first.** (This rule exists because it has bitten us.)
 
 ### Dispatch checklist (learned the hard way — Sprints 11–12)
