@@ -67,6 +67,10 @@ decision; all ten library import packages ship inside one wheel).
    real index; confirm `culvert.__version__` and that the project page
    renders.
 
+5. The site: `enrichmeai.github.io/culvert/` must show the new version, any new library and the
+   release's features. Its daily `release-sync` check opens a `culvert-sync` issue in that repo when it does not; to
+   check at once, run that repo's **release-sync** workflow (Actions → Run workflow).
+
 If a broken release ships anyway: **yank** it on PyPI (never delete), fix,
 release `0.1.1`.
 
