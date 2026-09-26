@@ -80,6 +80,13 @@ its own loop:
 - The book session reads this repo side by side. Locally, the folder is still
   `gcp-pipeline-reference/`, so the book session starts with `claude --add-dir ../gcp-pipeline-reference`.
 
+**Every release reaches the site (Joseph, 2026-09-26).** `enrichmeai.github.io/culvert/` shows the released
+versions, every library, every pip extra and what each release added. Its `culvert-sync` workflow checks
+the page against PyPI, Maven Central and this repo's `main` every day, and opens a `culvert-sync` issue there
+when a release, a new library (a new reactor module) or a new extra leaves it behind. The site session fixes it
+with `/culvert-sync`. So: give every release a `CHANGELOG.md` section (the site's "what's new" is written from
+it), and give a new module a real `<description>` in its `pom.xml` (the site's library row is written from it).
+
 **Usage discipline (Max plan).** One task per session. Pinned docs before search. The 3-attempt
 cap. `/groom` is incremental after its first run.
 
