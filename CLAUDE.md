@@ -58,6 +58,7 @@ sprint. Outside a sprint, the loop is the default.
   - `mvn deploy`, the `release` profile, `mvn -P it verify`, `twine upload`, `hatch publish` and `gh release|workflow|secret`;
   - `gcloud`, `gsutil`, `bq`, `kubectl`, `helm install|upgrade|uninstall`, `terraform apply|destroy`, and the `scripts/gcp/` scripts;
   - `reset --hard`, `clean -f` and recursive `rm`.
+  - `git commit -s` / `--signoff`: a DCO sign-off is a person's certification, never Claude's.
 
   The cases are pinned in `.claude/hooks/test-hooks.sh`.
 
