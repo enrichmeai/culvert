@@ -47,6 +47,12 @@ ask|git commit -am 'feat: x [publish:deploy]'
 ask|git -C . commit -m "chore [deploy]"
 # Deliberate: ci/deploy workflows match the marker anywhere in the message, even in prose.
 ask|git commit -m "docs: explain the [deploy] marker"
+# --- DCO: only a person signs off ---
+ask|git commit -s -m "feat: x"
+ask|git commit -sm "feat: x"
+ask|git -c user.name=Claude commit -qsam "x"
+ask|git commit --signoff -m x
+ask|git rebase --signoff origin/main
 # --- deletes ---
 ask|rm -rf build
 ask|rm -fr /tmp/x
@@ -93,6 +99,8 @@ pass|git push -u origin claude/culvert-autonomous-workflow-bbswrz
 pass|git push
 pass|git push origin feature-main-thing
 pass|git status
+pass|git commit -S -m "gpg-signed, not a DCO sign-off"
+pass|git commit -m "docs: the DCO sign-off rule"
 pass|git tag
 pass|git tag -l
 pass|git tag --list 'v*'

@@ -58,6 +58,7 @@ sprint. Outside a sprint, the loop is the default.
   - `mvn deploy`, the `release` profile, `mvn -P it verify`, `twine upload`, `hatch publish` and `gh release|workflow|secret`;
   - `gcloud`, `gsutil`, `bq`, `kubectl`, `helm install|upgrade|uninstall`, `terraform apply|destroy`, and the `scripts/gcp/` scripts;
   - `reset --hard`, `clean -f` and recursive `rm`.
+  - `git commit -s` / `--signoff`: a DCO sign-off is a person's certification, never Claude's.
 
   The cases are pinned in `.claude/hooks/test-hooks.sh`.
 
@@ -79,6 +80,13 @@ its own loop:
   a link to it is fine; the reverse is not.
 - The book session reads this repo side by side. Locally, the folder is still
   `gcp-pipeline-reference/`, so the book session starts with `claude --add-dir ../gcp-pipeline-reference`.
+
+**Releases are batched (Joseph, 2026-09-26).** Features merge into `main` one PR at a time, but a
+release happens only once a chunk of features is done: the `wave:W1` set on the Release board. No PR
+bumps a version, tags or publishes. Each PR adds its line under `## [Unreleased]` in `CHANGELOG.md`.
+When every W1 item is closed, `/groom` proposes the release on the board, and Joseph decides. Then one
+release PR sets the version and turns `[Unreleased]` into the version's section. Joseph tags it and runs
+the publish by hand (`RELEASE.md`: the Maven Central Portal, then PyPI). Claude never publishes.
 
 **Every release reaches the site (Joseph, 2026-09-26).** `enrichmeai.github.io/culvert/` shows the released
 versions, every library, every pip extra and what each release added. Its `release-sync` workflow checks

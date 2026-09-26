@@ -47,6 +47,13 @@ check "${P}(twine[[:space:]]+upload|hatch[[:space:]]+publish|flit[[:space:]]+pub
 check "${P}gh[[:space:]]+(release|pr[[:space:]]+merge|repo[[:space:]]+(delete|edit|archive|rename)|workflow[[:space:]]+(run|enable|disable)|secret|variable|api[^|;&]*(-X|--method)[[:space:]=]*(DELETE|PUT|PATCH|POST))" 'GitHub merge, admin, release or dispatch'
 check "${P}pip3?[[:space:]]+install[^|;&]*(git\+|https?://|[[:space:]]-i[[:space:]]|--index-url|--extra-index-url)" 'pip install from a URL or another index'
 
+# DCO: a Signed-off-by certifies the Developer Certificate of Origin, which only a person can do
+# (CONTRIBUTING.md). Case-sensitive on purpose: -S is GPG signing, which is fine. 2026-09-26: Claude
+# committed with -s on the batched-releases branch; this guard is the compound step for it.
+if [ -z "$reason" ] && printf '%s' "$cmd" | grep -Eq -- 'git[^|;&]*[[:space:]](commit|rebase|am|cherry-pick)[^|;&]*[[:space:]](-[a-zA-RT-Z]*s[a-zA-Z]*|--signoff)([[:space:]]|$)'; then
+  reason='DCO sign-off (-s/--signoff): only a person can certify the DCO — never Claude'
+fi
+
 # A push with no refspec pushes the current branch: when that is main, it is a push to main.
 if [ -z "$reason" ] && printf '%s' "$cmd" | grep -Eq 'git[^|;&]*[[:space:]]push([[:space:]]|$)'; then
   dir=$(jq -r '.cwd // empty' <<<"$input"); [ -d "$dir" ] || dir=.
