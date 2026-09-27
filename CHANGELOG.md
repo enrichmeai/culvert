@@ -84,6 +84,18 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+### Added
+
+- **`BigQueryWarehouse.merge()` works** (Java and Python, #206). It upserts
+  the source into the target with one GoogleSQL `MERGE`, taking the column
+  list from the target table's schema: non-key columns are updated, and all
+  columns are inserted. It returns the DML affected-row count. A key that is
+  not a target column is refused, naming it, before anything runs. It used to
+  throw `UnsupportedOperationException` / `NotImplementedError`. The Warehouse
+  contract tests now cover `merge` in both languages. A backend declares
+  `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
+  (no MERGE outside Iceberg tables).
+
 ### Changed
 
 - **Relicensed from MIT to Apache License 2.0** (2026-08-20). Rationale: an

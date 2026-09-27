@@ -50,8 +50,8 @@ import java.util.Objects;
  *       not assume). Rather than silently emulate MERGE with a DELETE+INSERT
  *       pair (which is not atomic and would misrepresent the contract's
  *       "matched rows are updated" semantics), this method throws
- *       {@link UnsupportedOperationException}, matching the sprint-scope
- *       decision documented on {@code BigQueryWarehouse#merge}.</li>
+ *       {@link UnsupportedOperationException}. The contract tests hold it to
+ *       that refusal ({@code WarehouseContractTest#mergeSupported}).</li>
  *   <li>{@link #loadFromUri} (implemented Sprint 22): Athena has no bulk-load
  *       API analogous to BigQuery's {@code LoadJobConfiguration}, so the load
  *       is the native Athena idiom — a run-scoped all-string external table
@@ -427,8 +427,8 @@ public final class AthenaWarehouse implements Warehouse {
         }
         // See the class Javadoc "Honest limitations" section: Athena has no
         // MERGE statement outside Iceberg-backed tables, which this adapter
-        // does not assume. Mirrors BigQueryWarehouse#merge's sprint-scope
-        // decision rather than faking atomicity with DELETE+INSERT.
+        // does not assume. Refuse rather than fake atomicity with
+        // DELETE+INSERT.
         throw new UnsupportedOperationException(
                 "merge() is not supported by AthenaWarehouse: Athena has no MERGE statement for "
                         + "non-Iceberg tables, and emulating one via DELETE+INSERT would not be atomic "

@@ -12,9 +12,12 @@ import com.google.cloud.bigquery.FieldValueList;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobStatistics.LoadStatistics;
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.JobStatus;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
@@ -138,20 +141,112 @@ class BigQueryWarehouseTest {
 
     // --- merge -------------------------------------------------------------
 
+    /** Stubs the target's schema and a MERGE job reporting {@code affected} DML rows. */
+    private void stubMerge(TableId target, Schema schema, Long affected) throws InterruptedException {
+        stubTarget(target, schema);
+        Job submitted = org.mockito.Mockito.mock(Job.class);
+        Job completed = org.mockito.Mockito.mock(Job.class);
+        QueryStatistics stats = org.mockito.Mockito.mock(QueryStatistics.class);
+        when(stats.getNumDmlAffectedRows()).thenReturn(affected);
+        when(completed.getStatistics()).thenReturn(stats);
+        when(submitted.waitFor()).thenReturn(completed);
+        when(client.create(any(JobInfo.class))).thenReturn(submitted);
+    }
+
+    private void stubTarget(TableId target, Schema schema) {
+        Table table = org.mockito.Mockito.mock(Table.class);
+        when(table.getDefinition()).thenReturn(StandardTableDefinition.of(schema));
+        when(client.getTable(target)).thenReturn(table);
+    }
+
+    private String capturedMergeSql() {
+        ArgumentCaptor<JobInfo> job = ArgumentCaptor.forClass(JobInfo.class);
+        verify(client).create(job.capture());
+        QueryJobConfiguration config = job.getValue().getConfiguration();
+        assertThat(config.useLegacySql()).isFalse();
+        return config.getQuery();
+    }
+
     @Test
-    void mergeThrowsUnsupportedOperationPendingColumnAwareSql() {
-        // Column-aware MERGE (BigQuery doesn't accept `SET t.* = s.*`) is
-        // deferred to sprint-4. The contract method exists so that callers
-        // get a clear "use execute() with explicit SQL" signal rather than
-        // silent data loss.
+    void mergeUpdatesNonKeyColumnsAndInsertsAllFromTheTargetSchema() throws InterruptedException {
+        stubMerge(TableId.of("my-project", "ds", "fact"), Schema.of(
+                Field.of("id", StandardSQLTypeName.INT64),
+                Field.of("region", StandardSQLTypeName.STRING),
+                Field.of("name", StandardSQLTypeName.STRING),
+                Field.of("amount", StandardSQLTypeName.NUMERIC)), 7L);
+
+        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
+        long affected = warehouse.merge("ds.staging", "my-project.ds.fact", List.of("ID", "region"));
+
+        assertThat(affected).isEqualTo(7L);
+        // Unqualified source resolves to the warehouse's project; keys match
+        // case-insensitively and are written in the target's spelling.
+        assertThat(capturedMergeSql()).isEqualTo(
+                "MERGE `my-project.ds.fact` T\n"
+                        + "USING `" + PROJECT_ID + ".ds.staging` S\n"
+                        + "ON T.`id` = S.`id` AND T.`region` = S.`region`\n"
+                        + "WHEN MATCHED THEN UPDATE SET `name` = S.`name`, `amount` = S.`amount`\n"
+                        + "WHEN NOT MATCHED THEN INSERT (`id`, `region`, `name`, `amount`) "
+                        + "VALUES (S.`id`, S.`region`, S.`name`, S.`amount`)");
+    }
+
+    @Test
+    void mergeOnAKeyOnlyTableOnlyInserts() throws InterruptedException {
+        // Nothing to update: GoogleSQL's UPDATE SET needs at least one item,
+        // so the statement carries only the NOT MATCHED clause.
+        stubMerge(TableId.of("my-project", "ds", "keys"),
+                Schema.of(Field.of("id", StandardSQLTypeName.INT64)), 3L);
+
+        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
+        long affected = warehouse.merge("my-project.ds.new_keys", "my-project.ds.keys", List.of("id"));
+
+        assertThat(affected).isEqualTo(3L);
+        assertThat(capturedMergeSql())
+                .doesNotContain("WHEN MATCHED")
+                .endsWith("WHEN NOT MATCHED THEN INSERT (`id`) VALUES (S.`id`)");
+    }
+
+    @Test
+    void mergeRejectsAKeyMissingFromTheTargetNamingItBeforeRunningAnything() {
+        stubTarget(TableId.of("my-project", "ds", "fact"),
+                Schema.of(Field.of("id", StandardSQLTypeName.INT64)));
+
         BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
         assertThatThrownBy(() -> warehouse.merge(
-                        "my-project.ds.staging",
-                        "my-project.ds.fact",
-                        List.of("id")))
-                .isInstanceOf(UnsupportedOperationException.class)
-                .hasMessageContaining("sprint-4")
-                .hasMessageContaining("execute");
+                        "my-project.ds.staging", "my-project.ds.fact", List.of("customer_id")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("customer_id")
+                .hasMessageContaining("my-project.ds.fact");
+        verify(client, org.mockito.Mockito.never()).create(any(JobInfo.class));
+    }
+
+    @Test
+    void mergeRejectsAMissingTarget() {
+        when(client.getTable(TableId.of("my-project", "ds", "absent"))).thenReturn(null);
+
+        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
+        assertThatThrownBy(() -> warehouse.merge(
+                        "my-project.ds.staging", "my-project.ds.absent", List.of("id")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("my-project.ds.absent");
+    }
+
+    @Test
+    void mergeReportsZeroWhenBigQueryGivesNoDmlCount() throws InterruptedException {
+        stubMerge(TableId.of("my-project", "ds", "fact"),
+                Schema.of(Field.of("id", StandardSQLTypeName.INT64)), null);
+
+        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
+        assertThat(warehouse.merge("my-project.ds.staging", "my-project.ds.fact", List.of("id")))
+                .isZero();
+    }
+
+    @Test
+    void mergeEscapesBackticksInIdentifiers() {
+        assertThat(BigQueryWarehouse.mergeSql(
+                        TableId.of("p", "d", "s"), TableId.of("p", "d", "t"),
+                        List.of("id", "we`ird"), List.of("id")))
+                .contains("UPDATE SET `we\\`ird` = S.`we\\`ird`");
     }
 
     @Test

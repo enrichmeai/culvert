@@ -42,7 +42,7 @@ public interface Warehouse {
 | `query` | `client.query(QueryJobConfiguration)` returning a `TableResult`; rows streamed lazily via `iterateAll()` |
 | `execute` | Same as `query`; returned `TableResult` is discarded |
 | `loadFromUri` | `LoadJobConfiguration` from a `gs://` URI, with the caller's `LoadOptions` write disposition and optional partition decorator; returns `LoadStatistics.outputRows` |
-| `merge` | Throws `UnsupportedOperationException` in sprint-1. BigQuery `MERGE` needs explicit non-key columns in `WHEN MATCHED THEN UPDATE SET ...` (no `SET t.* = s.*` shorthand); generating them requires a source-schema lookup that's deferred to sprint-4. Use `execute(String, Map)` with an explicit MERGE statement until then. |
+| `merge` | One GoogleSQL `MERGE`, with the column list read from the target table's schema: non-key columns go in `WHEN MATCHED THEN UPDATE SET` (BigQuery has no `SET t.* = s.*`), and all columns go in `WHEN NOT MATCHED THEN INSERT`. A key-only target gets only the insert clause. Returns the DML affected-row count. Throws `IllegalArgumentException`, naming the key, when a key is not a target column. |
 | `copy` | `CopyJobConfiguration`; returns the target table's row count after the copy completes |
 | `tableExists` | `client.getTable(TableId)`; returns `false` on `null` or a 404 `BigQueryException` |
 

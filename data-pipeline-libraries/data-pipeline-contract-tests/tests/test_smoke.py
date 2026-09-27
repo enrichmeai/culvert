@@ -35,6 +35,8 @@ def test_mixins_have_expected_methods():
     assert hasattr(WarehouseContract, "test_table_exists_known_true")
     assert hasattr(WarehouseContract, "test_table_exists_missing_false")
     assert hasattr(WarehouseContract, "test_null_sql_rejected")
+    assert hasattr(WarehouseContract, "test_merge_upserts_on_keys_and_reports_rows_affected")
+    assert hasattr(WarehouseContract, "test_unsupported_merge_raises_rather_than_pretending")
 
     # StageMetricsHookContract — derived from StageMetricsHook interface
     # (no Java AbstractStageMetricsHookContractTest exists)

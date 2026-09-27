@@ -7,8 +7,13 @@ import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldValue;
 import com.google.cloud.bigquery.FieldValueList;
+import com.google.cloud.bigquery.Job;
+import com.google.cloud.bigquery.JobInfo;
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.StandardTableDefinition;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
@@ -47,6 +52,7 @@ class BigQueryWarehouseContractTest extends WarehouseContractTest {
     private static final String PROJECT_ID = "contract-project";
     private static final String KNOWN_TABLE = "contract_ds.contract_test_table";
     private static final String MISSING_TABLE = "contract_ds.contract_missing_table";
+    private static final String MERGE_SOURCE = "contract_ds.contract_merge_source";
 
     /**
      * BigQuery requires {@code dataset.table} qualified names; override the
@@ -67,12 +73,17 @@ class BigQueryWarehouseContractTest extends WarehouseContractTest {
     }
 
     @Override
+    protected String mergeSourceTable() {
+        return MERGE_SOURCE;
+    }
+
+    @Override
     protected Warehouse warehouse() {
         BigQuery client = mock(BigQuery.class);
 
         // --- query stub: return one row {id: "1"} for any SQL ---
         Schema schema = Schema.of(
-                Field.of("id", com.google.cloud.bigquery.StandardSQLTypeName.INT64));
+                Field.of("id", StandardSQLTypeName.INT64));
         FieldValueList row = FieldValueList.of(
                 List.of(FieldValue.of(FieldValue.Attribute.PRIMITIVE, "1")));
         @SuppressWarnings("unchecked")
@@ -91,6 +102,24 @@ class BigQueryWarehouseContractTest extends WarehouseContractTest {
         Table knownTable = mock(Table.class);
         when(client.getTable(TableId.of(PROJECT_ID, "contract_ds", "contract_test_table")))
                 .thenReturn(knownTable);
+        // merge reads the target's schema for its column list
+        when(knownTable.getDefinition()).thenReturn(StandardTableDefinition.of(Schema.of(
+                Field.of("id", StandardSQLTypeName.STRING),
+                Field.of("name", StandardSQLTypeName.STRING))));
+
+        // --- merge stub: the MERGE job completes and reports 2 affected rows ---
+        Job submitted = mock(Job.class);
+        Job completed = mock(Job.class);
+        QueryStatistics stats = mock(QueryStatistics.class);
+        when(stats.getNumDmlAffectedRows()).thenReturn(2L);
+        when(completed.getStatistics()).thenReturn(stats);
+        when(client.create(any(JobInfo.class))).thenReturn(submitted);
+        try {
+            when(submitted.waitFor()).thenReturn(completed);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("mock setup interrupted", e);
+        }
 
         // missingTable: parseFqtn resolves to TableId(PROJECT_ID, "contract_ds", "contract_missing_table") → null
         when(client.getTable(TableId.of(PROJECT_ID, "contract_ds", "contract_missing_table")))

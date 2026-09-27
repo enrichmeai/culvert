@@ -128,17 +128,52 @@ class BigQueryWarehouse:
         target_table: str,
         keys: List[str],
     ) -> int:
-        """MERGE source into target on `keys`. Returns rows affected.
+        """Upsert ``source_table`` into ``target_table`` with one GoogleSQL MERGE.
 
-        Sprint-3 caveat: column-aware MERGE generation requires a schema
-        lookup; that's sprint-4 scope. This raises NotImplementedError
-        until then. Callers needing MERGE today should use ``execute()``
-        with an explicit MERGE statement.
+        Returns the statement's DML affected-row count (updated plus
+        inserted).
+
+        The column list comes from the *target* table's schema: matched rows
+        get ``UPDATE SET`` on every non-key column, and unmatched source rows
+        are inserted with every target column. BigQuery has no
+        ``SET t.* = s.*``, so the list has to be spelled out. A key-only target
+        has nothing to update, so its statement has only the
+        ``WHEN NOT MATCHED`` clause. The source must have every target column.
+        Rows are matched with ``=``, so a NULL key never matches and its row is
+        inserted. BigQuery fails the statement when one target row matches more
+        than one source row. A missing target raises the client's ``NotFound``.
+
+        Raises ``ValueError`` for empty keys or a key that is not a target
+        column (the message names it), before anything runs.
+
+        Java sibling: ``BigQueryWarehouse#merge``.
         """
-        raise NotImplementedError(
-            "merge() requires column-aware SQL generation (sprint-4 scope). "
-            "Use execute(sql, params) with an explicit MERGE statement until then."
-        )
+        if source_table is None or target_table is None:
+            raise TypeError("source_table and target_table must not be None")
+        if keys is None:
+            raise TypeError("keys must not be None")
+        if len(keys) == 0:
+            raise ValueError("merge requires at least one key column")
+
+        columns = [field.name for field in self.client.get_table(target_table).schema]
+        if not columns:
+            raise ValueError(f"merge target table has no readable schema: {target_table}")
+        # BigQuery column names are case-insensitive: match keys that way, and
+        # write the target's own spelling into the statement.
+        by_lower_name = {column.lower(): column for column in columns}
+        key_columns = []
+        for key in keys:
+            column = by_lower_name.get(key.lower()) if isinstance(key, str) else None
+            if column is None:
+                raise ValueError(
+                    f"merge key '{key}' is not a column of target table "
+                    f"{target_table} (columns: {columns})"
+                )
+            key_columns.append(column)
+
+        job = self.client.query(merge_sql(source_table, target_table, columns, key_columns))
+        job.result()
+        return int(job.num_dml_affected_rows or 0)
 
     def copy(self, source_table: str, target_table: str) -> int:
         """Copy source_table to target_table; returns rows copied."""
@@ -162,3 +197,32 @@ class BigQueryWarehouse:
             # google.api_core.exceptions.NotFound — we catch broadly to
             # stay decoupled from the specific GCP exception import.
             return False
+
+
+def merge_sql(source_table: str, target_table: str, columns: List[str], keys: List[str]) -> str:
+    """The GoogleSQL MERGE for ``BigQueryWarehouse.merge``."""
+    on = " AND ".join(f"T.{_quote(k)} = S.{_quote(k)}" for k in keys)
+    non_keys = [c for c in columns if c not in keys]
+    sql = [
+        f"MERGE {_quote(target_table)} T",
+        f"USING {_quote(source_table)} S",
+        f"ON {on}",
+    ]
+    if non_keys:
+        sql.append(
+            "WHEN MATCHED THEN UPDATE SET "
+            + ", ".join(f"{_quote(c)} = S.{_quote(c)}" for c in non_keys)
+        )
+    sql.append(
+        "WHEN NOT MATCHED THEN INSERT ("
+        + ", ".join(_quote(c) for c in columns)
+        + ") VALUES ("
+        + ", ".join(f"S.{_quote(c)}" for c in columns)
+        + ")"
+    )
+    return "\n".join(sql)
+
+
+def _quote(identifier: str) -> str:
+    """A GoogleSQL quoted identifier: backticks, with backslash and backtick escaped."""
+    return "`" + identifier.replace("\\", "\\\\").replace("`", "\\`") + "`"

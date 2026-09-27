@@ -14,6 +14,8 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assumptions.assumeFalse;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * Contract tests every {@link Warehouse} implementation must pass.
@@ -24,6 +26,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *       containing an {@code "id"} key</li>
  *   <li>{@code tableExists(knownTable())} returns true</li>
  *   <li>{@code tableExists(missingTable())} returns false (no throw)</li>
+ *   <li>{@code knownTable()} has an {@code id} column and no column named
+ *       {@code contract_no_such_column}, and {@code mergeSourceTable()} can be
+ *       merged into it on {@code id} (only when {@link #mergeSupported()})</li>
  * </ul>
  *
  * <p>Default table name tokens are plain identifiers. Cloud warehouses that
@@ -84,6 +89,27 @@ public abstract class WarehouseContractTest {
         return "gs://contract-bucket/contract.ndjson";
     }
 
+    /**
+     * Whether this backend implements {@link Warehouse#merge}.
+     *
+     * <p>Defaults to true. A backend that cannot express an upsert overrides it
+     * to false, which is a promise that {@code merge} <strong>throws</strong>
+     * {@link UnsupportedOperationException} naming the operation, rather than
+     * appending, or returning 0 as if nothing matched.
+     */
+    protected boolean mergeSupported() {
+        return true;
+    }
+
+    /**
+     * The source table for the merge cases, merged into {@link #knownTable()}
+     * on {@code id}. Must use the same qualification level as
+     * {@link #knownTable()}.
+     */
+    protected String mergeSourceTable() {
+        return "contract_merge_source";
+    }
+
     private static EntitySchema contractSchema() {
         return EntitySchema.of("contract", List.of(SchemaField.required("id", "STRING")));
     }
@@ -135,5 +161,40 @@ public abstract class WarehouseContractTest {
     void nullSqlRejected() {
         assertThatThrownBy(() -> warehouse().query(null, Map.of()))
                 .isInstanceOfAny(NullPointerException.class, IllegalArgumentException.class);
+    }
+
+    @Test
+    void mergeUpsertsOnKeysAndReportsRowsAffected() {
+        assumeTrue(mergeSupported(), "backend declares merge unsupported");
+        long affected = warehouse().merge(mergeSourceTable(), knownTable(), List.of("id"));
+        assertThat(affected).isGreaterThanOrEqualTo(0L);
+    }
+
+    @Test
+    void mergeRejectsAKeyTheTargetDoesNotHaveNamingIt() {
+        assumeTrue(mergeSupported(), "backend declares merge unsupported");
+        // A key that is not a target column can only produce a failing
+        // statement or a wrong join; name it before anything runs.
+        assertThatThrownBy(() -> warehouse().merge(
+                mergeSourceTable(), knownTable(), List.of("id", "contract_no_such_column")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("contract_no_such_column");
+    }
+
+    @Test
+    void mergeRejectsEmptyOrNullKeys() {
+        assumeTrue(mergeSupported(), "backend declares merge unsupported");
+        assertThatThrownBy(() -> warehouse().merge(mergeSourceTable(), knownTable(), List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatNullPointerException().isThrownBy(() ->
+                warehouse().merge(mergeSourceTable(), knownTable(), null));
+    }
+
+    @Test
+    void unsupportedMergeThrowsRatherThanPretending() {
+        assumeFalse(mergeSupported(), "backend supports merge");
+        assertThatThrownBy(() -> warehouse().merge(mergeSourceTable(), knownTable(), List.of("id")))
+                .isInstanceOf(UnsupportedOperationException.class)
+                .hasMessageContaining("merge");
     }
 }
