@@ -13,12 +13,14 @@ import com.google.cloud.bigquery.FormatOptions;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.JobInfo;
 import com.google.cloud.bigquery.JobStatistics.LoadStatistics;
+import com.google.cloud.bigquery.JobStatistics.QueryStatistics;
 import com.google.cloud.bigquery.LoadJobConfiguration;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.QueryParameterValue;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 
@@ -209,6 +211,25 @@ public final class BigQueryWarehouse implements Warehouse {
                 tableId.getTable() + "$" + partitionId);
     }
 
+    /**
+     * Upsert {@code sourceTable} into {@code targetTable} with one GoogleSQL
+     * {@code MERGE}.
+     *
+     * <p>The column list comes from the <em>target</em> table's schema:
+     * matched rows get {@code UPDATE SET} on every non-key column, and
+     * unmatched source rows are inserted with every target column. BigQuery
+     * has no {@code SET t.* = s.*}, so the list has to be spelled out. A
+     * key-only target has nothing to update, so its statement has only the
+     * {@code WHEN NOT MATCHED} clause. The source must have every target
+     * column. Rows are matched with {@code =}, so a NULL key never matches and
+     * its row is inserted. BigQuery fails the statement when one target row
+     * matches more than one source row.
+     *
+     * @return the statement's DML affected-row count (updated plus inserted).
+     * @throws IllegalArgumentException if {@code keys} is empty, the target
+     *         does not exist, or a key is not a target column (the message
+     *         names it).
+     */
     @Override
     public long merge(String sourceTable, String targetTable, List<String> keys) {
         Objects.requireNonNull(sourceTable, "sourceTable must not be null");
@@ -217,17 +238,91 @@ public final class BigQueryWarehouse implements Warehouse {
         if (keys.isEmpty()) {
             throw new IllegalArgumentException("merge requires at least one key column");
         }
-        // BigQuery's MERGE syntax requires explicit non-key column lists in
-        // `WHEN MATCHED THEN UPDATE SET ...`; `SET t.* = s.*` is not valid.
-        // Generating the column list requires a schema lookup against the
-        // source table, which expands this method's responsibility beyond
-        // sprint-1's "match the pilot's adaptation patterns" rule. Reserve
-        // column-aware MERGE for sprint-4 follow-up; callers that need it
-        // today can issue the MERGE via `execute(sql, params)` directly.
-        throw new UnsupportedOperationException(
-                "merge() is sprint-4 scope (requires column-aware SQL generation). "
-                        + "Use execute(String, Map) with an explicit MERGE statement until then. "
-                        + "Tracked at https://github.com/enrichmeai/culvert/issues/6");
+        TableId sourceId = parseFqtn(sourceTable);
+        TableId targetId = parseFqtn(targetTable);
+
+        List<String> columns = targetColumns(targetId, targetTable);
+        // BigQuery column names are case-insensitive: match keys that way, and
+        // write the target's own spelling into the statement.
+        Map<String, String> byLowerName = new LinkedHashMap<>();
+        for (String column : columns) {
+            byLowerName.put(column.toLowerCase(Locale.ROOT), column);
+        }
+        List<String> keyColumns = new ArrayList<>();
+        for (String key : keys) {
+            String column = key == null ? null : byLowerName.get(key.toLowerCase(Locale.ROOT));
+            if (column == null) {
+                throw new IllegalArgumentException("merge key '" + key
+                        + "' is not a column of target table " + targetTable
+                        + " (columns: " + columns + ")");
+            }
+            if (!keyColumns.contains(column)) {
+                keyColumns.add(column);
+            }
+        }
+
+        String sql = mergeSql(sourceId, targetId, columns, keyColumns);
+        QueryJobConfiguration config = QueryJobConfiguration.newBuilder(sql)
+                .setUseLegacySql(false)
+                .build();
+        Job completed = waitFor(client.create(JobInfo.of(config)));
+        QueryStatistics stats = completed.getStatistics();
+        Long affected = stats == null ? null : stats.getNumDmlAffectedRows();
+        return affected == null ? 0L : affected;
+    }
+
+    private List<String> targetColumns(TableId targetId, String targetTable) {
+        Table table = client.getTable(targetId);
+        if (table == null) {
+            throw new IllegalArgumentException("merge target table does not exist: " + targetTable);
+        }
+        TableDefinition definition = table.getDefinition();
+        Schema schema = definition == null ? null : definition.getSchema();
+        if (schema == null || schema.getFields().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "merge target table has no readable schema: " + targetTable);
+        }
+        List<String> columns = new ArrayList<>();
+        for (Field field : schema.getFields()) {
+            columns.add(field.getName());
+        }
+        return columns;
+    }
+
+    /** The GoogleSQL MERGE for {@link #merge}. Package-private for tests. */
+    static String mergeSql(TableId source, TableId target, List<String> columns, List<String> keys) {
+        String on = keys.stream()
+                .map(k -> "T." + quote(k) + " = S." + quote(k))
+                .collect(Collectors.joining(" AND "));
+        List<String> nonKeys = columns.stream()
+                .filter(c -> !keys.contains(c))
+                .collect(Collectors.toList());
+        StringBuilder sql = new StringBuilder()
+                .append("MERGE ").append(quote(target)).append(" T\n")
+                .append("USING ").append(quote(source)).append(" S\n")
+                .append("ON ").append(on).append('\n');
+        if (!nonKeys.isEmpty()) {
+            sql.append("WHEN MATCHED THEN UPDATE SET ")
+                    .append(nonKeys.stream()
+                            .map(c -> quote(c) + " = S." + quote(c))
+                            .collect(Collectors.joining(", ")))
+                    .append('\n');
+        }
+        sql.append("WHEN NOT MATCHED THEN INSERT (")
+                .append(columns.stream().map(BigQueryWarehouse::quote).collect(Collectors.joining(", ")))
+                .append(") VALUES (")
+                .append(columns.stream().map(c -> "S." + quote(c)).collect(Collectors.joining(", ")))
+                .append(')');
+        return sql.toString();
+    }
+
+    private static String quote(TableId id) {
+        return quote(id.getProject() + "." + id.getDataset() + "." + id.getTable());
+    }
+
+    /** A GoogleSQL quoted identifier: backticks, with backslash and backtick escaped. */
+    private static String quote(String identifier) {
+        return "`" + identifier.replace("\\", "\\\\").replace("`", "\\`") + "`";
     }
 
     @Override

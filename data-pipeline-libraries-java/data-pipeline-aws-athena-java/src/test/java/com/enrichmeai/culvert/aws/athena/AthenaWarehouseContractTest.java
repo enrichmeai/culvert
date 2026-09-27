@@ -71,6 +71,16 @@ class AthenaWarehouseContractTest extends WarehouseContractTest {
                 com.enrichmeai.culvert.contracts.LoadOptions.WriteDisposition.ERROR_IF_EXISTS);
     }
 
+    /**
+     * Athena has no MERGE outside Iceberg-backed tables, which this adapter does
+     * not assume, so it refuses rather than emulating one with DELETE+INSERT
+     * (see {@code AthenaWarehouse}'s "Honest limitations").
+     */
+    @Override
+    protected boolean mergeSupported() {
+        return false;
+    }
+
     @Override
     protected String loadUri() {
         return "s3://contract-bucket/contract.ndjson";

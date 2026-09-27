@@ -32,7 +32,7 @@ for row in warehouse.query("SELECT id, name FROM dataset.customers"):
 | `query(sql, params=None)` | Lazy iterator of result dicts |
 | `execute(sql, params=None)` | DML/DDL; result discarded |
 | `load_from_uri(uri, target_table, schema, options)` | Bulk-load GCS URI with an explicit `LoadOptions` write disposition; returns rows loaded |
-| `merge(source_table, target_table, keys)` | Raises `NotImplementedError` — sprint-4 scope |
+| `merge(source_table, target_table, keys)` | One GoogleSQL `MERGE`, with the column list read from the target table's schema: non-key columns are updated, and all columns are inserted. Returns the DML affected-row count. Raises `ValueError`, naming the key, when a key is not a target column. |
 | `copy(source_table, target_table)` | Returns target's post-copy row count |
 | `table_exists(fqtn)` | True/False, no exception on 404 |
 

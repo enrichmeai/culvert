@@ -9,6 +9,7 @@ import pytest
 from data_pipeline_contract_tests import WarehouseContract
 from data_pipeline_core.contracts.warehouse import LoadOptions
 from data_pipeline_gcp_bigquery import BigQueryWarehouse
+from data_pipeline_gcp_bigquery.warehouse import merge_sql
 
 
 @pytest.fixture
@@ -44,14 +45,15 @@ class TestBigQueryWarehouseContract(WarehouseContract):
         # table_exists: returns True for the known table, False for missing
         def _get_table(fqtn):
             if fqtn == "contract_test_table":
-                return MagicMock()
+                # merge reads the target's schema for its column list
+                return _table("id", "name")
             raise Exception(f"Not found: {fqtn}")
 
         client.get_table.side_effect = _get_table
+        # the MERGE job reports 2 affected rows
+        job.num_dml_affected_rows = 2
 
         return BigQueryWarehouse("test-project", client)
-
-
 
 
 def test_constructor_rejects_none_project():
@@ -148,10 +150,86 @@ def test_load_from_uri_requires_options(mock_client):
         w.load_from_uri("gs://bucket/file.csv", "ds.t", schema=MagicMock())
 
 
-def test_merge_is_unimplemented(mock_client):
+def _table(*columns):
+    table = MagicMock()
+    fields = []
+    for name in columns:
+        field = MagicMock()
+        field.name = name
+        fields.append(field)
+    table.schema = fields
+    return table
+
+
+def _stub_merge(client, columns, affected):
+    client.get_table.return_value = _table(*columns)
+    job = MagicMock()
+    job.num_dml_affected_rows = affected
+    client.query.return_value = job
+    return job
+
+
+def test_merge_updates_non_key_columns_and_inserts_all_from_the_target_schema(mock_client):
+    job = _stub_merge(mock_client, ["id", "region", "name", "amount"], 7)
     w = BigQueryWarehouse("my-project", mock_client)
-    with pytest.raises(NotImplementedError):
-        w.merge("src", "tgt", ["id"])
+
+    assert w.merge("ds.staging", "my-project.ds.fact", ["ID", "region"]) == 7
+
+    mock_client.get_table.assert_called_once_with("my-project.ds.fact")
+    job.result.assert_called_once()
+    # Keys match case-insensitively and are written in the target's spelling.
+    assert mock_client.query.call_args.args[0] == (
+        "MERGE `my-project.ds.fact` T\n"
+        "USING `ds.staging` S\n"
+        "ON T.`id` = S.`id` AND T.`region` = S.`region`\n"
+        "WHEN MATCHED THEN UPDATE SET `name` = S.`name`, `amount` = S.`amount`\n"
+        "WHEN NOT MATCHED THEN INSERT (`id`, `region`, `name`, `amount`) "
+        "VALUES (S.`id`, S.`region`, S.`name`, S.`amount`)"
+    )
+
+
+def test_merge_on_a_key_only_table_only_inserts(mock_client):
+    # Nothing to update: GoogleSQL's UPDATE SET needs at least one item.
+    _stub_merge(mock_client, ["id"], 3)
+    w = BigQueryWarehouse("my-project", mock_client)
+
+    assert w.merge("ds.new_keys", "ds.keys", ["id"]) == 3
+
+    sql = mock_client.query.call_args.args[0]
+    assert "WHEN MATCHED" not in sql
+    assert sql.endswith("WHEN NOT MATCHED THEN INSERT (`id`) VALUES (S.`id`)")
+
+
+def test_merge_rejects_a_key_missing_from_the_target_naming_it_before_running_anything(mock_client):
+    _stub_merge(mock_client, ["id"], 0)
+    w = BigQueryWarehouse("my-project", mock_client)
+
+    with pytest.raises(ValueError, match="customer_id") as err:
+        w.merge("ds.staging", "ds.fact", ["customer_id"])
+
+    assert "ds.fact" in str(err.value)
+    mock_client.query.assert_not_called()
+
+
+def test_merge_joins_once_on_a_key_named_twice(mock_client):
+    _stub_merge(mock_client, ["id", "name"], 1)
+    w = BigQueryWarehouse("my-project", mock_client)
+
+    w.merge("ds.staging", "ds.fact", ["id", "ID"])
+
+    assert "ON T.`id` = S.`id`\nWHEN MATCHED" in mock_client.query.call_args.args[0]
+
+
+def test_merge_reports_zero_when_bigquery_gives_no_dml_count(mock_client):
+    _stub_merge(mock_client, ["id"], None)
+    w = BigQueryWarehouse("my-project", mock_client)
+
+    assert w.merge("ds.staging", "ds.fact", ["id"]) == 0
+
+
+def test_merge_escapes_backticks_in_identifiers():
+    sql = merge_sql("p.d.s", "p.d.t", ["id", "we`ird"], ["id"])
+    assert "UPDATE SET `we\\`ird` = S.`we\\`ird`" in sql
 
 
 def test_copy_returns_target_row_count(mock_client):
