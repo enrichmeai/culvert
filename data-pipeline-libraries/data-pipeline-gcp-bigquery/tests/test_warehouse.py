@@ -211,6 +211,15 @@ def test_merge_rejects_a_key_missing_from_the_target_naming_it_before_running_an
     mock_client.query.assert_not_called()
 
 
+def test_merge_joins_once_on_a_key_named_twice(mock_client):
+    _stub_merge(mock_client, ["id", "name"], 1)
+    w = BigQueryWarehouse("my-project", mock_client)
+
+    w.merge("ds.staging", "ds.fact", ["id", "ID"])
+
+    assert "ON T.`id` = S.`id`\nWHEN MATCHED" in mock_client.query.call_args.args[0]
+
+
 def test_merge_reports_zero_when_bigquery_gives_no_dml_count(mock_client):
     _stub_merge(mock_client, ["id"], None)
     w = BigQueryWarehouse("my-project", mock_client)

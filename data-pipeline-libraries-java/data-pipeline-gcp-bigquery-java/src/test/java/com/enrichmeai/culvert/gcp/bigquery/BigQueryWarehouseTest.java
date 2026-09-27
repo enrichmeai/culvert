@@ -232,6 +232,18 @@ class BigQueryWarehouseTest {
     }
 
     @Test
+    void mergeJoinsOnceOnAKeyNamedTwice() throws InterruptedException {
+        stubMerge(TableId.of("my-project", "ds", "fact"), Schema.of(
+                Field.of("id", StandardSQLTypeName.INT64),
+                Field.of("name", StandardSQLTypeName.STRING)), 1L);
+
+        BigQueryWarehouse warehouse = new BigQueryWarehouse(PROJECT_ID, client);
+        warehouse.merge("my-project.ds.staging", "my-project.ds.fact", List.of("id", "ID"));
+
+        assertThat(capturedMergeSql()).contains("ON T.`id` = S.`id`\nWHEN MATCHED");
+    }
+
+    @Test
     void mergeReportsZeroWhenBigQueryGivesNoDmlCount() throws InterruptedException {
         stubMerge(TableId.of("my-project", "ds", "fact"),
                 Schema.of(Field.of("id", StandardSQLTypeName.INT64)), null);

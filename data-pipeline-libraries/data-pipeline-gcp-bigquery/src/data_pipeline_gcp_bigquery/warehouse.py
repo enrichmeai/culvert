@@ -169,7 +169,8 @@ class BigQueryWarehouse:
                     f"merge key '{key}' is not a column of target table "
                     f"{target_table} (columns: {columns})"
                 )
-            key_columns.append(column)
+            if column not in key_columns:
+                key_columns.append(column)
 
         job = self.client.query(merge_sql(source_table, target_table, columns, key_columns))
         job.result()

@@ -256,7 +256,9 @@ public final class BigQueryWarehouse implements Warehouse {
                         + "' is not a column of target table " + targetTable
                         + " (columns: " + columns + ")");
             }
-            keyColumns.add(column);
+            if (!keyColumns.contains(column)) {
+                keyColumns.add(column);
+            }
         }
 
         String sql = mergeSql(sourceId, targetId, columns, keyColumns);

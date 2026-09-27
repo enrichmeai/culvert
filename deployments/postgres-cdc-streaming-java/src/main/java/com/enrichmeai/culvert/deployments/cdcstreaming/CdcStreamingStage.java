@@ -195,9 +195,7 @@ public final class CdcStreamingStage implements PipelineStage, Serializable {
      * Append-only streaming insert via {@link Warehouse#execute(String, Map)}.
      * See the class Javadoc "ODP write semantics" section for why this is a
      * parameterised {@code INSERT} rather than a first-class streaming-insert
-     * API call or a {@code MERGE} (the latter throws
-     * {@code UnsupportedOperationException} on this branch's
-     * {@code BigQueryWarehouse}).
+     * API call or a {@code MERGE}.
      */
     private void writeToOdp(List<Map<String, Object>> rows) {
         for (Map<String, Object> row : rows) {

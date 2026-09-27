@@ -116,6 +116,7 @@ marks it ✓ and deletes this note.
 | Dataflow | https://cloud.google.com/dataflow/docs |
 | BigQuery Java client | https://cloud.google.com/java/docs/reference/google-cloud-bigquery/latest/overview |
 | BigQuery Python client | https://cloud.google.com/python/docs/reference/bigquery/latest |
+| GoogleSQL DML (`MERGE`) and quoted identifiers ✓ | https://raw.githubusercontent.com/google/zetasql/master/docs/data-manipulation-language.md · https://raw.githubusercontent.com/google/zetasql/master/docs/lexical.md. Fetched 2026-09-27 (#206) when `docs.cloud.google.com` was blocked by egress. Reading the pinned client SDK itself (`javap` on the 2.40.1 jar in `~/.m2`, the installed Python package source) is the fallback for API signatures |
 | GCS Java / Python clients | https://cloud.google.com/java/docs/reference/google-cloud-storage/latest/overview · https://cloud.google.com/python/docs/reference/storage/latest |
 | Pub/Sub Java / Python clients | https://cloud.google.com/java/docs/reference/google-cloud-pubsub/latest/overview · https://cloud.google.com/python/docs/reference/pubsub/latest |
 | Secret Manager | https://cloud.google.com/secret-manager/docs |
