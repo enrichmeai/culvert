@@ -54,6 +54,12 @@
             <artifactId>data-pipeline-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-contract-tests</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Google Cloud Pub/Sub (version managed by libraries-bom) -->
         <dependency>
