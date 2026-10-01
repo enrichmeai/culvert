@@ -8,7 +8,40 @@ scheme-sniffing in framework code.
 
 from __future__ import annotations
 
-from typing import BinaryIO, Iterator, Protocol, runtime_checkable
+from dataclasses import dataclass, field
+from datetime import datetime
+from types import MappingProxyType
+from typing import BinaryIO, Iterator, Mapping, Optional, Protocol, runtime_checkable
+
+
+@dataclass(frozen=True)
+class BlobMetadata:
+    """What `BlobStore.head` reports about an object, without its bytes.
+
+    Java mirror: ``com.enrichmeai.culvert.contracts.BlobMetadata``. No field is
+    ever None except `last_modified`: `etag` is `""` for a store that reports
+    no version token, and `metadata` is an empty mapping when there is none.
+    `metadata` is read-only.
+    """
+
+    uri: str
+    size: int
+    etag: str
+    last_modified: Optional[datetime] = None
+    metadata: Mapping[str, str] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.uri is None:
+            raise TypeError("uri must not be None")
+        if self.etag is None:
+            raise TypeError(
+                "etag must not be None: pass an empty string for a store that reports none"
+            )
+        if self.metadata is None:
+            raise TypeError("metadata must not be None: pass an empty mapping")
+        if self.size < 0:
+            raise ValueError(f"size must not be negative: {self.size}")
+        object.__setattr__(self, "metadata", MappingProxyType(dict(self.metadata)))
 
 
 @runtime_checkable
@@ -60,6 +93,20 @@ class BlobStore(Protocol):
 
     def exists(self, uri: str) -> bool:
         """Return True if an object exists at `uri`."""
+        ...
+
+    def head(self, uri: str) -> BlobMetadata:
+        """Describe the object at `uri` without reading it.
+
+        Returns its size, the store's version token (ETag), last-modified time
+        and custom metadata. The version token is the point: a loader that
+        must be idempotent keys on `(uri, etag)`, so an object already loaded
+        at that ETag is skipped and a republished one is loaded as new.
+        `list` and `exists` cannot answer that, and reading the object to find
+        out costs the bytes the question exists to avoid.
+
+        Raises FileNotFoundError if the object does not exist, as `get` does.
+        """
         ...
 
     def delete(self, uri: str) -> None:

@@ -20,6 +20,7 @@ from data_pipeline_core import (
     SecretProvider,
 )
 from data_pipeline_core.audit.events import AuditEvent, EventKind
+from data_pipeline_core.contracts.blob_store import BlobMetadata
 from data_pipeline_core.finops_api.labels import FinOpsTag
 from data_pipeline_core.finops_api.models import CostMetrics
 from data_pipeline_core.job_control_api.models import (
@@ -55,6 +56,11 @@ class _FakeBlobStore:
 
     def exists(self, uri: str) -> bool:
         return uri in self._store
+
+    def head(self, uri: str) -> BlobMetadata:
+        if uri not in self._store:
+            raise FileNotFoundError(uri)
+        return BlobMetadata(uri=uri, size=len(self._store[uri]), etag=str(hash(self._store[uri])))
 
     def delete(self, uri: str) -> None:
         self._store.pop(uri, None)
@@ -235,3 +241,16 @@ def test_partial_blob_store_does_not_satisfy_protocol() -> None:
     # Note: runtime_checkable Protocols check for method names only, not signatures.
     # This test demonstrates the boundary: missing methods => not an instance.
     assert not isinstance(_IncompleteBlobStore(), BlobStore)
+
+
+def test_blob_metadata_never_holds_none_where_the_contract_says_string_or_mapping():
+    # Java: BlobMetadata's compact constructor refuses the same.
+    with pytest.raises(TypeError):
+        BlobMetadata(uri="gs://b/o", size=1, etag=None)
+    with pytest.raises(TypeError):
+        BlobMetadata(uri="gs://b/o", size=1, etag="", metadata=None)
+    with pytest.raises(ValueError):
+        BlobMetadata(uri="gs://b/o", size=-1, etag="")
+    meta = BlobMetadata(uri="gs://b/o", size=0, etag="")
+    assert meta.last_modified is None
+    assert dict(meta.metadata) == {}
