@@ -17,15 +17,18 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /**
  * Contract tests every {@link Sink} implementation must pass.
  *
- * <p>Written from the {@link Sink} Javadoc, not from one adapter. It guarantees
- * ordering only within a single {@code write}, so the order tested here is the
- * order in which the sink hands records to its backend. Whether the backend
- * then delivers them in that order (Pub/Sub without ordering keys, an SQS
- * standard queue: it does not) is outside the contract.
+ * <p>The {@link Sink} Javadoc guarantees ordering only within a single
+ * {@code write}. This suite tests the part of that guarantee every reading
+ * shares: the sink hands records to its backend in iterator order. Whether the
+ * guarantee also covers delivery order is open (#207): Pub/Sub without
+ * ordering keys and an SQS standard queue do not deliver in order.
  *
- * <p>Beyond order, a write must never lose a record without saying so: a
- * {@code null} record, a backend that rejects a write, and a write to a closed
- * sink all fail with an exception rather than returning normally.
+ * <p>The null and close cases go beyond the {@link Sink} Javadoc, which says
+ * nothing about either. They state the rule both adapters already follow:
+ * a write must never lose a record without saying so. A {@code null} record,
+ * a backend that rejects a write, and a write to a closed sink all fail with
+ * an exception rather than returning normally. The rule is proposed for
+ * {@code docs/CONTRACT.md} in #207.
  *
  * <p>Subclasses wire the sink to a backend double and provide:
  * <ul>

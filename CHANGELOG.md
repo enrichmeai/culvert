@@ -102,8 +102,8 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   - a write hands records to the backend in iterator order;
   - a `null` record, a rejected write, and a closed source or sink all fail
     loudly rather than losing data quietly.
-  `PubSubSource`/`PubSubSink` and `SqsSource`/`SqsSink` pass them. Neither
-  interface promises end-to-end delivery order, and the suites do not test it.
+  `PubSubSource`/`PubSubSink` and `SqsSource`/`SqsSink` pass them. Whether
+  a sink's order guarantee also covers delivery order is still open (#207).
 
 ### Changed
 

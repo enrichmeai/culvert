@@ -16,11 +16,17 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 /**
  * Contract tests every {@link Source} implementation must pass.
  *
- * <p>Written from the {@link Source} Javadoc, not from one adapter: {@code read}
- * returns an iterator over the records the backend holds, it never returns
- * {@code null}, and it never yields a {@code null} record. The contract makes
- * no promise about the order in which a backend delivers records, so none is
- * tested here.
+ * <p>{@code read} returns an iterator over the records the backend holds, never
+ * {@code null} and never containing a {@code null} record. The {@link Source}
+ * Javadoc makes no promise about order, so none is tested. It requires
+ * {@code read} to be lazy: a source that reads one bounded batch per call (a
+ * Pub/Sub pull, an SQS receive) meets that, because it never materialises the
+ * whole backlog. The contract is silent on when a record is acknowledged; each
+ * adapter documents its own delivery model.
+ *
+ * <p>The null and close cases go beyond the {@link Source} Javadoc. They state
+ * the rule both adapters already follow, proposed for {@code docs/CONTRACT.md}
+ * in #207.
  *
  * <p>Subclasses wire the source to a backend double (a mocked client, an
  * in-memory queue) and provide:
@@ -78,7 +84,7 @@ public abstract class SourceContractTest<T> {
     }
 
     @Test
-    void readYieldsEachBackloggedRecordOnceAndNoNulls() {
+    void readYieldsEveryBackloggedRecordAndNoNulls() {
         List<T> backlog = new ArrayList<>();
         for (int i = 0; i < BACKLOG_SIZE; i++) {
             backlog.add(record(i));
