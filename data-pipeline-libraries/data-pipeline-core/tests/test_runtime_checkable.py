@@ -254,3 +254,4 @@ def test_blob_metadata_never_holds_none_where_the_contract_says_string_or_mappin
     meta = BlobMetadata(uri="gs://b/o", size=0, etag="")
     assert meta.last_modified is None
     assert dict(meta.metadata) == {}
+    assert {meta, BlobMetadata(uri="gs://b/o", size=0, etag="")} == {meta}

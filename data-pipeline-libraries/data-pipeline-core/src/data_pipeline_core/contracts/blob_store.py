@@ -28,7 +28,9 @@ class BlobMetadata:
     size: int
     etag: str
     last_modified: Optional[datetime] = None
-    metadata: Mapping[str, str] = field(default_factory=dict)
+    # Left out of the hash (a read-only mapping is unhashable), so a
+    # BlobMetadata can still key a dict or sit in a set, as Java's record can.
+    metadata: Mapping[str, str] = field(default_factory=dict, hash=False)
 
     def __post_init__(self) -> None:
         if self.uri is None:
