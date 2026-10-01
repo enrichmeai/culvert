@@ -95,6 +95,18 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   contract tests now cover `merge` in both languages. A backend declares
   `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
   (no MERGE outside Iceberg tables).
+- **Lineage, FinOps and audit contract tests** (Java, #209).
+  `LineageEmitterContractTest` and `FinOpsSinkContractTest` check that a
+  complete or a minimal event or record is accepted, and that each one
+  reaches the backend once wherever the binding can observe it.
+  `AuditEventPublisherContractTest` checks every event kind through publish
+  and flush, flush on an empty buffer, and publish after flush. It also holds
+  the publisher to its no-silent-failure rule: losing a run-level event fails
+  the run, and losing an aggregate event does not. The framework's no-op
+  lineage and FinOps defaults pass, so doing nothing stays legal. So do
+  `DataCatalogLineageEmitter` (deprecated), `BigQueryFinOpsSink` and
+  `BigQueryAuditEventPublisher`. AWS adapters for these await the backend
+  ruling.
 - **Shared `Source` and `Sink` contract tests** (Java, #207).
   `SourceContractTest` and `SinkContractTest` check what the interfaces
   promise, for every adapter:
