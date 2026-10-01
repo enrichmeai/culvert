@@ -24,6 +24,8 @@ def test_mixins_have_expected_methods():
     assert hasattr(BlobStoreContract, "test_exists_missing_false")
     assert hasattr(BlobStoreContract, "test_delete_missing_idempotent")
     assert hasattr(BlobStoreContract, "test_null_arguments_rejected")
+    assert hasattr(BlobStoreContract, "test_head_known_describes_the_object_without_reading_it")
+    assert hasattr(BlobStoreContract, "test_head_missing_fails_as_get_does")
 
     # SecretProviderContract — mirrors SecretProviderContractTest.java
     assert hasattr(SecretProviderContract, "test_get_known_returns_value")

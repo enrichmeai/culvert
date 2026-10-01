@@ -7,7 +7,7 @@ is named for the GCP service it wraps.
 """
 
 from data_pipeline_core.contracts.audit import AuditEventPublisher
-from data_pipeline_core.contracts.blob_store import BlobStore
+from data_pipeline_core.contracts.blob_store import BlobMetadata, BlobStore
 from data_pipeline_core.contracts.finops import FinOpsSink
 from data_pipeline_core.contracts.governance import GovernancePolicy
 from data_pipeline_core.contracts.job_control import JobControlRepository
@@ -32,6 +32,7 @@ __all__ = [
     "PipelineStage",
     "RuntimeContext",
     "JobControlRepository",
+    "BlobMetadata",
     "BlobStore",
     "Warehouse",
     "LoadOptions",

@@ -107,6 +107,23 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   `DataCatalogLineageEmitter` (deprecated), `BigQueryFinOpsSink` and
   `BigQueryAuditEventPublisher`. AWS adapters for these await the backend
   ruling.
+- **Shared observability contract tests** (Java, #208).
+  `ObservabilityHookContractTest` checks that counters, gauges and
+  histograms reach the backend with their name, value and tags; that `null`
+  tags mean none; that log levels are case-insensitive; and that a span ends
+  once, with its attributes, however often it is closed.
+  `StageMetricsHookContractTest` mirrors the Python `StageMetricsHookContract`
+  case for case, including its core guarantee that a monitoring-backend
+  failure never reaches the pipeline. `CloudTraceObservabilityHook`,
+  `CloudMonitoringMetricsHook`, `CloudWatchObservabilityHook` and
+  `CloudWatchStageMetricsHook` pass them.
+- **Python `BlobStore.head(uri) -> BlobMetadata`** (#201), matching Java's
+  (#200) field for field: size, the ETag version token, last-modified and
+  custom metadata, read without the object's bytes. `GcsBlobStore` makes one
+  metadata GET (`Bucket.get_blob`). A missing object raises
+  `FileNotFoundError`, as `get` does. A missing ETag becomes `""`, and a
+  removed custom-metadata key is dropped. `BlobStoreContract` covers both
+  cases.
 - **Shared `Source` and `Sink` contract tests** (Java, #207).
   `SourceContractTest` and `SinkContractTest` check what the interfaces
   promise, for every adapter:
