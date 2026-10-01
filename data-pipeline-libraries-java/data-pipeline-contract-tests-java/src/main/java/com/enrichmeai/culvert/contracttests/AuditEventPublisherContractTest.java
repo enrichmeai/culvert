@@ -28,8 +28,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * <p>The event kinds, and which of them are run-level, come from {@link EventKind}
  * and {@link AuditEvent#failureIsFatal()}. Those are held to the shared
  * conformance fixtures ({@code tests/contract/fixtures/audit_events.json}:
- * {@code run_level_kinds}, {@code aggregate_kinds}) by
- * {@code AuditEventConformanceTest} in core. Python holds its model to the same
+ * {@code run_level_kinds}, {@code aggregate_kinds}) by core's
+ * {@code AuditEventConformanceTest}
+ * ({@code data-pipeline-core-java/src/test/java/com/enrichmeai/culvert/audit/AuditEventConformanceTest.java:98}
+ * for the run-level split, {@code :114} for the required payload keys). Python
+ * holds its model to the same
  * file in {@code test_audit_event_conformance.py:54}
  * ({@code test_run_level_classification_matches_the_fixtures}). So this suite
  * and the Python suite agree through that one file, without this artifact
