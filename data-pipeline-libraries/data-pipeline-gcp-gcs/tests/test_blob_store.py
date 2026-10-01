@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import MagicMock
 
 import pytest
@@ -53,7 +54,19 @@ class TestGcsBlobStoreContract(BlobStoreContract):
                     blob.delete.side_effect = delete_err
                 return blob
 
+            def _get_blob(blob_name):
+                # What a real object reports on a metadata GET (no content).
+                if blob_name != "path/known":
+                    return None
+                blob = MagicMock()
+                blob.size = 5
+                blob.etag = "CJDE7Zr5y4kDEAE="
+                blob.updated = datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
+                blob.metadata = {"source": "contract"}
+                return blob
+
             bucket.blob.side_effect = _blob_factory
+            bucket.get_blob.side_effect = _get_blob
             return bucket
 
         client.bucket.side_effect = _bucket_factory
@@ -169,3 +182,69 @@ def test_rejects_missing_object(mock_client):
     store = GcsBlobStore(mock_client)
     with pytest.raises(ValueError):
         store.get("gs://bucket/")
+
+
+# --- head -----------------------------------------------------------------
+
+
+def _stub_get_blob(client, blob):
+    client.bucket.return_value.get_blob.return_value = blob
+
+
+def test_head_reads_metadata_not_content(mock_client):
+    blob = MagicMock()
+    blob.size = 42
+    blob.etag = "CJDE7Zr5y4kDEAE="
+    blob.updated = datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
+    blob.metadata = {"source": "crm"}
+    _stub_get_blob(mock_client, blob)
+
+    meta = GcsBlobStore(mock_client).head("gs://b/landing/customers.csv")
+
+    assert meta.uri == "gs://b/landing/customers.csv"
+    assert meta.size == 42
+    assert meta.etag == "CJDE7Zr5y4kDEAE="
+    assert meta.last_modified == datetime(2026, 9, 17, 12, 0, tzinfo=timezone.utc)
+    assert dict(meta.metadata) == {"source": "crm"}
+    mock_client.bucket.assert_called_once_with("b")
+    mock_client.bucket.return_value.get_blob.assert_called_once_with("landing/customers.csv")
+    blob.download_as_bytes.assert_not_called()
+
+
+def test_head_missing_object_raises_file_not_found(mock_client):
+    _stub_get_blob(mock_client, None)
+    with pytest.raises(FileNotFoundError, match="gs://b/missing"):
+        GcsBlobStore(mock_client).head("gs://b/missing")
+
+
+def test_head_turns_a_missing_etag_into_empty_string_and_drops_removed_keys(mock_client):
+    blob = MagicMock()
+    blob.size = None
+    blob.etag = None
+    blob.updated = None
+    blob.metadata = {"kept": "yes", "removed": None}
+    _stub_get_blob(mock_client, blob)
+
+    meta = GcsBlobStore(mock_client).head("gs://b/x")
+
+    assert meta.etag == ""
+    assert meta.size == 0
+    assert meta.last_modified is None
+    assert dict(meta.metadata) == {"kept": "yes"}
+
+
+def test_head_metadata_is_read_only(mock_client):
+    blob = MagicMock()
+    blob.size, blob.etag, blob.updated, blob.metadata = 1, "e", None, None
+    _stub_get_blob(mock_client, blob)
+
+    meta = GcsBlobStore(mock_client).head("gs://b/x")
+
+    assert dict(meta.metadata) == {}
+    with pytest.raises(TypeError):
+        meta.metadata["k"] = "v"
+
+
+def test_head_rejects_none_uri(mock_client):
+    with pytest.raises(TypeError):
+        GcsBlobStore(mock_client).head(None)

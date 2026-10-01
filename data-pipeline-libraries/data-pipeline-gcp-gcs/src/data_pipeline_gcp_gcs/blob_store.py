@@ -10,6 +10,8 @@ import logging
 from typing import Any, BinaryIO, Iterator
 from urllib.parse import urlparse
 
+from data_pipeline_core.contracts.blob_store import BlobMetadata
+
 logger = logging.getLogger(__name__)
 
 
@@ -69,6 +71,30 @@ class GcsBlobStore:
         bucket = self.client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
         return bool(blob.exists())
+
+    def head(self, uri: str) -> BlobMetadata:
+        """Describe the object at `uri` from one metadata GET, without its bytes.
+
+        ``Bucket.get_blob`` reloads the object's metadata only, and returns
+        None for a missing object. GCS reports an ETag on every object, so a
+        None here is a mocked or degraded client: it becomes ``""`` rather
+        than a TypeError further on. A removed custom-metadata key (a None
+        value) is dropped.
+        """
+        bucket_name, blob_name = self._parse(uri)
+        blob = self.client.bucket(bucket_name).get_blob(blob_name)
+        if blob is None:
+            raise FileNotFoundError(uri)
+        metadata = {
+            k: v for k, v in (blob.metadata or {}).items() if k is not None and v is not None
+        }
+        return BlobMetadata(
+            uri=uri,
+            size=int(blob.size or 0),
+            etag=blob.etag or "",
+            last_modified=blob.updated,
+            metadata=metadata,
+        )
 
     def delete(self, uri: str) -> None:
         bucket_name, blob_name = self._parse(uri)
