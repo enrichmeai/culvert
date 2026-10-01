@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-transform"
-version = "0.2.0"
+version = "0.3.0"
 description = "dbt macro library for the Culvert data pipeline framework (audit columns, PII masking, data-quality checks). dbt-SQL only — no Apache Beam, no Airflow."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,7 +26,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "data-pipeline-core>=0.1.0",
+    "data-pipeline-core>=0.3.0",
     "dbt-bigquery>=1.5.0",
 ]
 

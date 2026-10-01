@@ -2,7 +2,69 @@
 
 All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md](docs/framework-evolution/03-dev-process.md) for the sprint workflow.
 
-## [0.2.0] — unreleased
+## [Unreleased]
+
+Nothing yet.
+
+## [0.3.0] — not yet tagged
+
+The W1 batch (Release board #204): one version again across Java and Python.
+
+### Added
+
+- **`BigQueryWarehouse.merge()` works** (Java and Python, #206). It upserts
+  the source into the target with one GoogleSQL `MERGE`, taking the column
+  list from the target table's schema: non-key columns are updated, and all
+  columns are inserted. It returns the DML affected-row count. A key that is
+  not a target column is refused, naming it, before anything runs. It used to
+  throw `UnsupportedOperationException` / `NotImplementedError`. The Warehouse
+  contract tests now cover `merge` in both languages. A backend declares
+  `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
+  (no MERGE outside Iceberg tables).
+- **Lineage, FinOps and audit contract tests** (Java, #209).
+  `LineageEmitterContractTest` and `FinOpsSinkContractTest` check that a
+  complete or a minimal event or record is accepted, and that each one
+  reaches the backend once wherever the binding can observe it.
+  `AuditEventPublisherContractTest` checks every event kind through publish
+  and flush, flush on an empty buffer, and publish after flush. It also holds
+  the publisher to its no-silent-failure rule: losing a run-level event fails
+  the run, and losing an aggregate event does not. The framework's no-op
+  lineage and FinOps defaults pass, so doing nothing stays legal. So do
+  `DataCatalogLineageEmitter` (deprecated), `BigQueryFinOpsSink` and
+  `BigQueryAuditEventPublisher`. AWS adapters for these await the backend
+  ruling.
+- **Shared observability contract tests** (Java, #208).
+  `ObservabilityHookContractTest` checks that counters, gauges and
+  histograms reach the backend with their name, value and tags; that `null`
+  tags mean none; that log levels are case-insensitive; and that a span ends
+  once, with its attributes, however often it is closed.
+  `StageMetricsHookContractTest` mirrors the Python `StageMetricsHookContract`
+  case for case, including its core guarantee that a monitoring-backend
+  failure never reaches the pipeline. `CloudTraceObservabilityHook`,
+  `CloudMonitoringMetricsHook`, `CloudWatchObservabilityHook` and
+  `CloudWatchStageMetricsHook` pass them.
+- **Python `BlobStore.head(uri) -> BlobMetadata`** (#201), matching Java's
+  (#200) field for field: size, the ETag version token, last-modified and
+  custom metadata, read without the object's bytes. `GcsBlobStore` makes one
+  metadata GET (`Bucket.get_blob`). A missing object raises
+  `FileNotFoundError`, as `get` does. A missing ETag becomes `""`, and a
+  removed custom-metadata key is dropped. `BlobStoreContract` covers both
+  cases.
+- **Shared `Source` and `Sink` contract tests** (Java, #207).
+  `SourceContractTest` and `SinkContractTest` check what the interfaces
+  promise, for every adapter:
+  - a read never returns `null` and yields each record the backend holds;
+  - a write hands records to the backend in iterator order;
+  - a `null` record, a rejected write, and a closed source or sink all fail
+    loudly rather than losing data quietly.
+  `PubSubSource`/`PubSubSink` and `SqsSource`/`SqsSink` pass them. Whether
+  a sink's order guarantee also covers delivery order is still open (#207).
+
+## [0.2.0] — 2026-09-17
+
+Published to Maven Central only (`com.enrichmeai.culvert:*` 0.2.0, built from
+#200). The Python packages were not published at 0.2.0: PyPI `culvert` goes
+from 0.1.1 to 0.3.0, which carries the Python side of this section too.
 
 ### Breaking
 
@@ -82,58 +144,6 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   (Composer 2 + GKE pods, Composer 3, or Cloud Run jobs) is selected by
   configuration rather than hardcoded.
 
-## [Unreleased]
-
-### Added
-
-- **`BigQueryWarehouse.merge()` works** (Java and Python, #206). It upserts
-  the source into the target with one GoogleSQL `MERGE`, taking the column
-  list from the target table's schema: non-key columns are updated, and all
-  columns are inserted. It returns the DML affected-row count. A key that is
-  not a target column is refused, naming it, before anything runs. It used to
-  throw `UnsupportedOperationException` / `NotImplementedError`. The Warehouse
-  contract tests now cover `merge` in both languages. A backend declares
-  `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
-  (no MERGE outside Iceberg tables).
-- **Lineage, FinOps and audit contract tests** (Java, #209).
-  `LineageEmitterContractTest` and `FinOpsSinkContractTest` check that a
-  complete or a minimal event or record is accepted, and that each one
-  reaches the backend once wherever the binding can observe it.
-  `AuditEventPublisherContractTest` checks every event kind through publish
-  and flush, flush on an empty buffer, and publish after flush. It also holds
-  the publisher to its no-silent-failure rule: losing a run-level event fails
-  the run, and losing an aggregate event does not. The framework's no-op
-  lineage and FinOps defaults pass, so doing nothing stays legal. So do
-  `DataCatalogLineageEmitter` (deprecated), `BigQueryFinOpsSink` and
-  `BigQueryAuditEventPublisher`. AWS adapters for these await the backend
-  ruling.
-- **Shared observability contract tests** (Java, #208).
-  `ObservabilityHookContractTest` checks that counters, gauges and
-  histograms reach the backend with their name, value and tags; that `null`
-  tags mean none; that log levels are case-insensitive; and that a span ends
-  once, with its attributes, however often it is closed.
-  `StageMetricsHookContractTest` mirrors the Python `StageMetricsHookContract`
-  case for case, including its core guarantee that a monitoring-backend
-  failure never reaches the pipeline. `CloudTraceObservabilityHook`,
-  `CloudMonitoringMetricsHook`, `CloudWatchObservabilityHook` and
-  `CloudWatchStageMetricsHook` pass them.
-- **Python `BlobStore.head(uri) -> BlobMetadata`** (#201), matching Java's
-  (#200) field for field: size, the ETag version token, last-modified and
-  custom metadata, read without the object's bytes. `GcsBlobStore` makes one
-  metadata GET (`Bucket.get_blob`). A missing object raises
-  `FileNotFoundError`, as `get` does. A missing ETag becomes `""`, and a
-  removed custom-metadata key is dropped. `BlobStoreContract` covers both
-  cases.
-- **Shared `Source` and `Sink` contract tests** (Java, #207).
-  `SourceContractTest` and `SinkContractTest` check what the interfaces
-  promise, for every adapter:
-  - a read never returns `null` and yields each record the backend holds;
-  - a write hands records to the backend in iterator order;
-  - a `null` record, a rejected write, and a closed source or sink all fail
-    loudly rather than losing data quietly.
-  `PubSubSource`/`PubSubSink` and `SqsSource`/`SqsSink` pass them. Whether
-  a sink's order guarantee also covers delivery order is still open (#207).
-
 ### Changed
 
 - **Relicensed from MIT to Apache License 2.0** (2026-08-20). Rationale: an
@@ -145,9 +155,10 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   Software Consultancy Limited, so no contributor consent was required.
   Versions already published under MIT (PyPI `culvert` 0.1.0, Maven Central
   `com.enrichmeai.culvert:*` 0.1.0) remain MIT — that grant is irrevocable;
-  the next release is the first to ship Apache-2.0 metadata. Added the
-  canonical `LICENSE` text and a `NOTICE` file; updated license metadata in
-  every `pyproject.toml`, the parent POM, and docs.
+  Java 0.2.0 was the first release to ship Apache-2.0 metadata, and Python
+  0.3.0 is the first on PyPI. Added the canonical `LICENSE` text and a
+  `NOTICE` file; updated license metadata in every `pyproject.toml`, the
+  parent POM, and docs.
 
 ## [0.1.0] — 2026-07-15
 
