@@ -95,6 +95,16 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   contract tests now cover `merge` in both languages. A backend declares
   `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
   (no MERGE outside Iceberg tables).
+- **Shared observability contract tests** (Java, #208).
+  `ObservabilityHookContractTest` checks that counters, gauges and
+  histograms reach the backend with their name, value and tags; that `null`
+  tags mean none; that log levels are case-insensitive; and that a span ends
+  once, with its attributes, however often it is closed.
+  `StageMetricsHookContractTest` mirrors the Python `StageMetricsHookContract`
+  case for case, including its core guarantee that a monitoring-backend
+  failure never reaches the pipeline. `CloudTraceObservabilityHook`,
+  `CloudMonitoringMetricsHook`, `CloudWatchObservabilityHook` and
+  `CloudWatchStageMetricsHook` pass them.
 - **Shared `Source` and `Sink` contract tests** (Java, #207).
   `SourceContractTest` and `SinkContractTest` check what the interfaces
   promise, for every adapter:
