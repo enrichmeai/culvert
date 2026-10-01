@@ -95,6 +95,15 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   contract tests now cover `merge` in both languages. A backend declares
   `merge` unsupported explicitly, and must then throw: `AthenaWarehouse` does
   (no MERGE outside Iceberg tables).
+- **Shared `Source` and `Sink` contract tests** (Java, #207).
+  `SourceContractTest` and `SinkContractTest` check what the interfaces
+  promise, for every adapter:
+  - a read never returns `null` and yields each record the backend holds;
+  - a write hands records to the backend in iterator order;
+  - a `null` record, a rejected write, and a closed source or sink all fail
+    loudly rather than losing data quietly.
+  `PubSubSource`/`PubSubSink` and `SqsSource`/`SqsSink` pass them. Whether
+  a sink's order guarantee also covers delivery order is still open (#207).
 
 ### Changed
 
