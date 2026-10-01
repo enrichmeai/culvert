@@ -16,6 +16,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * {@link StageMetricsHook} Javadoc, is that a monitoring-backend failure is
  * logged and swallowed, never propagated to the pipeline.
  *
+ * <p>Like the Python mixin, the three "accepts" cases check only that a valid
+ * snapshot is taken without an exception, so a hook that writes nothing passes
+ * them. What each adapter actually sends (the three series and their labels)
+ * is checked by its own unit test, because the shape is backend-specific.
+ *
  * <p>Subclasses provide:
  * <ul>
  *   <li>{@link #hook()}: the hook, over a backend double that accepts writes;</li>

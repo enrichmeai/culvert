@@ -138,7 +138,7 @@ public abstract class ObservabilityHookContractTest {
     }
 
     @Test
-    void spanRecordsAnExceptionAndStillEnds() {
+    void recordExceptionDoesNotThrowAndTheSpanStillEnds() {
         ObservabilityHook.Span span = hook().span("contract.failing");
         assertThatCode(() -> span.recordException(new IllegalStateException("contract")))
                 .doesNotThrowAnyException();
