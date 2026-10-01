@@ -105,6 +105,13 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   failure never reaches the pipeline. `CloudTraceObservabilityHook`,
   `CloudMonitoringMetricsHook`, `CloudWatchObservabilityHook` and
   `CloudWatchStageMetricsHook` pass them.
+- **Python `BlobStore.head(uri) -> BlobMetadata`** (#201), matching Java's
+  (#200) field for field: size, the ETag version token, last-modified and
+  custom metadata, read without the object's bytes. `GcsBlobStore` makes one
+  metadata GET (`Bucket.get_blob`). A missing object raises
+  `FileNotFoundError`, as `get` does. A missing ETag becomes `""`, and a
+  removed custom-metadata key is dropped. `BlobStoreContract` covers both
+  cases.
 - **Shared `Source` and `Sink` contract tests** (Java, #207).
   `SourceContractTest` and `SinkContractTest` check what the interfaces
   promise, for every adapter:

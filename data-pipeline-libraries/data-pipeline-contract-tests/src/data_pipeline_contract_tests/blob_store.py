@@ -24,6 +24,23 @@ class BlobStoreContract:
     def test_exists_missing_false(self, store, missing_uri):
         assert store.exists(missing_uri) is False
 
+    def test_head_known_describes_the_object_without_reading_it(self, store, known_uri):
+        # Java: ``headKnownDescribesTheObjectWithoutReadingIt``. A binding
+        # whose fake client must be told the metadata stubs size and ETag for
+        # the known object: a fake reporting no ETag would make a loader keyed
+        # on (uri, etag) skip nothing and load everything twice.
+        metadata = store.head(known_uri)
+        assert metadata.uri == known_uri
+        assert metadata.size == len(b"hello")
+        assert metadata.etag.strip(), "the store's version token must not be blank"
+        assert metadata.last_modified is not None
+        assert metadata.metadata is not None
+
+    def test_head_missing_fails_as_get_does(self, store, missing_uri):
+        # Java: ``headMissingFailsAsGetDoes``: not None, not an empty description.
+        with pytest.raises(FileNotFoundError):
+            store.head(missing_uri)
+
     def test_delete_missing_idempotent(self, store, missing_uri):
         # Should not raise.
         store.delete(missing_uri)
