@@ -1,8 +1,16 @@
 # Publish the Java reactor to Maven Central from git.
 #
-# JOSEPH-GATED: manual workflow_dispatch only + typed confirm phrase + the
-# `maven-central` environment (protect it with required reviewers for a second
-# gate). Unlike PyPI, Maven Central has NO OIDC keyless publishing — this job
+# AUTOMATIC UPLOAD ON A RELEASE (Joseph, 2026-10-02): merging the release PR
+# changes data-pipeline-libraries-java/pom.xml, and the `gate` job
+# (scripts/release/gate.py) uploads the signed bundle only when the push changed
+# the version, it is plain X.Y.Z, it is not already on Maven Central, it has a
+# "## [X.Y.Z]" CHANGELOG section, and every pom and Python package carries it.
+# A later pom edit while the bundle waits in validation is therefore a no-op.
+# The upload stops at Central's VALIDATION stage: pressing "Publish" in
+# the Central Portal stays a person's act (autoPublish=false, below). The manual
+# workflow_dispatch with the typed confirm phrase still works as the fallback,
+# with the `maven-central` environment (protect it with required reviewers for a
+# second gate). Unlike PyPI, Maven Central has NO OIDC keyless publishing — this job
 # needs your GPG private key and Sonatype token as GitHub SECRETS (added by you
 # in repo Settings → Secrets and variables → Actions; agents never handle them):
 #
@@ -20,14 +28,46 @@
 name: publish-maven
 
 on:
+  push:
+    branches: [main]
+    paths: [data-pipeline-libraries-java/pom.xml]
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type "publish-maven" to upload the signed bundle to Maven Central validation'
         required: true
 
+concurrency:
+  group: publish-maven
+  cancel-in-progress: false
+
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.decide.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the gate reads the version file at the push's `before` commit
+      # ci.yml is disabled in this repo, so the gate proves itself before deciding.
+      - name: Gate tests
+        run: python3 -m unittest scripts/release/test_gate.py -k GateTest
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+          BEFORE: ${{ github.event.before }}
+          REF: ${{ github.ref }}
+        run: >-
+          python3 scripts/release/gate.py maven --event "$EVENT" --confirm "$CONFIRM"
+          --before "$BEFORE" --ref "$REF"
+
   verify:
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -79,8 +119,8 @@ jobs:
           exit $missing
 
   deploy:
-    needs: verify
-    if: github.event.inputs.confirm == 'publish-maven'
+    needs: [gate, verify]
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: maven-central
     steps:

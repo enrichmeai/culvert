@@ -129,6 +129,9 @@ jobs:
           fi
           echo "OK: all 19 modules are enumerated"
 
+      - name: Release gate tests (scripts/release/gate.py)
+        run: python3 -m unittest scripts/release/test_gate.py -v
+
 # ============================================================================
 # ── Job 2: Java reactor build + unit tests ──────────────────────────────────
 # Runs the full reactor (all 19 modules) via -pl <module> -am so each module

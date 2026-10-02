@@ -85,8 +85,10 @@ its own loop:
 release happens only once a chunk of features is done: the `wave:W1` set on the Release board. No PR
 bumps a version, tags or publishes. Each PR adds its line under `## [Unreleased]` in `CHANGELOG.md`.
 When every W1 item is closed, `/groom` proposes the release on the board, and Joseph decides. Then one
-release PR sets the version and turns `[Unreleased]` into the version's section. Joseph tags it and runs
-the publish by hand (`RELEASE.md`: the Maven Central Portal, then PyPI). Claude never publishes.
+release PR sets the version and turns `[Unreleased]` into the version's section. **Merging it is the
+release (Joseph, 2026-10-02):** `publish-pypi.yml` publishes to PyPI and then tags `vX.Y.Z` with a GitHub
+Release, and `publish-maven.yml` uploads the signed bundle to Central's validation stage, where Joseph
+presses Publish (`RELEASE.md` § "Automatic release"). Claude never tags or publishes by hand.
 
 **Every release reaches the site (Joseph, 2026-09-26).** `enrichmeai.github.io/culvert/` shows the released
 versions, every library, every pip extra and what each release added. Its `release-sync` workflow checks
