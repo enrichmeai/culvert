@@ -1,5 +1,11 @@
 # Handoff — Culvert generic operations console (UI)
 
+> **Status: deferred (Joseph, 2026-09-13): the control plane comes first.** This brief stays as
+> the plan for the UI phase, which starts after the control-plane epic #188. Its plan,
+> `docs/framework-evolution/19-control-plane-and-console.md`, is not on `main` yet; #188 carries
+> the scope and the findings referred to below (F1). Corrections made on 2026-10-02 (#189):
+> the release facts in § 1 and the "no new contracts" claim in § 3. Decision point A is moot.
+
 > Session bootstrap for building a **generic, contract-driven UI** for Culvert.
 > Read this whole file before writing code. Working dir: this repo
 > (`enrichmeai/culvert`; folder name `gcp-pipeline-reference` is historical).
@@ -27,10 +33,9 @@ Cloud-agnostic, polyglot data-pipeline framework. 16 language-neutral
 contracts (Java `data-pipeline-core-java`, Python `data-pipeline-core`);
 cloud specifics live in adapter modules (GCP: bigquery/gcs/pubsub/secrets/
 observability/dataflow; AWS: s3/secrets/sqs/dynamodb/athena/cloudwatch;
-Azure: blob skeleton). Java reactor is feature-frozen at tag `java-0.1.0`;
-release gate is a **coordinated Java + Python 0.1.0** (Maven Central + PyPI)
-— see `docs/framework-evolution/13-python-parity-release.md`. Nothing is
-published yet.
+Azure: blob skeleton). The 0.1.0 freeze is over: Java and Python are released
+together at **0.3.0** on Maven Central (`com.enrichmeai.culvert:*`) and PyPI
+(`culvert`), with breaking changes recorded in `CHANGELOG.md` and `MIGRATION.md`.
 
 - Java build: `mvn -f data-pipeline-libraries-java/pom.xml install` (JDK 17);
   ITs: `-P it` (Testcontainers/LocalStack, needs Docker).
@@ -55,7 +60,13 @@ BigQuery job control on GCP and `DynamoDbJobControlRepository` or
 `AthenaJobControlRepository` on AWS with
 zero code changes — that property IS the product.
 
-## 3. Read surface already available (no new contracts needed for MVP)
+## 3. Read surface already available, and what it is missing
+
+This section used to say no new contracts were needed for the MVP. That is wrong (finding F1,
+epic #188): the console's landing page is a cross-system, time-ranged, paged list of runs, and no
+contract call returns one. Every read below is keyed by a `runId` or by one
+`(systemId, extractDate)`. A run-history read (a new port, or a `Warehouse` query over a projection)
+has to be designed before that page can exist.
 
 `JobControlRepository` (11 methods; an append-only ledger projected on read) already gives:
 
@@ -96,7 +107,8 @@ contracts are unbound.
 
 ### Decision points (settle at session start, in this order)
 
-- **A. Placement/versioning:** the Java reactor is frozen for 0.1.0. Options:
+- **A. Placement/versioning (moot since 0.2.0: the reactor is no longer frozen; the console
+  ships on the reactor's version line):** the Java reactor is frozen for 0.1.0. Options:
   (1) build the console module now on its **own version line**
   (`console-0.1.0`), excluded from the coordinated 0.1.0 release scope —
   *recommended*; (2) wait until after 0.1.0 ships. Do not silently widen the
