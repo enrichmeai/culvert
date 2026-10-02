@@ -1,11 +1,13 @@
 # Release procedure
 
-## Automatic release (from 0.3.0 on; Joseph, 2026-10-02)
+## Automatic release (from 0.4.0 on; Joseph, 2026-10-02)
+
+0.3.0 and earlier were released by hand, as described in the sections below.
 
 **Merging the release PR is the release.** The release PR (written by Claude when
 every `wave:W1` item is closed, and merged by Joseph) does three things:
 - it sets one version `X.Y.Z` in the Java reactor and every Python package;
-- it moves the `[Unreleased]` CHANGELOG entries into `## [X.Y.Z]`;
+- it moves the `[Unreleased]` CHANGELOG entries into `## [X.Y.Z] — YYYY-MM-DD` (the merge date);
 - it raises the `data-pipeline-core` floors.
 
 Its push to `main` then runs two workflows on their own:
@@ -15,13 +17,17 @@ Its push to `main` then runs two workflows on their own:
 | `publish-pypi.yml` | `python-culvert/pyproject.toml` changed | `gate` → build and clean-venv checks → publish to PyPI (OIDC) → tag `vX.Y.Z` and a GitHub Release with that CHANGELOG section as notes |
 | `publish-maven.yml` | `data-pipeline-libraries-java/pom.xml` changed | `gate` → build and bundle check → upload the signed bundle to Central's validation stage. **Joseph presses Publish** in the Central Portal (`autoPublish=false`) |
 
-Each `gate` releases only when **all** of these hold:
-- the version is plain `X.Y.Z` (no dev or rc suffix);
-- it is not already published there;
+Both `gate` jobs run `scripts/release/gate.py`, which `test_gate.py` covers and `ci.yml` runs. A gate releases only when **all** of these hold:
+- the push changed the version, and it is plain `X.Y.Z` (no dev or rc suffix);
+- the version is not already published there;
 - CHANGELOG.md has a `## [X.Y.Z]` section;
-- Java and Python carry the same version.
+- every `data-pipeline-libraries/*` package, `python-culvert` and every Java pom carry that one version.
 
-Anything else that touches those files, such as a dependency bump, is a no-op. A missing CHANGELOG section or a version mismatch fails loudly.
+A push that leaves the version as it was is a no-op, such as a dependency bump, or a pom edit while the bundle waits in Central's validation stage. These fail the run loudly: a missing CHANGELOG section, a package left at another version, or a registry answer other than "found" or "not found".
+
+**When something fails half-way:**
+- PyPI took the version but the tag job failed: re-run the failed job, or run publish-pypi by hand. On a version already on PyPI, the manual run only creates the missing tag and GitHub Release.
+- The two workflows run independently, so PyPI can succeed while the Maven upload fails. Check both runs after a merge, and fix the failed one and run it by hand.
 
 **Second gates, if wanted:** add required reviewers to the `pypi` and `maven-central` environments in repo
 Settings → Environments. The publish jobs then wait for a click in the Actions run.

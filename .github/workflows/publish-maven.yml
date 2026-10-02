@@ -1,10 +1,11 @@
 # Publish the Java reactor to Maven Central from git.
 #
 # AUTOMATIC UPLOAD ON A RELEASE (Joseph, 2026-10-02): merging the release PR
-# changes data-pipeline-libraries-java/pom.xml, and the `gate` job uploads the
-# signed bundle only when the version is plain X.Y.Z, is not already on Maven
-# Central, has a "## [X.Y.Z]" CHANGELOG section, and matches python-culvert's
-# version. The upload stops at Central's VALIDATION stage: pressing "Publish" in
+# changes data-pipeline-libraries-java/pom.xml, and the `gate` job
+# (scripts/release/gate.py) uploads the signed bundle only when the push changed
+# the version, it is plain X.Y.Z, it is not already on Maven Central, it has a
+# "## [X.Y.Z]" CHANGELOG section, and every pom and Python package carries it.
+# A later pom edit while the bundle waits in validation is therefore a no-op. The upload stops at Central's VALIDATION stage: pressing "Publish" in
 # the Central Portal stays a person's act (autoPublish=false, below). The manual
 # workflow_dispatch with the typed confirm phrase still works as the fallback,
 # with the `maven-central` environment (protect it with required reviewers for a
@@ -43,42 +44,19 @@ jobs:
   gate:
     runs-on: ubuntu-latest
     outputs:
+      version: ${{ steps.decide.outputs.version }}
       release: ${{ steps.decide.outputs.release }}
+      tag: ${{ steps.decide.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # the gate reads the version file at the push's `before` commit
       - id: decide
         env:
           EVENT: ${{ github.event_name }}
           CONFIRM: ${{ github.event.inputs.confirm }}
-        run: |
-          set -euo pipefail
-          VERSION=$(python3 -c "import xml.etree.ElementTree as E;n={'m':'http://maven.apache.org/POM/4.0.0'};print(E.parse('data-pipeline-libraries-java/pom.xml').getroot().find('m:version',n).text)")
-          PY=$(python3 -c "import tomllib;print(tomllib.load(open('python-culvert/pyproject.toml','rb'))['project']['version'])")
-          echo "java $VERSION, python $PY"
-          release=false
-          if [ "$EVENT" = "workflow_dispatch" ]; then
-            [ "$CONFIRM" = "publish-maven" ] && release=true
-          else
-            META=$(curl -sf https://repo1.maven.org/maven2/com/enrichmeai/culvert/data-pipeline-core/maven-metadata.xml || true)
-            if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-              echo "not a release version: $VERSION"
-            elif [ -z "$META" ]; then
-              echo "::error::could not read Maven Central metadata; not uploading blind"
-              exit 1
-            elif printf '%s' "$META" | grep -q "<version>$VERSION</version>"; then
-              echo "$VERSION is already on Maven Central: nothing to upload"
-            elif ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
-              echo "::error::CHANGELOG.md has no '## [$VERSION]' section; the release PR must write it"
-              exit 1
-            elif [ "$PY" != "$VERSION" ]; then
-              echo "::error::python-culvert is $PY but the Java parent pom is $VERSION; a release carries one version"
-              exit 1
-            else
-              release=true
-            fi
-          fi
-          echo "release=$release" >> "$GITHUB_OUTPUT"
-          echo "release: $release"
+          BEFORE: ${{ github.event.before }}
+        run: python3 scripts/release/gate.py maven --event "$EVENT" --confirm "$CONFIRM" --before "$BEFORE"
 
   verify:
     needs: gate
