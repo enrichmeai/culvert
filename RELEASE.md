@@ -17,7 +17,7 @@ Its push to `main` then runs two workflows on their own:
 | `publish-pypi.yml` | the version in `python-culvert/pyproject.toml` changed | `gate` → build and clean-venv checks → publish to PyPI (OIDC) → tag `vX.Y.Z` and a GitHub Release with that CHANGELOG section as notes |
 | `publish-maven.yml` | the version in `data-pipeline-libraries-java/pom.xml` changed | `gate` → build and bundle check → upload the signed bundle to Central's validation stage. **Joseph presses Publish** in the Central Portal (`autoPublish=false`) |
 
-Both `gate` jobs run `scripts/release/gate.py`, which `test_gate.py` covers and `ci.yml` runs. A gate releases only when **all** of these hold:
+Both `gate` jobs run `scripts/release/gate.py`. Each one first runs its tests, `test_gate.py`, because `ci.yml` is disabled in this repo; `ci.yml` runs them too once it is turned back on. A gate releases only when **all** of these hold:
 - the push changed the version, and it is plain `X.Y.Z` (no dev or rc suffix);
 - the version is not already published there;
 - CHANGELOG.md has a `## [X.Y.Z]` section;
