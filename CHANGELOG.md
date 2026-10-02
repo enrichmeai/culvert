@@ -21,10 +21,11 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   - `entities` and `failures` take `--system` and `--date`.
   - `adapters` lists every contract with its bound adapters or "(unbound)". It
     also lists the providers `AutoConfig` failed to load, which `AutoConfig`
-    otherwise skips silently.
+    otherwise skips silently, and exits 1 if there are any.
 
-  The list commands warn that they read the whole job-control table. There is
-  no watch mode.
+  Before reading, the list commands warn that they read the whole job-control
+  table. There is no watch mode, and no installed launcher yet: the module
+  README shows how to run it.
 
 ## [0.3.0] — not yet tagged
 

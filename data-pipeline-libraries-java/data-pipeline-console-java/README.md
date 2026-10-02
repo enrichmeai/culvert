@@ -17,23 +17,49 @@ cloud-specific, so the same views work on every backend. Adapters arrive at runt
 
 ## The `culvert` command line (`CulvertCli`)
 
+There is no installed `culvert` launcher yet. The tool is the main class
+`com.enrichmeai.culvert.console.CulvertCli`, and `culvert <command>` below is shorthand for running
+it:
+
 ```
 culvert runs                                          active runs (created or running), not the history
 culvert run <runId>                                   one run
 culvert entities --system <id> --date <YYYY-MM-DD>    each entity's latest status
 culvert failures --system <id> --date <YYYY-MM-DD>    the failed runs
 culvert adapters                                      bound adapters, unbound contracts, load failures
+culvert --help
 ```
 
-Run it with this module, `data-pipeline-core`, `slf4j-api` and your adapter on the classpath:
-`java -cp <classpath> com.enrichmeai.culvert.console.CulvertCli adapters`. Exit codes: 0 done,
-1 nothing found or no `JobControlRepository` installed, 2 usage error.
+To run it from this module (after `mvn -pl data-pipeline-console-java -am install` in
+`data-pipeline-libraries-java`), add your adapter's jars to the classpath:
 
-- `culvert adapters` lists every provider `AutoConfig` failed to load. `AutoConfig` skips those
-  silently, so this is the place to see them.
-- **Cost:** every list command reads the whole job-control table on each backend (BigQuery and
-  Athena rank it, DynamoDB scans it). There is no watch mode; run it on demand.
+```
+cd data-pipeline-libraries-java/data-pipeline-console-java
+mvn -q dependency:build-classpath -DincludeScope=runtime -Dmdep.outputFile=cp.txt
+java -cp "target/data-pipeline-console-0.3.0.jar:$(cat cp.txt):<your adapter jars>" \
+  com.enrichmeai.culvert.console.CulvertCli adapters
+```
 
-The tests run it against the `data-pipeline-tester` fake and print each command's output
-(from `data-pipeline-libraries-java`):
+**Exit codes:**
+- **0:** done. An empty list is still 0.
+- **1:** one of:
+  - the run was not found;
+  - no `JobControlRepository` is installed;
+  - the backend threw (its exception class and message are printed);
+  - `adapters` found providers that failed to load.
+- **2:** a usage error.
+
+**What `adapters` shows.** It lists every provider `AutoConfig` failed to load. `AutoConfig` skips
+those silently, so this is the place to see them.
+
+**Cost.** Every list command reads the whole job-control table on each backend, and the tool
+says so before it reads:
+- BigQuery ranks the whole table (`rankedCte`, `BigQueryJobControlRepository.java:726`).
+- Athena ranks the whole table (`projection`, `AthenaJobControlRepository.java:551`).
+- DynamoDB scans it (`DynamoDbJobControlRepository`, `ScanRequest`).
+
+There is no watch mode; run it on demand.
+
+**Tests.** They run the tool against the `data-pipeline-tester` fake and print each command's
+output. From `data-pipeline-libraries-java`:
 `mvn -o -pl data-pipeline-console-java -am test -Dtest=CulvertCliTest -Dsurefire.failIfNoSpecifiedTests=false`

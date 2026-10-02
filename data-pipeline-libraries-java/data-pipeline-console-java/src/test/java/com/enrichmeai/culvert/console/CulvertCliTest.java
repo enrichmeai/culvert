@@ -126,12 +126,31 @@ class CulvertCliTest {
             CulvertCli cli = new CulvertCli(AutoConfig.discover(loader),
                     () -> new ConsoleReadService(JobControlRepositoryFixtures.emptyRepo()));
             assertThat(cli.run(new String[] {"adapters"}, new PrintStream(outBytes, true, StandardCharsets.UTF_8),
-                    new PrintStream(errBytes, true, StandardCharsets.UTF_8))).isZero();
+                    new PrintStream(errBytes, true, StandardCharsets.UTF_8))).isEqualTo(1);
         }
         System.out.print(out());
         assertThat(out()).contains("Warehouse: (unbound)")
                 .contains("Discovery failures: 1")
                 .contains("Warehouse: com.example.MissingWarehouse");
+    }
+
+    @Test
+    void adaptersNamesABoundProvider(@TempDir Path dir) throws Exception {
+        Path services = dir.resolve("META-INF/services");
+        Files.createDirectories(services);
+        Files.writeString(services.resolve("com.enrichmeai.culvert.contracts.GovernancePolicy"),
+                TestGovernancePolicy.class.getName() + "\n");
+        try (URLClassLoader loader = new URLClassLoader(new URL[] {dir.toUri().toURL()},
+                getClass().getClassLoader())) {
+            CulvertCli cli = new CulvertCli(AutoConfig.discover(loader),
+                    () -> new ConsoleReadService(JobControlRepositoryFixtures.emptyRepo()));
+            assertThat(cli.run(new String[] {"adapters"}, new PrintStream(outBytes, true, StandardCharsets.UTF_8),
+                    new PrintStream(errBytes, true, StandardCharsets.UTF_8))).isZero();
+        }
+        System.out.print(out());
+        assertThat(out()).contains("GovernancePolicy: " + TestGovernancePolicy.class.getName())
+                .contains("JobControlRepository: (unbound)")
+                .contains("Discovery failures: none");
     }
 
     @Test
@@ -142,13 +161,42 @@ class CulvertCliTest {
         assertThat(run(repo, "run")).isEqualTo(2);
         assertThat(run(repo, "entities", "--system", "sys-a")).isEqualTo(2);
         assertThat(run(repo, "failures", "--system", "sys-a", "--date", "yesterday")).isEqualTo(2);
-        assertThat(err()).contains("Usage: culvert");
+        assertThat(run(repo, "entities", "--system", "a", "--system", "b", "--date", "2026-10-01")).isEqualTo(2);
+        assertThat(run(repo, "entities", "--system", "", "--date", "2026-10-01")).isEqualTo(2);
+        assertThat(run(repo, "entities", "--system", "--date", "2026-10-01")).isEqualTo(2);
+        assertThat(run(repo, "entities", "--system=a", "--date", "2026-10-01")).isEqualTo(2);
+        assertThat(err()).contains("Usage: culvert").contains("--system is given twice")
+                .contains("--system needs a value");
         Mockito.verifyNoInteractions(repo);
     }
 
     @Test
+    void helpPrintsTheUsageAndExitsZero() {
+        assertThat(run(JobControlRepositoryFixtures.emptyRepo(), "--help")).isZero();
+        assertThat(out()).contains("Usage: culvert").contains("Exit codes");
+    }
+
+    @Test
+    void anEmptyListIsStillSuccess() {
+        JobControlRepository repo = JobControlRepositoryFixtures.emptyRepo();
+        assertThat(run(repo, "entities", "--system", "sys-a", "--date", "2026-10-01")).isZero();
+        assertThat(run(repo, "failures", "--system", "sys-a", "--date", "2026-10-01")).isZero();
+        assertThat(out()).contains("Entities for sys-a on 2026-10-01: 0")
+                .contains("Failed runs for sys-a on 2026-10-01: 0");
+    }
+
+    @Test
+    void aBackendFailureIsNamedAndExitsOne() {
+        JobControlRepository repo = JobControlRepositoryFixtures.emptyRepo();
+        Mockito.when(repo.getPendingJobs(Optional.empty())).thenThrow(new IllegalStateException("table gone"));
+        assertThat(run(repo, "runs")).isEqualTo(1);
+        assertThat(err()).contains("culvert runs failed: java.lang.IllegalStateException: table gone");
+    }
+
+    @Test
     void aMissingJobControlBindingIsReportedNotThrown() {
-        CulvertCli cli = new CulvertCli(AutoConfig.discover(), () -> ConsoleReadService.from(AutoConfig.discover()));
+        AutoConfig autoConfig = AutoConfig.discover();
+        CulvertCli cli = new CulvertCli(autoConfig, () -> ConsoleReadService.from(autoConfig));
         int code = cli.run(new String[] {"runs"}, new PrintStream(outBytes, true, StandardCharsets.UTF_8),
                 new PrintStream(errBytes, true, StandardCharsets.UTF_8));
         assertThat(code).isEqualTo(1);
