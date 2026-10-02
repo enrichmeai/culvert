@@ -1,8 +1,40 @@
-# Release procedure — coordinated 0.1.0 (Java + Python)
+# Release procedure
 
-Joseph triggers every publishing step manually. **Publishing is irreversible**:
-PyPI version numbers can never be reused and Maven Central artifacts are
-immutable. Nothing in this repo auto-publishes.
+## Automatic release (from 0.3.0 on; Joseph, 2026-10-02)
+
+**Merging the release PR is the release.** The release PR (written by Claude when
+every `wave:W1` item is closed, and merged by Joseph) does three things:
+- it sets one version `X.Y.Z` in the Java reactor and every Python package;
+- it moves the `[Unreleased]` CHANGELOG entries into `## [X.Y.Z]`;
+- it raises the `data-pipeline-core` floors.
+
+Its push to `main` then runs two workflows on their own:
+
+| Workflow | Runs when | Does |
+|---|---|---|
+| `publish-pypi.yml` | `python-culvert/pyproject.toml` changed | `gate` → build and clean-venv checks → publish to PyPI (OIDC) → tag `vX.Y.Z` and a GitHub Release with that CHANGELOG section as notes |
+| `publish-maven.yml` | `data-pipeline-libraries-java/pom.xml` changed | `gate` → build and bundle check → upload the signed bundle to Central's validation stage. **Joseph presses Publish** in the Central Portal (`autoPublish=false`) |
+
+Each `gate` releases only when **all** of these hold:
+- the version is plain `X.Y.Z` (no dev or rc suffix);
+- it is not already published there;
+- CHANGELOG.md has a `## [X.Y.Z]` section;
+- Java and Python carry the same version.
+
+Anything else that touches those files, such as a dependency bump, is a no-op. A missing CHANGELOG section or a version mismatch fails loudly.
+
+**Second gates, if wanted:** add required reviewers to the `pypi` and `maven-central` environments in repo
+Settings → Environments. The publish jobs then wait for a click in the Actions run.
+
+**Fallback:** both workflows still run by hand (Actions → Run workflow, typed confirm phrase), as in the
+sections below.
+
+Publishing is irreversible: PyPI version numbers can never be reused, and Maven Central artifacts are
+immutable. The gates exist so that only a merged release PR can trigger one.
+
+---
+
+## Coordinated 0.1.0 (Java + Python), the first release, done by hand
 
 The release gate (authoritative:
 [`docs/framework-evolution/13-python-parity-release.md`](docs/framework-evolution/13-python-parity-release.md) §2):

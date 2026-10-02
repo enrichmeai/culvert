@@ -1,25 +1,80 @@
 # Publish the `culvert` distribution to PyPI via OIDC trusted publishing.
 #
-# JOSEPH-GATED: manual workflow_dispatch only, and the job runs in the `pypi`
-# environment — protect that environment (required reviewers) in repo settings
-# for a second gate. No tokens anywhere: PyPI trusts this exact repo + workflow
-# + environment via the pending publisher registered 2026-07.
+# AUTOMATIC ON A RELEASE (Joseph, 2026-10-02): merging the release PR is the
+# human gate. Its push to main changes python-culvert/pyproject.toml, and the
+# `gate` job releases only when ALL of these hold:
+#   - the version is plain X.Y.Z (no dev/rc suffix);
+#   - it is not already on PyPI (a PyPI version is burned forever);
+#   - CHANGELOG.md has a "## [X.Y.Z]" section (the release PR wrote it);
+#   - the Java parent pom carries the same version (one version, both languages).
+# Any other change to pyproject.toml (a dependency bump) is a no-op.
+# After PyPI accepts it, `tag` creates vX.Y.Z and a GitHub Release whose notes
+# are that CHANGELOG section. The manual workflow_dispatch below still works,
+# gated by the typed confirm, as the fallback.
 #
-# Publish is IRREVERSIBLE (version numbers are burned forever). The verify job
-# is the TestPyPI substitute: build → twine check → clean-venv install (wheel,
-# wheel[gcp], sdist) → import + discovery smoke. Publish only runs if verify
-# is green AND the confirm input is exactly "publish-culvert".
+# The publish job runs in the `pypi` environment: protect it with required
+# reviewers in repo settings if a second, click-to-approve gate is wanted.
+# No tokens anywhere: PyPI trusts this exact repo + workflow + environment.
+# The publish step must stay in THIS top-level workflow: trusted publishing
+# does not work from a reusable workflow (pypa/gh-action-pypi-publish README).
 name: publish-pypi
 
 on:
+  push:
+    branches: [main]
+    paths: [python-culvert/pyproject.toml]
   workflow_dispatch:
     inputs:
       confirm:
         description: 'Type "publish-culvert" to confirm the irreversible PyPI publish'
         required: true
 
+concurrency:
+  group: publish-pypi
+  cancel-in-progress: false
+
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.decide.outputs.version }}
+      release: ${{ steps.decide.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import tomllib;print(tomllib.load(open('python-culvert/pyproject.toml','rb'))['project']['version'])")
+          JAVA=$(python3 -c "import xml.etree.ElementTree as E;n={'m':'http://maven.apache.org/POM/4.0.0'};print(E.parse('data-pipeline-libraries-java/pom.xml').getroot().find('m:version',n).text)")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "python $VERSION, java $JAVA"
+          release=false
+          if [ "$EVENT" = "workflow_dispatch" ]; then
+            [ "$CONFIRM" = "publish-culvert" ] && release=true
+          else
+            if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "not a release version: $VERSION"
+            elif [ "$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/culvert/$VERSION/json")" != "404" ]; then
+              echo "culvert $VERSION is already on PyPI (or PyPI did not answer 404): nothing to publish"
+            elif ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+              echo "::error::CHANGELOG.md has no '## [$VERSION]' section; the release PR must write it"
+              exit 1
+            elif [ "$JAVA" != "$VERSION" ]; then
+              echo "::error::Java parent pom is $JAVA but python-culvert is $VERSION; a release carries one version"
+              exit 1
+            else
+              release=true
+            fi
+          fi
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+          echo "release: $release"
+
   verify:
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -61,8 +116,8 @@ jobs:
           path: python-culvert/dist/
 
   publish:
-    needs: verify
-    if: github.event.inputs.confirm == 'publish-culvert'
+    needs: [gate, verify]
+    if: needs.gate.outputs.release == 'true'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -76,3 +131,30 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  tag:
+    # Tag and GitHub Release only once PyPI has accepted the version. A tag
+    # pushed with GITHUB_TOKEN starts no other workflow, so nothing downstream
+    # may rely on it as a trigger.
+    needs: [gate, publish]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag vX.Y.Z and publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.gate.outputs.version }}
+        run: |
+          set -euo pipefail
+          TAG="v$VERSION"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already released"; exit 0
+          fi
+          awk -v v="$VERSION" '
+            $0 ~ "^## \\[" v "\\]" {on=1; next}
+            on && /^## \[/ {exit}
+            on {print}' CHANGELOG.md > notes.md
+          gh release create "$TAG" --target "$GITHUB_SHA" --title "Culvert $VERSION" --notes-file notes.md
+
