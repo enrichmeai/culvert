@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.3.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-console</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-console (Java)</name>
+    <description>
+        Read-only operator views over JobControlRepository: a run, the pending
+        runs, the entity status board, the failures and the FDP model status
+        for a system and extract date. Binds only to Culvert contracts, found
+        through AutoConfig, never to a cloud SDK, so the same views work on
+        any backend. Control-plane epic #188, Phase 1 (T1.1, issue #190).
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-tester</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <!-- Mockito (via data-pipeline-tester) on the test classpath trips
+                         -Xlint:all -Werror with "no processor claimed"; nothing here
+                         uses annotation processing. Same as data-pipeline-tester-java. -->
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

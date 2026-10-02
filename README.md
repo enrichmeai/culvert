@@ -29,13 +29,14 @@ Culvert is a framework for building data pipelines that are **defined once again
 ## Repository layout
 
 ```
-data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (19 modules)
+data-pipeline-libraries-java/   # Java reactor — Maven, groupId com.enrichmeai.culvert (20 modules)
   data-pipeline-core-java          # contracts + records + AutoConfig (ServiceLoader)
   data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability,dataflow}-java
   data-pipeline-aws-{s3,secrets,sqs,dynamodb}-java   # real AWS adapter family (BlobStore, SecretProvider, Source/Sink, JobControlRepository)
   data-pipeline-aws-{athena,cloudwatch}-java         # Warehouse (external-table load) + observability hooks
   data-pipeline-azure-blob-java                      # cloud-neutrality skeleton (BlobStore, exists() only)
   data-pipeline-orchestration-java             # DagSpec/TaskSpec + Airflow/Composer renderers
+  data-pipeline-console-java                   # read-only operator views over JobControlRepository
   data-pipeline-{contract-tests,tester,it-support}-java
 
 data-pipeline-libraries/        # Python library set (distributions currently named data-pipeline-*)
