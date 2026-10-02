@@ -52,7 +52,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           CONFIRM: ${{ github.event.inputs.confirm }}
           BEFORE: ${{ github.event.before }}
-        run: python3 scripts/release/gate.py pypi --event "$EVENT" --confirm "$CONFIRM" --before "$BEFORE"
+          REF: ${{ github.ref }}
+        run: >-
+          python3 scripts/release/gate.py pypi --event "$EVENT" --confirm "$CONFIRM"
+          --before "$BEFORE" --ref "$REF"
 
   verify:
     needs: gate
@@ -129,6 +132,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # a manual recovery run looks up the release commit
       - name: Tag vX.Y.Z and publish the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -146,4 +151,12 @@ jobs:
           if ! grep -q '[^[:space:]]' notes.md; then
             echo "::error::CHANGELOG.md has no notes under '## [$VERSION]'"; exit 1
           fi
-          gh release create "$TAG" --target "$GITHUB_SHA" --title "Culvert $VERSION" --notes-file notes.md
+          # On a push the release commit is this one. A manual recovery run
+          # starts from main's tip, so tag the commit that set the version.
+          TARGET="$GITHUB_SHA"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            TARGET=$(git log --reverse --format=%H -S"version = \"$VERSION\"" -- python-culvert/pyproject.toml | head -1)
+            [ -n "$TARGET" ] || { echo "::error::no commit sets version $VERSION"; exit 1; }
+          fi
+          echo "tagging $TARGET"
+          gh release create "$TAG" --target "$TARGET" --title "Culvert $VERSION" --notes-file notes.md

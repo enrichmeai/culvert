@@ -5,7 +5,8 @@
 # (scripts/release/gate.py) uploads the signed bundle only when the push changed
 # the version, it is plain X.Y.Z, it is not already on Maven Central, it has a
 # "## [X.Y.Z]" CHANGELOG section, and every pom and Python package carries it.
-# A later pom edit while the bundle waits in validation is therefore a no-op. The upload stops at Central's VALIDATION stage: pressing "Publish" in
+# A later pom edit while the bundle waits in validation is therefore a no-op.
+# The upload stops at Central's VALIDATION stage: pressing "Publish" in
 # the Central Portal stays a person's act (autoPublish=false, below). The manual
 # workflow_dispatch with the typed confirm phrase still works as the fallback,
 # with the `maven-central` environment (protect it with required reviewers for a
@@ -56,7 +57,10 @@ jobs:
           EVENT: ${{ github.event_name }}
           CONFIRM: ${{ github.event.inputs.confirm }}
           BEFORE: ${{ github.event.before }}
-        run: python3 scripts/release/gate.py maven --event "$EVENT" --confirm "$CONFIRM" --before "$BEFORE"
+          REF: ${{ github.ref }}
+        run: >-
+          python3 scripts/release/gate.py maven --event "$EVENT" --confirm "$CONFIRM"
+          --before "$BEFORE" --ref "$REF"
 
   verify:
     needs: gate

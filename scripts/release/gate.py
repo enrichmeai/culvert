@@ -6,7 +6,7 @@ and `tag` to $GITHUB_OUTPUT. Exits 1 when a release PR is malformed or a
 registry cannot be read, so a release never fails silently.
 
   python3 scripts/release/gate.py pypi|maven --event push --before <sha>
-  python3 scripts/release/gate.py pypi|maven --event workflow_dispatch --confirm <phrase>
+  python3 scripts/release/gate.py pypi|maven --event workflow_dispatch --confirm <phrase> --ref <ref>
 """
 import argparse
 import os
@@ -31,26 +31,38 @@ class GateError(Exception):
     pass
 
 
-def pyproject_version(text):
-    return tomllib.loads(text)["project"]["version"]
+def pyproject_version(text, where):
+    try:
+        return tomllib.loads(text)["project"]["version"]
+    except (tomllib.TOMLDecodeError, KeyError) as e:
+        raise GateError(f"{where}: no readable [project] version ({e})") from e
 
 
-def pom_version(text):
-    return ET.fromstring(text).find("m:version", POM_NS).text
+def _pom_text(text, path, where):
+    try:
+        return ET.fromstring(text).find(path, POM_NS).text
+    except (ET.ParseError, AttributeError) as e:
+        raise GateError(f"{where}: no readable {path.replace('m:', '')} ({e})") from e
 
 
-def pom_parent_version(text):
-    return ET.fromstring(text).find("m:parent/m:version", POM_NS).text
+def pom_version(text, where):
+    return _pom_text(text, "m:version", where)
+
+
+def pom_parent_version(text, where):
+    return _pom_text(text, "m:parent/m:version", where)
 
 
 def versions(root):
     """Every version a release must set, keyed by file."""
-    found = {PYTHON_META: pyproject_version((root / PYTHON_META).read_text())}
+    found = {PYTHON_META: pyproject_version((root / PYTHON_META).read_text(), PYTHON_META)}
     for p in sorted(root.glob("data-pipeline-libraries/*/pyproject.toml")):
-        found[str(p.relative_to(root))] = pyproject_version(p.read_text())
-    found[JAVA_PARENT] = pom_version((root / JAVA_PARENT).read_text())
+        name = str(p.relative_to(root))
+        found[name] = pyproject_version(p.read_text(), name)
+    found[JAVA_PARENT] = pom_version((root / JAVA_PARENT).read_text(), JAVA_PARENT)
     for p in sorted(root.glob("data-pipeline-libraries-java/*/pom.xml")):
-        found[str(p.relative_to(root))] = pom_parent_version(p.read_text())
+        name = str(p.relative_to(root))
+        found[name] = pom_parent_version(p.read_text(), name)
     return found
 
 
@@ -101,11 +113,15 @@ def version_before(root, target, before):
                               check=True, capture_output=True, text=True).stdout
     except subprocess.CalledProcessError:
         return None
-    return pyproject_version(text) if target == "pypi" else pom_version(text)
+    where = f"{path} at {before[:12]}"
+    return pyproject_version(text, where) if target == "pypi" else pom_version(text, where)
 
 
-def decide(target, event, root, confirm="", before="", get=http_get, log=print):
+def decide(target, event, root, confirm="", before="", ref="refs/heads/main",
+           get=http_get, log=print):
     """Return (version, release, tag)."""
+    if ref != "refs/heads/main":
+        raise GateError(f"releases run from main only, not {ref}")
     found = versions(root)
     version = found[VERSION_FILE[target]]
     log(f"{target}: version {version}")
@@ -145,10 +161,11 @@ def main(argv=None):
     ap.add_argument("--event", required=True)
     ap.add_argument("--confirm", default="")
     ap.add_argument("--before", default="")
+    ap.add_argument("--ref", default="refs/heads/main")
     ap.add_argument("--root", default=".")
     a = ap.parse_args(argv)
     try:
-        version, release, tag = decide(a.target, a.event, Path(a.root), a.confirm, a.before)
+        version, release, tag = decide(a.target, a.event, Path(a.root), a.confirm, a.before, a.ref)
     except GateError as e:
         print(f"::error::{e}")
         return 1

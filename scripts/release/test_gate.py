@@ -61,9 +61,9 @@ class GateTest(unittest.TestCase):
         self.write("0.2.0", **kw)
         self.commit()
 
-    def decide(self, target, get, event="push", confirm=""):
+    def decide(self, target, get, event="push", confirm="", ref="refs/heads/main"):
         return gate.decide(target, event, self.root, confirm=confirm, before=self.before,
-                           get=get, log=lambda *_: None)
+                           ref=ref, get=get, log=lambda *_: None)
 
     def test_release_pr_releases_on_both(self):
         self.release_pr()
@@ -147,6 +147,25 @@ class GateTest(unittest.TestCase):
         self.release_pr()
         self.before = "0" * 40
         self.assertEqual(self.decide("pypi", registry()), ("0.2.0", True, True))
+
+
+    def test_dispatch_from_another_branch_fails(self):
+        with self.assertRaisesRegex(gate.GateError, "main only"):
+            self.decide("pypi", registry(), event="workflow_dispatch",
+                        confirm="publish-culvert", ref="refs/heads/feature")
+
+    def test_unreadable_version_file_fails_with_a_message(self):
+        (self.root / "data-pipeline-libraries-java/data-pipeline-core-java/pom.xml").write_text(
+            '<project xmlns="http://maven.apache.org/POM/4.0.0"/>')
+        with self.assertRaisesRegex(gate.GateError, "data-pipeline-core-java/pom.xml: no readable parent/version"):
+            self.decide("maven", registry())
+
+    def test_unreadable_before_version_fails_with_a_message(self):
+        (self.root / "python-culvert/pyproject.toml").write_text("[project]\nname = 'x'\n")
+        self.before = self.commit()
+        self.release_pr()
+        with self.assertRaisesRegex(gate.GateError, "at [0-9a-f]{12}: no readable"):
+            self.decide("pypi", registry())
 
 
 class RealRepoTest(unittest.TestCase):

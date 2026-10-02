@@ -14,8 +14,8 @@ Its push to `main` then runs two workflows on their own:
 
 | Workflow | Runs when | Does |
 |---|---|---|
-| `publish-pypi.yml` | `python-culvert/pyproject.toml` changed | `gate` → build and clean-venv checks → publish to PyPI (OIDC) → tag `vX.Y.Z` and a GitHub Release with that CHANGELOG section as notes |
-| `publish-maven.yml` | `data-pipeline-libraries-java/pom.xml` changed | `gate` → build and bundle check → upload the signed bundle to Central's validation stage. **Joseph presses Publish** in the Central Portal (`autoPublish=false`) |
+| `publish-pypi.yml` | the version in `python-culvert/pyproject.toml` changed | `gate` → build and clean-venv checks → publish to PyPI (OIDC) → tag `vX.Y.Z` and a GitHub Release with that CHANGELOG section as notes |
+| `publish-maven.yml` | the version in `data-pipeline-libraries-java/pom.xml` changed | `gate` → build and bundle check → upload the signed bundle to Central's validation stage. **Joseph presses Publish** in the Central Portal (`autoPublish=false`) |
 
 Both `gate` jobs run `scripts/release/gate.py`, which `test_gate.py` covers and `ci.yml` runs. A gate releases only when **all** of these hold:
 - the push changed the version, and it is plain `X.Y.Z` (no dev or rc suffix);
@@ -28,6 +28,8 @@ A push that leaves the version as it was is a no-op, such as a dependency bump, 
 **When something fails half-way:**
 - PyPI took the version but the tag job failed: re-run the failed job, or run publish-pypi by hand. On a version already on PyPI, the manual run only creates the missing tag and GitHub Release.
 - The two workflows run independently, so PyPI can succeed while the Maven upload fails. Check both runs after a merge, and fix the failed one and run it by hand.
+- If another change to the same version file lands while the release run is still queued, GitHub cancels the queued run (one pending run per workflow). The later run sees no version change and does nothing. Run the workflow by hand.
+- A run by hand works from `main` only. Its tag job tags the commit that set the version, not the tip of `main`.
 
 **Second gates, if wanted:** add required reviewers to the `pypi` and `maven-central` environments in repo
 Settings → Environments. The publish jobs then wait for a click in the Actions run.
