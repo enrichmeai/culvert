@@ -126,6 +126,7 @@ marks it ✓ and deletes this note.
 | Airflow 2.9 | https://airflow.apache.org/docs/apache-airflow/2.9.3/ |
 | Cloud Composer 2 | https://cloud.google.com/composer/docs/composer-2 |
 | dbt (BigQuery adapter) | https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup |
+| Maven Enforcer `bannedDependencies` 3.4.1 ✓ | https://raw.githubusercontent.com/apache/maven-enforcer/enforcer-3.4.1/enforcer-rules/src/site/apt/bannedDependencies.apt.vm. Fetched 2026-10-02 (#192) when `maven.apache.org` was blocked by egress |
 | JUnit 5.10 | https://junit.org/junit5/docs/5.10.2/user-guide/ |
 | Testcontainers Java | https://java.testcontainers.org/ |
 | Maven Surefire / Failsafe 3.2.5 | https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-surefire-plugin/ · https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-failsafe-plugin/ |

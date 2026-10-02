@@ -26,6 +26,10 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   Before reading, the list commands warn that they read the whole job-control
   table. There is no watch mode, and no installed launcher yet: the module
   README shows how to run it.
+- **The console module cannot depend on a cloud** (#192). A Maven Enforcer
+  `bannedDependencies` rule fails the build if a Google Cloud, AWS or Azure
+  SDK, or a Culvert GCP, AWS or Azure adapter module, reaches its classpath,
+  directly or transitively.
 
 ## [0.3.0] — not yet tagged
 

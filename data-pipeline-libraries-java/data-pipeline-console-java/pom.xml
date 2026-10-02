@@ -50,6 +50,45 @@
 
     <build>
         <plugins>
+            <!--
+                T1.3 (#192): this module binds only to Culvert contracts. The build
+                fails if any cloud SDK or Culvert adapter reaches its classpath, directly
+                or transitively, in any scope. Adapters arrive at runtime through
+                AutoConfig, never at compile time. A dependency ban, not an import
+                check: it also catches an SDK that arrives transitively, needs no new
+                test library, and fails at validate, before anything compiles.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.4.1</version>
+                <executions>
+                    <execution>
+                        <id>console-binds-only-to-contracts</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <excludes>
+                                        <exclude>com.google.cloud*</exclude>
+                                        <exclude>com.google.api*</exclude>
+                                        <exclude>software.amazon.awssdk*</exclude>
+                                        <exclude>com.amazonaws*</exclude>
+                                        <exclude>com.azure*</exclude>
+                                        <exclude>com.microsoft.azure*</exclude>
+                                        <exclude>com.enrichmeai.culvert:data-pipeline-gcp-*</exclude>
+                                        <exclude>com.enrichmeai.culvert:data-pipeline-aws-*</exclude>
+                                        <exclude>com.enrichmeai.culvert:data-pipeline-azure-*</exclude>
+                                    </excludes>
+                                    <message>data-pipeline-console binds only to Culvert contracts (#192): no cloud SDK and no adapter module on its classpath. Adapters arrive at runtime through AutoConfig.</message>
+                                </bannedDependencies>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
