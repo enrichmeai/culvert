@@ -10,7 +10,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * One pipeline run, as the console shows it. Mirrors {@link PipelineJob} field for field.
+ * One pipeline run, as the console shows it. Mirrors {@link PipelineJob} (PipelineJob.java:20-43)
+ * field for field, with {@code jobType} as its wire value and an added {@link #terminal()}.
  *
  * <p>A run's status is final once {@linkplain #terminal() terminal}. A failed run stays failed:
  * per {@code JobControlRepository} and {@code docs/CONTRACT.md} §7, a retry is a different run with
@@ -55,7 +56,11 @@ public record RunView(
                 job.completedAt());
     }
 
-    /** Whether {@code status} is final: succeeded, failed or cancelled. */
+    /**
+     * Whether {@code status} is final: succeeded, failed or cancelled. The same set every adapter
+     * projects with (BigQueryJobControlRepository.java:182-183,
+     * DynamoDbJobControlRepository.java:257-258, AthenaJobControlRepository.java:179-180).
+     */
     public static boolean isTerminal(JobStatus status) {
         return status == JobStatus.SUCCEEDED || status == JobStatus.FAILED
                 || status == JobStatus.CANCELLED;
