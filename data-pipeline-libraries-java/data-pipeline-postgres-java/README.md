@@ -42,6 +42,8 @@ T2.1). Plain JDBC, so it runs the same on Cloud SQL, RDS or a self-hosted server
   completing rolls back.
 - **What a later claimant sees:** every later claim on a completed key returns `Completed`. A
   waiting claimant wakes to `Completed` if the holder completes, or to `Acquired` if it abandons.
+- **Reading a completion:** `completion(key)` is a single autocommit read of `stage_completions`.
+  It takes no lock and waits on none; gate predicates (#197) re-check with it.
 - **A dead claimant:** its session ends, the server rolls back, and the next claimant runs the
   stage from its start. There is no lease; the javadoc says why.
 - **Tables:** `stage_claims` and `stage_completions` are created by the same `job_control.sql`.

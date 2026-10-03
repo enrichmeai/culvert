@@ -14,7 +14,13 @@ package com.enrichmeai.culvert.orchestration;
  *       Python DAG file.</li>
  *   <li>{@link ComposerDagRenderer} — emits a Cloud Composer-targeted DAG
  *       file (same DAG body with Composer-specific packaging header).</li>
+ *   <li>{@link SubstrateDagRenderer} — emits a DAG whose tasks run on a chosen
+ *       {@link ExecutionSubstrate}.</li>
  * </ul>
+ *
+ * <p>Every implementation validates gate predicates first ({@link StageGate#validate(DagSpec)}),
+ * and either emits a gated task's runtime re-check or refuses the task. It never renders a gated
+ * task without its check.
  *
  * <p>Sprint-11 deliverable: issue #63 (T11.3).
  */

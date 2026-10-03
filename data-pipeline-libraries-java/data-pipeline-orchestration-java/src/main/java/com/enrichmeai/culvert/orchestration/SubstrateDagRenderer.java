@@ -62,9 +62,27 @@ public final class SubstrateDagRenderer implements DagRenderer {
         return substrate;
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * @throws IllegalArgumentException naming the task, if a task carries a gate predicate
+     *         ({@link StageGate}). The pod or Cloud Run job runs outside the Airflow worker, so this
+     *         renderer cannot re-check the gate before it starts; rendering the task anyway would
+     *         drop the gate. A malformed gate is reported as malformed first.
+     */
     @Override
     public String render(DagSpec dagSpec) {
         Objects.requireNonNull(dagSpec, "dagSpec must not be null");
+        StageGate.validate(dagSpec);
+        for (TaskSpec task : dagSpec.tasks()) {
+            if (!StageGate.requiredStages(task).isEmpty()) {
+                throw new IllegalArgumentException("Task '" + task.taskId() + "' has a gate predicate ('"
+                        + StageGate.COMPLETED + "'), which " + getClass().getSimpleName() + " does not "
+                        + "render: the " + substrate.name() + " workload starts outside the Airflow worker, "
+                        + "so it would run without the re-check. Check the gate inside the job with "
+                        + "StageGate.requireOpen(...), or render with AirflowDagRenderer.withStageGate(...).");
+            }
+        }
 
         List<String> lines = new ArrayList<>();
         lines.addAll(header(dagSpec));

@@ -202,6 +202,46 @@ public abstract class StageClaimContractTest {
     }
 
     @Test
+    void completionIsEmptyUntilTheStageCompletesAndThenNamesTheHolder() {
+        StageKey key = freshKey();
+        assertThat(stageClaim().completion(key)).as("never claimed").isEmpty();
+
+        try (Claim a = acquire(key, "A")) {
+            assertThat(stageClaim().completion(key)).as("held, not completed").isEmpty();
+            a.complete();
+        }
+        ClaimResult.Completed done = stageClaim().completion(key).orElseThrow();
+        assertThat(done.key()).isEqualTo(key);
+        assertThat(done.completedBy()).isEqualTo("A");
+        assertThat(stageClaim().tryClaim(key, "B", Duration.ZERO))
+                .as("the read and a claim agree on the completion")
+                .isEqualTo(done);
+    }
+
+    @Test
+    void anAbandonedStageReadsAsNotCompleted() {
+        StageKey key = freshKey();
+        acquire(key, "A").close();
+        assertThat(stageClaim().completion(key)).isEmpty();
+    }
+
+    @Test
+    void readingACompletionNeverClaimsTheStage() {
+        StageKey key = freshKey();
+        try (Claim a = acquire(key, "A")) {
+            assertThat(stageClaim().completion(key)).isEmpty();
+            assertThat(a.claimant()).isEqualTo("A");
+            assertThat(stageClaim().tryClaim(key, "B", Duration.ZERO))
+                    .as("A still holds the stage after the read")
+                    .isEqualTo(new ClaimResult.Held(key));
+        }
+        assertThat(stageClaim().completion(key)).isEmpty();
+        try (Claim b = acquire(key, "B")) {
+            assertThat(b.claimant()).as("the read left nothing held").isEqualTo("B");
+        }
+    }
+
+    @Test
     void badArgumentsAreRejected() {
         StageKey key = freshKey();
         assertThatThrownBy(() -> stageClaim().tryClaim(null, "A", Duration.ZERO))
@@ -210,6 +250,7 @@ public abstract class StageClaimContractTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> stageClaim().tryClaim(key, "A", Duration.ofMillis(-1)))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> stageClaim().completion(null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new StageKey("u", "", "p")).isInstanceOf(IllegalArgumentException.class);
     }
 }
