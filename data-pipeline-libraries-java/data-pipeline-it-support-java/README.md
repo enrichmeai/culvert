@@ -40,6 +40,19 @@ Wraps [`fsouza/fake-gcs-server`](https://github.com/fsouza/fake-gcs-server)
   project.
 - `getEmulatorHttpEndpoint()` returns the base URL once started.
 
+### `PostgresContainer`
+
+A real PostgreSQL server (`postgres:16-alpine` by default), built on Testcontainers'
+`PostgreSQLContainer` (control-plane epic #188, T2.2).
+
+- **Every connection is its own server session.** `newConnection()` opens a fresh JDBC
+  connection each call. `newDataSource()` is an unpooled `PGSimpleDataSource`, and each of its
+  `getConnection()` calls opens a new session. So a test can hold a row lock on one connection
+  and contend for it from another, which is what `StageClaim` (T2.3) is tested with.
+- `backendPid(connection)` returns the server process behind a connection, so tests can assert
+  two sessions are distinct.
+- `execute(sql)` runs a script (for example a module's DDL) on a fresh connection.
+
 ### Pub/Sub — use Testcontainers' built-in container directly
 
 There is **no wrapper fixture for Pub/Sub** and none is needed. Testcontainers
@@ -120,3 +133,12 @@ mvn -P it verify
 ```
 
 Day-to-day `mvn test` (Surefire, `*Test.java`) is unaffected.
+
+**Docker Engine 29 and later:** Testcontainers 1.19.8 (the version the parent pins) asks the
+daemon for API 1.32. Engine 29 refuses anything below 1.40, with "client version 1.32 is too
+old", and Testcontainers then reports "Could not find a valid Docker environment". Until the pin
+is raised, set the API version on the machine that runs the ITs:
+
+```bash
+echo 'api.version=1.44' >> ~/.docker-java.properties
+```

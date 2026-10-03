@@ -84,6 +84,20 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>gcloud</artifactId>
         </dependency>
+        <!--
+            PostgresContainer (T2.2, #194) extends the Testcontainers PostgreSQL
+            module and hands out plain JDBC connections, so the driver comes
+            with it. Version from the parent, shared with data-pipeline-postgres-java.
+        -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.jdbc.version}</version>
+        </dependency>
 
         <!--
             JUnit Jupiter in COMPILE scope on purpose: this is a test-support
@@ -107,6 +121,13 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-storage</artifactId>
+        </dependency>
+
+        <!-- The module's own tests (PostgresContainerTest, PostgresContainerIT). -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- SLF4J API only — consumers bring their own binding. -->

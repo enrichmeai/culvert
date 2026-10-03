@@ -18,6 +18,9 @@
  *       wraps {@code fsouza/fake-gcs-server} and builds a
  *       {@link com.google.cloud.storage.Storage} client pointed at the
  *       emulator with {@link com.google.cloud.NoCredentials}.</li>
+ *   <li>{@link com.enrichmeai.culvert.itsupport.PostgresContainer} — a real PostgreSQL server
+ *       whose every connection is its own session, so locks can be contended between two
+ *       connections (control-plane T2.2).</li>
  * </ul>
  *
  * <h2>Pub/Sub</h2>
