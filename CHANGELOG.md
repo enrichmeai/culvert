@@ -4,6 +4,15 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-10-03
+
+The W2 batch: the control plane (epic #188), Phases 1 and 2 except the Python
+StageClaim (#196). Every
+change is in the Java libraries. The Python packages carry no change and are
+released at the same version, so Java and Python stay on one version.
+Two libraries are new on Maven Central: `data-pipeline-postgres` and
+`data-pipeline-console`.
+
 ### Added
 
 - **`InputReadiness`: whether every input a unit expects is ready for a
@@ -121,7 +130,7 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   SDK (including Google auth and gRPC), or a Culvert GCP, AWS or Azure adapter
   module, reaches its classpath, directly or transitively.
 
-## [0.3.0] — not yet tagged
+## [0.3.0] — 2026-10-02
 
 The W1 batch (Release board #204): one version again across Java and Python.
 

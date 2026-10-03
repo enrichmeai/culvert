@@ -22,6 +22,6 @@ Install extras for the adapters you need::
 Docs and worked examples: https://github.com/enrichmeai/culvert
 """
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = ["__version__"]
