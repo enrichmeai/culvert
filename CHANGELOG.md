@@ -6,6 +6,23 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`InputReadiness`: a gate opens only when every expected input is ready**
+  (Java, #198; control-plane epic #188).
+  - **The port:** a new optional port in core: `declareExpected(unit, inputs)`,
+    `publish(InputAttempt)` and `readiness(unit, period)`. `Readiness` names
+    each input that is missing, failed or pending, and `isReady()` is the
+    expected set minus the ready-and-validated set: an anti-join, not a count.
+  - **The rule** is `ReadinessResolver`, shared by every backend:
+    - within an attempt, the earliest terminal event wins;
+    - a failed attempt is superseded only by a retry that names it (`retryOf`,
+      as CONTRACT.md §7's `previous_run_id`), so a later success that does
+      not name it leaves the input failed;
+    - an undeclared unit is never ready.
+  - **`PostgresReadiness`:** two new tables in `job_control.sql`, the
+    catalogue and an insert-only ledger. A readiness read is one statement.
+  - **Tests:** `InputReadinessContractTest` (14) passes on an in-memory
+    reference and on PostgreSQL.
+
 - **`max_concurrency` on a fan-out** (Java, #199; control-plane epic #188).
   - **The dial:** an optional `DagSpec.maxConcurrency()` moves a multi-unit
     fan-out from one task at a time (`1`) to `N` at once.

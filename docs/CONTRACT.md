@@ -275,6 +275,8 @@ The same fixture set is used by Culvert's own CI; any non-Python implementor ach
 
 **Not covered by this version: `StageClaim`.** The claim on one stage of one unit for one period (#195) is, for now, a Java-only, optional capability. Only a backend that can lock implements it (`PostgresStageClaim`), and its tables (`job_control.stage_claims`, `job_control.stage_completions`) are that adapter's own schema. They are not wire-contract tables. Its behaviour is pinned by the Java `StageClaimContractTest`. A language-neutral definition, and the Python mirror, come with #196.
 
+**Not covered by this version: `InputReadiness`.** Whether a unit's expected inputs are produced and validated for a period (#198) is, for now, a Java-only, optional capability (`PostgresReadiness`). Its tables (`job_control.readiness_expected`, `job_control.readiness_attempts`) are that adapter's own schema, not wire-contract tables. Its behaviour is pinned by the Java `InputReadinessContractTest`, and the readiness rule is `ReadinessResolver`. It is promoted to this document when a second deployment needs the same shape.
+
 ---
 
 ## 11. Frequently Asked Questions

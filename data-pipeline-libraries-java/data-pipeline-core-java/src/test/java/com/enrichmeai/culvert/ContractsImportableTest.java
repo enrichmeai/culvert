@@ -61,6 +61,13 @@ class ContractsImportableTest {
     }
 
     @Test
+    void input_readiness_has_its_methods() {
+        for (String m : new String[]{"declareExpected", "expected", "publish", "readiness"}) {
+            assertHasMethod(com.enrichmeai.culvert.contracts.InputReadiness.class, m);
+        }
+    }
+
+    @Test
     void source_has_read_method() {
         assertHasMethod(Source.class, "read");
     }

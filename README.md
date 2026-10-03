@@ -21,7 +21,7 @@ Culvert is a framework for building data pipelines that are **defined once again
 
 | Layer | Strategy | Notes |
 |---|---|---|
-| **Contracts** | **Both** implement the same spec | 16 interfaces + the `StageMetrics` record. Java in `data-pipeline-core-java`; Python Protocols in `data-pipeline-core`. Java also has `StageClaim`, an optional capability (PostgreSQL only, #195). |
+| **Contracts** | **Both** implement the same spec | 16 interfaces + the `StageMetrics` record. Java in `data-pipeline-core-java`; Python Protocols in `data-pipeline-core`. Java also has two optional capabilities, PostgreSQL only: `StageClaim` (#195) and `InputReadiness` (#198). |
 | **dbt / transform** | **Reuse** (language-neutral) | dbt is SQL + macros — packaged in `data-pipeline-transform`; there is deliberately no Java transform module. |
 | **Dataflow / execution** | **Java** (Apache Beam) | `data-pipeline-gcp-dataflow-java`. Legacy Python Beam is not carried forward. |
 | **Orchestration** | **Reuse** — complementary | Python owns the Airflow runtime side; Java owns the cloud-neutral DAG model + renderers (`DagSpec`/`TaskSpec`, Airflow/Composer). |
@@ -104,7 +104,7 @@ What registers is deliberate. **Per-environment** adapters do: a warehouse, a bl
 
 ## Contracts
 
-The 16 contract interfaces are the heart of the framework. Java also has `StageClaim`, which is not one of the 16 shared contracts: it is an optional capability that only a backend able to lock implements (today PostgreSQL). Its Python mirror is #196. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
+The 16 contract interfaces are the heart of the framework. Java also has `StageClaim` and `InputReadiness`, which are not among the 16 shared contracts. They are optional capabilities that only PostgreSQL implements today: a stage claim needs a backend that can lock, and readiness needs its own catalogue. `StageClaim`'s Python mirror is #196. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
 
 ## Status & roadmap
 
