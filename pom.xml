@@ -22,7 +22,7 @@
     <!--
         Whole-repo build aggregator.
 
-        `mvn test` from the repo root builds the 20-module library reactor AND
+        `mvn test` from the repo root builds the 21-module library reactor AND
         every Java deployment in one command, on a clean checkout, with no
         prior `install` step. That is the point of this file: before it existed,
         the deployments were standalone poms pinned to a *released* library
@@ -77,7 +77,7 @@
     </licenses>
 
     <modules>
-        <!-- The 20-module library reactor (itself an aggregator). -->
+        <!-- The 21-module library reactor (itself an aggregator). -->
         <module>data-pipeline-libraries-java</module>
 
         <!--
