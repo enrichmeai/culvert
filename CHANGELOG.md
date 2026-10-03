@@ -14,6 +14,18 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   calls only the five read methods: never a write, and never
   `cleanupPartialLoad`, which deletes data. A failed run stays failed in every
   view, and its summary says a retry runs under a new run id.
+- **The `culvert` command line** (Java, #191). Run as `CulvertCli`, it has five
+  read-only commands:
+  - `runs` lists active runs only, and says so.
+  - `run <runId>` shows one run.
+  - `entities` and `failures` take `--system` and `--date`.
+  - `adapters` lists every contract with its bound adapters or "(unbound)". It
+    also lists the providers `AutoConfig` failed to load, which `AutoConfig`
+    otherwise skips silently, and exits 1 if there are any.
+
+  Before reading, the list commands warn that they read the whole job-control
+  table. There is no watch mode, and no installed launcher yet: the module
+  README shows how to run it.
 
 ## [0.3.0] — not yet tagged
 
