@@ -73,6 +73,7 @@ public final class SubstrateDagRenderer implements DagRenderer {
     @Override
     public String render(DagSpec dagSpec) {
         Objects.requireNonNull(dagSpec, "dagSpec must not be null");
+        dagSpec.validMaxConcurrency();
         StageGate.validate(dagSpec);
         for (TaskSpec task : dagSpec.tasks()) {
             if (!StageGate.requiredStages(task).isEmpty()) {
@@ -94,11 +95,13 @@ public final class SubstrateDagRenderer implements DagRenderer {
                 ? "\"" + dagSpec.schedule() + "\"" : "None") + ",");
         lines.add("    start_date=datetime(2024, 1, 1),");
         lines.add("    catchup=False,");
+        AirflowDagRenderer.addMaxActiveTasks(lines, dagSpec);
         lines.add(") as dag:");
         lines.add("    tasks = {}");
 
+        boolean capped = dagSpec.validMaxConcurrency() != null;
         for (TaskSpec task : dagSpec.tasks()) {
-            lines.addAll(renderTask(task));
+            lines.addAll(renderTask(task, capped));
         }
 
         if (!dagSpec.edges().isEmpty()) {
@@ -153,8 +156,19 @@ public final class SubstrateDagRenderer implements DagRenderer {
         return lines;
     }
 
-    private List<String> renderTask(TaskSpec task) {
-        return substrate.launchesPods() ? renderPodTask(task) : renderCloudRunTask(task);
+    /**
+     * @param capped the DAG has a concurrency cap (#199). Airflow counts only running and queued
+     *               tasks against {@code max_active_tasks}, not deferred ones, and both operators
+     *               default {@code deferrable} from the environment's
+     *               {@code operators.default_deferrable}. So a capped DAG pins
+     *               {@code deferrable=False}, or a deferrable environment would run past the cap.
+     */
+    private List<String> renderTask(TaskSpec task, boolean capped) {
+        List<String> lines = substrate.launchesPods() ? renderPodTask(task) : renderCloudRunTask(task);
+        if (capped) {
+            lines.add(lines.size() - 1, "        deferrable=False,");
+        }
+        return lines;
     }
 
     private List<String> renderPodTask(TaskSpec task) {
