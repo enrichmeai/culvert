@@ -7,7 +7,12 @@ import com.enrichmeai.culvert.stageclaim.StageKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import org.postgresql.core.BaseConnection;
+import org.postgresql.core.TransactionState;
+
 import javax.sql.DataSource;
+import java.io.PrintWriter;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -15,6 +20,7 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -76,6 +82,66 @@ class PostgresStageClaimTest {
         assertThatThrownBy(a::complete).as("a dead claim cannot record completion")
                 .isInstanceOf(IllegalStateException.class);
         a.close(); // abandoning a dead claim does not throw
+    }
+
+    @Test
+    void aCompletionReadOnAPooledNonAutocommitConnectionLeavesItIdleAndSeesNewCompletions()
+            throws SQLException {
+        Connection shared = db.getConnection();
+        shared.setAutoCommit(false);
+        shared.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+        try {
+            PostgresStageClaim reader = new PostgresStageClaim(onePooledConnection(shared));
+            StageKey key = freshKey();
+
+            assertThat(reader.completion(key)).isEmpty();
+            assertThat(shared.unwrap(BaseConnection.class).getTransactionState())
+                    .as("the read ended its transaction").isEqualTo(TransactionState.IDLE);
+
+            try (Claim a = acquire(key, "A")) {
+                a.complete();
+            }
+            assertThat(reader.completion(key))
+                    .as("no snapshot is kept between reads on the reused connection")
+                    .hasValueSatisfying(done -> assertThat(done.completedBy()).isEqualTo("A"));
+            assertThat(shared.unwrap(BaseConnection.class).getTransactionState()).isEqualTo(TransactionState.IDLE);
+        } finally {
+            shared.close();
+        }
+    }
+
+    /** A DataSource that hands out the same connection every time and ignores close(), like a pool. */
+    private static DataSource onePooledConnection(Connection shared) {
+        Connection handle = (Connection) Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class}, (proxy, method, args) ->
+                        method.getName().equals("close") ? null : method.invoke(shared, args));
+        return new DataSource() {
+            @Override public Connection getConnection() {
+                return handle;
+            }
+            @Override public Connection getConnection(String user, String password) {
+                return handle;
+            }
+            @Override public PrintWriter getLogWriter() {
+                return null;
+            }
+            @Override public void setLogWriter(PrintWriter out) {
+            }
+            @Override public void setLoginTimeout(int seconds) {
+            }
+            @Override public int getLoginTimeout() {
+                return 0;
+            }
+            @Override public Logger getParentLogger() {
+                return Logger.getGlobal();
+            }
+            @Override public <T> T unwrap(Class<T> iface) throws SQLException {
+                throw new SQLException("not a wrapper");
+            }
+            @Override public boolean isWrapperFor(Class<?> iface) {
+                return false;
+            }
+        };
     }
 
     @Test

@@ -166,12 +166,16 @@ public final class PostgresStageClaim implements StageClaim {
     public Optional<ClaimResult.Completed> completion(StageKey key) {
         Objects.requireNonNull(key, "key must not be null");
         try (Connection c = dataSource.getConnection()) {
-            if (!c.getAutoCommit()) {
-                Optional<ClaimResult.Completed> done = completion(c, key);
-                c.rollback();
-                return done;
+            if (c.getAutoCommit()) {
+                return completion(c, key);
             }
-            return completion(c, key);
+            // A pool's connection may come without autocommit: end the read's transaction, even
+            // when the read fails, so the connection goes back clean.
+            try {
+                return completion(c, key);
+            } finally {
+                c.rollback();
+            }
         } catch (SQLException e) {
             throw failure("completion", e);
         }

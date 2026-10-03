@@ -11,8 +11,9 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   - **The shape:** `TaskSpec.params` key `culvert.gate.completed`, a `List`
     of stages that must be completed for the task's unit and period.
   - **Render-time validation:** every renderer refuses a malformed gate,
-    naming the task. A DAG with no gate renders byte-identically to before
-    (pinned by golden files).
+    naming the task, including any other key starting with `culvert.gate`.
+    A DAG with no gate renders byte-identically to before (pinned by golden
+    files).
   - **The re-check:** `StageGate` for Java runners.
     `AirflowDagRenderer.withStageGate(...)`, and `ComposerDagRenderer`
     through it, emit the check at the top of the gated task's callable, which
@@ -20,7 +21,8 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
     gated tasks: it cannot re-check a pod or Cloud Run job before it starts.
   - **`StageClaim.completion(key)`:** a read of a stage's completion that
     never claims or waits, added to the port for the re-check, with three
-    contract tests.
+    contract tests. It is a new abstract method: a `StageClaim`
+    implementation outside Culvert must add it.
 - **`StageClaim`: a stage cannot double-start** (Java, #195; control-plane epic
   #188).
   - **The port:** a new optional port in core,

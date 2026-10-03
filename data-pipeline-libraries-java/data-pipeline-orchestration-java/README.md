@@ -368,7 +368,7 @@ The gate rides in `TaskSpec.params` under `StageGate.COMPLETED` (`"culvert.gate.
 
 ```java
 TaskSpec publish = new TaskSpec("publish", "publish", List.of("load"),
-        Map.of(StageGate.COMPLETED, new ArrayList<>(List.of("load", "validate"))));
+        Map.<String, Serializable>of(StageGate.COMPLETED, new ArrayList<>(List.of("load", "validate"))));
 ```
 
 It stays in the untyped `params` rather than a new `TaskSpec` field: `TaskSpec` is serialized
@@ -381,7 +381,8 @@ the task named:
 
 - a value that is not a non-empty `List` of non-blank stage names;
 - a duplicate stage, or the task's own stage (the gate could never open);
-- any other `culvert.gate.*` key (a misspelt key must not drop a gate silently);
+- any other key starting with `culvert.gate`, in any case (`culvert.gates.completed`,
+  `culvert.gate_completed`): a typo under that prefix must not drop a gate silently;
 - a gated task given to a renderer that cannot emit the re-check (see below).
 
 A `DagSpec` with no gate renders byte-identically to before gates existed.
@@ -407,6 +408,9 @@ period are Python expressions evaluated in the task callable:
 | `unitExpression` | `context["dag"].dag_id` | The unit the gate is checked for. |
 | `periodExpression` | `context["ds"]` | The period: the run's logical date, as job-control wiring uses for `extract_date`. |
 
+With job-control wiring, a gated task checks before `create_job` or `update_status`. A closed gate
+therefore writes no job-control row: the stage did not start.
+
 **Not yet:** the Python `StageClaim` mirror is #196 (waiting on decision A in #188). Until it lands,
 the deployment supplies the object `checkerVariable` names.
 
@@ -419,6 +423,6 @@ the deployment supplies the object `checkerVariable` names.
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 106, Failures: 0, Errors: 0, Skipped: 0`
+Expected output: `Tests run: 113, Failures: 0, Errors: 0, Skipped: 0`
 (11 PipelineToDagSpec + 14 AirflowDagRenderer + 11 ComposerDagRenderer + 25 JobControlWiring
-+ 11 SubstrateDagRenderer + 18 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput)
++ 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput)

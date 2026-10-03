@@ -86,7 +86,23 @@ class StageGateTest {
                 new Object[]{new TaskSpec("publish", "publish", List.of(),
                         Map.of("culvert.gate.complete", new ArrayList<>(List.of("load")))), "unknown gate key"},
                 new Object[]{new TaskSpec("publish", "publish", List.of(),
-                        Map.of("culvert.gate", "load")), "unknown gate key"});
+                        Map.of("culvert.gate", "load")), "unknown gate key"},
+                new Object[]{gated("publish", new ArrayList<>(java.util.Arrays.asList("load", null))),
+                        "non-blank stage name"},
+                typo("culvert.gateX"),
+                typo("culvert.gates.completed"),
+                typo("culvert.gate_completed"),
+                typo("Culvert.Gate.Completed"),
+                typo("CULVERT.GATE.COMPLETED"));
+    }
+
+    /** A misspelt gate key alongside a valid one: the typo is reported, whichever the map yields first. */
+    private static Object[] typo(String key) {
+        Map<String, Serializable> params = new HashMap<>();
+        params.put(StageGate.COMPLETED, new ArrayList<>(List.of("load")));
+        params.put(key, new ArrayList<>(List.of("validate")));
+        return new Object[]{new TaskSpec("publish", "publish", List.of(), params),
+                "unknown gate key '" + key + "'"};
     }
 
     @ParameterizedTest
@@ -166,6 +182,12 @@ class StageGateTest {
 
         new StageGate(new CompletionsOnly(Set.of(key("load"), key("validate"))))
                 .requireOpen(t, "orders", "2026-10-03");
+    }
+
+    @Test
+    void aKeyThatMerelyContainsGateIsNotAGateKey() {
+        TaskSpec t = new TaskSpec("load", "load", List.of(), Map.of("my.culvert.gate.completed", "x"));
+        assertThat(StageGate.requiredStages(t)).isEmpty();
     }
 
     @Test

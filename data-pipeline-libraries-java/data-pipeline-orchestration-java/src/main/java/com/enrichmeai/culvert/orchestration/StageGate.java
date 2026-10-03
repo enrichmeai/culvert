@@ -7,7 +7,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 
@@ -23,15 +23,18 @@ import java.util.Set;
  * <h2>The shape</h2>
  * <p>The predicate rides in {@link TaskSpec#params()} under {@value #COMPLETED}. Its value is a
  * {@link List} of stage names, for example
- * {@code Map.of(StageGate.COMPLETED, List.of("load", "validate"))}. The gate is open when every
+ * {@code Map.<String, Serializable>of(StageGate.COMPLETED, new ArrayList<>(List.of("load", "validate")))}.
+ * The gate is open when every
  * listed stage is completed for the task's unit and period. There is one predicate kind today, so
  * it stays in the untyped {@code params} rather than adding a field to the serialized
  * {@code TaskSpec}; a second kind is the moment to revisit that.
  *
  * <h2>Validated when the DAG is rendered</h2>
  * <p>Every renderer calls {@link #validate(DagSpec)} first, so a malformed predicate fails when the
- * DAG is generated, with the task named, rather than at run time. A {@code culvert.gate.*} key
- * other than {@value #COMPLETED} is rejected as well, so a misspelt key cannot drop a gate silently.
+ * DAG is generated, with the task named, rather than at run time. Any other key that starts with
+ * {@code culvert.gate}, in any case ({@code culvert.gates.completed}, {@code Culvert.Gate.Completed},
+ * {@code culvert.gate_completed}), is rejected as well, so a typo under that prefix cannot drop a
+ * gate silently. A key misspelt before the prefix ({@code culvrt.gate...}) is not caught.
  * A task with no gate key renders exactly as it did before gates existed.
  *
  * <h2>Where the re-check runs</h2>
@@ -49,7 +52,7 @@ public final class StageGate {
     /** The {@code params} key for the one predicate kind: stages that must be completed. */
     public static final String COMPLETED = "culvert.gate.completed";
 
-    /** Every gate key starts with this; any other key under it is a mistake. */
+    /** Every key starting with this, in any case, is a gate key; any but {@link #COMPLETED} is a mistake. */
     static final String PREFIX = "culvert.gate";
 
     private final StageClaim stageClaim;
@@ -68,26 +71,22 @@ public final class StageGate {
      */
     public static List<String> requiredStages(TaskSpec task) {
         Objects.requireNonNull(task, "task must not be null");
-        Serializable value = null;
-        boolean gated = false;
-        for (Map.Entry<String, Serializable> e : task.params().entrySet()) {
-            String key = e.getKey();
-            if (!key.equals(PREFIX) && !key.startsWith(PREFIX + ".")) {
-                continue;
-            }
-            if (!key.equals(COMPLETED)) {
+        // Unknown keys first, so the error does not depend on the map's order. Any key that starts
+        // with "culvert.gate", in any case, is a gate key: "culvert.gates.completed" or
+        // "Culvert.Gate.Completed" is a typo for the one kind, and must not leave the task ungated.
+        for (String key : task.params().keySet()) {
+            if (isGateKey(key) && !key.equals(COMPLETED)) {
                 throw malformed(task, "has an unknown gate key '" + key + "'. The only gate predicate is '"
                         + COMPLETED + "'");
             }
-            gated = true;
-            value = e.getValue();
         }
-        if (!gated) {
+        if (!task.params().containsKey(COMPLETED)) {
             return List.of();
         }
+        Serializable value = task.params().get(COMPLETED);
         if (!(value instanceof List<?> list)) {
             throw malformed(task, "has '" + COMPLETED + "' = " + value + ", but it must be a List of stage "
-                    + "names, for example List.of(\"load\")");
+                    + "names, for example new ArrayList<>(List.of(\"load\"))");
         }
         if (list.isEmpty()) {
             throw malformed(task, "has an empty '" + COMPLETED + "' list. Remove the key to leave the task "
@@ -160,6 +159,10 @@ public final class StageGate {
         if (!result.isOpen()) {
             throw new IllegalStateException(result.toString());
         }
+    }
+
+    private static boolean isGateKey(String key) {
+        return key.toLowerCase(Locale.ROOT).startsWith(PREFIX);
     }
 
     private static IllegalArgumentException malformed(TaskSpec task, String problem) {

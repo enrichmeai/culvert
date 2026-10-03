@@ -18,8 +18,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Gate predicates (#197) are additive: a {@link DagSpec} whose tasks carry no gate renders
  * byte-identically to the output before gates existed.
  *
- * <p>The files under {@code src/test/resources/golden/} were written by the renderers on
- * {@code main} at 301b82a, before #197 changed any of them. Each renderer, with and without
+ * <p>The files under {@code src/test/resources/golden/} were written by the renderers as they
+ * were on {@code main} at 301b82a, before #197 changed any of them, and committed on their own
+ * in 3b87caf. Each renderer, with and without
  * job-control wiring, is compared to its file byte for byte. Never regenerate them to make this
  * test pass: a difference is a change in what an existing user's DAG looks like.
  */
