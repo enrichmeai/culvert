@@ -38,6 +38,9 @@ import java.sql.Statement;
  * }
  * }</pre>
  *
+ * <p>Unlike the emulator fixtures there is no {@code configure()} override: the inherited
+ * {@link PostgreSQLContainer} already sets the exposed port, credentials and readiness wait.
+ *
  * <p>Control-plane epic #188, Phase 2 (T2.2, #194).
  */
 public final class PostgresContainer extends PostgreSQLContainer<PostgresContainer> {

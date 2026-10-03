@@ -23,7 +23,6 @@
     </description>
 
     <properties>
-        <postgresql.jdbc.version>42.7.4</postgresql.jdbc.version>
         <embedded.postgres.version>2.2.2</embedded.postgres.version>
         <!-- The PostgreSQL the tests run, matching what the epic targets. -->
         <embedded.postgres.binaries.version>16.15.0</embedded.postgres.binaries.version>

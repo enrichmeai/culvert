@@ -149,6 +149,8 @@
         <assertj.version>3.25.3</assertj.version>
         <!-- Sprint-10: Testcontainers for emulator integration tests. -->
         <testcontainers.version>1.19.8</testcontainers.version>
+        <!-- PostgreSQL JDBC driver: data-pipeline-postgres and the it-support PostgresContainer. -->
+        <postgresql.jdbc.version>42.7.4</postgresql.jdbc.version>
         <maven.failsafe.plugin.version>3.2.5</maven.failsafe.plugin.version>
 
         <!-- Plugin versions -->
