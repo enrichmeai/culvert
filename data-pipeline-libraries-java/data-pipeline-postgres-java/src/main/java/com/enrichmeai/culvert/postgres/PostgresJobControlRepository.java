@@ -39,7 +39,8 @@ import java.util.regex.Pattern;
  * {@code UPDATE}s or {@code DELETE}s the ledger. Each transition reads the run's projected state,
  * carries it forward with its own change, and {@code INSERT}s the result with
  * {@code updated_at = clock_timestamp()}. A transactional store does not mean mutating a row in
- * place: the semantics are the BigQuery reference's (BigQueryJobControlRepository).
+ * place: the semantics are the BigQuery reference's (BigQueryJobControlRepository.java:726,
+ * {@code rankedCte}).
  *
  * <h2>Reads are a projection; the first terminal state is final (AD-3)</h2>
  * <p>Every read ranks a run's rows with {@code ROW_NUMBER() OVER (PARTITION BY run_id ...)}:
@@ -52,11 +53,15 @@ import java.util.regex.Pattern;
  * <ul>
  *   <li>{@link #createJob} is rejected by the server for a {@code runId} that already exists: a
  *       partial unique index allows one {@code opens_run} row per run (SQLSTATE 23505), like
- *       BigQuery's {@code MERGE} and DynamoDB's {@code attribute_not_exists}, and unlike Athena.
+ *       BigQuery's {@code MERGE} and DynamoDB's {@code attribute_not_exists}, and unlike Athena's
+ *       plain {@code INSERT} (JobControlRepository.java:39-46).
  *   <li>Each transition runs in one transaction that first locks the run's opening row
  *       ({@code SELECT ... FOR UPDATE}), so two writers racing the same transition are serialised:
  *       the second reads the first's result and is rejected by the guard. On the other backends
  *       read-then-append is not atomic. This is a property of the adapter, not a contract method.
+ *       The transition runs at READ COMMITTED whatever the connection's default, because the
+ *       guard must see the previous writer's commit once the lock is granted; the connection's
+ *       autocommit and isolation are restored before it is closed (or returned to a pool).
  * </ul>
  *
  * <p>{@link #cleanupPartialLoad} is the only {@code DELETE}, and it targets the caller's
@@ -240,7 +245,10 @@ public final class PostgresJobControlRepository implements JobControlRepository 
     /** Lock the run, check its projected state, append the change: one transaction. */
     private void transition(String op, String runId, Set<JobStatus> allowed, Change change) {
         try (Connection c = dataSource.getConnection()) {
+            boolean autoCommit = c.getAutoCommit();
+            int isolation = c.getTransactionIsolation();
             c.setAutoCommit(false);
+            c.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
             try {
                 if (!lockRun(c, runId)) {
                     throw new IllegalStateException(op + " rejected: no job with runId=" + runId);
@@ -255,9 +263,16 @@ public final class PostgresJobControlRepository implements JobControlRepository 
                 Append next = change.apply(current);
                 insert(c, next.job(), false, next.stampStartedNow(), next.stampCompletedNow());
                 c.commit();
-            } catch (RuntimeException | SQLException e) {
-                c.rollback();
+            } catch (RuntimeException | SQLException | Error e) {
+                try {
+                    c.rollback();
+                } catch (SQLException rollbackFailed) {
+                    e.addSuppressed(rollbackFailed);
+                }
                 throw e;
+            } finally {
+                c.setTransactionIsolation(isolation);
+                c.setAutoCommit(autoCommit);
             }
         } catch (SQLException e) {
             throw failure(op, e);
@@ -435,9 +450,9 @@ public final class PostgresJobControlRepository implements JobControlRepository 
                 rs.getString("pipeline_name"), rs.getDate("extract_date").toLocalDate(),
                 JobStatus.valueOf(rs.getString("status").toUpperCase()));
         b.jobType(JobType.valueOf(rs.getString("job_type")));
-        b.entityType(rs.getString("entity_type"));
-        b.sourceFile(rs.getString("source_file"));
-        b.targetTable(rs.getString("target_table"));
+        b.entityType(text(rs, "entity_type"));
+        b.sourceFile(text(rs, "source_file"));
+        b.targetTable(text(rs, "target_table"));
         b.recordCount(rs.getLong("record_count"));
         b.errorCount(rs.getLong("error_count"));
         b.retryCount(rs.getInt("retry_count"));
@@ -445,9 +460,9 @@ public final class PostgresJobControlRepository implements JobControlRepository 
         if (stage != null) {
             b.failureStage(FailureStage.valueOf(stage.toUpperCase()));
         }
-        b.errorCode(rs.getString("error_code"));
-        b.errorMessage(rs.getString("error_message"));
-        b.errorFilePath(rs.getString("error_file_path"));
+        b.errorCode(text(rs, "error_code"));
+        b.errorMessage(text(rs, "error_message"));
+        b.errorFilePath(text(rs, "error_file_path"));
         b.estimatedCostUsd(rs.getDouble("estimated_cost_usd"));
         b.billedBytesScanned(rs.getLong("billed_bytes_scanned"));
         b.billedBytesWritten(rs.getLong("billed_bytes_written"));
@@ -456,6 +471,12 @@ public final class PostgresJobControlRepository implements JobControlRepository 
         b.startedAt(instant(rs, "started_at"));
         b.completedAt(instant(rs, "completed_at"));
         return b.build();
+    }
+
+    /** A text column, with "" read as absent, as BigQuery's {@code stringOptional} does. */
+    private static String text(ResultSet rs, String column) throws SQLException {
+        String v = rs.getString(column);
+        return v == null || v.isEmpty() ? null : v;
     }
 
     private static Instant instant(ResultSet rs, String column) throws SQLException {

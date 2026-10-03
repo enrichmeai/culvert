@@ -28,7 +28,10 @@ T2.1). Plain JDBC, so it runs the same on Cloud SQL, RDS or a self-hosted server
 - **Transitions are serialised per run.** Each one locks the run's opening row, reads, checks and
   appends in one transaction. When several writers race the same transition, exactly one wins.
 - `cleanupPartialLoad` deletes from your warehouse table, never from the ledger. Table names
-  must be plain `[schema.]table`.
+  must be plain `[schema.]table` (letters, digits, underscores). They are quoted, so they are
+  case-sensitive.
+- Transitions run at READ COMMITTED whatever the connection's default. Autocommit and isolation
+  are restored before the connection is returned.
 
 ## Tests
 

@@ -9,6 +9,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
+import java.io.PrintWriter;
+import java.util.logging.Logger;
+import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -95,6 +98,82 @@ class PostgresJobControlRepositoryTest {
                 .isEqualTo(1);
         assertThat(ledgerRows()).isEqualTo(3); // created, running, one succeeded
         assertThat(repo.getJob("run-1").orElseThrow().status()).isEqualTo(JobStatus.SUCCEEDED);
+    }
+
+    /** A DataSource that gives out connections already set to {@code isolation}. */
+    private DataSource withDefaultIsolation(int isolation) {
+        return new DelegatingDataSource(db) {
+            @Override
+            public Connection getConnection() throws SQLException {
+                Connection c = db.getConnection();
+                c.setTransactionIsolation(isolation);
+                return c;
+            }
+        };
+    }
+
+    @Test
+    void theRaceHasOneWinnerEvenWhenThePoolDefaultsToRepeatableRead() throws Exception {
+        PostgresJobControlRepository rr = new PostgresJobControlRepository(
+                withDefaultIsolation(Connection.TRANSACTION_REPEATABLE_READ));
+        rr.createJob(job("run-rr"));
+        rr.updateStatus("run-rr", JobStatus.RUNNING, Optional.empty());
+
+        ExecutorService pool = Executors.newFixedThreadPool(8);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Boolean>> results = new ArrayList<>();
+        for (int i = 0; i < 8; i++) {
+            results.add(pool.submit(() -> {
+                start.await();
+                try {
+                    rr.updateStatus("run-rr", JobStatus.SUCCEEDED, Optional.of(1L));
+                    return true;
+                } catch (IllegalStateException rejected) {
+                    return false;
+                }
+            }));
+        }
+        start.countDown();
+        int won = 0;
+        for (Future<Boolean> f : results) {
+            won += f.get() ? 1 : 0;
+        }
+        pool.shutdown();
+        assertThat(won).isEqualTo(1);
+    }
+
+    @Test
+    void aTransitionHandsTheConnectionBackAsItFoundIt() throws SQLException {
+        Connection real = db.getConnection();
+        real.setTransactionIsolation(Connection.TRANSACTION_SERIALIZABLE);
+        // One connection that survives close(), as a pool's would.
+        Connection kept = (Connection) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[] {Connection.class}, (proxy, method, args) ->
+                        method.getName().equals("close") ? null : method.invoke(real, args));
+        PostgresJobControlRepository single = new PostgresJobControlRepository(new DelegatingDataSource(db) {
+            @Override
+            public Connection getConnection() {
+                return kept;
+            }
+        });
+
+        single.createJob(job("run-1"));
+        single.updateStatus("run-1", JobStatus.RUNNING, Optional.empty());
+        assertThatThrownBy(() -> single.updateStatus("run-1", JobStatus.RUNNING, Optional.empty()))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThat(real.getAutoCommit()).isTrue();
+        assertThat(real.getTransactionIsolation()).isEqualTo(Connection.TRANSACTION_SERIALIZABLE);
+        single.createJob(job("run-2")); // autocommit is back on, so this is committed
+        assertThat(repo.getJob("run-2")).isPresent();
+        real.close();
+    }
+
+    @Test
+    void anEmptyOptionalTextReadsBackAsAbsent() {
+        repo.createJob(job("run-1"));
+        repo.markFailed("run-1", "E", "m", FailureStage.LOAD, Optional.of(""));
+        assertThat(repo.getJob("run-1").orElseThrow().errorFilePath()).isEmpty();
     }
 
     @Test
@@ -199,6 +278,60 @@ class PostgresJobControlRepositoryTest {
         } finally {
             System.clearProperty("culvert.postgres.url");
             System.clearProperty("culvert.postgres.user");
+        }
+    }
+
+    /** Forwards everything to a DataSource; tests override getConnection. */
+    private static class DelegatingDataSource implements DataSource {
+        private final DataSource delegate;
+
+        DelegatingDataSource(DataSource delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public Connection getConnection() throws SQLException {
+            return delegate.getConnection();
+        }
+
+        @Override
+        public Connection getConnection(String user, String password) throws SQLException {
+            return delegate.getConnection(user, password);
+        }
+
+        @Override
+        public PrintWriter getLogWriter() throws SQLException {
+            return delegate.getLogWriter();
+        }
+
+        @Override
+        public void setLogWriter(PrintWriter out) throws SQLException {
+            delegate.setLogWriter(out);
+        }
+
+        @Override
+        public void setLoginTimeout(int seconds) throws SQLException {
+            delegate.setLoginTimeout(seconds);
+        }
+
+        @Override
+        public int getLoginTimeout() throws SQLException {
+            return delegate.getLoginTimeout();
+        }
+
+        @Override
+        public Logger getParentLogger() {
+            return Logger.getGlobal();
+        }
+
+        @Override
+        public <T> T unwrap(Class<T> iface) throws SQLException {
+            return delegate.unwrap(iface);
+        }
+
+        @Override
+        public boolean isWrapperFor(Class<?> iface) throws SQLException {
+            return delegate.isWrapperFor(iface);
         }
     }
 }
