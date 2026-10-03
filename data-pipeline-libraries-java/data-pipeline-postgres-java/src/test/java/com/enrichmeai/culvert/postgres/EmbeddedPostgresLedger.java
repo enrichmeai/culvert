@@ -46,6 +46,46 @@ final class EmbeddedPostgresLedger {
         }
     }
 
+    /**
+     * A data source on the same server whose sessions carry {@code applicationName}, so a test can
+     * find exactly its own sessions in {@code pg_stat_activity} and nobody else's.
+     */
+    static DataSource tagged(DataSource db, String applicationName) {
+        try (Connection c = db.getConnection()) {
+            org.postgresql.ds.PGSimpleDataSource ds = new org.postgresql.ds.PGSimpleDataSource();
+            ds.setURL(c.getMetaData().getURL());
+            ds.setUser("postgres");
+            ds.setApplicationName(applicationName);
+            return ds;
+        } catch (SQLException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /** Return once a session tagged {@code applicationName} is waiting on a lock. */
+    static void awaitLockWait(DataSource db, String applicationName) {
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(10);
+        String sql = "SELECT count(*) FROM pg_stat_activity WHERE application_name = ? "
+                + "AND wait_event_type = 'Lock' AND pid <> pg_backend_pid()";
+        while (true) {
+            try (Connection c = db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+                ps.setString(1, applicationName);
+                try (java.sql.ResultSet rs = ps.executeQuery()) {
+                    rs.next();
+                    if (rs.getInt(1) > 0) {
+                        return;
+                    }
+                }
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("no " + applicationName + " session started waiting on a lock");
+            }
+            Thread.onSpinWait();
+        }
+    }
+
     /** The DDL the module ships, read from the classpath exactly as a user would get it. */
     static String shippedDdl() {
         try (InputStream in = PostgresJobControlRepository.class

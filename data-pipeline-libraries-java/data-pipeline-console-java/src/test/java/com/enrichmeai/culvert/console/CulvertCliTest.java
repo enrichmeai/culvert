@@ -111,7 +111,8 @@ class CulvertCliTest {
         // This module's test classpath registers no adapter, so every contract is unbound.
         assertThat(run(JobControlRepositoryFixtures.emptyRepo(), "adapters")).isZero();
         assertThat(out()).contains("JobControlRepository").contains("(unbound)")
-                .contains("Warehouse").contains("Discovery failures: none");
+                .contains("Warehouse").contains("StageClaim (optional): (unbound)")
+                .contains("Discovery failures: none");
     }
 
     @Test

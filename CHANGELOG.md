@@ -6,6 +6,26 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`StageClaim`: a stage cannot double-start** (Java, #195; control-plane epic
+  #188).
+  - **The port:** a new optional port in core,
+    `tryClaim(StageKey(unit, stage, period), claimant, maxWait)`, returns one
+    of three results:
+    - `Acquired`: the caller holds the stage and must `complete()` or
+      `close()` it;
+    - `Held`: another claimant holds it;
+    - `Completed`: the stage is done, and it never runs again.
+  - **Discovery:** `AutoConfig.stageClaim()` is empty on backends that cannot
+    lock (BigQuery, Athena, DynamoDB).
+  - **`PostgresStageClaim`:** the claim is a row lock held by an open READ
+    COMMITTED transaction. A claimant that dies releases its claim when the
+    server ends its session, and the next claimant runs the stage. There is
+    no lease, by design (see its javadoc). Two new insert-only tables in
+    `job_control.sql` back it.
+  - **Tests:** `StageClaimContractTest` drives two claimants in a fixed order
+    rather than racing threads. It passes on an in-memory reference and on
+    PostgreSQL.
+  - **Not yet:** the Python mirror is #196.
 - **`PostgresContainer` in `data-pipeline-it-support`** (Java, #194). A
   Testcontainers PostgreSQL 16 fixture. Each `newConnection()` and each
   `getConnection()` of its unpooled `newDataSource()` is a separate server

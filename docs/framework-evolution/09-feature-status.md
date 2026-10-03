@@ -12,7 +12,8 @@ Legend: ✅ done (on `main`) · 🟡 partial / wiring-only · ⬜ planned · �
 
 ## 1. The contract seam (the framework's feature surface)
 
-`data-pipeline-core-java` defines 16 cloud-neutral contracts (interfaces), plus the
+`data-pipeline-core-java` defines 16 cloud-neutral contracts (interfaces), plus `StageClaim` (an
+optional capability only a locking backend implements, #195), plus the
 records they exchange (`LoadOptions`, `StageMetrics`, `BlobMetadata`). A contract is
 "feature-complete" when it has (a) the interface, (b) ≥1 real cloud adapter,
 (c) emulator IT coverage. Matrix:

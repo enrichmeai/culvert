@@ -273,6 +273,8 @@ A library is conformant with version `1.0.x` of this contract if it satisfies al
 
 The same fixture set is used by Culvert's own CI; any non-Python implementor achieves interoperability by passing the same suite against their emitter's output.
 
+**Not covered by this version: `StageClaim`.** The claim on one stage of one unit for one period (#195) is, for now, a Java-only, optional capability. Only a backend that can lock implements it (`PostgresStageClaim`), and its tables (`job_control.stage_claims`, `job_control.stage_completions`) are that adapter's own schema. They are not wire-contract tables. Its behaviour is pinned by the Java `StageClaimContractTest`. A language-neutral definition, and the Python mirror, come with #196.
+
 ---
 
 ## 11. Frequently Asked Questions

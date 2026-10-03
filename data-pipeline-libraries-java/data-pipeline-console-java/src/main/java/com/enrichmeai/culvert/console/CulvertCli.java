@@ -192,6 +192,7 @@ public final class CulvertCli {
         bindings.put("Source", autoConfig.sources());
         bindings.put("Sink", autoConfig.sinks());
         bindings.put("Transform", autoConfig.transforms());
+        bindings.put("StageClaim (optional)", autoConfig.stageClaims());
 
         out.println("Contracts and the adapters bound to them:");
         bindings.forEach((contract, impls) -> out.println("  " + contract + ": " + (impls.isEmpty()
