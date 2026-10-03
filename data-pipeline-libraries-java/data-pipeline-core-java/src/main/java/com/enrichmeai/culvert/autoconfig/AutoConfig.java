@@ -4,6 +4,7 @@ import com.enrichmeai.culvert.contracts.AuditEventPublisher;
 import com.enrichmeai.culvert.contracts.BlobStore;
 import com.enrichmeai.culvert.contracts.FinOpsSink;
 import com.enrichmeai.culvert.contracts.GovernancePolicy;
+import com.enrichmeai.culvert.contracts.InputReadiness;
 import com.enrichmeai.culvert.contracts.JobControlRepository;
 import com.enrichmeai.culvert.contracts.LineageEmitter;
 import com.enrichmeai.culvert.contracts.ObservabilityHook;
@@ -107,6 +108,7 @@ public final class AutoConfig {
     private final List<FinOpsSink> finOpsSinks;
     private final List<SecretProvider> secretProviders;
     private final List<StageClaim> stageClaims;
+    private final List<InputReadiness> inputReadinesses;
     private final List<DiscoveryFailure> failures;
 
     private AutoConfig(ClassLoader classLoader) {
@@ -128,6 +130,7 @@ public final class AutoConfig {
         this.finOpsSinks = loadServiceList(FinOpsSink.class, classLoader, collected);
         this.secretProviders = loadServiceList(SecretProvider.class, classLoader, collected);
         this.stageClaims = loadServiceList(StageClaim.class, classLoader, collected);
+        this.inputReadinesses = loadServiceList(InputReadiness.class, classLoader, collected);
         this.failures = List.copyOf(collected);
     }
 
@@ -205,6 +208,20 @@ public final class AutoConfig {
 
     public List<StageClaim> stageClaims() {
         return stageClaims;
+    }
+
+    /**
+     * The {@link InputReadiness} to use, if one is installed (today: PostgreSQL). It is optional
+     * like {@link #stageClaim()}: empty means the deployment has no readiness catalogue, and the
+     * caller decides whether to run ungated. More than one provider needs
+     * {@code CULVERT_INPUTREADINESS_PROVIDER} (or {@code -Dculvert.inputreadiness.provider}).
+     */
+    public Optional<InputReadiness> inputReadiness() {
+        return select(InputReadiness.class, inputReadinesses);
+    }
+
+    public List<InputReadiness> inputReadinesses() {
+        return inputReadinesses;
     }
 
     public Optional<JobControlRepository> jobControl() {

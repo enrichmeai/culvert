@@ -50,7 +50,7 @@ Eleven interfaces in `com.enrichmeai.culvert.contracts` — the entire framework
 
 ## What's in v0.1.0 (Polyglot Stage 0)
 
-- `com.enrichmeai.culvert.contracts` — the 16 shared interfaces, plus `StageClaim` (optional, Java only; its types are in `com.enrichmeai.culvert.stageclaim`).
+- `com.enrichmeai.culvert.contracts` — the 16 shared interfaces, plus `StageClaim` and `InputReadiness` (optional, Java only; their types are in `com.enrichmeai.culvert.stageclaim` and `com.enrichmeai.culvert.readiness`).
 - `com.enrichmeai.culvert.{audit,lineage,finops,governance,jobcontrol,schema}` — the records and enums those interfaces reference.
 - `COMPATIBILITY.md` — per-interface gap analysis against the existing Java port at `deployments/mainframe-segment-transform-java/` and against the Python implementations.
 

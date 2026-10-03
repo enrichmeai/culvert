@@ -112,6 +112,7 @@ class CulvertCliTest {
         assertThat(run(JobControlRepositoryFixtures.emptyRepo(), "adapters")).isZero();
         assertThat(out()).contains("JobControlRepository").contains("(unbound)")
                 .contains("Warehouse").contains("StageClaim (optional): (unbound)")
+                .contains("InputReadiness (optional): (unbound)")
                 .contains("Discovery failures: none");
     }
 

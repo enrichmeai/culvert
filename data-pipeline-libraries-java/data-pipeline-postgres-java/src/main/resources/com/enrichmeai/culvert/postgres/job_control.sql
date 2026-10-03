@@ -62,3 +62,28 @@ CREATE TABLE IF NOT EXISTS job_control.stage_completions (
     completed_at TIMESTAMPTZ NOT NULL,
     PRIMARY KEY (unit, stage, period)
 );
+
+-- Input readiness (#198): an expected-set catalogue and an insert-only attempt ledger. A unit is
+-- ready for a period when every input it expects has a validated attempt that no unanswered failure
+-- stands against (ReadinessResolver). The adapter's own schema, not wire-contract tables.
+-- period '' is the unit's default; a row with a period overrides the default for that period only.
+CREATE TABLE IF NOT EXISTS job_control.readiness_expected (
+    unit        TEXT        NOT NULL,
+    period      TEXT        NOT NULL DEFAULT '',
+    input       TEXT        NOT NULL,
+    declared_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    PRIMARY KEY (unit, period, input)
+);
+
+CREATE TABLE IF NOT EXISTS job_control.readiness_attempts (
+    seq         BIGSERIAL   PRIMARY KEY,
+    input       TEXT        NOT NULL,
+    period      TEXT        NOT NULL,
+    run_id      TEXT        NOT NULL,
+    state       TEXT        NOT NULL CHECK (state IN ('produced', 'validated', 'failed')),
+    retry_of    TEXT        CHECK (retry_of IS NULL OR retry_of <> run_id),
+    recorded_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE INDEX IF NOT EXISTS readiness_attempts_input_period
+    ON job_control.readiness_attempts (input, period, seq);

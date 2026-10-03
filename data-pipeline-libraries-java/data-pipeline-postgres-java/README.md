@@ -55,6 +55,53 @@ T2.1). Plain JDBC, so it runs the same on Cloud SQL, RDS or a self-hosted server
   - keep each stage safe to re-run from its start.
 - **Discovery:** `AutoConfig.stageClaim()` finds it with the same `CULVERT_POSTGRES_*` settings.
 
+## InputReadiness (#198)
+
+`PostgresReadiness` answers whether a unit's inputs are ready for a period. Inputs publish each
+attempt; a unit's expected set comes from a catalogue.
+
+- **An anti-join, not a count:** readiness is the expected set minus the ready-and-validated set.
+  `Readiness` names every input that is missing, failed or pending. A validated input the unit
+  does not expect does not count.
+- **Tables:** `job_control.sql` creates both.
+  - `readiness_expected` is the catalogue: one row per (unit, period, input). Period `''` is the
+    unit's default; a period declared on its own (a quarter-end file) overrides the default for
+    that period only. It is configuration: a declaration replaces one (unit, period)'s rows in one
+    transaction, under an advisory lock on that pair. Replacing a default changes the answer for
+    every period without its own declaration, past ones included.
+  - `readiness_attempts` is the ledger: insert-only and ordered by `seq`. `seq` is allocation
+    order, so two writers racing on one attempt are ordered by it rather than by commit.
+- **One read:** the catalogue `LEFT JOIN`ed to the period's attempts, in one statement and so one
+  snapshot. The rows go to `ReadinessResolver` in core, the rule every backend shares.
+- **An undeclared unit is never ready.** An empty expected set would otherwise open every gate,
+  so declaring an empty set is rejected.
+- **Discovery:** `AutoConfig.inputReadiness()` finds it with the same `CULVERT_POSTGRES_*` settings.
+
+### How failures and retries resolve
+
+- **Within one attempt** (one `runId`), the earliest terminal event wins, as in the job-control
+  ledger. A late `failed` cannot un-validate an attempt, and a late `validated` cannot clear a
+  failure.
+- **Across attempts**, a failed attempt stays failed, because a retry takes a new `runId`
+  (CONTRACT.md §7). A retry names the attempt it replaces in `retryOf`, as a retry records its
+  `previous_run_id`. An attempt that a later attempt names is superseded; the rest stand.
+  - If any standing attempt failed, the input is **failed**.
+  - Else, if one is unfinished (`produced`), it is **pending**.
+  - Else, if one validated, it is **ready**.
+- **So** a failure answered by a declared retry that validated reads as ready. A later success
+  that does not name the failure does **not** clear it: recency alone never buries a failure,
+  which is the 0.2.0 `get_entity_status` bug.
+- **A retry follows what it retries:** a `retryOf` naming an attempt recorded later (or never)
+  supersedes nothing, so retry links cannot form a cycle that hides a failure.
+- **Nothing expires.** An input stays failed until a retry naming the failed attempt is
+  published, and pending until its unfinished attempt records a terminal event; `InputStatus`
+  names the attempt in the way. To recover from a producer that died mid-attempt, publish a
+  `failed` event for that attempt, then a retry that names it.
+- **Not the job-control rule.** The 0.2.0 fix says a successful retry does not clear a failed
+  *entity* in the job-control ledger, where nothing links a retry to the run it replaces.
+  Readiness has that link (`retryOf`), so a declared retry can answer a failure without
+  rewriting it.
+
 ## Tests
 
 `mvn -o -pl data-pipeline-postgres-java -am test` (from `data-pipeline-libraries-java`) starts a
