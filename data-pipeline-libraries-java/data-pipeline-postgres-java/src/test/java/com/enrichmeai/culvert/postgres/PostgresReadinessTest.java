@@ -42,7 +42,7 @@ class PostgresReadinessTest {
             // Hold the unit's declaration lock in an open transaction, as a first declaration would.
             holder.setAutoCommit(false);
             try (PreparedStatement lock = holder.prepareStatement("SELECT pg_advisory_xact_lock(hashtext(?))")) {
-                lock.setString(1, "culvert.readiness_expected:" + unit);
+                lock.setString(1, "culvert.readiness_expected:" + unit + "/");
                 lock.executeQuery().close();
             }
             try (Statement s = holder.createStatement()) {
@@ -61,6 +61,41 @@ class PostgresReadinessTest {
         }
         assertThat(readiness.expected(unit)).as("the later declaration replaced the earlier one")
                 .containsExactlyInAnyOrder("orders", "customers");
+    }
+
+    @Test
+    void aReadOnAPooledNonAutocommitConnectionEndsItsTransaction() throws SQLException {
+        Connection shared = db.getConnection();
+        shared.setAutoCommit(false);
+        shared.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+        try {
+            PostgresReadiness pooled = new PostgresReadiness(onePooledConnection(shared));
+            PostgresReadiness other = new PostgresReadiness(db);
+            String unit = "cdp-" + tag;
+            other.declareExpected(unit, Set.of("orders-" + tag));
+            assertThat(pooled.readiness(unit, "2026-10").missing()).containsExactly("orders-" + tag);
+            assertThat(shared.unwrap(org.postgresql.core.BaseConnection.class).getTransactionState())
+                    .isEqualTo(org.postgresql.core.TransactionState.IDLE);
+
+            other.publish(InputAttempt.of("orders-" + tag, "2026-10", "r1", AttemptState.VALIDATED));
+            assertThat(pooled.readiness(unit, "2026-10").isReady())
+                    .as("no snapshot is kept between reads on the reused connection").isTrue();
+        } finally {
+            shared.close();
+        }
+    }
+
+    /** A DataSource that hands out the same connection every time and ignores close(), like a pool. */
+    private static DataSource onePooledConnection(Connection shared) {
+        Connection handle = (Connection) java.lang.reflect.Proxy.newProxyInstance(Connection.class.getClassLoader(),
+                new Class<?>[]{Connection.class}, (proxy, method, args) ->
+                        method.getName().equals("close") ? null : method.invoke(shared, args));
+        return new org.postgresql.ds.PGSimpleDataSource() {
+            @Override
+            public Connection getConnection() {
+                return handle;
+            }
+        };
     }
 
     @Test

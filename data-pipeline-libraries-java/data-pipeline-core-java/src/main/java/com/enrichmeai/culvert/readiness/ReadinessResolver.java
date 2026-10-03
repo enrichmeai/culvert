@@ -44,8 +44,16 @@ import java.util.TreeSet;
  * ({@code get_entity_status} let a later row hide a recorded failure), and this rule cannot repeat
  * it, because nothing here orders attempts by time.
  *
- * <p>If retry links form a cycle, so that every attempt is superseded, all of the input's attempts
- * stand, and any failure among them keeps it failed.
+ * <p>A retry follows what it retries: a {@code retryOf} that names an attempt first recorded
+ * <em>after</em> the retry (or never recorded) supersedes nothing. Links can therefore only point
+ * back in the ledger, they cannot form a cycle, and the latest attempt of every chain stands.
+ *
+ * <h2>When an input is stuck</h2>
+ * <p>Nothing here expires. An input stays {@link InputState#FAILED} until an attempt that names the
+ * failed one in {@code retryOf} is recorded, and {@link InputState#PENDING} until its unfinished
+ * attempt records a terminal event. {@link InputStatus#runId()} names the attempt in the way. The
+ * recovery is to publish what actually happened: a terminal {@code failed} event for an attempt
+ * whose producer died, then a retry that names it.
  */
 public final class ReadinessResolver {
 
@@ -80,26 +88,33 @@ public final class ReadinessResolver {
         if (events.isEmpty()) {
             return new InputStatus(input, InputState.MISSING, Optional.empty());
         }
-        // Each attempt's state: its earliest terminal event, else PRODUCED. Its retry link: the first
-        // one recorded. Attempts keep the order their first event was recorded in.
+        // Each attempt's state: its earliest terminal event, else PRODUCED. Attempts keep the order
+        // their first event was recorded in, which is the order the ledger saw them.
         Map<String, AttemptState> state = new LinkedHashMap<>();
+        Map<String, Integer> firstSeen = new LinkedHashMap<>();
         Map<String, String> retryOf = new LinkedHashMap<>();
         for (InputAttempt e : events) {
+            firstSeen.putIfAbsent(e.runId(), firstSeen.size());
             AttemptState current = state.get(e.runId());
             if (current == null || !current.isTerminal()) {
                 state.put(e.runId(), e.state());
             }
             e.retryOf().ifPresent(previous -> retryOf.putIfAbsent(e.runId(), previous));
         }
-        Set<String> superseded = new HashSet<>(retryOf.values());
+        // A retry follows what it retries. A link to an attempt recorded later, or never, does not
+        // supersede anything, so links cannot form a cycle and no failure can be hidden by one.
+        Set<String> superseded = new HashSet<>();
+        retryOf.forEach((run, previous) -> {
+            Integer previousSeen = firstSeen.get(previous);
+            if (previousSeen != null && previousSeen < firstSeen.get(run)) {
+                superseded.add(previous);
+            }
+        });
         List<String> standing = new ArrayList<>();
         for (String run : state.keySet()) {
             if (!superseded.contains(run)) {
                 standing.add(run);
             }
-        }
-        if (standing.isEmpty()) {
-            standing.addAll(state.keySet());
         }
         for (AttemptState wanted : List.of(AttemptState.FAILED, AttemptState.PRODUCED, AttemptState.VALIDATED)) {
             for (String run : standing) {

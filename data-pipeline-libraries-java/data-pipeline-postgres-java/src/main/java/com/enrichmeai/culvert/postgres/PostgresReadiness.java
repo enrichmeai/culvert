@@ -13,6 +13,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -24,11 +25,13 @@ import java.util.TreeSet;
  * {@link InputReadiness} on PostgreSQL (#198).
  *
  * <ul>
- *   <li><strong>The catalogue</strong> is {@code readiness_expected}: one row per (unit, input).
- *       It is configuration: {@link #declareExpected} replaces a unit's rows in one transaction,
- *       under a per-unit advisory lock, so two declarations for one unit cannot interleave.
+ *   <li><strong>The catalogue</strong> is {@code readiness_expected}: one row per (unit, period,
+ *       input), where period {@code ''} is the unit's default. It is configuration: a declaration
+ *       replaces one (unit, period)'s rows in one transaction, under an advisory lock on that pair,
+ *       so two declarations for it cannot interleave.
  *   <li><strong>The ledger</strong> is {@code readiness_attempts}: insert-only, ordered by
- *       {@code seq}. Nothing updates or deletes an attempt.
+ *       {@code seq}. Nothing updates or deletes an attempt. {@code seq} is allocation order, so two
+ *       writers racing on one attempt are ordered by it rather than by commit.
  *   <li><strong>A readiness read</strong> is one statement, the catalogue {@code LEFT JOIN}ed to
  *       the period's attempts, so the expected set and the attempts come from one snapshot. The
  *       rows go to {@link ReadinessResolver}, the rule every backend shares.
@@ -41,6 +44,11 @@ public final class PostgresReadiness implements InputReadiness {
 
     /** The tables {@code job_control.sql} creates. */
     public static final String DEFAULT_SCHEMA = "job_control";
+
+    /** The catalogue's period for a unit's default declaration. */
+    private static final String DEFAULT_PERIOD = "";
+
+    private final String effectivePeriodSql;
 
     private final DataSource dataSource;
     private final String expected;
@@ -62,6 +70,10 @@ public final class PostgresReadiness implements InputReadiness {
         }
         this.expected = PostgresJobControlRepository.quote(schema + ".readiness_expected");
         this.attempts = PostgresJobControlRepository.quote(schema + ".readiness_attempts");
+        // The period whose declaration applies: the period's own if it has one, else the default.
+        // Binds (unit, period, period).
+        this.effectivePeriodSql = "(CASE WHEN EXISTS (SELECT 1 FROM " + expected
+                + " WHERE unit = ? AND period = ?) THEN ? ELSE '' END)";
     }
 
     /**
@@ -96,6 +108,15 @@ public final class PostgresReadiness implements InputReadiness {
 
     @Override
     public void declareExpected(String unit, Set<String> inputs) {
+        declare(unit, DEFAULT_PERIOD, inputs);
+    }
+
+    @Override
+    public void declareExpected(String unit, String period, Set<String> inputs) {
+        declare(unit, requireText(period, "period"), inputs);
+    }
+
+    private void declare(String unit, String period, Set<String> inputs) {
         requireText(unit, "unit");
         Objects.requireNonNull(inputs, "inputs must not be null");
         if (inputs.isEmpty()) {
@@ -106,29 +127,37 @@ public final class PostgresReadiness implements InputReadiness {
         try (Connection c = dataSource.getConnection()) {
             boolean autoCommit = c.getAutoCommit();
             c.setAutoCommit(false);
+            boolean committed = false;
             try {
+                // Two declarations for one (unit, period) take turns; a hash collision only serialises.
                 try (PreparedStatement lock = c.prepareStatement("SELECT pg_advisory_xact_lock(hashtext(?))")) {
-                    lock.setString(1, "culvert.readiness_expected:" + unit);
+                    lock.setString(1, "culvert.readiness_expected:" + unit + "/" + period);
                     lock.executeQuery().close();
                 }
-                try (PreparedStatement del = c.prepareStatement("DELETE FROM " + expected + " WHERE unit = ?")) {
+                try (PreparedStatement del = c.prepareStatement(
+                        "DELETE FROM " + expected + " WHERE unit = ? AND period = ?")) {
                     del.setString(1, unit);
+                    del.setString(2, period);
                     del.executeUpdate();
                 }
                 try (PreparedStatement ins = c.prepareStatement(
-                        "INSERT INTO " + expected + " (unit, input) VALUES (?, ?)")) {
+                        "INSERT INTO " + expected + " (unit, period, input) VALUES (?, ?, ?)")) {
                     for (String input : new TreeSet<>(inputs)) {
                         ins.setString(1, unit);
-                        ins.setString(2, input);
+                        ins.setString(2, period);
+                        ins.setString(3, input);
                         ins.addBatch();
                     }
                     ins.executeBatch();
                 }
                 c.commit();
-            } catch (SQLException | RuntimeException e) {
-                c.rollback();
-                throw e;
+                committed = true;
             } finally {
+                // Roll back before autocommit is restored, whatever was thrown: turning autocommit
+                // on inside an open transaction would commit the DELETE without the INSERT.
+                if (!committed) {
+                    c.rollback();
+                }
                 c.setAutoCommit(autoCommit);
             }
         } catch (SQLException e) {
@@ -139,19 +168,31 @@ public final class PostgresReadiness implements InputReadiness {
     @Override
     public Set<String> expected(String unit) {
         requireText(unit, "unit");
-        return read("expected", c -> {
-            try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT input FROM " + expected + " WHERE unit = ? ORDER BY input")) {
-                ps.setString(1, unit);
-                Set<String> out = new LinkedHashSet<>();
-                try (ResultSet rs = ps.executeQuery()) {
-                    while (rs.next()) {
-                        out.add(rs.getString(1));
-                    }
-                }
-                return Set.copyOf(out);
+        return read("expected", c -> inputs(c, "SELECT input FROM " + expected
+                + " WHERE unit = ? AND period = ? ORDER BY input", unit, DEFAULT_PERIOD));
+    }
+
+    @Override
+    public Set<String> expected(String unit, String period) {
+        requireText(unit, "unit");
+        requireText(period, "period");
+        return read("expected", c -> inputs(c, "SELECT input FROM " + expected + " WHERE unit = ? AND period = "
+                + effectivePeriodSql + " ORDER BY input", unit, unit, period, period));
+    }
+
+    private static Set<String> inputs(Connection c, String sql, String... args) throws SQLException {
+        try (PreparedStatement ps = c.prepareStatement(sql)) {
+            for (int i = 0; i < args.length; i++) {
+                ps.setString(i + 1, args[i]);
             }
-        });
+            Set<String> out = new TreeSet<>();
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    out.add(rs.getString(1));
+                }
+            }
+            return Collections.unmodifiableSet(out);
+        }
     }
 
     @Override
@@ -176,12 +217,16 @@ public final class PostgresReadiness implements InputReadiness {
         requireText(unit, "unit");
         requireText(period, "period");
         return read("readiness", c -> {
-            // One statement, one snapshot: the expected set, anti-joined against the period's attempts.
+            // One statement, one snapshot: the period's expected set, anti-joined against its attempts.
+            // seq is allocation order: two writers racing on one attempt are ordered by it, not by commit.
             try (PreparedStatement ps = c.prepareStatement("SELECT e.input, a.run_id, a.state, a.retry_of FROM "
                     + expected + " e LEFT JOIN " + attempts + " a ON a.input = e.input AND a.period = ? "
-                    + "WHERE e.unit = ? ORDER BY a.seq")) {
+                    + "WHERE e.unit = ? AND e.period = " + effectivePeriodSql + " ORDER BY a.seq")) {
                 ps.setString(1, period);
                 ps.setString(2, unit);
+                ps.setString(3, unit);
+                ps.setString(4, period);
+                ps.setString(5, period);
                 Set<String> want = new LinkedHashSet<>();
                 List<InputAttempt> seen = new ArrayList<>();
                 try (ResultSet rs = ps.executeQuery()) {

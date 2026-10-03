@@ -37,11 +37,35 @@ class ReadinessResolverTest {
     }
 
     @Test
-    void aRetryCycleLeavesEveryAttemptStandingSoAFailureInItKeepsTheInputFailed() {
+    void aRetryLinkToALaterOrUnknownAttemptSupersedesNothing() {
+        // r1 claims to retry r2, which is recorded after it: a retry cannot precede what it retries.
+        assertThat(only(List.of(
+                InputAttempt.retry("in", "p", "r1", FAILED, "r2"),
+                InputAttempt.of("in", "p", "r2", VALIDATED))).state()).isEqualTo(InputState.FAILED);
+        assertThat(only(List.of(
+                InputAttempt.of("in", "p", "r1", FAILED),
+                InputAttempt.retry("in", "p", "r2", VALIDATED, "r0"))).state()).isEqualTo(InputState.FAILED);
+    }
+
+    @Test
+    void aCycleOfRetryLinksCannotHideAFailureBehindAnotherAttempt() {
+        // r1 and r2 name each other, beside an unrelated validated r3. Before the links had to point
+        // back, both counted, r1 and r2 were both superseded, and r3 alone read READY. Now only r2's
+        // link counts: r2 answers r1, and r2's own failure, which nothing answers, keeps it failed.
         List<InputAttempt> attempts = List.of(
                 InputAttempt.retry("in", "p", "r1", FAILED, "r2"),
-                InputAttempt.retry("in", "p", "r2", VALIDATED, "r1"));
-        assertThat(only(attempts).state()).isEqualTo(InputState.FAILED);
+                InputAttempt.retry("in", "p", "r2", FAILED, "r1"),
+                InputAttempt.of("in", "p", "r3", VALIDATED));
+        assertThat(only(attempts)).isEqualTo(new InputStatus("in", InputState.FAILED, Optional.of("r2")));
+    }
+
+    @Test
+    void twoRetriesOfOneFailureMustBothSucceed() {
+        List<InputAttempt> attempts = List.of(
+                InputAttempt.of("in", "p", "r1", FAILED),
+                InputAttempt.retry("in", "p", "r2", VALIDATED, "r1"),
+                InputAttempt.retry("in", "p", "r3", FAILED, "r1"));
+        assertThat(only(attempts)).isEqualTo(new InputStatus("in", InputState.FAILED, Optional.of("r3")));
     }
 
     @Test

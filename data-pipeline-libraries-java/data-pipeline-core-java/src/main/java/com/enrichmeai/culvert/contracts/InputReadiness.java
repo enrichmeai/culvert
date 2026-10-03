@@ -26,8 +26,10 @@ import java.util.Set;
 public interface InputReadiness {
 
     /**
-     * Declare the inputs {@code unit} expects, replacing any earlier declaration. The catalogue is
-     * configuration, not ledger: replacing it changes the answer for every period.
+     * Declare the inputs {@code unit} expects in every period that has no declaration of its own,
+     * replacing any earlier one. The catalogue is configuration, not ledger: replacing this default
+     * changes the answer for every such period, past ones included. Declare a period's own set
+     * ({@link #declareExpected(String, String, Set)}) to pin what it expected.
      *
      * @throws IllegalArgumentException if {@code unit} or an input is blank, or {@code inputs} is
      *         empty: a unit that needs nothing should not be gated, and an empty set would be
@@ -35,15 +37,35 @@ public interface InputReadiness {
      */
     void declareExpected(String unit, Set<String> inputs);
 
-    /** The inputs {@code unit} expects; empty if it was never declared. */
+    /**
+     * Declare the inputs {@code unit} expects in {@code period} only (a quarter-end file, a
+     * holiday), replacing any earlier declaration for that period. It overrides the unit's default
+     * for that period and no other.
+     *
+     * @throws IllegalArgumentException as {@link #declareExpected(String, Set)}, or if {@code period}
+     *         is blank
+     */
+    void declareExpected(String unit, String period, Set<String> inputs);
+
+    /** The inputs {@code unit} expects by default; empty if no default was declared. */
     Set<String> expected(String unit);
+
+    /**
+     * The inputs {@code unit} expects in {@code period}: the period's own declaration if there is
+     * one, else the default. Empty if neither was declared.
+     */
+    Set<String> expected(String unit, String period);
 
     /** Append one attempt event. Events are never changed or removed. */
     void publish(InputAttempt attempt);
 
     /**
-     * The unit's readiness for {@code period}, read in one consistent view of the catalogue and the
-     * ledger. An undeclared unit is not ready.
+     * The unit's readiness for {@code period} against {@link #expected(String, String)}, read in one
+     * consistent view of the catalogue and the ledger. An undeclared unit is not ready.
+     *
+     * <p>Nothing expires: an input stays failed until a retry naming the failed attempt is
+     * published, and pending until its attempt records a terminal event. See
+     * {@link ReadinessResolver} for the recovery.
      */
     Readiness readiness(String unit, String period);
 }

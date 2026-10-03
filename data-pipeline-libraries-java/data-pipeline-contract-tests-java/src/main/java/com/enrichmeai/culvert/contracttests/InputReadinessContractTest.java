@@ -152,6 +152,40 @@ public abstract class InputReadinessContractTest {
     }
 
     @Test
+    void c_aRetryThatFailsAfterAValidatedAttemptLeavesTheInputFailed() {
+        readiness().declareExpected(unit("cdp"), Set.of(in("orders")));
+        publish("orders", "r1", VALIDATED);
+        retry("orders", "r2", FAILED, "r1");   // a declared re-run of a good input, which failed
+
+        assertThat(status(check("cdp"), "orders"))
+                .isEqualTo(new InputStatus(in("orders"), InputState.FAILED, Optional.of("r2-" + tag)));
+    }
+
+    @Test
+    void aPeriodsOwnDeclarationOverridesTheDefaultForThatPeriodOnly() {
+        readiness().declareExpected(unit("cdp"), Set.of(in("orders")));
+        readiness().declareExpected(unit("cdp"), PERIOD, Set.of(in("orders"), in("quarter-end")));
+        publish("orders", "r1", VALIDATED);
+        readiness().publish(InputAttempt.of(in("orders"), "2026-11", "r2-" + tag, VALIDATED));
+
+        assertThat(readiness().expected(unit("cdp"))).containsExactly(in("orders"));
+        assertThat(readiness().expected(unit("cdp"), PERIOD)).containsExactlyInAnyOrder(in("orders"), in("quarter-end"));
+        assertThat(readiness().expected(unit("cdp"), "2026-11")).as("the default").containsExactly(in("orders"));
+        assertThat(check("cdp").missing()).containsExactly(in("quarter-end"));
+        assertThat(readiness().readiness(unit("cdp"), "2026-11").isReady()).isTrue();
+    }
+
+    @Test
+    void aPeriodDeclaredWithoutADefaultIsTheOnlyDeclaredPeriod() {
+        readiness().declareExpected(unit("cdp"), PERIOD, Set.of(in("orders")));
+        publish("orders", "r1", VALIDATED);
+
+        assertThat(check("cdp").isReady()).isTrue();
+        assertThat(readiness().readiness(unit("cdp"), "2026-11").declared()).isFalse();
+        assertThat(readiness().expected(unit("cdp"))).isEmpty();
+    }
+
+    @Test
     void aProducedButUnvalidatedInputIsPendingNotReady() {
         readiness().declareExpected(unit("cdp"), Set.of(in("orders")));
         publish("orders", "r1", PRODUCED);
@@ -223,6 +257,9 @@ public abstract class InputReadinessContractTest {
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> readiness().publish(null)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> readiness().readiness(" ", PERIOD)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> readiness().declareExpected(unit("cdp"), " ", Set.of("x")))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> readiness().expected(unit("cdp"), " ")).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> InputAttempt.retry("x", PERIOD, "r1", FAILED, "r1"))
                 .as("an attempt cannot retry itself").isInstanceOf(IllegalArgumentException.class);
     }

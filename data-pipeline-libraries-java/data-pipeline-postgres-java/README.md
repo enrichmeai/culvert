@@ -64,9 +64,13 @@ attempt; a unit's expected set comes from a catalogue.
   `Readiness` names every input that is missing, failed or pending. A validated input the unit
   does not expect does not count.
 - **Tables:** `job_control.sql` creates both.
-  - `readiness_expected` is the catalogue: one row per (unit, input). It is configuration.
-    `declareExpected` replaces a unit's rows in one transaction, under a per-unit advisory lock.
-  - `readiness_attempts` is the ledger: insert-only and ordered by `seq`.
+  - `readiness_expected` is the catalogue: one row per (unit, period, input). Period `''` is the
+    unit's default; a period declared on its own (a quarter-end file) overrides the default for
+    that period only. It is configuration: a declaration replaces one (unit, period)'s rows in one
+    transaction, under an advisory lock on that pair. Replacing a default changes the answer for
+    every period without its own declaration, past ones included.
+  - `readiness_attempts` is the ledger: insert-only and ordered by `seq`. `seq` is allocation
+    order, so two writers racing on one attempt are ordered by it rather than by commit.
 - **One read:** the catalogue `LEFT JOIN`ed to the period's attempts, in one statement and so one
   snapshot. The rows go to `ReadinessResolver` in core, the rule every backend shares.
 - **An undeclared unit is never ready.** An empty expected set would otherwise open every gate,
@@ -87,6 +91,16 @@ attempt; a unit's expected set comes from a catalogue.
 - **So** a failure answered by a declared retry that validated reads as ready. A later success
   that does not name the failure does **not** clear it: recency alone never buries a failure,
   which is the 0.2.0 `get_entity_status` bug.
+- **A retry follows what it retries:** a `retryOf` naming an attempt recorded later (or never)
+  supersedes nothing, so retry links cannot form a cycle that hides a failure.
+- **Nothing expires.** An input stays failed until a retry naming the failed attempt is
+  published, and pending until its unfinished attempt records a terminal event; `InputStatus`
+  names the attempt in the way. To recover from a producer that died mid-attempt, publish a
+  `failed` event for that attempt, then a retry that names it.
+- **Not the job-control rule.** The 0.2.0 fix says a successful retry does not clear a failed
+  *entity* in the job-control ledger, where nothing links a retry to the run it replaces.
+  Readiness has that link (`retryOf`), so a declared retry can answer a failure without
+  rewriting it.
 
 ## Tests
 
