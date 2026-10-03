@@ -41,3 +41,24 @@ CREATE UNIQUE INDEX IF NOT EXISTS pipeline_jobs_one_create_per_run
 
 CREATE INDEX IF NOT EXISTS pipeline_jobs_run_id ON job_control.pipeline_jobs (run_id);
 CREATE INDEX IF NOT EXISTS pipeline_jobs_system_date ON job_control.pipeline_jobs (system_id, extract_date);
+
+-- StageClaim (#195): an atomic claim on one stage of one unit for one period.
+-- Both tables are insert-only, like the ledger. stage_claims holds one row per key, which exists
+-- only to be locked (SELECT ... FOR UPDATE). stage_completions records that the stage is done:
+-- its primary key means a stage can be completed once, and a completed stage never runs again.
+CREATE TABLE IF NOT EXISTS job_control.stage_claims (
+    unit       TEXT        NOT NULL,
+    stage      TEXT        NOT NULL,
+    period     TEXT        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+    PRIMARY KEY (unit, stage, period)
+);
+
+CREATE TABLE IF NOT EXISTS job_control.stage_completions (
+    unit         TEXT        NOT NULL,
+    stage        TEXT        NOT NULL,
+    period       TEXT        NOT NULL,
+    completed_by TEXT        NOT NULL,
+    completed_at TIMESTAMPTZ NOT NULL,
+    PRIMARY KEY (unit, stage, period)
+);

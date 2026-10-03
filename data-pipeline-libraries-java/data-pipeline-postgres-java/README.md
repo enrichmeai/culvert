@@ -33,6 +33,26 @@ T2.1). Plain JDBC, so it runs the same on Cloud SQL, RDS or a self-hosted server
 - Transitions run at READ COMMITTED whatever the connection's default. Autocommit and isolation
   are restored before the connection is returned.
 
+## StageClaim (#195)
+
+`PostgresStageClaim` claims one stage of one unit for one period, so a stage cannot double-start.
+
+- **How it works:** the claim is a row lock (`SELECT … FOR UPDATE`) held by an open READ COMMITTED
+  transaction. `complete()` inserts a row in `stage_completions` and commits. `close()` without
+  completing rolls back.
+- **What a later claimant sees:** every later claim on a completed key returns `Completed`. A
+  waiting claimant wakes to `Completed` if the holder completes, or to `Acquired` if it abandons.
+- **A dead claimant:** its session ends, the server rolls back, and the next claimant runs the
+  stage from its start. There is no lease; the javadoc says why.
+- **Tables:** `stage_claims` and `stage_completions` are created by the same `job_control.sql`.
+  Both are insert-only.
+- **What the deployment must do:**
+  - set `idle_in_transaction_session_timeout` (and keepalives), so a hung but connected holder is
+    ended;
+  - size the pool for the number of stages that run at once (one connection per held claim);
+  - keep each stage safe to re-run from its start.
+- **Discovery:** `AutoConfig.stageClaim()` finds it with the same `CULVERT_POSTGRES_*` settings.
+
 ## Tests
 
 `mvn -o -pl data-pipeline-postgres-java -am test` (from `data-pipeline-libraries-java`) starts a

@@ -55,6 +55,11 @@ class ContractsImportableTest {
     }
 
     @Test
+    void stage_claim_has_try_claim() {
+        assertHasMethod(com.enrichmeai.culvert.contracts.StageClaim.class, "tryClaim");
+    }
+
+    @Test
     void source_has_read_method() {
         assertHasMethod(Source.class, "read");
     }

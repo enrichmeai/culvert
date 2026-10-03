@@ -13,6 +13,7 @@ import com.enrichmeai.culvert.contracts.RuntimeContext;
 import com.enrichmeai.culvert.contracts.SecretProvider;
 import com.enrichmeai.culvert.contracts.Sink;
 import com.enrichmeai.culvert.contracts.Source;
+import com.enrichmeai.culvert.contracts.StageClaim;
 import com.enrichmeai.culvert.contracts.StageMetricsHook;
 import com.enrichmeai.culvert.contracts.Transform;
 import com.enrichmeai.culvert.contracts.Warehouse;
@@ -105,6 +106,7 @@ public final class AutoConfig {
     private final List<StageMetricsHook> stageMetricsHooks;
     private final List<FinOpsSink> finOpsSinks;
     private final List<SecretProvider> secretProviders;
+    private final List<StageClaim> stageClaims;
     private final List<DiscoveryFailure> failures;
 
     private AutoConfig(ClassLoader classLoader) {
@@ -125,6 +127,7 @@ public final class AutoConfig {
         this.stageMetricsHooks = loadServiceList(StageMetricsHook.class, classLoader, collected);
         this.finOpsSinks = loadServiceList(FinOpsSink.class, classLoader, collected);
         this.secretProviders = loadServiceList(SecretProvider.class, classLoader, collected);
+        this.stageClaims = loadServiceList(StageClaim.class, classLoader, collected);
         this.failures = List.copyOf(collected);
     }
 
@@ -187,6 +190,19 @@ public final class AutoConfig {
 
     public List<SecretProvider> secretProviders() {
         return secretProviders;
+    }
+
+    /**
+     * The {@link StageClaim} to use, if a backend that can lock is installed. Empty on deployments
+     * whose job control cannot lock (BigQuery, Athena, DynamoDB): {@code StageClaim} is an optional
+     * capability, and the caller decides what running without it means.
+     */
+    public Optional<StageClaim> stageClaim() {
+        return select(StageClaim.class, stageClaims);
+    }
+
+    public List<StageClaim> stageClaims() {
+        return stageClaims;
     }
 
     public Optional<JobControlRepository> jobControl() {
