@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -45,6 +46,12 @@ class InMemoryStageClaimContractTest extends StageClaimContractTest {
         boolean hasWaiter(StageKey key) {
             Semaphore lock = locks.get(key);
             return lock != null && lock.hasQueuedThreads();
+        }
+
+        @Override
+        public Optional<ClaimResult.Completed> completion(StageKey key) {
+            Objects.requireNonNull(key, "key must not be null");
+            return Optional.ofNullable(done.get(key));
         }
 
         @Override

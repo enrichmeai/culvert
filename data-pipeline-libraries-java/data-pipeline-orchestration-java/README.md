@@ -144,7 +144,8 @@ public interface DagRenderer {
 }
 ```
 
-Strategy interface implemented by `AirflowDagRenderer` and `ComposerDagRenderer`.
+Strategy interface implemented by `AirflowDagRenderer`, `ComposerDagRenderer` and
+`SubstrateDagRenderer`.
 
 ---
 
@@ -353,6 +354,68 @@ String pySource = composerRenderer.render(dagSpec);
 
 ---
 
+## Gate predicates (#197)
+
+**The scheduler's order is advisory; the control store is authoritative.** A task can carry a gate:
+the stages that must be completed, for the same unit and period, before it does any work. The
+runtime re-checks the gate just before the task runs, so a scheduler that fires a task early or out
+of order cannot advance a stage the metadata says is not ready.
+
+### The shape
+
+The gate rides in `TaskSpec.params` under `StageGate.COMPLETED` (`"culvert.gate.completed"`), as a
+`List` of stage names:
+
+```java
+TaskSpec publish = new TaskSpec("publish", "publish", List.of("load"),
+        Map.<String, Serializable>of(StageGate.COMPLETED, new ArrayList<>(List.of("load", "validate"))));
+```
+
+It stays in the untyped `params` rather than a new `TaskSpec` field: `TaskSpec` is serialized
+across the worker boundary and there is one predicate kind. A second kind is the time to revisit.
+
+### Checked when the DAG is rendered
+
+Every renderer validates gates before it emits anything. Each of these fails at render time, with
+the task named:
+
+- a value that is not a non-empty `List` of non-blank stage names;
+- a duplicate stage, or the task's own stage (the gate could never open);
+- any other key starting with `culvert.gate`, in any case (`culvert.gates.completed`,
+  `culvert.gate_completed`): a typo under that prefix must not drop a gate silently;
+- a gated task given to a renderer that cannot emit the re-check (see below).
+
+A `DagSpec` with no gate renders byte-identically to before gates existed.
+`UnpredicatedGoldenOutputTest` pins that against files written by the renderers before #197.
+
+### Where the re-check runs
+
+| Runner | Re-check |
+|---|---|
+| A Java job | `new StageGate(stageClaim).requireOpen(task, unit, period)` before the stage does work. It throws `IllegalStateException` naming the task and the stages not completed. |
+| `AirflowDagRenderer`, `ComposerDagRenderer` | Build with `.withStageGate(StageGateConfig.builder("<python expr>").build())`. The gated task becomes a `PythonOperator` whose callable checks first, before any job-control call, and raises `AirflowException` naming the stages not completed. It fails rather than skips, so its retries re-check and a closed gate never reads as success downstream. Ungated tasks are unchanged. |
+| `SubstrateDagRenderer` | Refuses a gated task. The pod or Cloud Run job starts outside the Airflow worker, so the DAG cannot re-check it; check inside the job with `StageGate` instead. |
+
+The check reads completions with `StageClaim.completion(StageKey)`, which never claims or waits, so
+a gate check cannot make a real claimant see `Held`.
+
+In the rendered DAG, the checker expression is assigned once to `_stage_gate`, and the unit and
+period are Python expressions evaluated in the task callable:
+
+| `StageGateConfig` field | Default | Description |
+|---|---|---|
+| `checkerVariable` | *(required)* | Python expression for an object with `completion(unit=, stage=, period=)` that returns `None` until the stage is completed. |
+| `unitExpression` | `context["dag"].dag_id` | The unit the gate is checked for. |
+| `periodExpression` | `context["ds"]` | The period: the run's logical date, as job-control wiring uses for `extract_date`. |
+
+With job-control wiring, a gated task checks before `create_job` or `update_status`. A closed gate
+therefore writes no job-control row: the stage did not start.
+
+**Not yet:** the Python `StageClaim` mirror is #196 (waiting on decision A in #188). Until it lands,
+the deployment supplies the object `checkerVariable` names.
+
+---
+
 ## Building and testing
 
 ```bash
@@ -360,6 +423,6 @@ String pySource = composerRenderer.render(dagSpec);
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 61, Failures: 0, Errors: 0, Skipped: 0`
-(11 PipelineToDagSpec tests + 14 AirflowDagRenderer tests + 11 ComposerDagRenderer tests
-+ 25 JobControlWiringTest tests)
+Expected output: `Tests run: 113, Failures: 0, Errors: 0, Skipped: 0`
+(11 PipelineToDagSpec + 14 AirflowDagRenderer + 11 ComposerDagRenderer + 25 JobControlWiring
++ 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput)

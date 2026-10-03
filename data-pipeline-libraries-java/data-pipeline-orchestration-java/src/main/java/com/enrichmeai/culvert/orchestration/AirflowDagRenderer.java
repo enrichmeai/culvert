@@ -58,6 +58,14 @@ import java.util.Optional;
  *       then re-raises.</li>
  * </ol>
  *
+ * <h2>Stage-gate re-check (#197)</h2>
+ * <p>A task whose {@code params} carry a gate predicate ({@link StageGate})
+ * becomes a {@code PythonOperator} whose callable first re-checks the gate
+ * through the checker named in {@link StageGateConfig}, before any job-control
+ * call, and raises {@code AirflowException} while it is closed. Build the
+ * renderer with {@link #withStageGate(StageGateConfig)}; without it a gated
+ * DAG is refused at render time. A DAG with no gate renders exactly as above.
+ *
  * <h2>Usage (no wiring)</h2>
  * <pre>{@code
  * DagSpec spec = PipelineToDagSpec.translate(pipeline, "@daily");
@@ -98,12 +106,21 @@ public final class AirflowDagRenderer implements DagRenderer {
     /** Optional job-control wiring configuration. */
     private final Optional<JobControlConfig> jobControlConfig;
 
+    /** Optional stage-gate re-check configuration (#197). */
+    private final Optional<StageGateConfig> stageGateConfig;
+
     /**
      * Construct an {@code AirflowDagRenderer} without job-control wiring.
      * The renderer is stateless; a single instance may be used concurrently.
      */
     public AirflowDagRenderer() {
-        this.jobControlConfig = Optional.empty();
+        this(Optional.empty(), Optional.empty());
+    }
+
+    private AirflowDagRenderer(Optional<JobControlConfig> jobControlConfig,
+                               Optional<StageGateConfig> stageGateConfig) {
+        this.jobControlConfig = jobControlConfig;
+        this.stageGateConfig = stageGateConfig;
     }
 
     /**
@@ -117,8 +134,8 @@ public final class AirflowDagRenderer implements DagRenderer {
      * @throws NullPointerException if {@code jobControlConfig} is null.
      */
     public AirflowDagRenderer(JobControlConfig jobControlConfig) {
-        Objects.requireNonNull(jobControlConfig, "jobControlConfig must not be null");
-        this.jobControlConfig = Optional.of(jobControlConfig);
+        this(Optional.of(Objects.requireNonNull(jobControlConfig, "jobControlConfig must not be null")),
+                Optional.empty());
     }
 
     /**
@@ -130,6 +147,20 @@ public final class AirflowDagRenderer implements DagRenderer {
      */
     public static AirflowDagRenderer withJobControl(JobControlConfig config) {
         return new AirflowDagRenderer(config);
+    }
+
+    /**
+     * A copy of this renderer that emits the runtime re-check for gated tasks (#197), keeping any
+     * job-control wiring. Without it, a DAG with a gated task is refused at render time, because
+     * rendering the task without the check would drop the gate.
+     *
+     * @param config non-null gate configuration.
+     * @return a new renderer.
+     * @throws NullPointerException if {@code config} is null.
+     */
+    public AirflowDagRenderer withStageGate(StageGateConfig config) {
+        Objects.requireNonNull(config, "config must not be null");
+        return new AirflowDagRenderer(jobControlConfig, Optional.of(config));
     }
 
     /**
@@ -152,18 +183,32 @@ public final class AirflowDagRenderer implements DagRenderer {
      *
      * @param dagSpec the spec to render.
      * @return the Airflow Python DAG source (without any wrapper header).
+     * @throws IllegalArgumentException naming the task, if a gate is malformed, or if a task is
+     *         gated and this renderer has no {@link StageGateConfig}.
      */
     String buildDagBody(DagSpec dagSpec) {
+        Optional<StageGateConfig> gate = Optional.empty();
+        if (StageGate.anyGated(dagSpec)) {
+            if (stageGateConfig.isEmpty()) {
+                TaskSpec first = dagSpec.tasks().stream()
+                        .filter(t -> !StageGate.requiredStages(t).isEmpty())
+                        .findFirst().orElseThrow();
+                throw new IllegalArgumentException("Task '" + first.taskId() + "' has a gate predicate ('"
+                        + StageGate.COMPLETED + "'), but this renderer has no StageGateConfig, so the "
+                        + "rendered task would run without the re-check. Use withStageGate(...).");
+            }
+            gate = stageGateConfig;
+        }
         return jobControlConfig.isPresent()
-                ? buildDagBodyWithJobControl(dagSpec, jobControlConfig.get())
-                : buildDagBodyPlain(dagSpec);
+                ? buildDagBodyWithJobControl(dagSpec, jobControlConfig.get(), gate)
+                : buildDagBodyPlain(dagSpec, gate);
     }
 
     // -------------------------------------------------------------------------
     // Plain (no-wiring) path — identical to the original T11.3 output
     // -------------------------------------------------------------------------
 
-    private static String buildDagBodyPlain(DagSpec dagSpec) {
+    private static String buildDagBodyPlain(DagSpec dagSpec, Optional<StageGateConfig> gate) {
         String scheduleValue = dagSpec.schedule() != null
                 ? "\"" + dagSpec.schedule() + "\""
                 : "None";
@@ -173,6 +218,12 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("from datetime import datetime");
         lines.add("from airflow import DAG");
         lines.add("from airflow.operators.empty import EmptyOperator");
+        if (gate.isPresent()) {
+            lines.add("from airflow.exceptions import AirflowException");
+            lines.add("from airflow.operators.python import PythonOperator");
+            lines.add("");
+            emitGateChecker(lines, gate.get());
+        }
         lines.add("");
         lines.add("with DAG(");
         lines.add("    dag_id=\"" + dagSpec.dagId() + "\",");
@@ -183,8 +234,20 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("    tasks = {}");
 
         for (TaskSpec task : dagSpec.tasks()) {
+            List<String> stages = StageGate.requiredStages(task);
+            if (stages.isEmpty()) {
+                lines.add("    tasks[\"" + task.taskId() + "\"] = "
+                        + "EmptyOperator(task_id=\"" + task.taskId() + "\")");
+                continue;
+            }
+            String callableName = "_callable_" + sanitize(task.taskId());
+            lines.add("");
+            lines.add("    def " + callableName + "(**context):");
+            emitGateCheck(lines, task, stages, gate.get());
+            lines.add("        pass  # " + task.taskId() + " task body");
             lines.add("    tasks[\"" + task.taskId() + "\"] = "
-                    + "EmptyOperator(task_id=\"" + task.taskId() + "\")");
+                    + "PythonOperator(task_id=\"" + task.taskId()
+                    + "\", python_callable=" + callableName + ")");
         }
 
         if (!dagSpec.edges().isEmpty()) {
@@ -213,7 +276,8 @@ public final class AirflowDagRenderer implements DagRenderer {
      * ({@code "unknown"}) because individual tasks do not declare their stage.
      */
     private static String buildDagBodyWithJobControl(DagSpec dagSpec,
-                                                     JobControlConfig config) {
+                                                     JobControlConfig config,
+                                                     Optional<StageGateConfig> gate) {
         String scheduleValue = dagSpec.schedule() != null
                 ? "\"" + dagSpec.schedule() + "\""
                 : "None";
@@ -223,8 +287,15 @@ public final class AirflowDagRenderer implements DagRenderer {
         // Imports
         lines.add("from datetime import datetime");
         lines.add("from airflow import DAG");
+        if (gate.isPresent()) {
+            lines.add("from airflow.exceptions import AirflowException");
+        }
         lines.add("from airflow.operators.python import PythonOperator");
         lines.add("");
+        if (gate.isPresent()) {
+            emitGateChecker(lines, gate.get());
+            lines.add("");
+        }
 
         // Module-level repo reference — consumers assign the real impl before the DAG loads.
         lines.add("# Job-control repository — assign your JobControlRepository impl here.");
@@ -245,7 +316,7 @@ public final class AirflowDagRenderer implements DagRenderer {
             TaskSpec task = tasks.get(i);
             boolean isFirst = (i == 0);
             lines.add("");
-            emitTaskCallable(lines, task, dagSpec.dagId(), config, isFirst);
+            emitTaskCallable(lines, task, dagSpec.dagId(), config, isFirst, gate);
             lines.add("    tasks[\"" + task.taskId() + "\"] = "
                     + "PythonOperator(task_id=\"" + task.taskId()
                     + "\", python_callable=_callable_" + sanitize(task.taskId()) + ")");
@@ -273,16 +344,24 @@ public final class AirflowDagRenderer implements DagRenderer {
      * @param isFirst  true only for the first task in topological order —
      *                 causes a {@code create_job} call before
      *                 {@code update_status("running")}.
+     * @param gate     present when the DAG has gated tasks; a gated task's
+     *                 callable re-checks its gate first.
      */
     private static void emitTaskCallable(List<String> lines,
                                          TaskSpec task,
                                          String dagId,
                                          JobControlConfig config,
-                                         boolean isFirst) {
+                                         boolean isFirst,
+                                         Optional<StageGateConfig> gate) {
         String callableName = "_callable_" + sanitize(task.taskId());
         String repo = "_job_ctrl";
 
         lines.add("    def " + callableName + "(**context):");
+        List<String> stages = StageGate.requiredStages(task);
+        if (!stages.isEmpty()) {
+            // Before any job-control call: a closed gate means the stage did not start.
+            emitGateCheck(lines, task, stages, gate.orElseThrow());
+        }
         lines.add("        run_id = context[\"run_id\"]");
 
         if (isFirst) {
@@ -322,6 +401,61 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("                error_file_path=None,");
         lines.add("            )");
         lines.add("            raise");
+    }
+
+    // -------------------------------------------------------------------------
+    // Stage-gate re-check (#197)
+    // -------------------------------------------------------------------------
+
+    /** The module-level checker assignment, emitted once when the DAG has gated tasks. */
+    private static void emitGateChecker(List<String> lines, StageGateConfig gate) {
+        lines.add("# Stage-gate checker: an object with completion(unit=, stage=, period=) that");
+        lines.add("# returns None until the stage is completed (StageClaim.completion, #197).");
+        lines.add("_stage_gate = " + gate.checkerVariable());
+    }
+
+    /**
+     * The re-check at the top of a gated task's callable: fail the task, naming it and the
+     * stages not completed, unless every required stage is completed for this unit and period.
+     */
+    private static void emitGateCheck(List<String> lines, TaskSpec task, List<String> stages,
+                                      StageGateConfig gate) {
+        List<String> quoted = new ArrayList<>();
+        for (String stage : stages) {
+            quoted.add(pyString(stage));
+        }
+        lines.add("        _waiting_on = [");
+        lines.add("            _stage for _stage in [" + String.join(", ", quoted) + "]");
+        lines.add("            if _stage_gate.completion(unit=" + gate.unitExpression()
+                + ", stage=_stage, period=" + gate.periodExpression() + ") is None");
+        lines.add("        ]");
+        lines.add("        if _waiting_on:");
+        lines.add("            raise AirflowException(");
+        lines.add("                " + pyString("Gate closed for task '" + task.taskId() + "': not completed: ")
+                + " + \", \".join(_waiting_on)");
+        lines.add("            )");
+    }
+
+    /** A Python string literal for {@code value}, safe for any characters it holds. */
+    static String pyString(String value) {
+        StringBuilder out = new StringBuilder("\"");
+        for (char ch : value.toCharArray()) {
+            switch (ch) {
+                case '\\' -> out.append("\\\\");
+                case '"' -> out.append("\\\"");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (ch < 0x20) {
+                        out.append(String.format("\\x%02x", (int) ch));
+                    } else {
+                        out.append(ch);
+                    }
+                }
+            }
+        }
+        return out.append('"').toString();
     }
 
     /**

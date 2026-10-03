@@ -5,6 +5,7 @@ import com.enrichmeai.culvert.stageclaim.ClaimResult;
 import com.enrichmeai.culvert.stageclaim.StageKey;
 
 import java.time.Duration;
+import java.util.Optional;
 
 /**
  * Atomic claim on one stage of one unit for one period: <strong>a stage cannot double-start, and an
@@ -42,4 +43,14 @@ public interface StageClaim {
      * @throws IllegalArgumentException if {@code claimant} is blank or {@code maxWait} is negative
      */
     ClaimResult tryClaim(StageKey key, String claimant, Duration maxWait);
+
+    /**
+     * Read whether {@code key} has been completed, without claiming it, waiting, or blocking a
+     * claimant. Empty means not completed: never claimed, held right now, or abandoned. This is the
+     * read a gate predicate is re-checked with (#197), so a check never makes a real claimant see
+     * {@link ClaimResult.Held}.
+     *
+     * <p>A completion is final, so a present result never goes back to empty.
+     */
+    Optional<ClaimResult.Completed> completion(StageKey key);
 }

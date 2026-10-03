@@ -161,6 +161,26 @@ public final class PostgresStageClaim implements StageClaim {
         }
     }
 
+    /** A single autocommit read of {@code stage_completions}: it takes no lock and waits on none. */
+    @Override
+    public Optional<ClaimResult.Completed> completion(StageKey key) {
+        Objects.requireNonNull(key, "key must not be null");
+        try (Connection c = dataSource.getConnection()) {
+            if (c.getAutoCommit()) {
+                return completion(c, key);
+            }
+            // A pool's connection may come without autocommit: end the read's transaction, even
+            // when the read fails, so the connection goes back clean.
+            try {
+                return completion(c, key);
+            } finally {
+                c.rollback();
+            }
+        } catch (SQLException e) {
+            throw failure("completion", e);
+        }
+    }
+
     private void ensureRow(Connection c, StageKey key) throws SQLException {
         try (PreparedStatement ps = c.prepareStatement("INSERT INTO " + claims
                 + " (unit, stage, period) VALUES (?, ?, ?) ON CONFLICT DO NOTHING")) {
