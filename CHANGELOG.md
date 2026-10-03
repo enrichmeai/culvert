@@ -6,6 +6,21 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`data-pipeline-postgres`: job control on PostgreSQL** (Java, #193;
+  control-plane epic #188, Phase 2). `PostgresJobControlRepository` is a
+  plain-JDBC `JobControlRepository`. It runs the same on Cloud SQL, RDS or a
+  self-hosted server.
+  - It passes the shared `JobControlRepositoryContractTest` unchanged, on a
+    real PostgreSQL 16 server started from embedded binaries (no Docker).
+  - Like every backend, the ledger is append-only, and reads rank a run's
+    rows so that the earliest terminal state wins.
+  - A duplicate `createJob` is rejected by the server through a partial unique
+    index.
+  - Each transition locks the run's opening row, so writers racing the same
+    transition are serialised. The other backends cannot do that.
+  - The DDL ships with the module as `job_control.sql`. It is plain SQL; no
+    migration tool is chosen.
+  - `AutoConfig` discovers it when `CULVERT_POSTGRES_URL` is set.
 - **`data-pipeline-console`** (Java, #190; control-plane epic #188, Phase 1).
   `ConsoleReadService` gives read-only operator views over
   `JobControlRepository`: a run, the pending runs, the entity status board,
