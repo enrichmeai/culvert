@@ -6,6 +6,16 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`max_concurrency` on a fan-out** (Java, #199; control-plane epic #188).
+  - **The dial:** an optional `DagSpec.maxConcurrency()` moves a multi-unit
+    fan-out from one task at a time (`1`) to `N` at once.
+  - **Airflow and Composer:** render it as the DAG's `max_active_tasks`.
+  - **`SubstrateDagRenderer`:** also pins `deferrable=False` on its pod and
+    Cloud Run operators, because Airflow does not count deferred tasks against
+    the cap.
+  - **Validation:** a value below 1 is rejected at render time, naming the
+    DAG. Without the property, output is byte-identical to before.
+
 - **Gate predicates: a task re-checks the control store before it runs**
   (Java, #197; control-plane epic #188).
   - **The shape:** `TaskSpec.params` key `culvert.gate.completed`, a `List`

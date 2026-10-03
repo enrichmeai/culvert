@@ -26,6 +26,7 @@ from a Culvert `Pipeline`.
 | `schedule` | `String` (opaque) | Cron/interval string interpreted by the target scheduler (e.g. `"@daily"`, `"0 6 * * *"`). `null` for manually-triggered DAGs. |
 | `tasks`    | `List<TaskSpec>`  | One task per pipeline stage, in **topological order** (dependencies before dependents). |
 | `edges`    | `List<DagSpec.Edge>` | Explicit directed edges `(fromTaskId → toTaskId)`. Redundant with `TaskSpec#upstreamTaskIds` but provided for renderers that prefer an edge list. |
+| `maxConcurrency` | `Integer` | Optional. The most tasks of the DAG that may run at once; `null` for none. See `max_concurrency` below (#199). |
 
 `DagSpec.Edge` — inner `Serializable` value type:
 
@@ -416,6 +417,33 @@ the deployment supplies the object `checkerVariable` names.
 
 ---
 
+## `max_concurrency` on a fan-out (#199)
+
+A fan-out runs one task per unit (a source, an entity, a CDP), each isolated by its unit key in
+its control rows, tables, jobs and output paths. `max_concurrency` is the dial that moves it from
+fully sequential (`1`) to fully parallel (`N`) without changing the DAG:
+
+```java
+DagSpec spec = new DagSpec("cdp_monthly", "@monthly", tasks, edges, 4);  // at most 4 tasks at once
+```
+
+The dial is safe only because a stage is claimed atomically (`StageClaim`, #195): two workers
+cannot start the same unit's stage.
+
+| Renderer | How it caps concurrency |
+|---|---|
+| `AirflowDagRenderer` | `max_active_tasks=N` on the `DAG(...)`: Airflow's own per-DAG cap on running and queued task instances, across all of the DAG's active runs. |
+| `ComposerDagRenderer` | The same kwarg. Composer runs Airflow, so its native idiom is Airflow's; the body is delegated as before. |
+| `SubstrateDagRenderer` | The same kwarg, plus `deferrable=False` on each pod or Cloud Run operator. Airflow does not count deferred tasks against `max_active_tasks`, and both operators take their `deferrable` default from the environment's `operators.default_deferrable`. Without the pin, a deferrable environment would run past the cap. |
+
+- **No cap:** without the property (the 4-argument constructor, or `null`), every renderer's output
+  is byte-identical to before. `MaxConcurrencyTest` checks this against the pinned golden files.
+- **Validation:** a value below 1 is rejected at render time, with the DAG named.
+- **Sources:** Airflow 2.9.3 (`airflow/models/dag.py`, `airflow/ti_deps/dependencies_states.py`,
+  and both providers' `deferrable` defaults).
+
+---
+
 ## Building and testing
 
 ```bash
@@ -423,6 +451,7 @@ the deployment supplies the object `checkerVariable` names.
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 113, Failures: 0, Errors: 0, Skipped: 0`
+Expected output: `Tests run: 139, Failures: 0, Errors: 0, Skipped: 0`
 (11 PipelineToDagSpec + 14 AirflowDagRenderer + 11 ComposerDagRenderer + 25 JobControlWiring
-+ 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput)
++ 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput
++ 26 MaxConcurrency)

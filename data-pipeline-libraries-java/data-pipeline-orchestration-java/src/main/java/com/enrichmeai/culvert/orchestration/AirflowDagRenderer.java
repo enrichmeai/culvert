@@ -58,6 +58,12 @@ import java.util.Optional;
  *       then re-raises.</li>
  * </ol>
  *
+ * <h2>Concurrency cap (#199)</h2>
+ * <p>When {@link DagSpec#maxConcurrency()} is set, the {@code DAG(...)} gets
+ * {@code max_active_tasks=N}: Airflow's own cap on how many of the DAG's task
+ * instances run at once. A value below 1 is rejected at render time, naming the
+ * DAG. Without it, the output is unchanged.
+ *
  * <h2>Stage-gate re-check (#197)</h2>
  * <p>A task whose {@code params} carry a gate predicate ({@link StageGate})
  * becomes a {@code PythonOperator} whose callable first re-checks the gate
@@ -187,6 +193,7 @@ public final class AirflowDagRenderer implements DagRenderer {
      *         gated and this renderer has no {@link StageGateConfig}.
      */
     String buildDagBody(DagSpec dagSpec) {
+        dagSpec.validMaxConcurrency();
         Optional<StageGateConfig> gate = Optional.empty();
         if (StageGate.anyGated(dagSpec)) {
             if (stageGateConfig.isEmpty()) {
@@ -230,6 +237,7 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("    schedule=" + scheduleValue + ",");
         lines.add("    start_date=datetime(2024, 1, 1),");
         lines.add("    catchup=False,");
+        addMaxActiveTasks(lines, dagSpec);
         lines.add(") as dag:");
         lines.add("    tasks = {}");
 
@@ -308,6 +316,7 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("    schedule=" + scheduleValue + ",");
         lines.add("    start_date=datetime(2024, 1, 1),");
         lines.add("    catchup=False,");
+        addMaxActiveTasks(lines, dagSpec);
         lines.add(") as dag:");
         lines.add("    tasks = {}");
 
@@ -401,6 +410,23 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("                error_file_path=None,");
         lines.add("            )");
         lines.add("            raise");
+    }
+
+    // -------------------------------------------------------------------------
+    // Concurrency cap (#199)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Airflow's own idiom for the cap: the DAG's {@code max_active_tasks}, the
+     * number of its task instances the scheduler lets run at once, across all
+     * of its active runs. Emits nothing when the {@link DagSpec} has no cap.
+     * Package-private so {@link SubstrateDagRenderer} emits the same kwarg.
+     */
+    static void addMaxActiveTasks(List<String> lines, DagSpec dagSpec) {
+        Integer cap = dagSpec.validMaxConcurrency();
+        if (cap != null) {
+            lines.add("    max_active_tasks=" + cap + ",");
+        }
     }
 
     // -------------------------------------------------------------------------
