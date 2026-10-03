@@ -185,8 +185,9 @@ public final class DagSpec implements Serializable {
     }
 
     /**
-     * The most tasks of this DAG that may run at once, or {@code null} for no
-     * cap of the DAG's own.
+     * The most tasks of this DAG that may be active (queued or running) at
+     * once, or {@code null} for no cap of the DAG's own. It is a ceiling: the
+     * scheduler's environment can hold real parallelism lower.
      *
      * <p>This is the {@code max_concurrency} dial of a multi-unit fan-out
      * (scheduling idea 4): when the DAG runs one task per unit, isolated by its

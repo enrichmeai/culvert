@@ -439,8 +439,17 @@ cannot start the same unit's stage.
 - **No cap:** without the property (the 4-argument constructor, or `null`), every renderer's output
   is byte-identical to before. `MaxConcurrencyTest` checks this against the pinned golden files.
 - **Validation:** a value below 1 is rejected at render time, with the DAG named.
-- **Sources:** Airflow 2.9.3 (`airflow/models/dag.py`, `airflow/ti_deps/dependencies_states.py`,
-  and both providers' `deferrable` defaults).
+- **A ceiling, not a guarantee:** the environment still bounds real parallelism, through
+  `[core] parallelism`, the executor's worker slots, and in Composer its worker count and
+  `celery.worker_concurrency`. A cap above those has no effect. An uncapped DAG still gets
+  Airflow's default per-DAG limit, `[core] max_active_tasks_per_dag`.
+- **Provider baseline:** a capped substrate DAG passes `deferrable=` to `KubernetesPodOperator` and
+  `CloudRunExecuteJobOperator`. The providers bundled with Airflow 2.9.3 accept it. An environment
+  with older `cncf.kubernetes` or `google` providers may not, and would fail to import the DAG.
+- **Sources:** `apache/airflow` at tag `2.9.3`: `airflow/models/dag.py` (the kwarg),
+  `airflow/ti_deps/dependencies_states.py` and `airflow/jobs/scheduler_job_runner.py` (what is
+  counted), `airflow/providers/cncf/kubernetes/operators/pod.py` and
+  `airflow/providers/google/cloud/operators/cloud_run.py` (the `deferrable` defaults).
 
 ---
 
@@ -451,7 +460,7 @@ cannot start the same unit's stage.
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 139, Failures: 0, Errors: 0, Skipped: 0`
+Expected output: `Tests run: 140, Failures: 0, Errors: 0, Skipped: 0`
 (11 PipelineToDagSpec + 14 AirflowDagRenderer + 11 ComposerDagRenderer + 25 JobControlWiring
 + 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput
-+ 26 MaxConcurrency)
++ 27 MaxConcurrency)

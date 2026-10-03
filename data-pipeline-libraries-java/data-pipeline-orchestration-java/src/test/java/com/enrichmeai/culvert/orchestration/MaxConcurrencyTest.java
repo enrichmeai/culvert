@@ -111,6 +111,24 @@ class MaxConcurrencyTest {
                 ") as dag:"));
     }
 
+    @Test
+    void aCappedCloudRunTaskPinsDeferrableOffLiterally() {
+        String out = new SubstrateDagRenderer(ExecutionSubstrate.CLOUD_RUN_JOBS)
+                .render(capped(UnpredicatedGoldenOutputTest.cloudRunSpec(), 2));
+        assertThat(out).contains(String.join("\n",
+                "    catchup=False,",
+                "    max_active_tasks=2,",
+                ") as dag:",
+                "    tasks = {}",
+                "    tasks[\"ingest\"] = CloudRunExecuteJobOperator(",
+                "        task_id=\"ingest\",",
+                "        project_id=\"{{ var.value.gcp_project }}\",",
+                "        region=\"europe-west2\",",
+                "        job_name=\"ingest-job\",",
+                "        deferrable=False,",
+                "    )"));
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {0, -1, Integer.MIN_VALUE})
     void aCapBelowOneIsRejectedAtRenderTimeNamingTheDag(int cap) {
