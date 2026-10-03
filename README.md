@@ -104,7 +104,7 @@ What registers is deliberate. **Per-environment** adapters do: a warehouse, a bl
 
 ## Contracts
 
-The 16 contract interfaces are the heart of the framework. (Java adds a 17th, `StageClaim`: an optional capability that only a backend able to lock implements, today PostgreSQL. Its Python mirror is #196.) Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
+The 16 contract interfaces are the heart of the framework. Java also has `StageClaim`, which is not one of the 16 shared contracts: it is an optional capability that only a backend able to lock implements (today PostgreSQL). Its Python mirror is #196. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
 
 ## Status & roadmap
 

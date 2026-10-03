@@ -27,9 +27,25 @@ class InMemoryStageClaimContractTest extends StageClaimContractTest {
         return claim;
     }
 
+    @Override
+    protected void awaitWaiting(StageKey key) {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
+        while (!claim.hasWaiter(key)) {
+            if (System.nanoTime() > deadline) {
+                throw new AssertionError("no claimant started waiting on " + key);
+            }
+            Thread.onSpinWait();
+        }
+    }
+
     static final class InMemoryStageClaim implements StageClaim {
         private final Map<StageKey, Semaphore> locks = new ConcurrentHashMap<>();
         private final Map<StageKey, ClaimResult.Completed> done = new ConcurrentHashMap<>();
+
+        boolean hasWaiter(StageKey key) {
+            Semaphore lock = locks.get(key);
+            return lock != null && lock.hasQueuedThreads();
+        }
 
         @Override
         public ClaimResult tryClaim(StageKey key, String claimant, Duration maxWait) {

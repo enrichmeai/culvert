@@ -195,7 +195,9 @@ public final class AutoConfig {
     /**
      * The {@link StageClaim} to use, if a backend that can lock is installed. Empty on deployments
      * whose job control cannot lock (BigQuery, Athena, DynamoDB): {@code StageClaim} is an optional
-     * capability, and the caller decides what running without it means.
+     * capability, and the caller decides what running without it means. Like every slot, more
+     * than one provider needs {@code CULVERT_STAGECLAIM_PROVIDER} (or
+     * {@code -Dculvert.stageclaim.provider}) to choose.
      */
     public Optional<StageClaim> stageClaim() {
         return select(StageClaim.class, stageClaims);

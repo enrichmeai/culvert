@@ -4,7 +4,6 @@ import com.enrichmeai.culvert.autoconfig.AutoConfig;
 import com.enrichmeai.culvert.stageclaim.Claim;
 import com.enrichmeai.culvert.stageclaim.ClaimResult;
 import com.enrichmeai.culvert.stageclaim.StageKey;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,36 +14,26 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * What the PostgreSQL claim adds beyond the shared contract, on a real server. A waiting claimant
- * is detected through {@code pg_stat_activity} before the holder moves, never through a sleep, so
- * the order of events is fixed rather than hoped for.
+ * What the PostgreSQL claim adds beyond the shared contract, on a real server. (The wake-up cases
+ * are in the shared contract; {@link PostgresStageClaimContractTest} runs them here.)
  */
 class PostgresStageClaimTest {
 
     private DataSource db;
     private PostgresStageClaim claims;
-    private ExecutorService waiter;
 
     @BeforeEach
     void setUp() {
         db = EmbeddedPostgresLedger.freshLedger();
         claims = new PostgresStageClaim(db);
-        waiter = Executors.newSingleThreadExecutor();
     }
 
-    @AfterEach
-    void tearDown() {
-        waiter.shutdownNow();
-    }
 
     private static StageKey freshKey() {
         return new StageKey("unit-" + UUID.randomUUID(), "load", "2026-10-01");
@@ -54,67 +43,26 @@ class PostgresStageClaimTest {
         return ((ClaimResult.Acquired) claims.tryClaim(key, claimant, Duration.ZERO)).claim();
     }
 
-    private int sessionsWaitingForALock() throws SQLException {
-        try (Connection c = db.getConnection(); Statement s = c.createStatement();
-             ResultSet rs = s.executeQuery("SELECT count(*) FROM pg_stat_activity "
-                     + "WHERE wait_event_type = 'Lock' AND query LIKE '%stage_claims%FOR UPDATE%'")) {
-            rs.next();
-            return rs.getInt(1);
-        }
-    }
-
-    /** Blocks until the server reports B waiting on the lock: then, and only then, A moves. */
-    private void awaitWaiter() throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
-        while (sessionsWaitingForALock() == 0) {
-            if (System.nanoTime() > deadline) {
-                throw new AssertionError("B never started waiting for the lock");
-            }
-            Thread.onSpinWait();
-        }
-    }
-
-    @Test
-    void aWaiterWakesToCompletedWhenTheHolderCompletes() throws Exception {
-        StageKey key = freshKey();
-        Claim a = acquire(key, "A");
-        Future<ClaimResult> b = waiter.submit(() -> claims.tryClaim(key, "B", Duration.ofSeconds(30)));
-
-        awaitWaiter();
-        assertThat(b).isNotDone();
-        a.complete();
-
-        ClaimResult result = b.get(10, TimeUnit.SECONDS);
-        assertThat(result).isInstanceOf(ClaimResult.Completed.class);
-        assertThat(((ClaimResult.Completed) result).completedBy()).isEqualTo("A");
-    }
-
-    @Test
-    void aWaiterWakesToAcquiredWhenTheHolderAbandons() throws Exception {
-        StageKey key = freshKey();
-        Claim a = acquire(key, "A");
-        Future<ClaimResult> b = waiter.submit(() -> claims.tryClaim(key, "B", Duration.ofSeconds(30)));
-
-        awaitWaiter();
-        a.close();
-
-        ClaimResult result = b.get(10, TimeUnit.SECONDS);
-        assertThat(result).isInstanceOf(ClaimResult.Acquired.class);
-        ((ClaimResult.Acquired) result).claim().close();
-    }
-
     @Test
     void aClaimantWhoseSessionDiesReleasesTheStage() throws Exception {
         StageKey key = freshKey();
-        Claim a = acquire(key, "A");
+        // A's claims run in sessions tagged with a name only this test uses.
+        String applicationName = "dead-claimant-" + UUID.randomUUID();
+        PostgresStageClaim claimsOfA = new PostgresStageClaim(
+                EmbeddedPostgresLedger.tagged(db, applicationName));
+        Claim a = ((ClaimResult.Acquired) claimsOfA.tryClaim(key, "A", Duration.ZERO)).claim();
         assertThat(claims.tryClaim(key, "B", Duration.ZERO)).isInstanceOf(ClaimResult.Held.class);
 
-        // Kill A's session the way a crashed worker's would end: the server rolls it back.
-        try (Connection c = db.getConnection(); Statement s = c.createStatement();
-             ResultSet rs = s.executeQuery("SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
-                     + "WHERE state = 'idle in transaction' AND query LIKE '%stage_completions%'")) {
-            assertThat(rs.next()).as("A's session was found").isTrue();
-            assertThat(rs.getBoolean(1)).isTrue();
+        // Kill exactly A's session, the way a crashed worker's would end: the server rolls it back.
+        try (Connection c = db.getConnection();
+             java.sql.PreparedStatement ps = c.prepareStatement("SELECT pg_terminate_backend(pid) "
+                     + "FROM pg_stat_activity WHERE application_name = ?")) {
+            ps.setString(1, applicationName);
+            try (ResultSet rs = ps.executeQuery()) {
+                assertThat(rs.next()).as("A's session was found").isTrue();
+                assertThat(rs.getBoolean(1)).isTrue();
+                assertThat(rs.next()).as("exactly one session was A's").isFalse();
+            }
         }
 
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);

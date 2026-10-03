@@ -19,7 +19,9 @@ public interface Claim extends AutoCloseable {
     /**
      * Records the stage as done and releases the claim.
      *
-     * @throws IllegalStateException if the claim was already completed or closed
+     * @throws IllegalStateException if the claim was already completed or closed, or if the
+     *         backend could not record the completion (for example, its session died). In both
+     *         cases the stage is not recorded as done by this call.
      */
     void complete();
 

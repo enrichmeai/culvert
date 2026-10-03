@@ -36,6 +36,10 @@ import java.util.Optional;
  * </ol>
  * <p>Both tables are insert-only. A completion's primary key means a stage is completed once.
  *
+ * <p>A {@code maxWait} longer than PostgreSQL's {@code lock_timeout} range (an int of
+ * milliseconds, about 24.8 days) is capped to it. Connections come from the data source with no
+ * transaction open; their autocommit and isolation are put back before they are closed.
+ *
  * <h2>Why transaction-scoped, with no lease or TTL (decided in #195)</h2>
  * <p>The lock lives exactly as long as the claimant's transaction. If the claimant dies, its session
  * ends: the server rolls the transaction back, the lock is released, no completion was written, and
@@ -168,10 +172,13 @@ public final class PostgresStageClaim implements StageClaim {
     /** True if the lock was taken within {@code maxWait}; false if another session held it. */
     private boolean lock(Connection c, StageKey key, Duration maxWait) throws SQLException {
         String select = "SELECT 1 FROM " + claims + " WHERE unit = ? AND stage = ? AND period = ? FOR UPDATE";
-        if (maxWait.isZero()) {
+        boolean timed = !maxWait.isZero();
+        if (!timed) {
             select += " NOWAIT";
         } else {
-            long ms = Math.max(1, maxWait.toMillis());
+            // lock_timeout is an int of milliseconds (about 24.8 days at most): longer waits are capped.
+            long ms = maxWait.compareTo(Duration.ofMillis(Integer.MAX_VALUE)) >= 0
+                    ? Integer.MAX_VALUE : Math.max(1, maxWait.toMillis());
             try (Statement s = c.createStatement()) {
                 s.execute("SET LOCAL lock_timeout = '" + ms + "ms'");
             }
@@ -181,6 +188,12 @@ public final class PostgresStageClaim implements StageClaim {
             try (ResultSet rs = ps.executeQuery()) {
                 if (!rs.next()) {
                     throw new IllegalStateException("stage_claims row for " + key + " disappeared");
+                }
+            }
+            if (timed) {
+                // The wait was for the lock only; the rest of the claim runs with the session's own timeout.
+                try (Statement s = c.createStatement()) {
+                    s.execute("SET LOCAL lock_timeout TO DEFAULT");
                 }
             }
             return true;
