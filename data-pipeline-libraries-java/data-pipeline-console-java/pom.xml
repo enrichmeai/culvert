@@ -56,7 +56,11 @@
                 or transitively, in any scope. Adapters arrive at runtime through
                 AutoConfig, never at compile time. A dependency ban, not an import
                 check: it also catches an SDK that arrives transitively, needs no new
-                test library, and fails at validate, before anything compiles.
+                test library, and fails at validate, before anything compiles. It is a
+                denylist of cloud groups, not an allowlist: a non-cloud library is not
+                stopped by it. Adapter packages (com.enrichmeai.culvert.gcp|aws|azure.*)
+                are covered because their modules are banned, so any import of them
+                fails to compile.
             -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -74,8 +78,13 @@
                                     <excludes>
                                         <exclude>com.google.cloud*</exclude>
                                         <exclude>com.google.api*</exclude>
-                                        <exclude>software.amazon.awssdk*</exclude>
-                                        <exclude>com.amazonaws*</exclude>
+                                        <exclude>com.google.auth*</exclude>
+                                        <exclude>com.google.oauth-client*</exclude>
+                                        <exclude>com.google.http-client*</exclude>
+                                        <exclude>com.google.firebase*</exclude>
+                                        <exclude>io.grpc*</exclude>
+                                        <exclude>software.amazon*</exclude>
+                                        <exclude>com.amazon*</exclude>
                                         <exclude>com.azure*</exclude>
                                         <exclude>com.microsoft.azure*</exclude>
                                         <exclude>com.enrichmeai.culvert:data-pipeline-gcp-*</exclude>

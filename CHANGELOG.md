@@ -28,8 +28,8 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   README shows how to run it.
 - **The console module cannot depend on a cloud** (#192). A Maven Enforcer
   `bannedDependencies` rule fails the build if a Google Cloud, AWS or Azure
-  SDK, or a Culvert GCP, AWS or Azure adapter module, reaches its classpath,
-  directly or transitively.
+  SDK (including Google auth and gRPC), or a Culvert GCP, AWS or Azure adapter
+  module, reaches its classpath, directly or transitively.
 
 ## [0.3.0] — not yet tagged
 

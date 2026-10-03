@@ -14,8 +14,9 @@ Phase 1.
 **This module binds only to Culvert contracts.** It depends on `data-pipeline-core` and nothing
 cloud-specific, so the same views work on every backend. Adapters arrive at runtime through
 `AutoConfig`, never at compile time. **The build enforces this** (#192): a Maven Enforcer
-`bannedDependencies` rule in this module's `pom.xml` fails `validate` if any Google Cloud, AWS or
-Azure SDK, or any Culvert adapter module, reaches the classpath, directly or transitively.
+`bannedDependencies` rule in this module's `pom.xml` fails `validate` if a Google Cloud, AWS or
+Azure SDK (including Google auth and gRPC), or a Culvert adapter module, reaches the classpath,
+directly or transitively. It is a denylist of cloud groups, not a ban on every other library.
 
 ## The `culvert` command line (`CulvertCli`)
 
