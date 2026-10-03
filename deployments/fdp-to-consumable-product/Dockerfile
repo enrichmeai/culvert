@@ -23,7 +23,7 @@ RUN pip install --no-cache-dir dbt-bigquery
 # Install the Culvert transform library from local source (nothing is on PyPI
 # yet — the coordinated 0.1.0 publish is pending; switch to a pinned PyPI
 # install of `culvert`/`data-pipeline-transform` after the release).
-# data-pipeline-core first: transform declares data-pipeline-core>=0.3.0 and
+# data-pipeline-core first: transform declares data-pipeline-core>=0.4.0 and
 # nothing is on PyPI yet — both install from local source until the 0.1.0 publish.
 COPY data-pipeline-libraries/data-pipeline-core /tmp/data-pipeline-core
 RUN pip install --no-cache-dir /tmp/data-pipeline-core
