@@ -6,6 +6,11 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`PostgresContainer` in `data-pipeline-it-support`** (Java, #194). A
+  Testcontainers PostgreSQL 16 fixture. Each `newConnection()` and each
+  `getConnection()` of its unpooled `newDataSource()` is a separate server
+  session, so integration tests can contend for a lock between two
+  connections, as the coming `StageClaim` port (#195) needs.
 - **`data-pipeline-postgres`: job control on PostgreSQL** (Java, #193;
   control-plane epic #188, Phase 2). `PostgresJobControlRepository` is a
   plain-JDBC `JobControlRepository`. It runs the same on Cloud SQL, RDS or a
