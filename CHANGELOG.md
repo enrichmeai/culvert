@@ -4,7 +4,16 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **`data-pipeline-console`** (Java, #190; control-plane epic #188, Phase 1).
+  `ConsoleReadService` gives read-only operator views over
+  `JobControlRepository`: a run, the pending runs, the entity status board,
+  the failures, and an FDP model's status for a system and extract date. It
+  takes the repository `AutoConfig` discovers and binds to no cloud SDK. It
+  calls only the five read methods: never a write, and never
+  `cleanupPartialLoad`, which deletes data. A failed run stays failed in every
+  view, and its summary says a retry runs under a new run id.
 
 ## [0.3.0] — not yet tagged
 
