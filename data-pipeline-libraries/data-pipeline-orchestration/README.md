@@ -605,7 +605,15 @@ from data_pipeline_orchestration.callbacks import on_failure_callback
 ## Tests
 
 ```bash
-python3.11 -m pytest tests/unit/ -q
-# 188 passed, 1 skipped  (Airflow 2.9.3 in .venv_airflow; the 1 skip is an
-# obsolete pre-T11.2c create_dags test, superseded by tests/unit/factories/)
+python3.11 -m venv .venv_airflow
+.venv_airflow/bin/pip install "apache-airflow==2.9.3" \
+    apache-airflow-providers-google apache-airflow-providers-apache-beam \
+    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
+.venv_airflow/bin/pip install -e ../data-pipeline-core -e ".[dev]" pytest-mock
+.venv_airflow/bin/python -m pytest tests -q
+# 198 passed
 ```
+
+Both providers are needed: without `apache-airflow-providers-google` the sensor and DAG-factory
+tests fail, and without `apache-airflow-providers-apache-beam` (which the Google provider's Dataflow
+operators import) the five Dataflow operator tests skip.

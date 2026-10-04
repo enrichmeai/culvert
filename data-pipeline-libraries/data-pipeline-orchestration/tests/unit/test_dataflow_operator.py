@@ -1,17 +1,21 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-# Skip tests if Airflow is not available
+# The Dataflow operators come from apache-airflow-providers-google, which itself imports
+# apache-airflow-providers-apache-beam. Without either, these tests skip (#88).
 try:
     from airflow.providers.google.cloud.operators.dataflow import DataflowCreatePythonJobOperator
     AIRFLOW_AVAILABLE = True
 except ImportError:
     AIRFLOW_AVAILABLE = False
 
+_SKIP_REASON = ("apache-airflow-providers-google and apache-airflow-providers-apache-beam "
+                "are required for the Dataflow operators")
+
 import data_pipeline_orchestration.operators.dataflow as dataflow_mod
 from data_pipeline_orchestration.operators.dataflow import BaseDataflowOperator, SourceType, ProcessingMode
 
-@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason="Airflow not available")
+@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason=_SKIP_REASON)
 class TestBaseDataflowOperator:
     def setup_method(self):
         # Ensure stubs are MagicMocks for the tests
