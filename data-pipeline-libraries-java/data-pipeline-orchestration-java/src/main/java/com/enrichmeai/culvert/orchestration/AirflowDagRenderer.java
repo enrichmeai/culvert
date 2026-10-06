@@ -196,13 +196,25 @@ public final class AirflowDagRenderer implements DagRenderer {
         dagSpec.validMaxConcurrency();
         Optional<StageGateConfig> gate = Optional.empty();
         if (StageGate.anyGated(dagSpec)) {
-            if (stageGateConfig.isEmpty()) {
-                TaskSpec first = dagSpec.tasks().stream()
-                        .filter(t -> !StageGate.requiredStages(t).isEmpty())
-                        .findFirst().orElseThrow();
-                throw new IllegalArgumentException("Task '" + first.taskId() + "' has a gate predicate ('"
-                        + StageGate.COMPLETED + "'), but this renderer has no StageGateConfig, so the "
-                        + "rendered task would run without the re-check. Use withStageGate(...).");
+            for (TaskSpec task : dagSpec.tasks()) {
+                boolean stages = !StageGate.requiredStages(task).isEmpty();
+                boolean ready = StageGate.requiresReady(task);
+                String key = stages ? StageGate.COMPLETED : StageGate.READY;
+                if ((stages || ready) && stageGateConfig.isEmpty()) {
+                    throw new IllegalArgumentException("Task '" + task.taskId() + "' has a gate predicate ('"
+                            + key + "'), but this renderer has no StageGateConfig, so the "
+                            + "rendered task would run without the re-check. Use withStageGate(...).");
+                }
+                if (stages && stageGateConfig.get().checkerVariable() == null) {
+                    throw new IllegalArgumentException("Task '" + task.taskId() + "' has a gate predicate ('"
+                            + StageGate.COMPLETED + "'), but the StageGateConfig has no checkerVariable, "
+                            + "so the rendered task could not re-check it. Use StageGateConfig.builder(checker).");
+                }
+                if (ready && stageGateConfig.get().readinessVariable() == null) {
+                    throw new IllegalArgumentException("Task '" + task.taskId() + "' has a gate predicate ('"
+                            + StageGate.READY + "'), but the StageGateConfig has no readinessVariable, "
+                            + "so the rendered task could not re-check it. Use .readinessVariable(...).");
+                }
             }
             gate = stageGateConfig;
         }
@@ -229,7 +241,7 @@ public final class AirflowDagRenderer implements DagRenderer {
             lines.add("from airflow.exceptions import AirflowException");
             lines.add("from airflow.operators.python import PythonOperator");
             lines.add("");
-            emitGateChecker(lines, gate.get());
+            emitGateChecker(lines, dagSpec, gate.get());
         }
         lines.add("");
         lines.add("with DAG(");
@@ -242,8 +254,7 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("    tasks = {}");
 
         for (TaskSpec task : dagSpec.tasks()) {
-            List<String> stages = StageGate.requiredStages(task);
-            if (stages.isEmpty()) {
+            if (!StageGate.isGated(task)) {
                 lines.add("    tasks[\"" + task.taskId() + "\"] = "
                         + "EmptyOperator(task_id=\"" + task.taskId() + "\")");
                 continue;
@@ -251,7 +262,7 @@ public final class AirflowDagRenderer implements DagRenderer {
             String callableName = "_callable_" + sanitize(task.taskId());
             lines.add("");
             lines.add("    def " + callableName + "(**context):");
-            emitGateCheck(lines, task, stages, gate.get());
+            emitGateCheck(lines, task, gate.get());
             lines.add("        pass  # " + task.taskId() + " task body");
             lines.add("    tasks[\"" + task.taskId() + "\"] = "
                     + "PythonOperator(task_id=\"" + task.taskId()
@@ -301,7 +312,7 @@ public final class AirflowDagRenderer implements DagRenderer {
         lines.add("from airflow.operators.python import PythonOperator");
         lines.add("");
         if (gate.isPresent()) {
-            emitGateChecker(lines, gate.get());
+            emitGateChecker(lines, dagSpec, gate.get());
             lines.add("");
         }
 
@@ -366,10 +377,9 @@ public final class AirflowDagRenderer implements DagRenderer {
         String repo = "_job_ctrl";
 
         lines.add("    def " + callableName + "(**context):");
-        List<String> stages = StageGate.requiredStages(task);
-        if (!stages.isEmpty()) {
+        if (StageGate.isGated(task)) {
             // Before any job-control call: a closed gate means the stage did not start.
-            emitGateCheck(lines, task, stages, gate.orElseThrow());
+            emitGateCheck(lines, task, gate.orElseThrow());
         }
         lines.add("        run_id = context[\"run_id\"]");
 
@@ -433,19 +443,49 @@ public final class AirflowDagRenderer implements DagRenderer {
     // Stage-gate re-check (#197)
     // -------------------------------------------------------------------------
 
-    /** The module-level checker assignment, emitted once when the DAG has gated tasks. */
-    private static void emitGateChecker(List<String> lines, StageGateConfig gate) {
-        lines.add("# Stage-gate checker: an object with completion(unit=, stage=, period=) that");
-        lines.add("# returns None until the stage is completed (StageClaim.completion, #197).");
-        lines.add("_stage_gate = " + gate.checkerVariable());
+    /**
+     * The module-level checker assignments, emitted once when the DAG has gated tasks: the
+     * completion checker if any task waits on stages, the readiness checker (#230) if any task
+     * waits on its inputs.
+     */
+    private static void emitGateChecker(List<String> lines, DagSpec dagSpec, StageGateConfig gate) {
+        boolean anyStages = dagSpec.tasks().stream().anyMatch(t -> !StageGate.requiredStages(t).isEmpty());
+        boolean anyReady = dagSpec.tasks().stream().anyMatch(StageGate::requiresReady);
+        if (anyStages) {
+            lines.add("# Stage-gate checker: an object with completion(unit=, stage=, period=) that");
+            lines.add("# returns None until the stage is completed (StageClaim.completion, #197).");
+            lines.add("_stage_gate = " + gate.checkerVariable());
+        }
+        if (anyReady) {
+            lines.add("# Readiness checker: an object with not_ready(unit=, period=) that returns the");
+            lines.add("# inputs not yet ready, empty only when all are (InputReadiness.readiness, #230).");
+            lines.add("_input_readiness = " + gate.readinessVariable());
+        }
     }
 
     /**
-     * The re-check at the top of a gated task's callable: fail the task, naming it and the
-     * stages not completed, unless every required stage is completed for this unit and period.
+     * The re-check at the top of a gated task's callable: fail the task, naming it and what it
+     * waits on, unless every required stage is completed and, for a readiness gate, every expected
+     * input is ready for this unit and period. Stages are checked first.
      */
-    private static void emitGateCheck(List<String> lines, TaskSpec task, List<String> stages,
-                                      StageGateConfig gate) {
+    private static void emitGateCheck(List<String> lines, TaskSpec task, StageGateConfig gate) {
+        List<String> stages = StageGate.requiredStages(task);
+        if (!stages.isEmpty()) {
+            emitStagesCheck(lines, task, stages, gate);
+        }
+        if (StageGate.requiresReady(task)) {
+            lines.add("        _not_ready = list(_input_readiness.not_ready(unit=" + gate.unitExpression()
+                    + ", period=" + gate.periodExpression() + "))");
+            lines.add("        if _not_ready:");
+            lines.add("            raise AirflowException(");
+            lines.add("                " + pyString("Gate closed for task '" + task.taskId() + "': inputs not ready: ")
+                    + " + \", \".join(str(_i) for _i in _not_ready)");
+            lines.add("            )");
+        }
+    }
+
+    private static void emitStagesCheck(List<String> lines, TaskSpec task, List<String> stages,
+                                        StageGateConfig gate) {
         List<String> quoted = new ArrayList<>();
         for (String stage : stages) {
             quoted.add(pyString(stage));

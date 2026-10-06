@@ -4,6 +4,26 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+### Added
+
+- **Readiness as a gate predicate** (Java, #230; control-plane epic #188).
+  A task can now wait for its inputs as well as for other stages:
+  - `StageGate.READY` (`"culvert.gate.ready"`) = `true` in `TaskSpec.params`
+    closes the gate until `InputReadiness.readiness(unit, period)` is ready.
+    An undeclared unit is never ready. Any other value is refused at render
+    time, naming the task. A task may carry both gate keys.
+  - `StageGate.forReadiness(readiness)` and `new StageGate(stageClaim, readiness)`
+    re-check it in a Java job; `Result.inputsNotReady()` names each input
+    not ready. A gate kind with no store to read is refused, never let through.
+  - `AirflowDagRenderer` and `ComposerDagRenderer` emit the check in the task
+    callable, before any job-control call, through
+    `StageGateConfig.readinessVariable(...)`. `StageGateConfig.builder()` makes
+    a readiness-only config. `SubstrateDagRenderer` refuses a readiness-gated
+    task, as it does a stage-gated one.
+  - DAGs without a readiness gate render exactly as before.
+  - Culvert ships no Python `InputReadiness`: the deployment supplies the
+    object `readinessVariable` names.
+
 ## [0.4.0] — 2026-10-03
 
 The W2 batch: the control plane (epic #188), Phases 1 and 2 except the Python

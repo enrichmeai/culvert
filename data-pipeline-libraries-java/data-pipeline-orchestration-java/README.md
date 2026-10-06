@@ -355,7 +355,7 @@ String pySource = composerRenderer.render(dagSpec);
 
 ---
 
-## Gate predicates (#197)
+## Gate predicates (#197, #230)
 
 **The scheduler's order is advisory; the control store is authoritative.** A task can carry a gate:
 the stages that must be completed, for the same unit and period, before it does any work. The
@@ -372,18 +372,31 @@ TaskSpec publish = new TaskSpec("publish", "publish", List.of("load"),
         Map.<String, Serializable>of(StageGate.COMPLETED, new ArrayList<>(List.of("load", "validate"))));
 ```
 
-It stays in the untyped `params` rather than a new `TaskSpec` field: `TaskSpec` is serialized
-across the worker boundary and there is one predicate kind. A second kind is the time to revisit.
+The second kind is readiness (#230): `StageGate.READY` (`"culvert.gate.ready"`) = `true` makes the
+task wait until every input its unit expects for the period is ready, as `InputReadiness.readiness(unit,
+period)` resolves it (#198). An undeclared unit is never ready. A task may carry both keys; it is open
+only when both hold, and the stages are checked first.
+
+```java
+TaskSpec publish = new TaskSpec("publish", "publish", List.of("load"),
+        Map.<String, Serializable>of(StageGate.READY, Boolean.TRUE));
+```
+
+Both kinds stay in the untyped `params` rather than a new `TaskSpec` field. `TaskSpec` is serialized
+across the worker boundary, so a `TaskSpec` written before #230 reads back unchanged, and the two keys
+share one validation and one typo guard.
 
 ### Checked when the DAG is rendered
 
 Every renderer validates gates before it emits anything. Each of these fails at render time, with
 the task named:
 
-- a value that is not a non-empty `List` of non-blank stage names;
+- a `COMPLETED` value that is not a non-empty `List` of non-blank stage names;
+- a `READY` value other than `true` (`false`, `"true"`, `null`): remove the key to leave a task
+  ungated by readiness;
 - a duplicate stage, or the task's own stage (the gate could never open);
 - any other key starting with `culvert.gate`, in any case (`culvert.gates.completed`,
-  `culvert.gate_completed`): a typo under that prefix must not drop a gate silently;
+  `culvert.gate_completed`, `culvert.gate.Ready`): a typo under that prefix must not drop a gate silently;
 - a gated task given to a renderer that cannot emit the re-check (see below).
 
 A `DagSpec` with no gate renders byte-identically to before gates existed.
@@ -393,27 +406,41 @@ A `DagSpec` with no gate renders byte-identically to before gates existed.
 
 | Runner | Re-check |
 |---|---|
-| A Java job | `new StageGate(stageClaim).requireOpen(task, unit, period)` before the stage does work. It throws `IllegalStateException` naming the task and the stages not completed. |
-| `AirflowDagRenderer`, `ComposerDagRenderer` | Build with `.withStageGate(StageGateConfig.builder("<python expr>").build())`. The gated task becomes a `PythonOperator` whose callable checks first, before any job-control call, and raises `AirflowException` naming the stages not completed. It fails rather than skips, so its retries re-check and a closed gate never reads as success downstream. Ungated tasks are unchanged. |
+| A Java job | `new StageGate(stageClaim)`, `StageGate.forReadiness(readiness)` or `new StageGate(stageClaim, readiness)`, then `.requireOpen(task, unit, period)` before the stage does work. It throws `IllegalStateException` naming the task, the stages not completed and each input not ready (`orders_raw=FAILED (run-7)`). A task whose gate kind the `StageGate` has no store for is refused with `IllegalStateException`, never let through. |
+| `AirflowDagRenderer`, `ComposerDagRenderer` | Build with `.withStageGate(config)`, where `config` names a checker for each gate kind the DAG uses (below). The gated task becomes a `PythonOperator` whose callable checks first, before any job-control call, and raises `AirflowException` naming the stages not completed or the inputs not ready. It fails rather than skips, so its retries re-check and a closed gate never reads as success downstream. Ungated tasks are unchanged. A DAG using a gate kind the config has no checker for is refused at render time, naming the task. |
 | `SubstrateDagRenderer` | Refuses a gated task. The pod or Cloud Run job starts outside the Airflow worker, so the DAG cannot re-check it; check inside the job with `StageGate` instead. |
 
 The check reads completions with `StageClaim.completion(StageKey)`, which never claims or waits, so
-a gate check cannot make a real claimant see `Held`.
+a gate check cannot make a real claimant see `Held`. It reads readiness with
+`InputReadiness.readiness(unit, period)`, which writes nothing.
 
-In the rendered DAG, the checker expression is assigned once to `_stage_gate`, and the unit and
-period are Python expressions evaluated in the task callable:
+In the rendered DAG, the checker expression is assigned once to `_stage_gate` (only if a task waits
+on stages), the readiness expression once to `_input_readiness` (only if a task waits on its inputs),
+and the unit and period are Python expressions evaluated in the task callable:
+
+```java
+StageGateConfig.builder("<completion checker>").readinessVariable("<readiness checker>").build();
+StageGateConfig.builder().readinessVariable("<readiness checker>").build();   // readiness only
+```
 
 | `StageGateConfig` field | Default | Description |
 |---|---|---|
-| `checkerVariable` | *(required)* | Python expression for an object with `completion(unit=, stage=, period=)` that returns `None` until the stage is completed. |
+| `checkerVariable` | none | Python expression for an object with `completion(unit=, stage=, period=)` that returns `None` until the stage is completed. Needed when a task carries `COMPLETED`. |
+| `readinessVariable` | none | Python expression for an object with `not_ready(unit=, period=)` that returns one string per expected input not ready, an empty list only when all are, and a non-empty list when nothing is declared for the unit. Needed when a task carries `READY`. |
 | `unitExpression` | `context["dag"].dag_id` | The unit the gate is checked for. |
 | `periodExpression` | `context["ds"]` | The period: the run's logical date, as job-control wiring uses for `extract_date`. |
 
 With job-control wiring, a gated task checks before `create_job` or `update_status`. A closed gate
 therefore writes no job-control row: the stage did not start.
 
-**Not yet:** the Python `StageClaim` mirror is #196 (waiting on decision A in #188). Until it lands,
-the deployment supplies the object `checkerVariable` names.
+A config needs at least one of the two.
+
+A task carrying both keys checks its stages first. In the rendered DAG a closed stages gate raises
+at once, so its message names only the stages; the inputs are checked on the next retry. The Java
+`Result` reads both and names both.
+
+**Not yet:** Culvert ships no Python `StageClaim` (#196) or Python `InputReadiness`. Until they land,
+the deployment supplies the objects `checkerVariable` and `readinessVariable` name.
 
 ---
 
@@ -460,7 +487,7 @@ cannot start the same unit's stage.
 mvn -o -pl data-pipeline-orchestration-java -am test
 ```
 
-Expected output: `Tests run: 140, Failures: 0, Errors: 0, Skipped: 0`
+Expected output: `Tests run: 165, Failures: 0, Errors: 0, Skipped: 0`
 (11 PipelineToDagSpec + 14 AirflowDagRenderer + 11 ComposerDagRenderer + 25 JobControlWiring
 + 11 SubstrateDagRenderer + 25 StageGate + 9 GatedRendering + 7 UnpredicatedGoldenOutput
-+ 27 MaxConcurrency)
++ 27 MaxConcurrency + 25 ReadinessGate)
