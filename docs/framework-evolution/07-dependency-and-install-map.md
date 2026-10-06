@@ -51,7 +51,9 @@ flagged **[INSTALL]**.
 
 ### Sprint 11 — Orchestration layer
 - **[INSTALL] Python (Airflow):** `python3.11 -m venv .venv_airflow` then
-  `pip install "apache-airflow==2.9.*" "apache-airflow-providers-google"`.
+  `pip install "apache-airflow==2.9.*" "apache-airflow-providers-google"
+  "apache-airflow-providers-apache-beam"` (the Google provider's Dataflow operators import
+  the Beam provider; without it the Dataflow operator tests skip, #88).
   Heavy (~250 MB with constraints file). Java side has **no new deps**
   (just model + renderer classes).
 - Airflow install uses the official constraints file:
