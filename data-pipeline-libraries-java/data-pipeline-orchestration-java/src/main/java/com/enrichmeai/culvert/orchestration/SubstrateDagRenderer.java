@@ -76,9 +76,10 @@ public final class SubstrateDagRenderer implements DagRenderer {
         dagSpec.validMaxConcurrency();
         StageGate.validate(dagSpec);
         for (TaskSpec task : dagSpec.tasks()) {
-            if (!StageGate.requiredStages(task).isEmpty()) {
+            if (StageGate.isGated(task)) {
+                String key = StageGate.requiredStages(task).isEmpty() ? StageGate.READY : StageGate.COMPLETED;
                 throw new IllegalArgumentException("Task '" + task.taskId() + "' has a gate predicate ('"
-                        + StageGate.COMPLETED + "'), which " + getClass().getSimpleName() + " does not "
+                        + key + "'), which " + getClass().getSimpleName() + " does not "
                         + "render: the " + substrate.name() + " workload starts outside the Airflow worker, "
                         + "so it would run without the re-check. Check the gate inside the job with "
                         + "StageGate.requireOpen(...), or render with AirflowDagRenderer.withStageGate(...).");

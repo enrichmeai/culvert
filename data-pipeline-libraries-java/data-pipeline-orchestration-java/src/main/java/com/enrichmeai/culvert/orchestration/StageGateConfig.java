@@ -16,8 +16,22 @@ import java.util.Objects;
  * closed gate never reads as success downstream.
  *
  * <p>{@code completion} is the Python side of {@code StageClaim.completion(StageKey)}. The Python
- * {@code StageClaim} mirror is #196 (waiting on decision A in #188); until it lands, the object the
- * checker expression names must be supplied by the deployment.
+ * {@code StageClaim} mirror is #196; until it lands, the object the checker expression names must be
+ * supplied by the deployment.
+ *
+ * <p>A task gated on readiness ({@link StageGate#READY}, #230) calls, after any stage check:
+ * <pre>{@code
+ * _input_readiness.not_ready(unit=<unitExpression>, period=<periodExpression>)
+ * }</pre>
+ * on the object {@link #readinessVariable()} names, assigned once to a module-level
+ * {@code _input_readiness}. It must return a list of strings, one per expected input that is not
+ * ready, empty when every input is ready, and a non-empty list when no inputs are declared for the
+ * unit and period (an undeclared unit is never ready). The task raises {@code AirflowException}
+ * naming itself and each entry. It is the Python side of {@code InputReadiness.readiness(unit, period)};
+ * Culvert ships no Python {@code InputReadiness} yet, so the deployment supplies the object.
+ *
+ * <p>A config needs a checker, a readiness variable, or both; the renderer refuses a DAG with a
+ * gate kind the config has no variable for.
  *
  * <p>Both expressions are Python, evaluated inside the task callable, where {@code context} is the
  * Airflow task context.
@@ -31,11 +45,13 @@ public final class StageGateConfig {
     public static final String DEFAULT_PERIOD_EXPRESSION = "context[\"ds\"]";
 
     private final String checkerVariable;
+    private final String readinessVariable;
     private final String unitExpression;
     private final String periodExpression;
 
     private StageGateConfig(Builder builder) {
         this.checkerVariable = builder.checkerVariable;
+        this.readinessVariable = builder.readinessVariable;
         this.unitExpression = builder.unitExpression;
         this.periodExpression = builder.periodExpression;
     }
@@ -44,12 +60,33 @@ public final class StageGateConfig {
      * @param checkerVariable Python expression for the object with {@code completion(unit=, stage=, period=)}
      */
     public static Builder builder(String checkerVariable) {
-        return new Builder(checkerVariable);
+        Builder builder = new Builder();
+        builder.checkerVariable = Builder.requireText(checkerVariable, "checkerVariable");
+        return builder;
     }
 
-    /** Python expression evaluating to the completion checker. */
+    /**
+     * A builder with no completion checker, for DAGs gated on readiness only. Set
+     * {@link Builder#readinessVariable(String)} before {@link Builder#build()}.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    /**
+     * Python expression evaluating to the completion checker, or {@code null} if this config
+     * re-checks readiness only.
+     */
     public String checkerVariable() {
         return checkerVariable;
+    }
+
+    /**
+     * Python expression evaluating to the readiness checker ({@code not_ready(unit=, period=)}),
+     * or {@code null} if this config re-checks stage completions only.
+     */
+    public String readinessVariable() {
+        return readinessVariable;
     }
 
     /** Python expression for the unit, evaluated in the task callable. */
@@ -65,12 +102,21 @@ public final class StageGateConfig {
     /** Builder for {@link StageGateConfig}. */
     public static final class Builder {
 
-        private final String checkerVariable;
+        private String checkerVariable;
+        private String readinessVariable;
         private String unitExpression = DEFAULT_UNIT_EXPRESSION;
         private String periodExpression = DEFAULT_PERIOD_EXPRESSION;
 
-        private Builder(String checkerVariable) {
-            this.checkerVariable = requireText(checkerVariable, "checkerVariable");
+        private Builder() {
+        }
+
+        /**
+         * Python expression for the object with {@code not_ready(unit=, period=)} (#230). Needed
+         * when any task carries {@link StageGate#READY}.
+         */
+        public Builder readinessVariable(String readinessVariable) {
+            this.readinessVariable = requireText(readinessVariable, "readinessVariable");
+            return this;
         }
 
         /** Python expression for the unit. Default {@value StageGateConfig#DEFAULT_UNIT_EXPRESSION}. */
@@ -85,8 +131,16 @@ public final class StageGateConfig {
             return this;
         }
 
-        /** Build an immutable {@link StageGateConfig}. */
+        /**
+         * Build an immutable {@link StageGateConfig}.
+         *
+         * @throws IllegalStateException if neither a checker nor a readiness variable is set
+         */
         public StageGateConfig build() {
+            if (checkerVariable == null && readinessVariable == null) {
+                throw new IllegalStateException(
+                        "A StageGateConfig needs a checkerVariable, a readinessVariable, or both");
+            }
             return new StageGateConfig(this);
         }
 
@@ -104,20 +158,26 @@ public final class StageGateConfig {
         if (this == o) return true;
         if (!(o instanceof StageGateConfig)) return false;
         StageGateConfig that = (StageGateConfig) o;
-        return checkerVariable.equals(that.checkerVariable)
+        return Objects.equals(checkerVariable, that.checkerVariable)
+                && Objects.equals(readinessVariable, that.readinessVariable)
                 && unitExpression.equals(that.unitExpression)
                 && periodExpression.equals(that.periodExpression);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(checkerVariable, unitExpression, periodExpression);
+        return Objects.hash(checkerVariable, readinessVariable, unitExpression, periodExpression);
+    }
+
+    private static String quoted(String value) {
+        return value == null ? "null" : "'" + value + "'";
     }
 
     @Override
     public String toString() {
         return "StageGateConfig{"
-                + "checkerVariable='" + checkerVariable + '\''
+                + "checkerVariable=" + quoted(checkerVariable)
+                + ", readinessVariable=" + quoted(readinessVariable)
                 + ", unitExpression='" + unitExpression + '\''
                 + ", periodExpression='" + periodExpression + '\''
                 + '}';
