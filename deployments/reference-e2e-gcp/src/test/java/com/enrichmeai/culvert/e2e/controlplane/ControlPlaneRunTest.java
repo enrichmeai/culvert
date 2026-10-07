@@ -218,6 +218,43 @@ class ControlPlaneRunTest {
     }
 
     @Test
+    void aHangHoldsTheClaimSoAnotherClaimantSeesItHeld() throws Exception {
+        java.util.concurrent.CountDownLatch hung = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch release = new java.util.concurrent.CountDownLatch(1);
+        Faults hang = new Faults(null, ControlPlaneRun.VALIDATE, Set.of(), false, 2);
+        ControlPlaneRun hanging = new ControlPlaneRun(stores, List.of("orders"), PERIOD, ControlPlaneRun.STAGES, 1, 5,
+                hang, () -> { }, () -> {
+                    hung.countDown();
+                    try {
+                        release.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new Killed();
+                });
+        Thread worker = new Thread(() -> {
+            try {
+                hanging.run("worker-hung");
+            } catch (Killed expected) {
+                // the stand-in for the process going away
+            }
+        });
+        worker.start();
+        try {
+            assertThat(hung.await(30, java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+            Report other = new ControlPlaneRun(stores, List.of("orders"), PERIOD, ControlPlaneRun.STAGES, 1, 5,
+                    Faults.NONE, () -> { }).run("worker-b");
+            assertThat(other.of("orders", ControlPlaneRun.LOAD)).extracting(StageResult::outcome)
+                    .containsExactly(Outcome.SKIPPED);
+            assertThat(other.of("orders", ControlPlaneRun.VALIDATE)).extracting(StageResult::outcome)
+                    .containsExactly(Outcome.HELD);
+        } finally {
+            release.countDown();
+            worker.join(30_000);
+        }
+    }
+
+    @Test
     void anUnexpectedStoreErrorFailsTheRunInsteadOfLeavingItRunning() {
         InputReadiness real = stores.readiness();
         InputReadiness broken = new InputReadiness() {

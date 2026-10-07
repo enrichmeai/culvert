@@ -144,8 +144,10 @@ public final class ControlPlaneRun {
     private final int records;
     private final Faults faults;
     private final Runnable crash;
+    private final Runnable hang;
     private final StageGate gate;
     private final AtomicBoolean crashed = new AtomicBoolean();
+    private Duration recordDelay = Duration.ZERO;
 
     /**
      * @param store   the control-plane stores
@@ -159,6 +161,15 @@ public final class ControlPlaneRun {
      */
     public ControlPlaneRun(ControlPlane store, List<String> units, String period, List<String> stages,
                            int maxConcurrency, int records, Faults faults, Runnable crash) {
+        this(store, units, period, stages, maxConcurrency, records, faults, crash, crash);
+    }
+
+    /**
+     * @param hang what "the worker hangs" does ({@link Faults#hangAfterRecords()}); it must not
+     *             return while the worker should look hung. {@code ControlPlaneMain} sleeps.
+     */
+    public ControlPlaneRun(ControlPlane store, List<String> units, String period, List<String> stages,
+                           int maxConcurrency, int records, Faults faults, Runnable crash, Runnable hang) {
         this.store = Objects.requireNonNull(store, "store must not be null");
         this.units = List.copyOf(units);
         if (this.units.isEmpty()) {
@@ -181,10 +192,27 @@ public final class ControlPlaneRun {
             throw new IllegalArgumentException("--fault.kill-after=" + faults.killAfterRecords()
                     + " is more than --records=" + records + ", so the kill would never happen");
         }
+        if (faults.hangAfterRecords() != null && faults.hangAfterRecords() > records) {
+            throw new IllegalArgumentException("--fault.hang-after=" + faults.hangAfterRecords()
+                    + " is more than --records=" + records + ", so the hang would never happen");
+        }
         this.records = records;
         this.faults = Objects.requireNonNull(faults, "faults must not be null");
         this.crash = Objects.requireNonNull(crash, "crash must not be null");
+        this.hang = Objects.requireNonNull(hang, "hang must not be null");
         this.gate = new StageGate(store.claims(), store.readiness());
+    }
+
+    /**
+     * Spend {@code delay} on each record, standing in for real I/O, so that concurrent triggers
+     * overlap (proof 1) and a kill lands mid-stage (proof 2). Default zero.
+     */
+    public ControlPlaneRun withRecordDelay(Duration delay) {
+        if (delay.isNegative()) {
+            throw new IllegalArgumentException("the record delay must not be negative, got " + delay);
+        }
+        this.recordDelay = delay;
+        return this;
     }
 
     /** The spec the run checks its gates against, and the DAG is rendered from. */
@@ -320,6 +348,7 @@ public final class ControlPlaneRun {
         long handled = 0;
         for (int i = 0; i < records; i++) {
             killIfDue(stage, handled);
+            pause();
             handled++;
         }
         killIfDue(stage, handled);
@@ -360,10 +389,29 @@ public final class ControlPlaneRun {
         }
     }
 
+    private void pause() {
+        if (recordDelay.isZero()) {
+            return;
+        }
+        try {
+            Thread.sleep(recordDelay.toMillis());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted mid-record", e);
+        }
+    }
+
     private void killIfDue(String stage, long handled) {
-        Integer after = faults.killAfterRecords();
-        if (after != null && stage.equals(faults.killStage()) && handled == after && crashed.compareAndSet(false, true)) {
+        if (!stage.equals(faults.killStage())) {
+            return;
+        }
+        Integer kill = faults.killAfterRecords();
+        if (kill != null && handled == kill && crashed.compareAndSet(false, true)) {
             crash.run();
+        }
+        Integer stall = faults.hangAfterRecords();
+        if (stall != null && handled == stall && crashed.compareAndSet(false, true)) {
+            hang.run();
         }
     }
 

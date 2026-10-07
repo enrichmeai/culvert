@@ -94,17 +94,17 @@ the readiness gate (#230), which is on `main` and not in the 0.4.0 release.
 
 Expected output after the control-plane slice (#231):
 ```
-Tests run: 33, Failures: 0, Errors: 0, Skipped: 1
+Tests run: 35, Failures: 0, Errors: 0, Skipped: 1
 BUILD SUCCESS
 ```
 
-The 33 tests break down as:
+The 35 tests break down as:
 - 3 skeleton tests (`ReferenceE2EPipelineTest`) — unchanged from T12.0.
 - 3 launcher tests (`ReferenceE2EMainTest`).
 - 3 observability tests (`ReferenceE2EObservabilityTest`) — the S12 slice.
 - 2 cost/FinOps tests (`ReferenceE2ECostTest`) — the S13 slice.
 - 5 DQ tests (`ReferenceE2EDqTest`, 1 `@Disabled` = Skipped) — the S14 slice.
-- 17 control-plane tests (`ControlPlaneRunTest` 11, `KilledWorkerTest` 2, `ReferenceDagTest` 4) —
+- 19 control-plane tests (`ControlPlaneRunTest` 12, `KilledWorkerTest` 2, `ReferenceDagTest` 5) —
   the #231 slice, on an embedded PostgreSQL 16.
 
 **CI gate (S15, #83, now wired):**
@@ -687,6 +687,7 @@ argument.
 | `--stages` | `load,validate,publish` | Run only these, as a scheduler firing a task early or alone would. |
 | `--max-concurrency` | `2` | At most this many units at once, and `max_active_tasks` in the DAG (#199). |
 | `--records` | `5` | Records per stage. |
+| `--record-delay-ms` | `0` | Time spent on each record, standing in for real I/O, so concurrent triggers overlap and a kill lands mid-stage. |
 | `--claimant` | `host:pid` | The name each claim and completion records. |
 
 `ControlPlane.discover` refuses to run if any of the three stores is missing: a run without
@@ -695,11 +696,15 @@ validated.
 
 ### Fault switches (for #232)
 
+The proof harness that flips them is in [`proof/`](proof/README.md): seven scenarios against a real
+PostgreSQL 16, real worker processes and a real Airflow 2.9.3.
+
 | Switch | What it does | Proof it serves |
 |---|---|---|
 | `--fault.kill-after=N` | Halt the JVM (exit 137, no cleanup) after `N` records of `--fault.kill-stage`, in the first unit that gets there. `N` above `--records` is refused, since the kill could never happen. The PostgreSQL session dies with it, so the server releases the claim. | 2, 3 |
 | `--fault.kill-stage=load\|validate\|publish` | Where the kill happens. Default `validate`, stage 2 of 3. | 2 |
 | `--fault.fail-validation=unit[,unit]` | Those units' validation fails: the input is recorded failed and the unit's run fails. It only acts when `validate` runs: a unit whose `validate` is already completed skips it, and an input already validated is not ruled on again. | 5 |
+| `--fault.hang-after=N` | After `N` records of `--fault.kill-stage`, print `HUNG` and stop making progress while staying connected, holding the claim in an open transaction. Only the server can release it (`idle_in_transaction_session_timeout`). Cannot be combined with `--fault.kill-after`. | 3 |
 | `--fault.duplicate-trigger` | Start the whole run twice at once, as `<claimant>#1` and `<claimant>#2`. Each trigger has its own `--max-concurrency` pool, as two scheduler triggers would, so up to twice that many units run at once in this mode. | 1 |
 
 ### The rendered DAG

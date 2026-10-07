@@ -34,11 +34,13 @@ import java.util.Map;
  *
  * <p>Arguments, all optional: {@code --period} (ISO date, default today in UTC), {@code --units}
  * (default {@code orders,customers,products}), {@code --stages} (default all three),
- * {@code --max-concurrency} (default 2), {@code --records} (per stage, default 5),
+ * {@code --max-concurrency} (default 2), {@code --records} (per stage, default 5), {@code --record-delay-ms} (time spent on each record,
+ * default 0),
  * {@code --claimant} (default {@code host:pid}), {@code --apply-ddl} (apply the shipped
  * {@code job_control.sql} first; it is idempotent), and the {@link Faults} switches. A kill
  * ({@code --fault.kill-after}) halts the JVM with exit code 137 and no cleanup, as a killed
- * worker would.
+ * worker would. A hang ({@code --fault.hang-after}) prints {@code HUNG} and sleeps, holding its
+ * claim and its database session, until something kills the process.
  */
 public final class ControlPlaneMain {
 
@@ -74,7 +76,18 @@ public final class ControlPlaneMain {
                     System.out.println("KILLED (fault.kill-after) — halting with no cleanup");
                     System.out.flush();
                     Runtime.getRuntime().halt(137);
+                },
+                () -> {
+                    System.out.println("HUNG (fault.hang-after) — holding the claim, making no progress");
+                    System.out.flush();
+                    try {
+                        Thread.sleep(Long.MAX_VALUE);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                    Runtime.getRuntime().halt(137);
                 });
+        run.withRecordDelay(java.time.Duration.ofMillis(integer(opts, "record-delay-ms", 0)));
         ControlPlaneRun.Report report = run.run(opts.getOrDefault("claimant", defaultClaimant()));
         report.results().forEach(System.out::println);
         System.out.println("exit=" + report.exitCode());
@@ -82,7 +95,7 @@ public final class ControlPlaneMain {
     }
 
     /** Apply the {@code job_control.sql} that {@code data-pipeline-postgres} ships. */
-    static void applyDdl() {
+    public static void applyDdl() {
         String url = setting("CULVERT_POSTGRES_URL", "culvert.postgres.url");
         if (url == null) {
             throw new IllegalArgumentException("--apply-ddl needs CULVERT_POSTGRES_URL");
