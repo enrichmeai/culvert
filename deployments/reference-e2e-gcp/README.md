@@ -80,24 +80,32 @@ Each sprint's dev-agent should:
 # includes testcontainers/fake-gcs transitive deps that may not be cached.
 # Drop -o for the one-time bootstrap; re-add it on warm caches.
 cd data-pipeline-libraries-java
-mvn -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java \
+mvn -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java,\
+data-pipeline-gcp-gcs-java,data-pipeline-gcp-bigquery-java,data-pipeline-postgres-java \
     -am -DskipTests install
 
-# Then run all tests (skeleton + observability E2E slice — offline is fine):
+# Then run all tests (offline is fine; no Docker, no cloud account):
 cd ../deployments/reference-e2e-gcp
 mvn -o test
 ```
 
-Expected output after S13 T13.5:
+Build the libraries from this checkout, not from Maven Central: the control-plane slice needs
+the readiness gate (#230), which is on `main` and not in the 0.4.0 release.
+
+Expected output after the control-plane slice (#231):
 ```
-Tests run: 8, Failures: 0, Errors: 0, Skipped: 0
+Tests run: 33, Failures: 0, Errors: 0, Skipped: 1
 BUILD SUCCESS
 ```
 
-The 8 tests break down as:
+The 33 tests break down as:
 - 3 skeleton tests (`ReferenceE2EPipelineTest`) — unchanged from T12.0.
+- 3 launcher tests (`ReferenceE2EMainTest`).
 - 3 observability tests (`ReferenceE2EObservabilityTest`) — the S12 slice.
 - 2 cost/FinOps tests (`ReferenceE2ECostTest`) — the S13 slice.
+- 5 DQ tests (`ReferenceE2EDqTest`, 1 `@Disabled` = Skipped) — the S14 slice.
+- 17 control-plane tests (`ControlPlaneRunTest` 11, `KilledWorkerTest` 2, `ReferenceDagTest` 4) —
+  the #231 slice, on an embedded PostgreSQL 16.
 
 **CI gate (S15, #83, now wired):**
 
@@ -607,6 +615,137 @@ The 13 tests break down as:
 Sprint-15 T15.3 when the Testcontainers-based GCS emulator gate is green in CI.
 Until then, the full quarantine path is validated structurally via the in-memory
 stubs above.
+
+---
+
+## Control-plane slice (#231, epic #188 Phase 3)
+
+The reference pipeline runs on the control plane: PostgreSQL job control, stage claims, stage and
+readiness gates, and a capped fan-out. The stages still do trivial I/O (a count over `--records`
+records); the control-plane work in each one is real. This is the shape the Phase 3 proof harness
+(#232) runs its scenarios against, and the real-GCP run (#234) deploys.
+
+### The pipeline shape
+
+```
+orders     load ──► validate ──► publish
+customers  load ──► validate ──► publish      at most --max-concurrency units at once (default 2)
+products   load ──► validate ──► publish
+```
+
+Each stage of each unit, in order:
+
+1. **Claim** `StageKey(unit, stage, period)` with `StageClaim.tryClaim`, without waiting.
+   - `Completed`: the stage is skipped (`SKIPPED`); it never runs twice.
+   - `Held`: another worker has it. The unit stops (`HELD`) and the run exits 2.
+2. **Gate**: re-check the task's gate with `StageGate`, from the same `DagSpec` the DAG is rendered
+   from. `validate` waits on `load` completed; `publish` waits on `load` and `validate` completed
+   and on the unit's input being ready. Closed: the claim is released without completing
+   (`GATE_CLOSED`), the unit stops, and the run exits 1.
+3. **Work**, with the input's readiness events. Each unit expects one input, `<unit>.raw`, declared
+   with `InputReadiness.declareExpected` at the start of every run.
+   - `load` publishes the input as produced.
+   - `validate` rules on the standing attempt: validated, or failed. A failed attempt can only be
+     answered by a declared retry, so re-validating after a failure publishes a new attempt naming
+     the failed one (`retryOf`).
+4. **Complete** the claim (`DONE`).
+
+**Job control:** each unit that acquires a stage records one run in `PostgresJobControlRepository`.
+- It is created at the unit's first acquired stage.
+- It ends `succeeded` with the record count, or failed with `GATE_CLOSED`, `STAGE_HELD`,
+  `INPUT_INVALID`, `INPUT_MISSING` or `INPUT_NOT_DECLARED`. Any other error (a store or the gate
+  throwing) fails it with `STAGE_ERROR` before the error is rethrown, so a run is never left
+  `running` by an error.
+- A killed worker is the exception: nothing is left to record anything, so its run stays
+  `running`. The re-run opens a new run. Proof 7 (#232) reads the ledger with that row in it.
+- A unit with nothing to do (every stage already completed, or its first stage held) writes no row.
+
+### Running it
+
+```bash
+export CULVERT_POSTGRES_URL=jdbc:postgresql://localhost:5432/culvert
+export CULVERT_POSTGRES_USER=culvert CULVERT_POSTGRES_PASSWORD=...   # if the server needs them
+# The bigquery module on the classpath also offers a JobControlRepository; choose PostgreSQL:
+export CULVERT_JOBCONTROLREPOSITORY_PROVIDER=PostgresJobControlRepository
+
+java -cp ... com.enrichmeai.culvert.e2e.controlplane.ControlPlaneMain \
+    --apply-ddl --period=2026-10-06 --units=orders,customers,products --max-concurrency=2
+```
+
+It prints one line per stage (`orders/load DONE claimant=host:4242 run=... records=5`) and exits
+0 when done, 1 if a stage failed or a gate was closed, 2 if a stage was held, and 64 on a bad
+argument.
+
+| Setting | Default | What it does |
+|---|---|---|
+| `CULVERT_POSTGRES_URL` | *(required)* | The `jdbc:postgresql://` URL. All three stores read it (`-Dculvert.postgres.url` also works). |
+| `CULVERT_POSTGRES_USER`, `CULVERT_POSTGRES_PASSWORD` | none | Credentials, if the server needs them. |
+| `CULVERT_JOBCONTROLREPOSITORY_PROVIDER` | none | Needed only when more than one `JobControlRepository` is discovered; `AutoConfig` refuses to guess. |
+| `--apply-ddl` | off | Apply the `job_control.sql` that `data-pipeline-postgres` ships before running. It is idempotent. |
+| `--period` | today (UTC) | The period, an ISO date. It is also the job-control `extract_date`. |
+| `--units` | `orders,customers,products` | The units of the fan-out. |
+| `--stages` | `load,validate,publish` | Run only these, as a scheduler firing a task early or alone would. |
+| `--max-concurrency` | `2` | At most this many units at once, and `max_active_tasks` in the DAG (#199). |
+| `--records` | `5` | Records per stage. |
+| `--claimant` | `host:pid` | The name each claim and completion records. |
+
+`ControlPlane.discover` refuses to run if any of the three stores is missing: a run without
+claims could double-start a stage, and one without readiness could publish an input that never
+validated.
+
+### Fault switches (for #232)
+
+| Switch | What it does | Proof it serves |
+|---|---|---|
+| `--fault.kill-after=N` | Halt the JVM (exit 137, no cleanup) after `N` records of `--fault.kill-stage`, in the first unit that gets there. `N` above `--records` is refused, since the kill could never happen. The PostgreSQL session dies with it, so the server releases the claim. | 2, 3 |
+| `--fault.kill-stage=load\|validate\|publish` | Where the kill happens. Default `validate`, stage 2 of 3. | 2 |
+| `--fault.fail-validation=unit[,unit]` | Those units' validation fails: the input is recorded failed and the unit's run fails. It only acts when `validate` runs: a unit whose `validate` is already completed skips it, and an input already validated is not ruled on again. | 5 |
+| `--fault.duplicate-trigger` | Start the whole run twice at once, as `<claimant>#1` and `<claimant>#2`. Each trigger has its own `--max-concurrency` pool, as two scheduler triggers would, so up to twice that many units run at once in this mode. | 1 |
+
+### The rendered DAG
+
+`dags/reference_e2e_control_plane.py` is the same spec rendered through `ComposerDagRenderer` with
+job control, both gates and `max_active_tasks=2`. `ReferenceDagTest` renders it again and fails on
+any difference; regenerate it with `mvn -o test -Dculvert.e2e.regenerateDag=true`.
+
+- **The stores.** The DAG takes its three stores from a Python module,
+  `reference_e2e_control_plane_stores` (`job_control()`, `stage_claim()`, `input_readiness()`).
+  Culvert ships no Python `StageClaim` (#196) or `InputReadiness`, so the deployment must supply
+  that module on the Airflow workers (#234). This repository does not ship one.
+- **Checked in Airflow 2.9.3.** With a stub stores module, the DAG imports with no errors (9 tasks,
+  `max_active_tasks=2`). The `customers__publish` callable refused to run while its stages were not
+  completed, then while its input was failed, and ran once both were open.
+- **The task bodies are stubs.** Each callable checks its gates and wraps job control around
+  `pass`: it does not claim or complete a stage. Until the stages run in Airflow (#234), nothing on
+  the Airflow side writes the completions the gates wait on.
+- **Job control differs from the Java runner.** The DAG's job-control wiring is the renderer's
+  (T11.3): one run per DAG run, keyed by Airflow's `run_id` and created by the first task. The Java
+  runner records one run per unit.
+
+### What the tests prove (embedded PostgreSQL 16, no Docker)
+
+| Test | What it shows, read from the control store's own tables |
+|---|---|
+| `everyStageOfEveryUnitRunsOnce...` | 9 completions, 3 `succeeded` runs with 15 records each, every unit ready. |
+| `aSecondRunSkipsEveryCompletedStage...` | A re-run does nothing and writes no job-control row. |
+| `aStageHeldByAnotherClaimant...` | A held `load` stops that unit only; the run exits 2. |
+| `aDuplicateTriggerDoesEachStageExactlyOnce` | Two triggers at once: each stage `DONE` once, each input produced once. |
+| `publishFiredEarlyIsStoppedByItsGate...` | `publish` alone: closed, naming both stages and the missing input; no completion, no run. |
+| `aFailedValidationKeepsThatUnitShut...` | The failed input keeps `publish` shut. The re-run skips `load`, re-validates as a declared retry, and publishes. |
+| `aKillThatCouldNeverFireIsRefused`, `aKillAfterTheLastRecord...` | `--fault.kill-after` above `--records` is refused; equal to it, the kill still fires before the stage is recorded. |
+| `anUnexpectedStoreErrorFails...` | A store that throws leaves the run `failed` with `STAGE_ERROR` and the claim released, not completed. |
+| `aWorkerKilledInStageTwoResumes...` | A real JVM halted in `validate`: the re-run skips `load`, redoes `validate` from its start, publishes once. The input was produced once. |
+
+Each new rule was shown red first, by breaking it and re-running the suite:
+- never completing a claim: 7 failures;
+- not checking the gate: 2;
+- not declaring the retry: 1;
+- letting a held stage carry on: 2;
+- ignoring the kill switch: 1;
+- a drifted DAG: 1;
+- ignoring `--fault.fail-validation`: 1;
+- not failing the run on an unexpected error: 1;
+- accepting a kill that can never fire: 1.
 
 ---
 

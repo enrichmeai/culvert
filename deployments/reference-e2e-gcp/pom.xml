@@ -50,7 +50,22 @@
         <slf4j.version>2.0.13</slf4j.version>
         <junit.version>5.10.2</junit.version>
         <assertj.version>3.25.3</assertj.version>
+        <!-- #231: the same embedded PostgreSQL 16 the postgres library tests on. -->
+        <embedded.postgres.version>2.2.2</embedded.postgres.version>
+        <embedded.postgres.binaries.version>16.15.0</embedded.postgres.binaries.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.zonky.test.postgres</groupId>
+                <artifactId>embedded-postgres-binaries-bom</artifactId>
+                <version>${embedded.postgres.binaries.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- Culvert framework libraries (must be installed: mvn -pl ... install) -->
@@ -67,6 +82,15 @@
         <dependency>
             <groupId>com.enrichmeai.culvert</groupId>
             <artifactId>data-pipeline-orchestration</artifactId>
+            <version>${culvert.version}</version>
+        </dependency>
+        <!--
+            #231 — the control plane: PostgreSQL job control, stage claims and input
+            readiness, found through AutoConfig from CULVERT_POSTGRES_* settings.
+        -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-postgres</artifactId>
             <version>${culvert.version}</version>
         </dependency>
         <!--
@@ -131,6 +155,23 @@
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- #231: a real PostgreSQL 16 for `mvn test`, no Docker and no cloud account. -->
+        <dependency>
+            <groupId>io.zonky.test</groupId>
+            <artifactId>embedded-postgres</artifactId>
+            <version>${embedded.postgres.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-linux-arm64v8</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
