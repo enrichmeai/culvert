@@ -132,7 +132,7 @@ public final class ReferenceE2EMain {
     }
 
     /** Parses {@code --key=value} args; bare {@code --key} becomes {@code "true"}. */
-    static Map<String, String> parseArgs(String[] args) {
+    public static Map<String, String> parseArgs(String[] args) {
         Map<String, String> parsed = new HashMap<>();
         for (String arg : args) {
             if (!arg.startsWith("--")) {

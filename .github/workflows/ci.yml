@@ -391,7 +391,7 @@ jobs:
         working-directory: data-pipeline-libraries-java
         run: |
           mvn --batch-mode \
-              -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java,data-pipeline-gcp-bigquery-java,data-pipeline-gcp-gcs-java \
+              -pl data-pipeline-core-java,data-pipeline-gcp-dataflow-java,data-pipeline-orchestration-java,data-pipeline-gcp-bigquery-java,data-pipeline-gcp-gcs-java,data-pipeline-postgres-java \
               -am \
               -DskipTests \
               install
