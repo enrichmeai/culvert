@@ -56,3 +56,32 @@ variable "image_uri" {
   description = "Container image for the Cloud Run executor job (the shaded reference-e2e-gcp jar)."
   default     = ""
 }
+
+# ---- The control plane for the Phase 3 proof (#233) ----
+
+variable "control_plane" {
+  type = object({
+    enabled                       = optional(bool, false)
+    project_number                = optional(string)
+    network                       = optional(string)
+    subnetwork                    = optional(string)
+    create_private_service_access = optional(bool)
+    sql_tier                      = optional(string)
+    claim_idle_timeout_ms         = optional(number)
+    max_concurrent_stages         = optional(number)
+    composer_image_version        = optional(string)
+    composer_worker_max_count     = optional(number)
+    deletion_protection           = optional(bool)
+    password_version              = optional(number)
+  })
+  description = <<-EOT
+    Cloud SQL (PostgreSQL 16), Composer 2 and a Dataflow service account for the control-plane
+    proof (#233; see control-plane/README.md). Off by default: the stack's list price is about
+    $378 a month, $327 of it Composer. Unset fields take the module's defaults.
+  EOT
+  default     = {}
+  validation {
+    condition     = !var.control_plane.enabled || try(length(var.control_plane.project_number) > 0, false)
+    error_message = "control_plane.project_number is required when control_plane.enabled is true."
+  }
+}

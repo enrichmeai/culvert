@@ -694,6 +694,13 @@ argument.
 claims could double-start a stage, and one without readiness could publish an input that never
 validated.
 
+### Infrastructure for the real-GCP run (#233)
+
+[`terraform/control-plane/`](terraform/control-plane/README.md) creates the infrastructure for the
+real-GCP run: Cloud SQL (PostgreSQL 16, private IP, with the claim session timeout set), Composer 2
+and the Dataflow service account. It is a module of this deployment's Terraform root, off unless
+`control_plane.enabled = true`. The founder applies it; no apply runs from CI or a session.
+
 ### Fault switches (for #232)
 
 The proof harness that flips them is in [`proof/`](proof/README.md): seven scenarios against a real
