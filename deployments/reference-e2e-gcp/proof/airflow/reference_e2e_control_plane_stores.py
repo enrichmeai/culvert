@@ -15,8 +15,17 @@
 It is a harness module, not a Culvert library. Culvert ships no Python ``InputReadiness``, so
 ``input_readiness()`` is its own. ``stage_claim()`` could be Culvert's Python ``PostgresStageClaim``
 (#196) wrapped in ``CompletionChecker``; the harness keeps its own one-statement read so that it needs
-only psycopg2 on the workers. It reads ``CULVERT_POSTGRES_DSN`` (a libpq connection string) and only
-reads the control-plane tables.
+only psycopg2 on the workers. It only reads the control-plane tables.
+
+**Where the database is** (#234). Either:
+
+- ``CULVERT_POSTGRES_DSN``, a libpq connection string: the local proof, and the harness's own
+  Python parity check; or
+- what the control-plane Terraform gives a Cloud Composer environment: ``CULVERT_POSTGRES_HOST``,
+  ``CULVERT_POSTGRES_DB``, ``CULVERT_POSTGRES_USER``, and ``CULVERT_POSTGRES_PASSWORD_SECRET``, a
+  Secret Manager secret's resource name (``projects/<p>/secrets/<name>``), whose latest version is
+  read with the worker's own credentials (``google-cloud-secret-manager``, which Composer images
+  carry). The connection then uses ``sslmode=require``, as the Terraform's ``jdbc_url`` does.
 """
 
 import os
@@ -27,11 +36,45 @@ import psycopg2
 SCHEMA = "job_control"
 
 
+_COMPOSER_SETTINGS = ("CULVERT_POSTGRES_HOST", "CULVERT_POSTGRES_DB", "CULVERT_POSTGRES_USER",
+                      "CULVERT_POSTGRES_PASSWORD_SECRET")
+_password = None
+
+
+def _secret(name):
+    """The latest version of a Secret Manager secret, read once per process."""
+    global _password
+    if _password is None:
+        from google.cloud import secretmanager  # only on Composer: the local proof never imports it
+        client = secretmanager.SecretManagerServiceClient()
+        response = client.access_secret_version(name=name + "/versions/latest")
+        _password = response.payload.data.decode("utf-8")
+    return _password
+
+
+def connect_kwargs(env=None, secret=None):
+    """The ``psycopg2.connect`` arguments, from the environment (see the module docstring)."""
+    env = os.environ if env is None else env
+    secret = _secret if secret is None else secret
+    dsn = env.get("CULVERT_POSTGRES_DSN")
+    if dsn:
+        return {"dsn": dsn}
+    missing = [k for k in _COMPOSER_SETTINGS if not env.get(k)]
+    if missing:
+        raise RuntimeError(
+            "reference_e2e_control_plane_stores needs CULVERT_POSTGRES_DSN, or all of "
+            + ", ".join(_COMPOSER_SETTINGS) + " (missing: " + ", ".join(missing) + ")")
+    return {
+        "host": env["CULVERT_POSTGRES_HOST"],
+        "dbname": env["CULVERT_POSTGRES_DB"],
+        "user": env["CULVERT_POSTGRES_USER"],
+        "password": secret(env["CULVERT_POSTGRES_PASSWORD_SECRET"]),
+        "sslmode": "require",
+    }
+
+
 def _connect():
-    dsn = os.environ.get("CULVERT_POSTGRES_DSN")
-    if not dsn:
-        raise RuntimeError("reference_e2e_control_plane_stores needs CULVERT_POSTGRES_DSN")
-    return psycopg2.connect(dsn)
+    return psycopg2.connect(**connect_kwargs())
 
 
 def _query(sql, params):

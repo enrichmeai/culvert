@@ -6,6 +6,18 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **The proof harness runs on Cloud Composer** (#234; control-plane epic #188). This prepares the
+  real-GCP run; the run itself is still to come.
+  - **`--composer-env`:** scenarios 4 and 6 go through `gcloud composer environments run`, upload
+    the DAG and its stores module, and wait until Composer has parsed the uploaded DAG.
+  - **`--airflow-api`:** Airflow's state is read from its REST API, since Composer does not expose
+    the metadata database.
+  - **The DAG's stores** read Cloud SQL from the settings the Terraform gives Composer, with the
+    password from Secret Manager.
+  - **The Terraform** gains `proof_task_seconds`.
+  - **The runbook** is `docs/CONTROL_PLANE_PROOF_GCP.md`, with an evidence template beside it.
+
+  It was tested against a local Airflow 2.9.3 through a stand-in `gcloud`; not yet on GCP.
 - **The Python `StageClaim`** (#196; control-plane epic #188). The claim on one stage of one unit
   for one period now has a Python mirror, method for method, of the Java port:
   - `data_pipeline_core.contracts.stage_claim.StageClaim`, with `try_claim` and `completion`;

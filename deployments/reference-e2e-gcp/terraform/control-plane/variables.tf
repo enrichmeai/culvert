@@ -132,6 +132,17 @@ variable "deletion_protection" {
   default     = false
 }
 
+variable "proof_task_seconds" {
+  type        = number
+  description = "How long each job-control call in the proof DAG sleeps (CULVERT_PROOF_TASK_SECONDS), so scenario 6 can sample its tasks running (#234). 0 turns it off."
+  nullable    = false
+  default     = 2
+  validation {
+    condition     = var.proof_task_seconds >= 0 && var.proof_task_seconds <= 60
+    error_message = "proof_task_seconds must be between 0 and 60."
+  }
+}
+
 variable "password_version" {
   type        = number
   description = "Bump to generate and set a new database password (it is written to Secret Manager and the user, never to state)."
