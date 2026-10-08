@@ -15,9 +15,10 @@ import java.util.Objects;
  * returns {@code None}. The task fails rather than skips, so its retries re-check the gate and a
  * closed gate never reads as success downstream.
  *
- * <p>{@code completion} is the Python side of {@code StageClaim.completion(StageKey)}. The Python
- * {@code StageClaim} mirror is #196; until it lands, the object the checker expression names must be
- * supplied by the deployment.
+ * <p>{@code completion} is the Python side of {@code StageClaim.completion(StageKey)}. Culvert's
+ * Python {@code StageClaim} (#196) takes a {@code StageKey}; wrap it for the gate with
+ * {@code data_pipeline_core.stage_claim_api.CompletionChecker}, for example
+ * {@code CompletionChecker(PostgresStageClaim())}.
  *
  * <p>A task gated on readiness ({@link StageGate#READY}, #230) calls, after any stage check:
  * <pre>{@code

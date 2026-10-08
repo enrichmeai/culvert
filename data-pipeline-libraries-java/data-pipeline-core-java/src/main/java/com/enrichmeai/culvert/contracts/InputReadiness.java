@@ -19,9 +19,10 @@ import java.util.Set;
  * every implementation uses it.
  *
  * <h2>An optional capability, not one of the shared contracts</h2>
- * <p>Like {@link StageClaim}, it is Java-only for now, and its tables are the adapter's own schema,
- * not wire-contract tables. Promote it to {@code docs/CONTRACT.md} when a second deployment needs
- * the same shape. On a deployment without a provider, {@code AutoConfig.inputReadiness()} is empty.
+ * <p>It is Java-only for now (unlike {@link StageClaim}, which has a Python mirror since #196),
+ * and its tables are the adapter's own schema, not wire-contract tables. Promote it to
+ * {@code docs/CONTRACT.md} when a second deployment needs the same shape. On a deployment without
+ * a provider, {@code AutoConfig.inputReadiness()} is empty.
  */
 public interface InputReadiness {
 

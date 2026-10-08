@@ -226,6 +226,11 @@ jobs:
             test-extra: test
           - module: data-pipeline-gcp-pubsub
             test-extra: test
+          # #196: runs against a throwaway server it starts from the PostgreSQL binaries
+          # (installed by the step below). CULVERT_REQUIRE_POSTGRES makes a missing server fail
+          # the job instead of skipping every test.
+          - module: data-pipeline-postgres
+            test-extra: test
 
     steps:
       - uses: actions/checkout@v4
@@ -258,6 +263,13 @@ jobs:
         # a PyPI dependency.  Latent since this job was written; it went
         # unnoticed only because the workflow is disabled at the GitHub level.
         run: pip install -e "data-pipeline-libraries/data-pipeline-contract-tests"
+
+      - name: Install the PostgreSQL server binaries
+        if: matrix.module == 'data-pipeline-postgres'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql
+          echo "CULVERT_REQUIRE_POSTGRES=1" >> "$GITHUB_ENV"
 
       - name: Install ${{ matrix.module }}
         run: |

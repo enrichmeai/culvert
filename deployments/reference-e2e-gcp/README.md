@@ -722,8 +722,10 @@ any difference; regenerate it with `mvn -o test -Dculvert.e2e.regenerateDag=true
 
 - **The stores.** The DAG takes its three stores from a Python module,
   `reference_e2e_control_plane_stores` (`job_control()`, `stage_claim()`, `input_readiness()`).
-  Culvert ships no Python `StageClaim` (#196) or `InputReadiness`, so the deployment must supply
-  that module on the Airflow workers (#234). This repository does not ship one.
+  The deployment supplies that module on the Airflow workers (#234). `proof/airflow/` has one for
+  the proof harness. For `stage_claim()` it could return Culvert's Python `PostgresStageClaim`
+  (#196) wrapped in `CompletionChecker`. Culvert ships no Python `InputReadiness`, so
+  `input_readiness()` is the module's own.
 - **Checked in Airflow 2.9.3.** With a stub stores module, the DAG imports with no errors (9 tasks,
   `max_active_tasks=2`). The `customers__publish` callable refused to run while its stages were not
   completed, then while its input was failed, and ran once both were open.
