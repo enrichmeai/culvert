@@ -79,4 +79,14 @@ class ReferenceDagTest {
         assertThatThrownBy(() -> Faults.parse(Map.of("fault.kill-after", "-1")))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void theHangSwitchParsesAndCannotBeCombinedWithAKill() {
+        assertThat(Faults.parse(Map.of("fault.hang-after", "2")).hangAfterRecords()).isEqualTo(2);
+        assertThat(Faults.NONE.hangAfterRecords()).isNull();
+        assertThatThrownBy(() -> Faults.parse(Map.of("fault.hang-after", "2", "fault.kill-after", "2")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("cannot both be set");
+        assertThatThrownBy(() -> Faults.parse(Map.of("fault.hang-after", "soon")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("'soon'");
+    }
 }

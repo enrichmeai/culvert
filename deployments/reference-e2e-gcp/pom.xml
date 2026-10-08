@@ -93,6 +93,13 @@
             <artifactId>data-pipeline-postgres</artifactId>
             <version>${culvert.version}</version>
         </dependency>
+        <!-- #232: the `culvert` command line (CulvertCli), which proof 7 runs as a separate process. -->
+        <dependency>
+            <groupId>com.enrichmeai.culvert</groupId>
+            <artifactId>data-pipeline-console</artifactId>
+            <version>${culvert.version}</version>
+            <scope>runtime</scope>
+        </dependency>
         <!--
             S14 #82 — DQ/quarantine slice.
             data-pipeline-gcp-gcs: provides QuarantineHandler + FailedRowRecord.
