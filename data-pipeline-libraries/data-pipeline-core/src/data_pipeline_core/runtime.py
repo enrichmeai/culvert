@@ -20,21 +20,36 @@ Only ``run_id``, ``environment``, and ``config`` are serialization-safe.
 The ``_registry`` dict is **excluded** from ``__getstate__`` — it is not
 shipped across process/worker boundaries and must be rebuilt worker-side.
 
-In the Java implementation worker-side rebuild uses ``AutoConfig.discover()``
-(classpath ``ServiceLoader``), which yields ready-made *instances*.  The
-Python ``AutoConfig.discover()`` (``autoconfig.py:85-116``) yields *classes*,
-not instances — they require constructor arguments that are not available
-worker-side.  Equivalent auto-rebuild is therefore **not implemented here**;
-worker-side callers are expected to reconstruct the registry explicitly (e.g.
-via ``register()``) or by adaptor-specific means.  This deliberate divergence
-is flagged per the T18.1 DoD.
+After deserialization the registry is rebuilt lazily, on first access, from
+``AutoConfig.discover()`` (#122), as the Java ``registry()`` does
+(``DefaultRuntimeContext.java:133``). Java's ``ServiceLoader`` hands back
+instances, built with each provider's no-arg constructor. Python's discovery
+hands back classes, so the rebuild builds each one the same way, with no
+arguments. A class that needs arguments, or whose constructor raises, is
+skipped and logged at WARNING, and the next discovered class for that protocol
+is tried; Java's discovery likewise skips and logs a provider it cannot load
+(``AutoConfig.java:53-57``). Driver-side ``register()`` entries are not
+shipped, on either side.
+
+**One divergence remains.** Java resolves the six cross-cutting hooks through
+``AutoConfig.select()`` (``AutoConfig.java:356``). That drops providers that
+report themselves unavailable, honours a ``CULVERT_<CONTRACT>_PROVIDER``
+selector, and fails when more than one candidate is left. Python's AutoConfig
+has none of that, so the rebuild takes the first buildable class, as
+``AutoConfig.first()`` does everywhere else in Python. When more than one class
+is discovered for one of those six hooks, it logs a WARNING naming every
+candidate, so the choice is never silent.
 """
 
 from __future__ import annotations
 
 import contextlib
+import logging
+import threading
 from types import MappingProxyType
 from typing import Any, Mapping, Optional, Type
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # No-op helpers (advisory protocols — fall back silently when absent)
@@ -156,6 +171,62 @@ def _secrets_key() -> type:
     return SecretProvider
 
 
+def _auto_config_protocols() -> list[tuple[type, str]]:
+    """(protocol, AutoConfig field) pairs that ``from_auto_config`` registers.
+
+    The same protocols, in the same order, as Java ``fromAutoConfig``
+    (``DefaultRuntimeContext.java:183-215``): the six cross-cutting hooks,
+    then the first of each list-based data protocol.
+    """
+    from data_pipeline_core.contracts.audit import AuditEventPublisher
+    from data_pipeline_core.contracts.blob_store import BlobStore
+    from data_pipeline_core.contracts.job_control import JobControlRepository
+    from data_pipeline_core.contracts.warehouse import Warehouse
+    return [
+        (_secrets_key(), "secrets"),
+        (_observability_key(), "observability"),
+        (_stage_metrics_key(), "stage_metrics"),
+        (_lineage_key(), "lineage"),
+        (_finops_key(), "finops"),
+        (_governance_key(), "governance"),
+        (Warehouse, "warehouse"),
+        (BlobStore, "blob_store"),
+        (JobControlRepository, "job_control"),
+        (AuditEventPublisher, "audit"),
+    ]
+
+
+# The six cross-cutting hooks Java resolves with AutoConfig.select(), which
+# refuses to choose between several candidates (AutoConfig.java:356).
+_SINGULAR = ("secrets", "observability", "stage_metrics", "lineage", "finops", "governance")
+
+
+def _first_instance(name: str, classes: list[type]) -> Optional[Any]:
+    """The first of ``classes`` that builds with no arguments, or None.
+
+    A class that cannot be built that way is skipped and logged, never
+    dropped silently: the Python counterpart of a ``ServiceLoader`` provider
+    without a usable no-arg constructor.
+    """
+    if name in _SINGULAR and len(classes) > 1:
+        logger.warning(
+            "AutoConfig discovered %d %s providers: %s. The first that builds is used; Java "
+            "would refuse to choose without CULVERT_%s_PROVIDER.",
+            len(classes), name, [f"{c.__module__}.{c.__qualname__}" for c in classes],
+            name.upper(),
+        )
+    for cls in classes:
+        try:
+            return cls()
+        except Exception as exc:  # noqa: BLE001 — any constructor failure skips the provider
+            logger.warning(
+                "AutoConfig %s provider %s.%s could not be built with no arguments, so it "
+                "is not registered: %s: %s",
+                name, cls.__module__, cls.__qualname__, type(exc).__name__, exc,
+            )
+    return None
+
+
 # ---------------------------------------------------------------------------
 # RuntimeContextImpl
 # ---------------------------------------------------------------------------
@@ -223,7 +294,65 @@ class RuntimeContextImpl:
         self.config: Mapping[str, Any] = MappingProxyType(dict(config or {}))
 
         # Transient registry — not serialized (Java `transient volatile`, :113).
-        self._registry: dict[type, Any] = dict(registry or {})
+        # None after deserialization until _reg() rebuilds it.
+        self._registry: Optional[dict[type, Any]] = dict(registry or {})
+        self._rebuild_lock = threading.Lock()
+
+    @classmethod
+    def from_auto_config(
+        cls,
+        run_id: str,
+        environment: str,
+        config: Mapping[str, Any],
+        auto_config: Any,
+    ) -> "RuntimeContextImpl":
+        """Build a context pre-populated from an ``AutoConfig`` discovery.
+
+        The Python side of Java ``DefaultRuntimeContext.fromAutoConfig``
+        (``DefaultRuntimeContext.java:183``): the same ten protocols. For each,
+        the first discovered class that builds with no arguments is
+        instantiated and registered. Protocols with none are left
+        unregistered: the advisory hooks then fall back to their no-ops, and
+        ``secrets`` raises on use. Unlike Java, there is no provider selector
+        or ambiguity check for the six cross-cutting hooks; see the module
+        docstring.
+
+        Args:
+            config: Read-only application configuration. Required (may be empty).
+            auto_config: An ``AutoConfig``, as ``autoconfig.discover()`` returns.
+
+        Raises:
+            ValueError: if ``config`` or ``auto_config`` is None.
+        """
+        if config is None:
+            raise ValueError("config must not be None")
+        if auto_config is None:
+            raise ValueError("auto_config must not be None")
+        registry: dict[type, Any] = {}
+        for protocol, name in _auto_config_protocols():
+            impl = _first_instance(name, auto_config.all(name))
+            if impl is not None:
+                registry[protocol] = impl
+        return cls(run_id, environment, config, registry=registry)
+
+    def _reg(self) -> dict[type, Any]:
+        """The protocol registry, rebuilt lazily worker-side after deserialization.
+
+        Mirrors Java ``registry()`` (``DefaultRuntimeContext.java:133``): on the
+        driver it is the constructor's; after unpickling it is None, and the
+        first call rebuilds it from ``AutoConfig.discover()`` once, under a lock.
+        """
+        local = self._registry
+        if local is None:
+            with self._rebuild_lock:
+                local = self._registry
+                if local is None:
+                    from data_pipeline_core.autoconfig import discover
+                    # RuntimeContextImpl's own, so a subclass's constructor is not involved.
+                    local = RuntimeContextImpl.from_auto_config(
+                        self.run_id, self.environment, self.config, discover())._registry
+                    self._registry = local
+        return local
 
     # ------------------------------------------------------------------
     # pipeline_id property (Sprint-12 / T12.6)
@@ -253,12 +382,13 @@ class RuntimeContextImpl:
                       ``IllegalStateException`` — Python uses ``KeyError``
                       to match the Protocol contract.)
         """
-        if protocol not in self._registry:
+        registry = self._reg()
+        if protocol not in registry:
             raise KeyError(
                 f"No implementation registered for {protocol!r}; "
                 "call register(protocol, impl) first."
             )
-        return self._registry[protocol]
+        return registry[protocol]
 
     def register(self, protocol: Type[Any], impl: Any) -> None:
         """Register *impl* as the implementation of *protocol*.
@@ -271,7 +401,7 @@ class RuntimeContextImpl:
             raise ValueError("protocol must not be None")
         if impl is None:
             raise ValueError("impl must not be None")
-        self._registry[protocol] = impl
+        self._reg()[protocol] = impl
 
     # ------------------------------------------------------------------
     # Named hook properties
@@ -279,7 +409,8 @@ class RuntimeContextImpl:
     # Six properties mirror the six Java accessor methods (:224–289).
     # Advisory protocols (observability, stage_metrics, lineage, finops,
     # governance) install a no-op into the registry on first access when
-    # absent — mirrors Java's computeIfAbsent pattern (:251–289).
+    # absent — mirrors Java's computeIfAbsent pattern (:251–289). setdefault is
+    # one step under the GIL, so concurrent first calls get the same no-op.
     # `secrets` is the hard dependency; it raises when absent (:240–249).
 
     @property
@@ -294,7 +425,7 @@ class RuntimeContextImpl:
                           misconfiguration.
         """
         key = _secrets_key()
-        impl = self._registry.get(key)
+        impl = self._reg().get(key)
         if impl is None:
             raise RuntimeError(
                 "No SecretProvider registered; call "
@@ -310,9 +441,7 @@ class RuntimeContextImpl:
         Mirrors Java ``DefaultRuntimeContext.observability()`` at :252–255.
         """
         key = _observability_key()
-        if key not in self._registry:
-            self._registry[key] = _NoOpObservabilityHook()
-        return self._registry[key]
+        return self._reg().setdefault(key, _NoOpObservabilityHook())
 
     @property
     def stage_metrics(self) -> Any:
@@ -322,9 +451,7 @@ class RuntimeContextImpl:
         ``DefaultRuntimeContext.stageMetrics()`` at :268–271.
         """
         key = _stage_metrics_key()
-        if key not in self._registry:
-            self._registry[key] = _NoOpStageMetricsHook()
-        return self._registry[key]
+        return self._reg().setdefault(key, _NoOpStageMetricsHook())
 
     @property
     def lineage(self) -> Any:
@@ -333,9 +460,7 @@ class RuntimeContextImpl:
         Mirrors Java ``DefaultRuntimeContext.lineage()`` at :274–277.
         """
         key = _lineage_key()
-        if key not in self._registry:
-            self._registry[key] = _NoOpLineageEmitter()
-        return self._registry[key]
+        return self._reg().setdefault(key, _NoOpLineageEmitter())
 
     @property
     def finops(self) -> Any:
@@ -344,9 +469,7 @@ class RuntimeContextImpl:
         Mirrors Java ``DefaultRuntimeContext.finops()`` at :279–282.
         """
         key = _finops_key()
-        if key not in self._registry:
-            self._registry[key] = _NoOpFinOpsSink()
-        return self._registry[key]
+        return self._reg().setdefault(key, _NoOpFinOpsSink())
 
     @property
     def governance(self) -> Any:
@@ -355,9 +478,7 @@ class RuntimeContextImpl:
         Mirrors Java ``DefaultRuntimeContext.governance()`` at :284–288.
         """
         key = _governance_key()
-        if key not in self._registry:
-            self._registry[key] = _NoOpGovernancePolicy()
-        return self._registry[key]
+        return self._reg().setdefault(key, _NoOpGovernancePolicy())
 
     # ------------------------------------------------------------------
     # Serialization boundary (T10.6)
@@ -371,11 +492,8 @@ class RuntimeContextImpl:
         worker-side.  Mirrors the Java ``transient`` annotation on
         ``registry`` at :113 and the T10.6 serialization contract.
 
-        .. note::
-            Unlike the Java implementation, worker-side auto-rebuild from
-            ``AutoConfig.discover()`` is not implemented here (see module
-            docstring for the reason).  After deserialization ``_registry``
-            is empty; callers must re-register protocol implementations.
+        After deserialization the registry is rebuilt lazily from
+        ``AutoConfig.discover()`` (see ``_reg``).
         """
         return {
             "run_id": self.run_id,
@@ -384,17 +502,18 @@ class RuntimeContextImpl:
         }
 
     def __setstate__(self, state: dict[str, Any]) -> None:
-        """Deserialization: rebuild from the three identity/config fields only.
+        """Deserialization: restore the three identity/config fields.
 
-        ``_registry`` starts empty — the caller is responsible for
-        re-registering protocol implementations.  Mirrors the Java
-        post-deserialization state where ``registry`` is ``null`` and
-        rebuilt lazily on first access.
+        The registry is left unset, and the first access rebuilds it from
+        ``AutoConfig.discover()`` (``_reg``). Mirrors the Java
+        post-deserialization state, where ``registry`` is ``null`` and is
+        rebuilt lazily on first access (#122).
         """
         self.run_id = state["run_id"]
         self.environment = state["environment"]
-        self.config = MappingProxyType(state.get("config", {}))
-        self._registry = {}
+        self.config = MappingProxyType(dict(state.get("config", {})))
+        self._registry = None
+        self._rebuild_lock = threading.Lock()
 
     # ------------------------------------------------------------------
     # Dunder
