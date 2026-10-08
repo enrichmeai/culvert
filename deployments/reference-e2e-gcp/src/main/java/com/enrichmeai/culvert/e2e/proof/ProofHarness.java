@@ -18,7 +18,6 @@ import java.io.Serializable;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -391,12 +390,15 @@ public final class ProofHarness {
             return;
         }
         String p = period(4);
-        airflowSetup();
-        Proc first = airflow("proof4-test1", "tasks", "test", ReferenceDag.DAG_ID, "orders__validate", p);
-        int e1 = first.waitFor(300);
-        r.note("airflow tasks test " + ReferenceDag.DAG_ID + " orders__validate " + p + "  -> exit " + e1);
+        airflowSetup(r);
+        boolean exits = runner().exitCodeIsTheCommands();
+        Proc first = runner().run("proof4-test1", "tasks", "test", ReferenceDag.DAG_ID, "orders__validate", p);
+        int e1 = first.waitFor(600);
+        r.note("airflow tasks test " + ReferenceDag.DAG_ID + " orders__validate " + p + "  -> exit " + e1
+                + (exits ? "" : " (gcloud's; the check reads Airflow's output)"));
         r.rows("its gate line:", grep(first, "Gate closed"));
-        r.check(e1 != 0 && first.out().contains("Gate closed for task 'orders__validate': not completed: load"),
+        r.check((exits ? e1 != 0 : !first.out().contains("Marking task as SUCCESS"))
+                        && first.out().contains("Gate closed for task 'orders__validate': not completed: load"),
                 "fired before load completed, validate fails on its gate, naming load");
         r.check(completions(p).isEmpty(), "nothing was completed by the early task");
 
@@ -404,11 +406,12 @@ public final class ProofHarness {
         r.note("worker proof4-load runs only orders/load: exit " + load.waitFor(300));
         r.rows("stage_completions:", completions(p));
 
-        Proc second = airflow("proof4-test2", "tasks", "test", ReferenceDag.DAG_ID, "orders__validate", p);
-        int e2 = second.waitFor(300);
+        Proc second = runner().run("proof4-test2", "tasks", "test", ReferenceDag.DAG_ID, "orders__validate", p);
+        int e2 = second.waitFor(600);
         r.note("the retry: airflow tasks test ... orders__validate " + p + "  -> exit " + e2);
         r.rows("its outcome lines:", grep(second, "Marking task as"));
-        r.check(e2 == 0 && !second.out().contains("Gate closed") && second.out().contains("Marking task as SUCCESS"),
+        r.check((!exits || e2 == 0) && !second.out().contains("Gate closed")
+                        && second.out().contains("Marking task as SUCCESS"),
                 "after load's complete(), the retried validate runs");
         r.note("the retry is the harness re-running the task, as Airflow's retries would; the rendered DAG sets none");
     }
@@ -508,45 +511,47 @@ public final class ProofHarness {
             return;
         }
         String p = period(6);
-        String metadataJdbc = opts.getOrDefault("airflow-db-jdbc", "jdbc:postgresql://localhost:55432/airflow");
         // The stages' own gates must be open, so every task can run: the workers complete them first.
         Proc pre = worker("proof6-pre", workerArgs(p, "orders,customers,products", 3, 5, 0));
         r.note("workers complete every stage for " + p + " first, so the DAG's gates are open: exit " + pre.waitFor(300));
-        airflowSetup();
-        Map<String, String> env = airflowEnv();
-        env.put("CULVERT_PROOF_TASK_SECONDS", opts.getOrDefault("task-seconds", "2"));
-        Proc scheduler = track(Proc.start("airflow-scheduler", List.of(airflowBin(), "scheduler"), env, workdir.toFile()));
+        airflowSetup(r);
+        AirflowState state = airflowState();
+        // On Composer the environment's own scheduler runs the DAG, and the task length is the
+        // environment's CULVERT_PROOF_TASK_SECONDS (set by the Terraform, #234).
+        Proc started = runner().startScheduler(Map.of("CULVERT_PROOF_TASK_SECONDS", opts.getOrDefault("task-seconds", "2")));
+        Proc scheduler = started == null ? null : track(started);
         // If the harness itself is stopped, take the scheduler and its executors down with it.
-        Thread reaper = new Thread(scheduler::destroyTree, "airflow-scheduler-reaper");
-        Runtime.getRuntime().addShutdownHook(reaper);
+        Thread reaper = scheduler == null ? null : new Thread(scheduler::destroyTree, "airflow-scheduler-reaper");
+        if (reaper != null) {
+            Runtime.getRuntime().addShutdownHook(reaper);
+        }
+        r.note("the DAG's task instances are read from " + state.describe());
         String runId = "proof6-" + p + "-" + System.currentTimeMillis();
         int max = 0;
         Map<Integer, Integer> histogram = new TreeMap<>();
         List<String> timeline = new ArrayList<>();
-        String state = null;
+        String runState = null;
         try {
-            Proc unpause = airflow("proof6-unpause", "dags", "unpause", ReferenceDag.DAG_ID);
-            int unpaused = unpause.waitFor(300);
+            Proc unpause = runner().run("proof6-unpause", "dags", "unpause", ReferenceDag.DAG_ID);
+            int unpaused = unpause.waitFor(600);
             r.note("airflow dags unpause -> exit " + unpaused);
-            List<String> paused = rowsAt(metadataJdbc, "SELECT is_paused::text FROM dag WHERE dag_id = ?", ReferenceDag.DAG_ID);
-            if (!r.check(unpaused == 0 && paused.equals(List.of("false")), "the DAG is registered and unpaused: " + paused)) {
+            Boolean paused = state.paused(ReferenceDag.DAG_ID);
+            if (!r.check(Boolean.FALSE.equals(paused), "the DAG is registered and unpaused: is_paused=" + paused)) {
                 r.rows("airflow said:", grep(unpause, ""));
                 return;
             }
-            Proc trigger = airflow("proof6-trigger", "dags", "trigger", ReferenceDag.DAG_ID, "-e", p + "T00:00:00+00:00", "-r", runId);
-            int triggered = trigger.waitFor(300);
+            Proc trigger = runner().run("proof6-trigger", "dags", "trigger", ReferenceDag.DAG_ID, "-e", p + "T00:00:00+00:00", "-r", runId);
+            int triggered = trigger.waitFor(600);
             r.note("airflow dags trigger -e " + p + " -r " + runId + " -> exit " + triggered);
-            if (!r.check(triggered == 0, "the DAG run was created")) {
+            if (!r.check(state.runState(ReferenceDag.DAG_ID, runId) != null, "the DAG run was created")) {
                 r.rows("airflow said:", grep(trigger, ""));
                 return;
             }
-            long deadline = System.nanoTime() + 300_000_000_000L;
+            long deadline = System.nanoTime() + Long.parseLong(opts.getOrDefault("airflow-run-seconds", "300")) * 1_000_000_000L;
             String last = "";
             while (System.nanoTime() < deadline) {
                 // The cap is per DAG, across all of its runs: count every run's queued and running tasks.
-                List<String> active = rowsAt(metadataJdbc, "SELECT task_id || '@' || run_id || ':' || state "
-                        + "FROM task_instance WHERE dag_id = ? AND state IN ('queued', 'running') ORDER BY 1",
-                        ReferenceDag.DAG_ID);
+                List<String> active = state.active(ReferenceDag.DAG_ID);
                 max = Math.max(max, active.size());
                 histogram.merge(active.size(), 1, Integer::sum);
                 String now = active.toString();
@@ -554,25 +559,23 @@ public final class ProofHarness {
                     timeline.add(active.size() + "  " + now);
                     last = now;
                 }
-                List<String> s = rowsAt(metadataJdbc, "SELECT state FROM dag_run WHERE dag_id = ? AND run_id = ?",
-                        ReferenceDag.DAG_ID, runId);
-                state = s.isEmpty() ? null : s.get(0);
-                if ("success".equals(state) || "failed".equals(state)) {
+                runState = state.runState(ReferenceDag.DAG_ID, runId);
+                if ("success".equals(runState) || "failed".equals(runState)) {
                     break;
                 }
                 Proc.sleep(200);
             }
         } finally {
-            airflow("proof6-pause", "dags", "pause", ReferenceDag.DAG_ID).waitFor(300);
-            scheduler.destroyTree();
-            Runtime.getRuntime().removeShutdownHook(reaper);
+            runner().run("proof6-pause", "dags", "pause", ReferenceDag.DAG_ID).waitFor(600);
+            if (scheduler != null) {
+                scheduler.destroyTree();
+                Runtime.getRuntime().removeShutdownHook(reaper);
+            }
         }
         r.rows("each change in the DAG's queued and running task instances (count  tasks):", timeline);
         r.note("samples by count of queued+running tasks: " + histogram);
-        r.rows("task_instance states for " + runId + ":", rowsAt(metadataJdbc,
-                "SELECT task_id || '  ' || state FROM task_instance WHERE dag_id = ? AND run_id = ? ORDER BY 1",
-                ReferenceDag.DAG_ID, runId));
-        r.check("success".equals(state), "the triggered run finished: " + state);
+        r.rows("task_instance states for " + runId + ":", state.taskStates(ReferenceDag.DAG_ID, runId));
+        r.check("success".equals(runState), "the triggered run finished: " + runState);
         r.check(max <= 2, "never more than 2 of the DAG's tasks queued or running at once (max " + max + ")");
         r.check(max == 2, "the cap was reached: 2 tasks did run at once, so the limit was what held them");
     }
@@ -680,15 +683,92 @@ public final class ProofHarness {
     }
 
     private boolean airflowConfigured(Result r) {
-        if (opts.get("airflow") == null) {
-            r.notRun = "no --airflow: pass the airflow command (Airflow 2.9.3) to run it";
+        if (opts.get("airflow") == null && opts.get("composer-env") == null) {
+            r.notRun = "no --airflow (a local Airflow 2.9.3) or --composer-env (a Cloud Composer environment) to run it";
             return false;
         }
         return true;
     }
 
-    private String airflowBin() {
-        return opts.get("airflow");
+    private AirflowRunner runner;
+    private AirflowState airflowState;
+
+    /** A local Airflow (--airflow), or a Cloud Composer environment (--composer-env, #234). */
+    private AirflowRunner runner() {
+        if (runner == null) {
+            if (opts.get("composer-env") != null) {
+                String location = required("composer-location", "the Composer environment's region");
+                runner = new AirflowRunner.Composer(opts.getOrDefault("gcloud", "gcloud"), opts.get("composer-env"),
+                        location, List.of(storesFile(), stagedDag()), ReferenceDag.DAG_ID, airflowState(),
+                        Long.parseLong(opts.getOrDefault("composer-register-seconds", "600")), 5_000);
+            } else {
+                runner = new AirflowRunner.Local(opts.get("airflow"), this::airflowEnv, workdir, dagFile(),
+                        ReferenceDag.DAG_ID, Boolean.parseBoolean(opts.getOrDefault("reset", "false")));
+            }
+        }
+        return runner;
+    }
+
+    /**
+     * Airflow's state: its REST API when --airflow-api is given (always on Composer, whose metadata
+     * database is not reachable), else its metadata database.
+     */
+    private AirflowState airflowState() {
+        if (airflowState == null) {
+            String api = opts.get("airflow-api");
+            if (api != null) {
+                java.util.function.Supplier<String> auth = opts.get("airflow-api-user") != null
+                        ? AirflowState.Rest.basic(opts.get("airflow-api-user"), opts.getOrDefault("airflow-api-password", ""))
+                        : AirflowState.Rest.bearerFrom(List.of(opts.getOrDefault("airflow-token-command",
+                                opts.getOrDefault("gcloud", "gcloud") + " auth print-access-token").split(" ")));
+                airflowState = new AirflowState.Rest(api, auth);
+            } else if (opts.get("composer-env") != null) {
+                throw new IllegalArgumentException("--composer-env needs --airflow-api: the environment's airflow_uri "
+                        + "(Composer's metadata database is not reachable)");
+            } else {
+                String jdbc = opts.getOrDefault("airflow-db-jdbc", "jdbc:postgresql://localhost:55432/airflow");
+                airflowState = new AirflowState.Jdbc(jdbc, () -> {
+                    try {
+                        return dataSource(jdbc).getConnection();
+                    } catch (SQLException e) {
+                        throw new IllegalStateException(jdbc + ": " + e.getMessage(), e);
+                    }
+                });
+            }
+        }
+        return airflowState;
+    }
+
+    private String required(String option, String what) {
+        String value = opts.get(option);
+        if (value == null) {
+            throw new IllegalArgumentException("--" + option + " is required: " + what);
+        }
+        return value;
+    }
+
+    private Path dagFile() {
+        return Path.of(opts.getOrDefault("dag", "dags/" + ReferenceDag.DAG_ID + ".py"));
+    }
+
+    /**
+     * The DAG under its own name, {@code <dag_id>.py}: an upload keeps the file's name, so a
+     * {@code --dag=} copy (the red runs) must replace the DAG, not land beside it as a second file
+     * declaring the same dag_id.
+     */
+    private Path stagedDag() {
+        Path staged = workdir.resolve("composer-upload").resolve(ReferenceDag.DAG_ID + ".py");
+        try {
+            Files.createDirectories(staged.getParent());
+            Files.copy(dagFile(), staged, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        return staged;
+    }
+
+    private Path storesFile() {
+        return Path.of(opts.getOrDefault("stores-dir", "proof/airflow"), "reference_e2e_control_plane_stores.py");
     }
 
     private String pythonNextToAirflow() {
@@ -723,43 +803,13 @@ public final class ProofHarness {
 
     private boolean airflowReady;
 
-    private void airflowSetup() {
+    private void airflowSetup(Result r) {
         if (airflowReady) {
             return;
         }
-        Path dags = workdir.resolve("airflow").resolve("dags");
-        try {
-            Files.createDirectories(dags);
-            Files.copy(Path.of(opts.getOrDefault("dag", "dags/" + ReferenceDag.DAG_ID + ".py")),
-                    dags.resolve(ReferenceDag.DAG_ID + ".py"), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        // --reset empties Airflow's metadata database too: it allows one DAG run per logical date.
-        boolean reset = Boolean.parseBoolean(opts.getOrDefault("reset", "false"));
-        Proc migrate = reset ? airflow("airflow-db-reset", "db", "reset", "--yes")
-                : airflow("airflow-db-migrate", "db", "migrate");
-        if (migrate.waitFor(600) != 0) {
-            throw new IllegalStateException("airflow db " + (reset ? "reset" : "migrate") + " failed:\n" + migrate.out());
-        }
-        // Register the DAG now, so unpausing it later finds it rather than racing the scheduler's parse.
-        Proc reserialize = airflow("airflow-dags-reserialize", "dags", "reserialize");
-        if (reserialize.waitFor(300) != 0) {
-            throw new IllegalStateException("airflow dags reserialize failed:\n" + reserialize.out());
-        }
-        Proc list = airflow("airflow-dags-list", "dags", "list-import-errors");
-        list.waitFor(300);
-        if (!list.out().contains("No data found")) {
-            throw new IllegalStateException("the DAG does not import:\n" + list.out());
-        }
+        r.note("Airflow: " + runner().describe());
+        runner().setup();
         airflowReady = true;
-    }
-
-    private Proc airflow(String label, String... args) {
-        List<String> command = new ArrayList<>();
-        command.add(airflowBin());
-        command.addAll(List.of(args));
-        return Proc.start(label, command, airflowEnv(), workdir.toFile());
     }
 
     private String dsnFromJdbc() {

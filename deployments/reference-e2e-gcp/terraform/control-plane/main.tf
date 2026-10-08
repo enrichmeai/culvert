@@ -242,6 +242,8 @@ resource "google_composer_environment" "proof" {
         CULVERT_POSTGRES_DB              = local.database
         CULVERT_POSTGRES_USER            = local.db_user
         CULVERT_POSTGRES_PASSWORD_SECRET = google_secret_manager_secret.db_password.id
+        # The proof harness's scenario 6 (#234): each task of the proof DAG lasts this long.
+        CULVERT_PROOF_TASK_SECONDS = tostring(var.proof_task_seconds)
       }
       airflow_config_overrides = {
         # A worker slot per stage that may run at once; the DAG's max_active_tasks caps it again.

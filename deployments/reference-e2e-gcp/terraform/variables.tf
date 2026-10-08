@@ -73,6 +73,7 @@ variable "control_plane" {
     composer_worker_max_count     = optional(number)
     deletion_protection           = optional(bool)
     password_version              = optional(number)
+    proof_task_seconds            = optional(number)
   })
   description = <<-EOT
     Cloud SQL (PostgreSQL 16), Composer 2 and a Dataflow service account for the control-plane

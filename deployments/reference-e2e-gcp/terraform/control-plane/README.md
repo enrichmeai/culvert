@@ -72,6 +72,7 @@ These are the `control_plane` fields in the root. Unset fields take the module's
 | `composer_worker_max_count` | `2` | Most Airflow workers. |
 | `deletion_protection` | `false` | Protect the Cloud SQL instance from destroy. It is off so the proof tears down in one command. |
 | `password_version` | `1` | Bump to generate and set a new database password. |
+| `proof_task_seconds` | `2` | `CULVERT_PROOF_TASK_SECONDS` on Composer: how long each job-control call in the proof DAG sleeps, so the harness's scenario 6 can sample tasks running (#234). 0 to 60. |
 
 The module also has these variables, which the root does not pass through, so they keep their
 defaults:
@@ -143,14 +144,17 @@ terraform apply proof.plan                  # about 25-40 min, mostly Composer
 2. **Upload the DAG:** copy `dags/reference_e2e_control_plane.py` to the `composer_dag_gcs_prefix`
    output.
 
-**What #234 still has to add:**
-- **The DAG's stores module on the workers.** `proof/airflow/reference_e2e_control_plane_stores.py`
-  reads one `CULVERT_POSTGRES_DSN`, and Composer here provides the host, database, user and
-  secret name instead. The module has to read the password from Secret Manager, and it needs
-  `psycopg2` on the workers.
+**Added for #234:**
+- **The DAG's stores module reads these settings.** Given `CULVERT_POSTGRES_HOST`, `_DB`, `_USER`
+  and `_PASSWORD_SECRET`, it reads the password from Secret Manager and connects with
+  `sslmode=require`. The harness uploads it to the DAG folder next to the DAG.
+- **The harness runs its Airflow scenarios on Composer** (`--composer-env`; see `proof/README.md`).
+  The step-by-step run is `docs/CONTROL_PLANE_PROOF_GCP.md`.
+
+**Still to add, outside #234's harness scope:**
 - **The Dataflow stages.** They run as `dataflow_service_account` and need
-  `CULVERT_POSTGRES_PASSWORD` from the secret at start.
-- **A runner for the harness's Airflow scenarios on Composer.** `proof/README.md` explains why.
+  `CULVERT_POSTGRES_PASSWORD` from the secret at start. The proof's workers are `ControlPlaneMain`
+  JVMs on a machine in the VPC, not Dataflow jobs.
 - **IAM for the data the stages touch.** The Dataflow account can use only the staging bucket, and
   the Composer account none. Grant the buckets, topics and datasets the real stages read and
   write. If the DAG launches Java Dataflow jobs from the Composer workers, the Composer account also

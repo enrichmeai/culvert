@@ -12,7 +12,7 @@ own state, then `PASS` or `FAIL`:
 
 No scenario passes on timing alone. Each one starts real processes:
 - `ControlPlaneMain` workers, each in its own JVM;
-- for scenarios 4 and 6, a real Airflow;
+- for scenarios 4 and 6, a real Airflow: a local install, or a Cloud Composer environment (#234);
 - for scenario 7, `CulvertCli` (the `culvert` command).
 
 ## Running it locally
@@ -50,11 +50,45 @@ is:
 | `--period-base` | `2025-01-01` | Scenario *n* uses this date plus *n*−1 days as its period. The periods must be in the past, because Airflow refuses future logical dates. The harness refuses periods that already have rows. |
 | `--reset` | off | Empty the control-plane tables first, and reset Airflow's metadata database (`airflow db reset`). |
 | `--session-timeout` | `5s` | Scenario 3 sets `idle_in_transaction_session_timeout` on the database to this for its run (`ALTER DATABASE`, which needs the privilege), then puts back what the database had, also if the harness is stopped with Ctrl-C or SIGTERM (not SIGKILL, which runs no hook: then reset it by hand). `server` keeps the server's own setting, as on Cloud SQL, where it is a flag. |
-| `--airflow` | none | The `airflow` command. Without it, scenarios 4 and 6 are reported NOT RUN. |
+| `--airflow` | none | The `airflow` command. Without it or `--composer-env`, scenarios 4 and 6 are reported NOT RUN. |
 | `--airflow-db`, `--airflow-db-jdbc` | the local `airflow` database | Airflow's metadata database: its SQLAlchemy URL for Airflow, and its JDBC URL for scenario 6's sampler. |
 | `--python` | the `python` next to `--airflow` | Runs the DAG's `not_ready` for scenario 5's parity check. |
 | `--task-seconds` | `2` | Scenario 6: each job-control call in the DAG sleeps this long, so tasks last long enough to be sampled. |
 | `--workdir` | `$TMPDIR/culvert-proof` | Airflow's home and the copied DAG. |
+| `--dag`, `--stores-dir` | `dags/reference_e2e_control_plane.py`, `proof/airflow` | The DAG, and the folder holding its stores module. |
+| `--airflow-api` | none | Read Airflow's state from its REST API (`/api/v1`) at this URL, instead of from the metadata database. Required with `--composer-env`. |
+| `--airflow-api-user`, `--airflow-api-password` | none | Basic auth for `--airflow-api` (a local Airflow with `AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth`). Without them, each request carries `Bearer` and a token. |
+| `--airflow-token-command` | `gcloud auth print-access-token` | Prints that token; it is fetched again every 10 minutes. |
+| `--airflow-run-seconds` | `300` | Scenario 6: how long to wait for the triggered run to finish. |
+
+**On Cloud Composer (#234)**, instead of `--airflow`:
+
+| Option | Default | What it is |
+|---|---|---|
+| `--composer-env`, `--composer-location` | none | The environment and its region. Scenarios 4 and 6 then run their Airflow commands through `gcloud composer environments run`. |
+| `--gcloud` | `gcloud` | The `gcloud` command. |
+| `--composer-register-seconds` | `600` | How long to wait, after uploading, for the environment to parse the DAG. |
+
+On Composer the harness:
+- **Uploads** the stores module, then the DAG, with `gcloud composer environments storage dags
+  import`. The DAG goes up as `reference_e2e_control_plane.py` whatever `--dag` names, so a red
+  run's copy replaces it.
+- **Waits** until the source Airflow serves for the DAG (`/api/v1/dagSources`) is the file it
+  uploaded, so it never tests an earlier version still registered. An import error is reported
+  when that wait times out.
+- **Starts no scheduler**: the environment runs its own. The tasks' length comes from the
+  environment's `CULVERT_PROOF_TASK_SECONDS`, which the Terraform sets (`proof_task_seconds`), not
+  from `--task-seconds`.
+- **Judges scenario 4 by Airflow's output**, not by `gcloud`'s exit code, which is not relied on
+  to be the Airflow command's own.
+- **Reads every Airflow state from the REST API.** It never uses the metadata database, which
+  Composer does not expose.
+- **Cannot reset Airflow.** `--reset` empties only the control-plane tables there, and Airflow
+  allows one run of a DAG per logical date, so each run on Composer needs a `--period-base` no
+  earlier run used. A reused one fails scenario 6's trigger with `DagRunAlreadyExists`.
+
+The step-by-step real-GCP run, from the Terraform apply to the teardown, is
+[`docs/CONTROL_PLANE_PROOF_GCP.md`](../../../docs/CONTROL_PLANE_PROOF_GCP.md).
 
 ## The scenarios
 
@@ -79,21 +113,22 @@ is:
   on the workers first and proves the cap, not the work, in Airflow.
 - **Scenario 4's retry is the harness running the task again.** The rendered DAG sets no
   `retries`, so Airflow would not retry it by itself.
-- **On real GCP (#234)**, some of it changes by configuration only:
-  - the workers and `culvert` point at Cloud SQL through `--jdbc-url` (reachable from where the
-    harness runs, with credentials);
+- **On real GCP (#234):**
+  - the workers and `culvert` point at Cloud SQL through `--jdbc-url`, so the harness runs on a
+    machine in the VPC;
   - scenario 3 uses `--session-timeout=server`, reading the instance's flag, since `ALTER DATABASE`
-    needs a privilege the proof should not have.
+    needs a privilege the proof should not have;
+  - scenarios 4 and 6 run on Composer (`--composer-env`, above), and the DAG's stores read Cloud
+    SQL with the password from Secret Manager.
 
-  Some of it is not configuration yet:
-  - The workers are `ControlPlaneMain` JVMs that the harness starts on its own host. They exercise
-    the control plane on Cloud SQL, not Dataflow workers: running the stages on Dataflow or
-    Composer is #234's to add.
-  - Scenarios 4 and 6 drive Airflow through its CLI, and scenario 6 samples its metadata database.
-    On Cloud Composer the CLI goes through `gcloud composer environments run`, and the metadata
-    database is not directly reachable. That needs a Composer-side runner and a sampler (for
-    example the Airflow REST API), which #234 has to add.
-  - The stores module must be deployed to the Composer workers.
+  **What stays local there:** the workers are `ControlPlaneMain` JVMs that the harness starts on
+  its own host. They exercise the control plane on Cloud SQL, not Dataflow workers. Running the
+  stages on Dataflow is not part of the harness.
+- **How the Composer path was tested without GCP:** against a local Airflow 2.9.3 through a
+  stand-in `gcloud`, which turned `composer environments run` into `airflow` and `storage dags
+  import` into a copy into the DAG folder. A separately started scheduler stood in for the
+  environment's own, with no `PYTHONPATH`, so the DAG found its stores module in the DAG folder,
+  as on Composer. The real `gcloud`, IAM and the REST API's Google sign-in were not exercised.
 
 ## Red runs
 

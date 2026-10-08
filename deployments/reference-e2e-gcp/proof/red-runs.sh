@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Red runs for the proof harness (#232): break one rule per scenario, run that scenario, restore.
-# Every scenario must report FAIL. Arguments are passed to the harness (--airflow=... is needed for
-# scenarios 4 and 6). Uses --reset: run it only against databases kept for the proof.
+# Every scenario must report FAIL. Arguments are passed to the harness (--airflow=..., or the
+# --composer-env=... options, is needed for scenarios 4 and 6). Uses --reset: run it only against databases kept for the proof.
 #
 #   MVN_OFFLINE=1 proof/red-runs.sh --airflow=/path/to/venv/bin/airflow
 set -u

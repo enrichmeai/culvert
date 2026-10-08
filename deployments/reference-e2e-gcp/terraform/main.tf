@@ -70,4 +70,5 @@ module "control_plane" {
   composer_worker_max_count     = var.control_plane.composer_worker_max_count
   deletion_protection           = var.control_plane.deletion_protection
   password_version              = var.control_plane.password_version
+  proof_task_seconds            = var.control_plane.proof_task_seconds
 }
