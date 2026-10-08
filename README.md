@@ -21,7 +21,7 @@ Culvert is a framework for building data pipelines that are **defined once again
 
 | Layer | Strategy | Notes |
 |---|---|---|
-| **Contracts** | **Both** implement the same spec | 16 interfaces + the `StageMetrics` record. Java in `data-pipeline-core-java`; Python Protocols in `data-pipeline-core`. Java also has two optional capabilities, PostgreSQL only: `StageClaim` (#195) and `InputReadiness` (#198). |
+| **Contracts** | **Both** implement the same spec | 16 interfaces + the `StageMetrics` record. Java in `data-pipeline-core-java`; Python Protocols in `data-pipeline-core`. Two optional capabilities are PostgreSQL only: `StageClaim` (Java #195, Python #196) and `InputReadiness` (Java only, #198). |
 | **dbt / transform** | **Reuse** (language-neutral) | dbt is SQL + macros — packaged in `data-pipeline-transform`; there is deliberately no Java transform module. |
 | **Dataflow / execution** | **Java** (Apache Beam) | `data-pipeline-gcp-dataflow-java`. Legacy Python Beam is not carried forward. |
 | **Orchestration** | **Reuse** — complementary | Python owns the Airflow runtime side; Java owns the cloud-neutral DAG model + renderers (`DagSpec`/`TaskSpec`, Airflow/Composer). |
@@ -44,6 +44,7 @@ data-pipeline-libraries/        # Python library set (distributions currently na
   data-pipeline-core               # Protocols + records + AutoConfig (entry-points)
   data-pipeline-gcp-{bigquery,gcs,pubsub,secrets,observability}
   data-pipeline-{orchestration,transform,tester,contract-tests}
+  data-pipeline-postgres           # PostgreSQL StageClaim (#196), on the Java adapter's tables
 
 deployments/                    # reference example pipelines built on the framework
 docs/                           # documentation (see index below)
@@ -60,6 +61,7 @@ pip install culvert                 # core contracts only (no cloud SDKs)
 pip install culvert[gcp]            # + BigQuery, GCS, Pub/Sub, Secret Manager, observability
 pip install culvert[orchestration]  # + Airflow-side DAG factory, operators, sensors
 pip install culvert[transform]      # + dbt integration
+pip install culvert[postgres]       # + PostgresStageClaim (psycopg2); from the next release
 pip install culvert[all]
 ```
 
@@ -104,7 +106,7 @@ What registers is deliberate. **Per-environment** adapters do: a warehouse, a bl
 
 ## Contracts
 
-The 16 contract interfaces are the heart of the framework. Java also has `StageClaim` and `InputReadiness`, which are not among the 16 shared contracts. They are optional capabilities that only PostgreSQL implements today: a stage claim needs a backend that can lock, and readiness needs its own catalogue. `StageClaim`'s Python mirror is #196. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
+The 16 contract interfaces are the heart of the framework. Java also has `StageClaim` and `InputReadiness`, which are not among the 16 shared contracts. They are optional capabilities that only PostgreSQL implements today: a stage claim needs a backend that can lock, and readiness needs its own catalogue. `StageClaim` has a Python mirror too (#196): `data_pipeline_core.contracts.stage_claim`, implemented on PostgreSQL by `data-pipeline-postgres` (`pip install culvert[postgres]`), on the same tables as the Java one. Read [`docs/CONTRACT.md`](docs/CONTRACT.md) for the language-neutral spec, and `data-pipeline-core-java/.../contracts/` (Java) or `data-pipeline-core/.../contracts/` (Python) for the implementations. Conformance is enforced by shared test suites (`data-pipeline-contract-tests*`) that every adapter binds to.
 
 ## Status & roadmap
 

@@ -75,6 +75,10 @@ tester = [
 contract-tests = [
     "pytest>=7.4",
 ]
+# #196: PostgresStageClaim (data_pipeline_postgres), on the same tables as the Java adapter.
+postgres = [
+    "psycopg2-binary>=2.9",
+]
 all = [
     "culvert[gcp,orchestration,transform]",
 ]
@@ -90,6 +94,7 @@ secrets = "data_pipeline_gcp_secrets:SecretManagerProvider"
 observability = "data_pipeline_gcp_observability:CloudTraceObservabilityHook"
 stage_metrics = "data_pipeline_gcp_observability:CloudMonitoringMetricsHook"
 lineage = "data_pipeline_gcp_observability:DataCatalogLineageEmitter"
+stage_claim = "data_pipeline_postgres:PostgresStageClaim"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/culvert"]
@@ -114,6 +119,7 @@ include = ["src/culvert", "README.md", "pyproject.toml", "hatch_build.py"]
 "../data-pipeline-libraries/data-pipeline-transform/src/data_pipeline_transform" = "src/data_pipeline_transform"
 "../data-pipeline-libraries/data-pipeline-tester/src/data_pipeline_tester" = "src/data_pipeline_tester"
 "../data-pipeline-libraries/data-pipeline-contract-tests/src/data_pipeline_contract_tests" = "src/data_pipeline_contract_tests"
+"../data-pipeline-libraries/data-pipeline-postgres/src/data_pipeline_postgres" = "src/data_pipeline_postgres"
 
 [tool.hatch.build]
 exclude = ["**/__pycache__", "**/*.pyc", "**/.pytest_cache", "**/*.egg-info"]

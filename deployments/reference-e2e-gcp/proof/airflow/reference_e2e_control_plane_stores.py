@@ -12,9 +12,11 @@
   task callables run; ``CULVERT_PROOF_TASK_SECONDS`` makes each call sleep, which gives every task a
   duration for scenario 6 to sample. Job control is proved on the Java workers (scenario 7).
 
-It is a harness module, not a Culvert library: Culvert ships no Python ``StageClaim`` (#196) or
-``InputReadiness``. It reads ``CULVERT_POSTGRES_DSN`` (a libpq connection string) and only reads
-the control-plane tables.
+It is a harness module, not a Culvert library. Culvert ships no Python ``InputReadiness``, so
+``input_readiness()`` is its own. ``stage_claim()`` could be Culvert's Python ``PostgresStageClaim``
+(#196) wrapped in ``CompletionChecker``; the harness keeps its own one-statement read so that it needs
+only psycopg2 on the workers. It reads ``CULVERT_POSTGRES_DSN`` (a libpq connection string) and only
+reads the control-plane tables.
 """
 
 import os

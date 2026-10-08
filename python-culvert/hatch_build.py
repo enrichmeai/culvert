@@ -27,6 +27,7 @@ PACKAGES = {
     "data_pipeline_transform": "data-pipeline-transform",
     "data_pipeline_tester": "data-pipeline-tester",
     "data_pipeline_contract_tests": "data-pipeline-contract-tests",
+    "data_pipeline_postgres": "data-pipeline-postgres",
 }
 
 

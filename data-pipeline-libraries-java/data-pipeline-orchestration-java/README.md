@@ -439,8 +439,11 @@ A task carrying both keys checks its stages first. In the rendered DAG a closed 
 at once, so its message names only the stages; the inputs are checked on the next retry. The Java
 `Result` reads both and names both.
 
-**Not yet:** Culvert ships no Python `StageClaim` (#196) or Python `InputReadiness`. Until they land,
-the deployment supplies the objects `checkerVariable` and `readinessVariable` name.
+**The checker objects.** Culvert's Python `StageClaim` (#196, `data_pipeline_core`; on PostgreSQL in
+`data-pipeline-postgres`) takes a `StageKey`, so wrap it for `checkerVariable` with
+`data_pipeline_core.stage_claim_api.CompletionChecker`, e.g. `CompletionChecker(PostgresStageClaim())`.
+Culvert ships no Python `InputReadiness` yet, so the deployment supplies the object
+`readinessVariable` names.
 
 ---
 

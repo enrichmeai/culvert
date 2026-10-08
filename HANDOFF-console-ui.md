@@ -29,7 +29,7 @@ staying provably clean.
 
 ## 1. What Culvert is (30 seconds)
 
-Cloud-agnostic, polyglot data-pipeline framework. 16 language-neutral (plus `StageClaim` and `InputReadiness`, Java only, #195/#198)
+Cloud-agnostic, polyglot data-pipeline framework. 16 language-neutral (plus the optional `StageClaim`, Java and Python, #195/#196, and `InputReadiness`, Java only, #198)
 contracts (Java `data-pipeline-core-java`, Python `data-pipeline-core`);
 cloud specifics live in adapter modules (GCP: bigquery/gcs/pubsub/secrets/
 observability/dataflow; AWS: s3/secrets/sqs/dynamodb/athena/cloudwatch;

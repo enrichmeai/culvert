@@ -31,8 +31,9 @@ def test_version() -> None:
     assert data_pipeline_core.__version__ == "0.1.0"
 
 
-def test_all_seventeen_contracts_exported() -> None:
-    """All 17 contracts (15 original + StageMetrics + StageMetricsHook) are exported."""
+def test_all_contracts_and_the_stage_claim_types_exported() -> None:
+    """The 17 shared contracts (15 original + StageMetrics + StageMetricsHook), plus the optional
+    StageClaim capability and its value types (#196)."""
     expected = {
         "Source",
         "Sink",
@@ -52,6 +53,14 @@ def test_all_seventeen_contracts_exported() -> None:
         # Sprint-12 / T17.1 additions
         "StageMetrics",
         "StageMetricsHook",
+        # #196: the optional StageClaim capability and its value types
+        "StageClaim",
+        "StageKey",
+        "Claim",
+        "ClaimResult",
+        "Acquired",
+        "Held",
+        "Completed",
     }
     actual = set(data_pipeline_core.__all__) - {"__version__"}
     assert actual == expected, f"missing: {expected - actual}, extra: {actual - expected}"

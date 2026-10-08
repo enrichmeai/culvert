@@ -14,6 +14,7 @@ Most users will import the Protocols from the top level:
         AuditEventPublisher, GovernancePolicy, LineageEmitter,
         ObservabilityHook, FinOpsSink, SecretProvider,
         StageMetrics, StageMetricsHook,
+        StageClaim, StageKey,
     )
 """
 
@@ -28,8 +29,17 @@ from data_pipeline_core.contracts.pipeline import Pipeline, PipelineStage
 from data_pipeline_core.contracts.runtime import RuntimeContext
 from data_pipeline_core.contracts.secrets import SecretProvider
 from data_pipeline_core.contracts.source import Sink, Source, Transform
+from data_pipeline_core.contracts.stage_claim import StageClaim
 from data_pipeline_core.contracts.stage_metrics import StageMetrics, StageMetricsHook
 from data_pipeline_core.contracts.warehouse import Warehouse
+from data_pipeline_core.stage_claim_api.models import (
+    Acquired,
+    Claim,
+    ClaimResult,
+    Completed,
+    Held,
+    StageKey,
+)
 
 __version__ = "0.1.0"
 
@@ -57,4 +67,12 @@ __all__ = [
     # Typed per-stage metrics (Sprint-12 / T17.1)
     "StageMetrics",
     "StageMetricsHook",
+    # Stage claims: a stage cannot double-start (#196, mirror of the Java StageClaim)
+    "StageClaim",
+    "StageKey",
+    "Claim",
+    "ClaimResult",
+    "Acquired",
+    "Held",
+    "Completed",
 ]

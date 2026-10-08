@@ -28,7 +28,8 @@ import java.util.Optional;
  * </ul>
  * <p>How a dead holder's claim is released is the backend's to state; see its documentation.
  *
- * <p>Java only for now: the Python mirror is #196, waiting on decision A in #188.
+ * <p>Python mirror: {@code data_pipeline_core.contracts.stage_claim} (#196), implemented on
+ * PostgreSQL by {@code data_pipeline_postgres.PostgresStageClaim} on the same tables.
  */
 public interface StageClaim {
 

@@ -6,6 +6,21 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **The Python `StageClaim`** (#196; control-plane epic #188). The claim on one stage of one unit
+  for one period now has a Python mirror, method for method, of the Java port:
+  - `data_pipeline_core.contracts.stage_claim.StageClaim`, with `try_claim` and `completion`;
+  - the value types `StageKey`, `Claim`, `Acquired`, `Held` and `Completed`;
+  - an AutoConfig `stage_claim` slot.
+
+  `data-pipeline-postgres`, new on the Python side (`pip install culvert[postgres]`), implements
+  it on the same tables and with the same statements as the Java `PostgresStageClaim`, so Java and
+  Python claimants lock the same rows and so contend for the same stages. That follows from the
+  identical SQL; no test yet runs a Java and a Python claimant against each other. `StageClaimContract` in
+  `data-pipeline-contract-tests` mirrors the Java contract suite test for test. That includes the
+  deterministic two-connection contention cases.
+
+  `CompletionChecker` adapts a `StageClaim` to the
+  `completion(unit=, stage=, period=)` call that a rendered DAG's stage gate makes.
 - **Readiness as a gate predicate** (Java, #230; control-plane epic #188).
   A task can now wait for its inputs as well as for other stages:
   - `StageGate.READY` (`"culvert.gate.ready"`) = `true` in `TaskSpec.params`
