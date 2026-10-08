@@ -7,3 +7,11 @@ staging_bucket       = "my-culvert-demo-generic-temp"
 error_bucket         = "my-culvert-demo-generic-error"
 enable_cloud_run_job = "true"
 image_uri            = "us-central1-docker.pkg.dev/my-culvert-demo/culvert/reference-e2e-gcp:0.1.0"
+
+# The control plane for the Phase 3 proof (#233). Off by default; see control-plane/README.md.
+control_plane = {
+  enabled        = false
+  project_number = "123456789012"
+  # claim_idle_timeout_ms = 600000   # longer than the longest stage
+  # max_concurrent_stages = 4
+}

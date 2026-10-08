@@ -49,3 +49,25 @@ resource "google_cloud_run_v2_job" "executor" {
     ignore_changes = [template[0].template[0].containers[0].image]
   }
 }
+
+# The control plane for the Phase 3 proof (#233). Off unless control_plane.enabled is true.
+module "control_plane" {
+  source = "./control-plane"
+  count  = var.control_plane.enabled ? 1 : 0
+
+  project_id     = var.gcp_project_id
+  project_number = var.control_plane.project_number
+  region         = var.gcp_region
+  staging_bucket = var.staging_bucket
+
+  network                       = var.control_plane.network
+  subnetwork                    = var.control_plane.subnetwork
+  create_private_service_access = var.control_plane.create_private_service_access
+  sql_tier                      = var.control_plane.sql_tier
+  claim_idle_timeout_ms         = var.control_plane.claim_idle_timeout_ms
+  max_concurrent_stages         = var.control_plane.max_concurrent_stages
+  composer_image_version        = var.control_plane.composer_image_version
+  composer_worker_max_count     = var.control_plane.composer_worker_max_count
+  deletion_protection           = var.control_plane.deletion_protection
+  password_version              = var.control_plane.password_version
+}
