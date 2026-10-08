@@ -5,8 +5,9 @@ Mandatory assertions (T18.1 DoD):
 2. Negative-control: a stub missing exactly one required member does NOT pass.
 3. ``get`` / ``register`` round-trip.
 4. ``pipeline_id`` defaults to ``run_id``.
-5. Pickle round-trip: preserves the three identity/config fields; ``_registry``
-   is empty after deserialization (serialization boundary T10.6).
+5. Pickle round-trip: preserves the three identity/config fields; the
+   registry is not shipped (serialization boundary T10.6) and is rebuilt
+   from discovery on first use (#122, ``test_runtime_rebuild.py``).
 
 Sprint-18 / T18.1 / issue #117.
 """
@@ -229,14 +230,18 @@ def test_pickle_preserves_identity_and_config() -> None:
     assert restored.config["key"] == "value"
     assert restored.config["nested"] == 42
 
-    # Registry must be empty after deserialization.
-    assert restored._registry == {}, (
-        "_registry must be empty after deserialization (T10.6 serialization boundary)."
+    # The registry is not shipped: it is unset until first use rebuilds it (#122).
+    assert restored._registry is None, (
+        "the registry must not cross the serialization boundary (T10.6)."
     )
 
 
-def test_pickle_registry_not_present_after_deserialization() -> None:
-    """get() raises KeyError on restored context (registry was not shipped)."""
+def test_pickle_registry_not_present_after_deserialization(monkeypatch) -> None:
+    """A driver-side registration is not shipped: with nothing discovered
+    worker-side, get() raises KeyError on the restored context."""
+    from data_pipeline_core import autoconfig
+    # Nothing discovered. runtime._reg() imports discover at call time, so this patch reaches it.
+    monkeypatch.setattr(autoconfig, "discover", autoconfig.AutoConfig)
     ctx = RuntimeContextImpl("run-88", "prod")
     ctx.register(SecretProvider, _FakeSecretProvider())
 

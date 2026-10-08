@@ -6,6 +6,24 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **Python `RuntimeContextImpl` rebuilds its registry after deserialization** (#122), as the Java
+  `DefaultRuntimeContext` does.
+  - **Before:** after a pickle round trip the registry was empty, and `get(Protocol)` raised
+    `KeyError`.
+  - **Now:** the first use rebuilds it from `AutoConfig.discover()`, once, under a lock.
+  - **`RuntimeContextImpl.from_auto_config()`** is new, the twin of Java `fromAutoConfig`. It
+    registers the first discovered class of each protocol that builds with no arguments. A class
+    that needs arguments is skipped with a WARNING, as Java's `ServiceLoader` discovery skips a
+    provider it cannot load.
+  - **Driver-side `register()` entries** are still not shipped. `copy.copy()` and `deepcopy()`
+    go through the same state, so a copy now rebuilds from discovery too; before, it came back
+    empty.
+  - **`register()` on an unpickled context** discovers first, then adds the entry, as Java does.
+  - **One difference from Java:** Java resolves the six cross-cutting hooks with
+    `AutoConfig.select()`. That honours `CULVERT_<CONTRACT>_PROVIDER`, drops unavailable
+    providers, and refuses to choose between several. Python's AutoConfig has no selector, so
+    the first buildable class is used, with a WARNING naming every candidate when there are
+    several.
 - **The proof harness runs on Cloud Composer** (#234; control-plane epic #188). This prepares the
   real-GCP run; the run itself is still to come.
   - **`--composer-env`:** scenarios 4 and 6 go through `gcloud composer environments run`, upload

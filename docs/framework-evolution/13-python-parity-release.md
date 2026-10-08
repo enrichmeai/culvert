@@ -109,7 +109,7 @@ gap table below is annotated with what Waves A/B since closed.*
 |---|---|---|
 | `StageMetrics` / `StageMetricsHook` | **Contract** | ✅ **DONE** — Wave A (T17.1, #113). |
 | Contract drift on the 15 it has | **Reconcile** | ✅ **DONE** — Wave A (T17.2, #114): `BlobStore.open()` split, `RuntimeContext.pipeline_id`, T10.6 docstrings. |
-| `DefaultRuntimeContext` | **Core depth** | ✅ **DONE** — Wave B (T18.1, #117). Caveat: worker-side registry rebuild deferred (#122). |
+| `DefaultRuntimeContext` | **Core depth** | ✅ **DONE** — Wave B (T18.1, #117). Worker-side registry rebuild from `AutoConfig.discover()` added in #122. |
 | `dataquality` package | **Core depth** | ✅ **DONE** — Wave B (T18.2, #118). Masker wire deferred (#121). |
 | Concrete governance policies | **Core depth** | ✅ **DONE** — Wave B: `PiiMaskingGovernancePolicy` (T18.3, #119), `BudgetGovernancePolicy` (T18.4, #120). |
 | FinOps cost model | **Core depth** | ✅ **DONE** — Wave B (T18.4); per-service `*CostTracker` + `BigQueryFinOpsSink` landed in Wave C (T19.3, #126). |
