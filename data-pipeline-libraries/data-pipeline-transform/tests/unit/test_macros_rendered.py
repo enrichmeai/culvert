@@ -6,9 +6,10 @@ but it won't catch a macro that silently stops emitting the SQL we rely on (for
 example, a PII mask that renders to the empty string, or an audit helper that
 forgets ``processed_timestamp``).
 
-This module fills that gap. It prefers a fresh ``dbt compile`` so assertions run
-against the current macros, and falls back to the checked-in compiled artefacts
-under ``target/compiled/`` when dbt isn't on PATH (e.g. slim CI containers).
+This module fills that gap. It runs a fresh ``dbt compile`` so assertions run
+against the current macros. When dbt isn't on PATH it reuses ``target/compiled/``
+if an earlier compile left it there (``target/`` is not checked in); otherwise the
+tests fail with a hint to regenerate it.
 
 Each assertion is deliberately pattern-level, not exact-string: we want the tests
 to survive harmless whitespace reshuffles while still failing loudly if the
@@ -46,8 +47,8 @@ def _resolve_dbt_executable() -> str | None:
 def _recompile_if_possible() -> None:
     """Best-effort ``dbt compile`` so assertions run against fresh SQL.
 
-    We don't fail the test suite if dbt isn't installed — the checked-in
-    compiled artefacts act as a golden snapshot. We *do* fail if dbt is
+    We don't fail here if dbt isn't installed — compiled artefacts left by an
+    earlier compile are read instead. We *do* fail if dbt is
     present but compilation blows up, because that's a real regression.
     """
     dbt = _resolve_dbt_executable()
@@ -56,6 +57,10 @@ def _recompile_if_possible() -> None:
 
     env = os.environ.copy()
     env["DBT_PROFILES_DIR"] = str(PROJECT_DIR)
+    # By default `dbt compile` lists the target dataset to fill its relation cache: a BigQuery API
+    # call, which needs real credentials. These models need no cache, so nothing reaches GCP.
+    env["DBT_POPULATE_CACHE"] = "False"
+    env["DBT_SEND_ANONYMOUS_USAGE_STATS"] = "False"
 
     result = subprocess.run(
         [
