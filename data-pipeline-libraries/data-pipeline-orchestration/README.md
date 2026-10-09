@@ -35,8 +35,9 @@ in its own `poke()`. `BasePubSubPullSensor.poke()` mirrors that behaviour.
 ### `BaseDataflowOperator` (`operators/dataflow.py`)
 
 **Role:** Wraps the Airflow Dataflow provider operators
-(`DataflowTemplatedJobStartOperator`, `DataflowStartFlexTemplateOperator`,
-`DataflowCreatePythonJobOperator`) behind a unified interface that abstracts:
+(`DataflowTemplatedJobStartOperator`, `DataflowStartFlexTemplateOperator`, and
+`BeamRunPythonPipelineOperator` on the Dataflow runner for a Python job without a template)
+behind a unified interface that abstracts:
 - source type (GCS vs Pub/Sub)
 - processing mode (batch vs streaming)
 - template type (Classic vs Flex Docker)
@@ -49,9 +50,11 @@ in its own `poke()`. `BasePubSubPullSensor.poke()` mirrors that behaviour.
    to the appropriate Airflow provider operator.
 3. `BatchDataflowOperator` / `StreamingDataflowOperator` are pre-configured
    convenience subclasses (GCS+batch / Pub/Sub+streaming).
-4. At import time all three Dataflow provider classes are protected by a
-   `DATAFLOW_OPERATORS_AVAILABLE` guard so DAG files can be parsed without
-   `apache-airflow-providers-apache-beam` installed.
+4. At import time each provider class is imported on its own, with a stub that
+   raises a helpful `ImportError` when a task builds it, so DAG files parse without
+   the providers installed. `DATAFLOW_OPERATORS_AVAILABLE` is true when all three are
+   there. `apache-airflow-providers-google` 11.0.0 removed
+   `DataflowCreatePythonJobOperator`; Python jobs no longer use it.
 
 ### `EntityDependencyChecker` (`dependency.py`)
 
@@ -476,20 +479,23 @@ Drop a thin loader module into your `dags/` folder. Airflow imports it, the
 DAGs land in `globals()`, and the scheduler picks them up:
 
 ```python
-# dags/generic_pipeline.py
+# dags/generic_pipeline.py — the Airflow DAG entrypoint for the generic system.
+from pathlib import Path
 from data_pipeline_orchestration.factories.dag_factory import create_dags
-from data_pipeline_orchestration.factories.config import load_system_config
 
-# Reads dags/config/system.yaml → validated config dict
-config = load_system_config()
-
-# Injects {system}_pubsub_trigger_dag + one {system}_{entity}_ingestion_dag
-# per entity into this module's namespace.
-create_dags(config, globals())
+# Reads and validates dags/config/system.yaml, then injects every DAG it
+# describes into this module's namespace.
+create_dags(Path(__file__).parent / "config" / "system.yaml", globals())
 ```
 
-`config` is the parsed/validated `system.yaml` dict (entities, fdp_models,
-infrastructure, trigger_schedule, …); see *System Configuration Schema* above.
+`config` is the path to `system.yaml` (entities, fdp_models, infrastructure,
+trigger_schedule, …; see *System Configuration Schema* above), the
+`SystemConfig` that `load_system_config(path)` returns, or the parsed dict.
+
+Keep the words "airflow" and "dag" in the file, as the first comment does. In its
+default safe mode Airflow only parses DAG-folder files that contain both, and
+skips the others without an error. `tests/unit/factories/test_dagbag_import.py`
+loads this exact file in Airflow's `DagBag` and asserts no import errors.
 Project / region / template-bucket values are read at build time from Airflow
 `Variable`s (with env-var / config fallbacks), so no secrets live in code.
 
@@ -606,14 +612,24 @@ from data_pipeline_orchestration.callbacks import on_failure_callback
 
 ```bash
 python3.11 -m venv .venv_airflow
-.venv_airflow/bin/pip install "apache-airflow==2.9.3" \
-    apache-airflow-providers-google apache-airflow-providers-apache-beam \
-    --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-2.9.3/constraints-3.11.txt"
-.venv_airflow/bin/pip install -e ../data-pipeline-core -e ".[dev]" pytest-mock
+export PIP_CONSTRAINT="https://raw.githubusercontent.com/apache/airflow/constraints-2.10.5/constraints-3.11.txt"
+.venv_airflow/bin/pip install "apache-airflow==2.10.5" \
+    apache-airflow-providers-google apache-airflow-providers-apache-beam
+.venv_airflow/bin/pip install -e ../data-pipeline-core -e ".[dev]"
 .venv_airflow/bin/python -m pytest tests -q
-# 198 passed
+# 207 passed
 ```
 
-Both providers are needed: without `apache-airflow-providers-google` the sensor and DAG-factory
-tests fail, and without `apache-airflow-providers-apache-beam` (which the Google provider's Dataflow
-operators import) the five Dataflow operator tests skip.
+2.10.5 is the Airflow that the control-plane Terraform's Composer image runs; 2.9.3 (with its own
+constraints file) passes the same 207. Keeping `PIP_CONSTRAINT` set for the second install stops it
+moving any of Airflow's pinned dependencies. `ci.yml` defines the same leg (`python-tests`, "Airflow 2.10.5"); it runs once the workflow is
+re-enabled (#14).
+
+Both providers are needed: without them the Dataflow operator tests skip, and without Airflow
+itself the sensor, DAG-factory and DagBag tests skip as well (134 pass).
+
+`tests/unit/factories/test_dagbag_import.py` (#54) writes the DAG entrypoint shown under
+*How to invoke it from a DAG entrypoint file* into a DAG folder with a `system.yaml`, and loads it
+in Airflow's own `DagBag`: no import errors, and every DAG `create_dags` should produce. It needs
+no metadata database (`Variable.get` is patched). To run the DAGs, not just parse them, use the
+Docker harness in [`scripts/airflow-local/`](../../scripts/airflow-local/README.md).

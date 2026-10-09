@@ -65,60 +65,53 @@ except ImportError as e:
     
     Context = dict
 
-# Step 2: Try to import Google Cloud Dataflow operators (optional - only needed at runtime)
-if AIRFLOW_AVAILABLE:
+
+# Step 2: the operators each kind of job runs, imported one by one: a provider release can drop
+# one without taking the others with it. apache-airflow-providers-google 11.0.0 removed
+# DataflowCreatePythonJobOperator; a single import of all three then left the template
+# operators, which still exist, as stubs too.
+def _stub(name: str, requirement: str):
+    """An operator class that raises a helpful ImportError when a DAG task builds it."""
+    def __init__(self, **kwargs):
+        raise ImportError(f"{name} requires {requirement}. Install with: pip install {requirement}")
+    return type(name, (), {"__init__": __init__, "__doc__": f"Stub - requires {requirement}."})
+
+
+_GOOGLE = "apache-airflow-providers-google"
+_BEAM = "apache-airflow-providers-apache-beam"
+
+if not AIRFLOW_AVAILABLE:
+    DataflowTemplatedJobStartOperator = _stub("DataflowTemplatedJobStartOperator", "apache-airflow")
+    DataflowStartFlexTemplateOperator = _stub("DataflowStartFlexTemplateOperator", "apache-airflow")
+    BeamRunPythonPipelineOperator = _stub("BeamRunPythonPipelineOperator", "apache-airflow")
+    DataflowConfiguration = None
+else:
     try:
         from airflow.providers.google.cloud.operators.dataflow import (
             DataflowTemplatedJobStartOperator,
             DataflowStartFlexTemplateOperator,
-            DataflowCreatePythonJobOperator,
         )
-        DATAFLOW_OPERATORS_AVAILABLE = True
-        logger.debug("Dataflow operators imports successful")
+        _TEMPLATE_OPERATORS = True
     except ImportError as e:
-        logger.warning(f"Dataflow operators not available: {e}. Install apache-airflow-providers-google.")
-        DATAFLOW_OPERATORS_AVAILABLE = False
-        
-        # Define stub operators that raise helpful errors at runtime
-        class DataflowTemplatedJobStartOperator:
-            """Stub - requires apache-airflow-providers-google."""
-            def __init__(self, **kwargs):
-                raise ImportError(
-                    "DataflowTemplatedJobStartOperator requires apache-airflow-providers-google. "
-                    "Install with: pip install apache-airflow-providers-google"
-                )
-        
-        class DataflowStartFlexTemplateOperator:
-            """Stub - requires apache-airflow-providers-google."""
-            def __init__(self, **kwargs):
-                raise ImportError(
-                    "DataflowStartFlexTemplateOperator requires apache-airflow-providers-google. "
-                    "Install with: pip install apache-airflow-providers-google"
-                )
-        
-        class DataflowCreatePythonJobOperator:
-            """Stub - requires apache-airflow-providers-google."""
-            def __init__(self, **kwargs):
-                raise ImportError(
-                    "DataflowCreatePythonJobOperator requires apache-airflow-providers-google. "
-                    "Install with: pip install apache-airflow-providers-google"
-                )
-else:
-    # Airflow not available - define all stubs
-    class DataflowTemplatedJobStartOperator:
-        """Stub - requires Airflow."""
-        def __init__(self, **kwargs):
-            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
-    
-    class DataflowStartFlexTemplateOperator:
-        """Stub - requires Airflow."""
-        def __init__(self, **kwargs):
-            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
-    
-    class DataflowCreatePythonJobOperator:
-        """Stub - requires Airflow."""
-        def __init__(self, **kwargs):
-            raise ImportError("Airflow is required. Install with: pip install apache-airflow")
+        # The Google provider's Dataflow module imports the Beam provider too, so name both.
+        logger.warning(f"Dataflow template operators not available: {e}. Install {_GOOGLE} and {_BEAM}.")
+        DataflowTemplatedJobStartOperator = _stub("DataflowTemplatedJobStartOperator", f"{_GOOGLE} {_BEAM}")
+        DataflowStartFlexTemplateOperator = _stub("DataflowStartFlexTemplateOperator", f"{_GOOGLE} {_BEAM}")
+        _TEMPLATE_OPERATORS = False
+
+    # A Python job (no template) runs through Beam's operator on the Dataflow runner, which
+    # replaced DataflowCreatePythonJobOperator.
+    try:
+        from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOperator
+        from airflow.providers.google.cloud.operators.dataflow import DataflowConfiguration
+        _PYTHON_JOB_OPERATOR = True
+    except ImportError as e:
+        logger.warning(f"Dataflow Python job operator not available: {e}. Install {_BEAM} and {_GOOGLE}.")
+        BeamRunPythonPipelineOperator = _stub("BeamRunPythonPipelineOperator", f"{_BEAM} {_GOOGLE}")
+        DataflowConfiguration = None
+        _PYTHON_JOB_OPERATOR = False
+
+    DATAFLOW_OPERATORS_AVAILABLE = _TEMPLATE_OPERATORS and _PYTHON_JOB_OPERATOR
 
 
 class SourceType(Enum):
@@ -465,15 +458,19 @@ class BaseDataflowOperator(BaseOperator):
         if self.additional_params:
             options.update(self.additional_params)
 
-        operator = DataflowCreatePythonJobOperator(
+        # Without the providers DataflowConfiguration is None: pass None, so the stub raises its
+        # own ImportError rather than "'NoneType' object is not callable".
+        operator = BeamRunPythonPipelineOperator(
             task_id=f"python_job_{self.task_id}",
-            job_name=job_name,
             py_file=self.job_code_path,
-            options=options,
-            dataflow_default_options={
-                "project": self.project_id,
-                "region": self.region,
-            },
+            runner="DataflowRunner",
+            pipeline_options=options,
+            dataflow_config=DataflowConfiguration(
+                job_name=job_name,
+                project_id=self.project_id,
+                location=self.region,
+                cancel_timeout=10 * 60,  # DataflowCreatePythonJobOperator's default; this one's is 5 min
+            ) if DataflowConfiguration is not None else None,
         )
         return operator.execute(context)
 

@@ -121,7 +121,7 @@ Reusable Airflow components for orchestrating data migration pipelines:
 |------------------|---------------|--------------|
 | `batch` | `True` | `DataflowTemplatedJobStartOperator` |
 | `streaming` | `True` | `DataflowStartFlexTemplateOperator` |
-| any | `False` | `DataflowCreatePythonJobOperator` |
+| any | `False` | `BeamRunPythonPipelineOperator` (Dataflow runner) |
 
 **Convenience subclasses:**
 - `BatchDataflowOperator` — pre-configured `source_type='gcs'`, `processing_mode='batch'`

@@ -29,9 +29,9 @@
 # NOTE — Python module scope (#14 prep)
 # Every library under data-pipeline-libraries/ has a python-tests leg.  Each
 # leg was reproduced locally in a fresh Python 3.11 venv with the same steps.
-# #88 (orchestration's Airflow 2.x/3.x import paths) is closed: its Airflow
-# tests skip cleanly when Airflow is not installed, and no extra installs it,
-# so the orchestration leg runs only its tests that need no Airflow.
+# Orchestration has two legs: without Airflow (it must import, and its Airflow
+# tests skip), and with Airflow 2.10.5 under its constraints file, where every
+# test runs, including the DagBag load of the rendered DAGs (#54).
 #
 # NOTE — Required Actions secrets / permissions (T15.2 — emulator IT tier)
 # The emulator IT job (java-it below) runs entirely against Testcontainers-
@@ -134,10 +134,11 @@ jobs:
           LIB_MODULES=$(for d in data-pipeline-libraries/*/; do
             [ -f "${d}pyproject.toml" ] && basename "$d"
           done | sort)
-          # The python-tests matrix: the `- module:` entries between the job's header and its steps.
+          # The python-tests matrix: the `- module:` entries between the job's header and its steps
+          # (a library may have more than one leg, so each name counts once).
           MATRIX_MODULES=$(sed -n '/^  python-tests:/,/^    steps:/p' .github/workflows/ci.yml \
             | grep -E '^[[:space:]]+- module: ' \
-            | sed 's/.*- module: *//' | tr -d ' ' | sort)
+            | sed 's/.*- module: *//' | tr -d ' ' | sort -u)
 
           echo "=== Python libraries ==="
           echo "$LIB_MODULES"
@@ -233,7 +234,7 @@ jobs:
 # where the library has none (contract-tests depends on pytest directly).
 # ============================================================================
   python-tests:
-    name: Python — ${{ matrix.module }}
+    name: Python — ${{ matrix.module }}${{ matrix.airflow && format(' (Airflow {0})', matrix.airflow) || '' }}
     runs-on: ubuntu-latest
 
     strategy:
@@ -254,9 +255,14 @@ jobs:
             test-extra: test
           - module: data-pipeline-gcp-secrets
             test-extra: test
-          # Its Airflow tests skip: no extra installs Airflow.
+          # Twice: without Airflow (the module must import, and its Airflow tests skip), and
+          # with the Airflow that Composer runs, which runs them and loads the rendered DAGs in a
+          # DagBag (#54).
           - module: data-pipeline-orchestration
             test-extra: dev
+          - module: data-pipeline-orchestration
+            test-extra: dev
+            airflow: '2.10.5'
           # #196: runs against a throwaway server it starts from the PostgreSQL binaries
           # (installed by the step below). CULVERT_REQUIRE_POSTGRES makes a missing server fail
           # the job instead of skipping every test.
@@ -282,10 +288,25 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/pip
-          key: pip-${{ matrix.module }}-${{ hashFiles(format('data-pipeline-libraries/{0}/pyproject.toml', matrix.module)) }}
+          key: pip-${{ matrix.module }}${{ matrix.airflow && format('-af{0}', matrix.airflow) || '' }}-${{ hashFiles(format('data-pipeline-libraries/{0}/pyproject.toml', matrix.module)) }}
           restore-keys: |
-            pip-${{ matrix.module }}-
+            pip-${{ matrix.module }}${{ matrix.airflow && format('-af{0}', matrix.airflow) || '' }}-
             pip-
+
+      - name: Install Airflow ${{ matrix.airflow }} with its constraints file
+        # Airflow is only installable reliably under its own constraints file. PIP_CONSTRAINT
+        # keeps every later pip install in this job (core, the module) inside the same set.
+        if: matrix.airflow
+        env:
+          AIRFLOW_VERSION: ${{ matrix.airflow }}
+        run: |
+          python -m pip install --upgrade pip
+          curl -sSfL -o "$RUNNER_TEMP/airflow-constraints.txt" \
+            "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
+          echo "PIP_CONSTRAINT=$RUNNER_TEMP/airflow-constraints.txt" >> "$GITHUB_ENV"
+          echo "AIRFLOW_HOME=$RUNNER_TEMP/airflow-home" >> "$GITHUB_ENV"
+          pip install -c "$RUNNER_TEMP/airflow-constraints.txt" "apache-airflow==${AIRFLOW_VERSION}" \
+            apache-airflow-providers-google apache-airflow-providers-apache-beam
 
       - name: Install data-pipeline-core (local, no PyPI)
         run: |
