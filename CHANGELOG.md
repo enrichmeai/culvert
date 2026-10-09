@@ -6,6 +6,19 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **`GcsBlobStore` implements the whole `BlobStore` contract.** It lacked `open_input`,
+  `open_output` and `copy`.
+  - **`open_input` streams in ranged reads.** Before reading, one metadata request turns a missing
+    object into `FileNotFoundError`. Every range is pinned to the object's generation, so an object
+    replaced mid-read fails rather than mixing versions.
+  - **`open_output`** is a resumable upload. It commits on close; an exception inside `with`
+    cancels it.
+  - **`copy`** is server-side. A missing source raises `FileNotFoundError`, and a non-GCS
+    destination raises `NotImplementedError`.
+  - **`open()`** still works, delegating to the two new methods. Its `"rb"` mode used to download
+    the whole object; it now streams.
+  - **The shared Python `BlobStoreContract`** now checks that a store implements every method and
+    that `open_input` streams and fails on a missing object. These checks are Python-only so far.
 - **A GCP quickstart: GCS to BigQuery in 14 lines of Python** (#13), in `examples/python-quickstart/`.
   The starter is `pip install culvert[gcp]`: the one `culvert` distribution with an extra, rather
   than a separate starter package to version and publish. New pieces:
@@ -13,8 +26,8 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
     synchronous and streams records through in order. It retries nothing and swallows nothing.
     It returns the records read and written.
   - **`data_pipeline_core.BlobLinesSource`** reads JSON-lines or CSV objects from any `BlobStore`.
-    It drops a byte-order mark, and refuses malformed lines and over-long CSV rows. A GCS object is
-    read whole, because `GcsBlobStore` has no streaming `open_input` yet.
+    It drops a byte-order mark, and refuses malformed lines and over-long CSV rows. It streams
+    through a store's `open_input`.
   - **`data_pipeline_gcp_bigquery.BigQueryTableSink`** writes with BigQuery load jobs of up to
     10 000 records each. Each job is all or nothing and is waited on; a failure raises, leaving
     earlier batches loaded. A truncating write truncates once. Values JSON cannot carry (NaN,

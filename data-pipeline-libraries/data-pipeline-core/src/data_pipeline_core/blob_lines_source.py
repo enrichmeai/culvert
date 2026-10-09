@@ -26,8 +26,8 @@ class BlobLinesSource:
 
     Objects are read in the order given. The store's ``open_input`` is used
     when it has one, so an object is streamed; otherwise ``get`` reads the
-    whole object into memory. ``GcsBlobStore`` has no ``open_input`` today,
-    so a GCS object is read whole: split very large files.
+    whole object into memory. ``GcsBlobStore`` has ``open_input``, so GCS
+    objects are streamed.
 
     .. code-block:: python
 
