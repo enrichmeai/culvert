@@ -12,10 +12,11 @@ class BlobStoreContract:
     """Mixin — subclasses provide ``store``, ``known_uri``, ``missing_uri``
     fixtures. ``known_uri`` resolves to bytes equal to ``b"hello"``.
 
-    Java mirror: ``BlobStoreContractTest`` (Sprint-5 deliverable). The
-    protocol-completeness and ``open_input`` tests are Python-only so far: a
-    Python store can be bound without implementing every method, which is how
-    ``GcsBlobStore`` came to lack ``open_input``/``open_output``/``copy``.
+    Java mirror: ``BlobStoreContractTest`` (Sprint-5 deliverable), which has the
+    ``open_input`` tests too (``openInput…``). The protocol-completeness test is
+    Python-only: Java's compiler already refuses a store that lacks a method, but
+    a Python store can be bound without one, which is how ``GcsBlobStore`` came
+    to lack ``open_input``/``open_output``/``copy``.
     """
 
     def test_it_implements_every_blob_store_method(self, store):

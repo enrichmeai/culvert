@@ -3,6 +3,8 @@ package com.enrichmeai.culvert.aws.s3;
 import com.enrichmeai.culvert.contracttests.BlobStoreContractTest;
 import com.enrichmeai.culvert.contracts.BlobStore;
 import software.amazon.awssdk.core.ResponseBytes;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.http.AbortableInputStream;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
@@ -59,10 +61,16 @@ class S3BlobStoreContractTest extends BlobStoreContractTest {
         when(client.getObjectAsBytes(GetObjectRequest.builder().bucket(BUCKET).key(KNOWN_OBJECT).build()))
                 .thenReturn(ResponseBytes.fromByteArray(
                         GetObjectResponse.builder().build(), "hello".getBytes()));
+        // openInput streams through GetObject: a fresh stream over "hello" per call.
+        when(client.getObject(GetObjectRequest.builder().bucket(BUCKET).key(KNOWN_OBJECT).build()))
+                .thenAnswer(invocation -> new ResponseInputStream<>(GetObjectResponse.builder().build(),
+                        AbortableInputStream.create(new java.io.ByteArrayInputStream("hello".getBytes()))));
 
         // Missing object — HeadObject/GetObject raise NoSuchKeyException
         // (S3BlobStore maps this to `false` / UncheckedIOException respectively).
         when(client.headObject(HeadObjectRequest.builder().bucket(BUCKET).key(MISSING_OBJECT).build()))
+                .thenThrow(NoSuchKeyException.builder().message("not found").build());
+        when(client.getObject(GetObjectRequest.builder().bucket(BUCKET).key(MISSING_OBJECT).build()))
                 .thenThrow(NoSuchKeyException.builder().message("not found").build());
 
         // delete(missingUri): S3's DeleteObject API returns 204 regardless of
