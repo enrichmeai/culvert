@@ -32,6 +32,7 @@ from data_pipeline_core.contracts.source import Sink, Source, Transform
 from data_pipeline_core.contracts.stage_claim import StageClaim
 from data_pipeline_core.contracts.stage_metrics import StageMetrics, StageMetricsHook
 from data_pipeline_core.contracts.warehouse import Warehouse
+from data_pipeline_core.blob_lines_source import BlobLinesSource
 from data_pipeline_core.decorators import (
     governed,
     masked,
@@ -42,6 +43,7 @@ from data_pipeline_core.decorators import (
     stage,
     transform,
 )
+from data_pipeline_core.run import RunResult, run
 from data_pipeline_core.stage_claim_api.models import (
     Acquired,
     Claim,
@@ -54,6 +56,10 @@ from data_pipeline_core.stage_claim_api.models import (
 __version__ = "0.1.0"
 
 __all__ = [
+    # Running stages in this process, and a source for JSON-lines/CSV objects (#13)
+    "run",
+    "RunResult",
+    "BlobLinesSource",
     # Decorators (#3: masked, quality_check, governed)
     "pipeline",
     "stage",

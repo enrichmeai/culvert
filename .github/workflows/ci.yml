@@ -271,6 +271,12 @@ jobs:
           sudo apt-get install -y --no-install-recommends postgresql
           echo "CULVERT_REQUIRE_POSTGRES=1" >> "$GITHUB_ENV"
 
+      - name: Install data-pipeline-gcp-gcs for the quickstart example's test
+        # tests/test_quickstart_example.py runs examples/python-quickstart/ingest.py,
+        # which reads from GCS and loads into BigQuery (#13).
+        if: matrix.module == 'data-pipeline-gcp-bigquery'
+        run: pip install -e "data-pipeline-libraries/data-pipeline-gcp-gcs"
+
       - name: Install ${{ matrix.module }}
         run: |
           pip install -e "data-pipeline-libraries/${{ matrix.module }}[${{ matrix.test-extra }}]"
