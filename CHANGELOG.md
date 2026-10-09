@@ -4,8 +4,26 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dataflow template jobs failed with `apache-airflow-providers-google` 11.0.0 or later** (Airflow
+  2.10.5's constraints pin 12.0.0). That release removed `DataflowCreatePythonJobOperator`, and
+  `BaseDataflowOperator` imported it in one statement with the template operators, so all three
+  became stubs that raise `ImportError`. Each is now imported on its own, and a Python job without
+  a template runs through `BeamRunPythonPipelineOperator` on the Dataflow runner, its replacement,
+  with the same 10-minute cancel timeout.
+- **The DAG entrypoint in the orchestration README failed to load.** It passed the `SystemConfig`
+  from `load_system_config()` (called without its required path) to `create_dags`, which wanted a
+  dict, and Airflow's safe mode would have skipped the file anyway: it never says "airflow".
+  `create_dags` now takes the path to `system.yaml`, a `SystemConfig` or a dict, and the example
+  is the file the DagBag test loads.
+
 ### Added
 
+- **The rendered DAGs are loaded in Airflow's own `DagBag` in the tests** (#54): the documented DAG
+  entrypoint, next to a `system.yaml`, parses with no import errors into every DAG `create_dags`
+  builds. `ci.yml` gains an orchestration leg with Airflow 2.10.5, beside the one without it; it
+  runs once the workflow is re-enabled (#14).
 - **`GcsBlobStore` implements the whole `BlobStore` contract.** It lacked `open_input`,
   `open_output` and `copy`.
   - **`open_input` streams in ranged reads.** Before reading, one metadata request turns a missing

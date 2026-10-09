@@ -35,18 +35,25 @@ when it is absent.
 
 Usage (in any DAG entrypoint file under ``dags/``)::
 
+    # The Airflow DAG entrypoint for the generic system.
+    from pathlib import Path
     from data_pipeline_orchestration.factories.dag_factory import create_dags
-    from data_pipeline_orchestration.factories.config import load_system_config
 
-    config = load_system_config()          # reads system.yaml
-    create_dags(config, globals())         # injects the ingestion-side DAGs
+    create_dags(Path(__file__).parent / "config" / "system.yaml", globals())
+
+``config`` may be the path to ``system.yaml``, the :class:`SystemConfig` that
+:func:`load_system_config` returns, or the parsed dict. Keep the words "airflow"
+and "dag" in the file (a comment is enough): in its default safe mode Airflow
+only parses DAG-folder files that contain both, and skips the rest silently.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Any, Dict, List, Union
 
+from .config import SystemConfig, load_system_config
 from ._dag_builders import (
     build_ingestion_dag,
     build_pubsub_trigger_dag,
@@ -78,11 +85,22 @@ def _system_id(config: Dict[str, Any]) -> str:
     return str(config.get("system_id", "generic")).lower()
 
 
+def _config_dict(config: Union[Dict[str, Any], SystemConfig, str, Path]) -> Dict[str, Any]:
+    """The parsed ``system.yaml`` dict, from a dict, a ``SystemConfig`` or a path to the file."""
+    if isinstance(config, (str, Path)):
+        config = load_system_config(config)  # validates the required keys
+    if isinstance(config, SystemConfig):
+        return config.raw
+    return config
+
+
 # =============================================================================
 # Entrypoint
 # =============================================================================
 
-def create_dags(config: Dict[str, Any], global_ns: Dict[str, Any]) -> None:
+def create_dags(
+    config: Union[Dict[str, Any], SystemConfig, str, Path], global_ns: Dict[str, Any]
+) -> None:
     """Build the full DAG set and inject it into ``global_ns``.
 
     For a config with N entities and M FDP models this registers
@@ -96,7 +114,8 @@ def create_dags(config: Dict[str, Any], global_ns: Dict[str, Any]) -> None:
     Parameters
     ----------
     config:
-        Parsed ``system.yaml`` dict (as returned by ``load_system_config``).
+        The path to ``system.yaml``, the ``SystemConfig`` that ``load_system_config``
+        returns, or the parsed ``system.yaml`` dict.
     global_ns:
         The caller's ``globals()`` dict. DAG objects are assigned into it under
         their ``dag_id`` so Airflow's DagBag discovers them.
@@ -108,6 +127,7 @@ def create_dags(config: Dict[str, Any], global_ns: Dict[str, Any]) -> None:
     periodic ``error_handling`` DAG is reachable via ``DagFactory`` but is not
     wired here (see module docstring).
     """
+    config = _config_dict(config)
     system_id = _system_id(config)
     entities = _entity_names(config)
     fdp_models = sorted((config.get("fdp_models") or {}).keys())
