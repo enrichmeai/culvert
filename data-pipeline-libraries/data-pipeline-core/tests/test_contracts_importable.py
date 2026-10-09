@@ -70,6 +70,10 @@ def test_all_contracts_and_the_stage_claim_types_exported() -> None:
         "masked",
         "quality_check",
         "governed",
+        # #13: run stages in this process, and a JSON-lines/CSV source over any BlobStore
+        "run",
+        "RunResult",
+        "BlobLinesSource",
     }
     actual = set(data_pipeline_core.__all__) - {"__version__"}
     assert actual == expected, f"missing: {expected - actual}, extra: {actual - expected}"

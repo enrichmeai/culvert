@@ -58,7 +58,7 @@ clouds/roles you need:
 
 ```bash
 pip install culvert                 # core contracts only (no cloud SDKs)
-pip install culvert[gcp]            # + BigQuery, GCS, Pub/Sub, Secret Manager, observability
+pip install culvert[gcp]            # + BigQuery, GCS, Pub/Sub, Secret Manager, observability (quickstart, from the next release: examples/python-quickstart)
 pip install culvert[orchestration]  # + Airflow-side DAG factory, operators, sensors
 pip install culvert[transform]      # + dbt integration
 pip install culvert[postgres]       # + PostgresStageClaim (psycopg2); from the next release

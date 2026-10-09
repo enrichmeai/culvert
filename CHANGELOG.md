@@ -6,6 +6,22 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **A GCP quickstart: GCS to BigQuery in 14 lines of Python** (#13), in `examples/python-quickstart/`.
+  The starter is `pip install culvert[gcp]`: the one `culvert` distribution with an extra, rather
+  than a separate starter package to version and publish. New pieces:
+  - **`data_pipeline_core.run(source, transforms, sink)`** runs stages in this process. It is
+    synchronous and streams records through in order. It retries nothing and swallows nothing.
+    It returns the records read and written.
+  - **`data_pipeline_core.BlobLinesSource`** reads JSON-lines or CSV objects from any `BlobStore`.
+    It drops a byte-order mark, and refuses malformed lines and over-long CSV rows. A GCS object is
+    read whole, because `GcsBlobStore` has no streaming `open_input` yet.
+  - **`data_pipeline_gcp_bigquery.BigQueryTableSink`** writes with BigQuery load jobs of up to
+    10 000 records each. Each job is all or nothing and is waited on; a failure raises, leaving
+    earlier batches loaded. A truncating write truncates once. Values JSON cannot carry (NaN,
+    bytes, sets) are refused before their batch is sent.
+
+  A test runs the example end to end with the GCS and BigQuery clients faked, and keeps it within
+  20 lines.
 - **Python stage policy decorators: `@masked`, `@quality_check` and `@governed`** (#3, Phase E).
   The governance and source contracts already referred to these decorators; they now exist, in
   `data_pipeline_core.decorators`. Each wraps a Transform's output, lazily, so they stack.
