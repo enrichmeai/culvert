@@ -1,0 +1,14 @@
+# The unit tests' profile: `dbt parse` and `dbt compile` only, never `dbt run`.
+# Compiling these models sends no query, but the BigQuery adapter still builds a client, and with
+# `method: oauth` that needs Application Default Credentials. A fixed token needs none, so the
+# tests run the same on a laptop and in CI with no GCP account. The token is not a secret.
+unit_test_profile:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth-secrets
+      token: "not-a-real-token-unit-tests-only"
+      project: "unit-test-project"
+      dataset: "unit_test_dataset"
+      threads: 1

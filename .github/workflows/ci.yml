@@ -4,8 +4,8 @@
 # Replaces the retired predecessor's Python-only CI with a polyglot
 # workflow that covers:
 #   1. Java reactor  — 21 modules under data-pipeline-libraries-java/
-#   2. Python (Culvert adapters) — 3 GCP adapter modules under
-#      data-pipeline-libraries/  (bigquery, gcs, pubsub)
+#   2. Python — every library under data-pipeline-libraries/ (11), one leg
+#      each; the verify-module-list job fails when one has no leg.
 #   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
 #      emulators (BigQuery goccy, GCS fake-gcs-server, Pub/Sub emulator).
 #   4. [T15.3] E2E gate — compile + test deployments/reference-e2e-gcp on
@@ -26,16 +26,12 @@
 # The same rationale applies to the IT job: failsafe + testcontainers + the
 # emulator client libs are all network-only fetches on a cold runner.
 #
-# NOTE — Python module scope and #88
-# Only data-pipeline-gcp-bigquery, data-pipeline-gcp-gcs, and
-# data-pipeline-gcp-pubsub are included (matching the DoD checklist from #77).
-# data-pipeline-orchestration is EXCLUDED pending tech-debt #88: the file
-# tests/unit/test_create_dags.py references the Airflow-3.x-only import path
-# `airflow.providers.standard.operators.empty` which does not exist under
-# the pinned Airflow 2.9.x.  That file already contains a module-level
-# `pytest.skip()` as a temporary guard, but the module still cannot be
-# collected cleanly on a clean CI runner without Airflow installed.
-# Fix tracked in #88.
+# NOTE — Python module scope (#14 prep)
+# Every library under data-pipeline-libraries/ has a python-tests leg.  Each
+# leg was reproduced locally in a fresh Python 3.11 venv with the same steps.
+# #88 (orchestration's Airflow 2.x/3.x import paths) is closed: its Airflow
+# tests skip cleanly when Airflow is not installed, and no extra installs it,
+# so the orchestration leg runs only its tests that need no Airflow.
 #
 # NOTE — Required Actions secrets / permissions (T15.2 — emulator IT tier)
 # The emulator IT job (java-it below) runs entirely against Testcontainers-
@@ -77,7 +73,7 @@ permissions:
 # ============================================================================
 jobs:
   verify-module-list:
-    name: Verify reactor module list is in sync with pom.xml
+    name: Verify the Java and Python module lists are complete
     runs-on: ubuntu-latest
 
     steps:
@@ -130,6 +126,31 @@ jobs:
             exit 1
           fi
           echo "OK: all 21 modules are enumerated"
+
+      - name: Check every Python library has a python-tests leg
+        run: |
+          set -euo pipefail
+          # Authoritative list: each directory under data-pipeline-libraries/ with a pyproject.toml.
+          LIB_MODULES=$(for d in data-pipeline-libraries/*/; do
+            [ -f "${d}pyproject.toml" ] && basename "$d"
+          done | sort)
+          # The python-tests matrix: the `- module:` entries between the job's header and its steps.
+          MATRIX_MODULES=$(sed -n '/^  python-tests:/,/^    steps:/p' .github/workflows/ci.yml \
+            | grep -E '^[[:space:]]+- module: ' \
+            | sed 's/.*- module: *//' | tr -d ' ' | sort)
+
+          echo "=== Python libraries ==="
+          echo "$LIB_MODULES"
+          echo "=== python-tests legs ==="
+          echo "$MATRIX_MODULES"
+
+          DIFF=$(diff <(echo "$LIB_MODULES") <(echo "$MATRIX_MODULES") || true)
+          if [ -n "$DIFF" ]; then
+            echo "ERROR: python-tests matrix mismatch — add a leg for each library (<) or drop a stale leg (>)"
+            echo "$DIFF"
+            exit 1
+          fi
+          echo "OK: all $(echo "$LIB_MODULES" | wc -l) Python libraries have a leg"
 
       - name: Release gate tests (scripts/release/gate.py)
         run: python3 -m unittest scripts/release/test_gate.py -v
@@ -204,13 +225,12 @@ jobs:
               -Dsurefire.failIfNoSpecifiedTests=false
 
 # ============================================================================
-# ── Job 3: Python GCP adapter tests ─────────────────────────────────────────
-# Covers the three GCP adapter modules whose tests are locally green.
-# Install order: data-pipeline-core first (local editable), then the adapter.
-# This mirrors the pattern in the old test.yml to avoid pip resolving
-# data-pipeline-core from PyPI (it is not published yet).
-#
-# EXCLUDED: data-pipeline-orchestration — see #88 note at the top of this file.
+# ── Job 3: Python library tests ─────────────────────────────────────────────
+# One leg per library under data-pipeline-libraries/ (verify-module-list checks
+# the list).  Install order: data-pipeline-core first (local editable), then the
+# library.  This avoids pip resolving data-pipeline-core from PyPI.
+# test-extra is the extra that carries the library's test tools; it is empty
+# where the library has none (contract-tests depends on pytest directly).
 # ============================================================================
   python-tests:
     name: Python — ${{ matrix.module }}
@@ -220,17 +240,35 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - module: data-pipeline-contract-tests
+            test-extra: ''
+          - module: data-pipeline-core
+            test-extra: test
           - module: data-pipeline-gcp-bigquery
             test-extra: test
           - module: data-pipeline-gcp-gcs
             test-extra: test
+          - module: data-pipeline-gcp-observability
+            test-extra: test
           - module: data-pipeline-gcp-pubsub
             test-extra: test
+          - module: data-pipeline-gcp-secrets
+            test-extra: test
+          # Its Airflow tests skip: no extra installs Airflow.
+          - module: data-pipeline-orchestration
+            test-extra: dev
           # #196: runs against a throwaway server it starts from the PostgreSQL binaries
           # (installed by the step below). CULVERT_REQUIRE_POSTGRES makes a missing server fail
           # the job instead of skipping every test.
           - module: data-pipeline-postgres
             test-extra: test
+          # apache-beam[gcp]==2.56.0 is a runtime dependency; pytest comes with it too.
+          - module: data-pipeline-tester
+            test-extra: ''
+          # The dbt tests parse and compile against tests/unit/dbt_test_project with a
+          # credential-free profile: no GCP account needed.
+          - module: data-pipeline-transform
+            test-extra: dev
 
     steps:
       - uses: actions/checkout@v4
@@ -278,8 +316,15 @@ jobs:
         run: pip install -e "data-pipeline-libraries/data-pipeline-gcp-gcs"
 
       - name: Install ${{ matrix.module }}
+        env:
+          MODULE: ${{ matrix.module }}
+          EXTRA: ${{ matrix.test-extra }}
         run: |
-          pip install -e "data-pipeline-libraries/${{ matrix.module }}[${{ matrix.test-extra }}]"
+          if [ -n "$EXTRA" ]; then
+            pip install -e "data-pipeline-libraries/${MODULE}[${EXTRA}]"
+          else
+            pip install -e "data-pipeline-libraries/${MODULE}"
+          fi
 
       - name: Run pytest — ${{ matrix.module }}
         run: |

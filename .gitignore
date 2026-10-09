@@ -91,9 +91,11 @@ terraform.rc
 # DBT
 dbt_packages/
 dbt_modules/
+.user.yml
 target/
 profiles.yml
 !deployments/*/dbt/profiles.yml
+!data-pipeline-libraries/data-pipeline-transform/tests/unit/dbt_test_project/profiles.yml
 shared_macros/
 
 # Compiled files
