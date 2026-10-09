@@ -75,8 +75,8 @@ python ingest.py gs://my-bucket/orders/2026-10-09.jsonl my-project.sales.orders
 - **Values JSON cannot carry are refused** before their batch is sent, naming the field: NaN or
   infinity, bytes, sets. So are malformed lines, and CSV rows with more fields than the header.
 - **Empty input sends nothing.** A truncating write with no records leaves the table as it was.
-- **Large files are read whole.** A GCS object is read into memory in one go, so split very large
-  files. Streaming GCS reads are a follow-up.
+- **Large files are streamed.** A GCS object is read in chunks, pinned to the version that was
+  there when the read began; an object replaced mid-read fails the run rather than mixing versions.
 - **Byte-order marks are dropped.** Files that start with one, as Excel and Windows tools write,
   read correctly.
 

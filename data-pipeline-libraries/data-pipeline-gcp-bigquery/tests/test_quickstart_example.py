@@ -13,11 +13,22 @@ EXAMPLE = pathlib.Path(__file__).resolve().parents[3] / "examples" / "python-qui
 
 
 class Blob:
+    """Reads like a GCS blob: metadata reload, ranged downloads, and the library's BlobReader."""
+
     def __init__(self, data):
         self.data = data
+        self.generation = None
+        self.chunk_size = None
 
-    def download_as_bytes(self):
-        return self.data
+    def reload(self):
+        self.generation = 1
+
+    def download_as_bytes(self, start=None, end=None, **kwargs):
+        return self.data[start or 0:None if end is None else end + 1]
+
+    def open(self, mode="rb", **kwargs):
+        from google.cloud.storage.fileio import BlobReader
+        return BlobReader(self, **kwargs)
 
 
 class Bucket:

@@ -26,6 +26,10 @@ def test_mixins_have_expected_methods():
     assert hasattr(BlobStoreContract, "test_null_arguments_rejected")
     assert hasattr(BlobStoreContract, "test_head_known_describes_the_object_without_reading_it")
     assert hasattr(BlobStoreContract, "test_head_missing_fails_as_get_does")
+    # Python-only so far (no Java twin yet)
+    assert hasattr(BlobStoreContract, "test_it_implements_every_blob_store_method")
+    assert hasattr(BlobStoreContract, "test_open_input_known_streams_the_bytes")
+    assert hasattr(BlobStoreContract, "test_open_input_missing_fails_as_get_does")
 
     # SecretProviderContract — mirrors SecretProviderContractTest.java
     assert hasattr(SecretProviderContract, "test_get_known_returns_value")

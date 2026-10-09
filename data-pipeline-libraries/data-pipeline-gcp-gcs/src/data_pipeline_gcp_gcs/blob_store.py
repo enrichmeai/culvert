@@ -5,7 +5,6 @@ Java sibling: ``com.enrichmeai.culvert.gcp.gcs.GcsBlobStore``.
 
 from __future__ import annotations
 
-import io
 import logging
 from typing import Any, BinaryIO, Iterator
 from urllib.parse import urlparse
@@ -43,16 +42,47 @@ class GcsBlobStore:
                 raise FileNotFoundError(uri) from exc
             raise
 
-    def open(self, uri: str, mode: str = "rb") -> BinaryIO:
+    def open_input(self, uri: str) -> BinaryIO:
+        """Stream the object at `uri`, a chunk at a time.
+
+        One metadata GET first: it turns a missing object into
+        ``FileNotFoundError`` here, as the contract asks, rather than at the
+        first read, and it records the object's generation. Every ranged read
+        is then pinned to that generation (``if_generation_match``), so an
+        object replaced while it is being read fails loudly (HTTP 412) rather
+        than mixing two versions in one stream.
+        """
         bucket_name, blob_name = self._parse(uri)
-        bucket = self.client.bucket(bucket_name)
-        blob = bucket.blob(blob_name)
+        blob = self.client.bucket(bucket_name).blob(blob_name)
+        try:
+            blob.reload()
+        except Exception as exc:
+            if self._is_not_found(exc):
+                raise FileNotFoundError(uri) from exc
+            raise
+        if blob.generation is None:
+            # if_generation_match=None would silently turn the pin off.
+            raise RuntimeError(f"GCS reported no generation for {uri}; refusing an unpinned read")
+        return blob.open("rb", if_generation_match=blob.generation)
+
+    def open_output(self, uri: str) -> BinaryIO:
+        """A streaming (resumable) upload to `uri`.
+
+        Closing it commits the object; an exception inside ``with`` cancels the
+        upload, and nothing is written.
+        """
+        bucket_name, blob_name = self._parse(uri)
+        return self.client.bucket(bucket_name).blob(blob_name).open("wb")
+
+    def open(self, uri: str, mode: str = "rb") -> BinaryIO:
+        """Deprecated: kept for callers from before ``open_input``/``open_output``.
+
+        ``"rb"`` now streams (``open_input``); ``"wb"`` is ``open_output``.
+        """
         if mode in ("rb", "r"):
-            # Buffer the bytes in memory for the simple-case open.
-            # Large-object callers should use blob.open(mode='rb') directly.
-            return io.BytesIO(blob.download_as_bytes())
+            return self.open_input(uri)
         if mode in ("wb", "w"):
-            return blob.open(mode="wb")
+            return self.open_output(uri)
         raise ValueError(f"Unsupported mode: {mode}")
 
     def put(self, uri: str, data: bytes) -> None:
@@ -106,6 +136,26 @@ class GcsBlobStore:
             if self._is_not_found(exc):
                 # Idempotent: deleting a missing object is fine.
                 return
+            raise
+
+    def copy(self, src: str, dst: str) -> None:
+        """Server-side copy from `src` to `dst`; no bytes leave GCS.
+
+        Raises FileNotFoundError if `src` does not exist (GCS reports a missing
+        destination bucket the same way), and NotImplementedError for a
+        destination outside GCS.
+        """
+        if dst is not None and urlparse(dst).scheme != self.SCHEME:
+            raise NotImplementedError(f"GcsBlobStore copies within GCS only, not to {dst!r}")
+        src_bucket_name, src_name = self._parse(src)
+        dst_bucket_name, dst_name = self._parse(dst)
+        src_bucket = self.client.bucket(src_bucket_name)
+        try:
+            src_bucket.copy_blob(src_bucket.blob(src_name), self.client.bucket(dst_bucket_name),
+                                 new_name=dst_name)
+        except Exception as exc:
+            if self._is_not_found(exc):
+                raise FileNotFoundError(src) from exc
             raise
 
     # --- helpers ----------------------------------------------------------

@@ -12,8 +12,26 @@ class BlobStoreContract:
     """Mixin — subclasses provide ``store``, ``known_uri``, ``missing_uri``
     fixtures. ``known_uri`` resolves to bytes equal to ``b"hello"``.
 
-    Java mirror: ``BlobStoreContractTest`` (Sprint-5 deliverable).
+    Java mirror: ``BlobStoreContractTest`` (Sprint-5 deliverable). The
+    protocol-completeness and ``open_input`` tests are Python-only so far: a
+    Python store can be bound without implementing every method, which is how
+    ``GcsBlobStore`` came to lack ``open_input``/``open_output``/``copy``.
     """
+
+    def test_it_implements_every_blob_store_method(self, store):
+        from data_pipeline_core.contracts.blob_store import BlobStore
+        missing = [m for m in ("get", "open_input", "open_output", "put", "list", "exists",
+                               "head", "delete", "copy") if not callable(getattr(store, m, None))]
+        assert not missing, f"{type(store).__name__} lacks {missing}"
+        assert isinstance(store, BlobStore)
+
+    def test_open_input_known_streams_the_bytes(self, store, known_uri):
+        with store.open_input(known_uri) as stream:
+            assert stream.read() == b"hello"
+
+    def test_open_input_missing_fails_as_get_does(self, store, missing_uri):
+        with pytest.raises(FileNotFoundError):
+            store.open_input(missing_uri)
 
     def test_get_known_returns_bytes(self, store, known_uri):
         assert store.get(known_uri) == b"hello"
