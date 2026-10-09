@@ -142,8 +142,6 @@ def test_the_template_operators_are_the_providers_own():
 @pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason=_SKIP_REASON)
 def test_a_python_job_builds_the_real_beam_operator():
     # No mock of the operator class: the provider's own constructor checks the arguments.
-    from airflow.providers.apache.beam.operators.beam import BeamRunPythonPipelineOperator
-
     with patch.object(BeamRunPythonPipelineOperator, "execute", autospec=True, return_value="job-id") as run:
         operator = BaseDataflowOperator(
             task_id='test_task',
@@ -162,3 +160,31 @@ def test_a_python_job_builds_the_real_beam_operator():
     assert inner.dataflow_config.project_id == operator.project_id
     assert inner.dataflow_config.location == operator.region
     assert inner.dataflow_config.cancel_timeout == 10 * 60
+
+
+@pytest.mark.skipif(not AIRFLOW_AVAILABLE, reason=_SKIP_REASON)
+@pytest.mark.parametrize("mode, streaming", [("batch", False), ("streaming", True)])
+def test_a_python_jobs_options_parse_in_beam(mode, streaming):
+    # The provider turns pipeline_options into the command line the job's script gets, and the
+    # script parses it with Beam's PipelineOptions. Beam's --streaming is a flag: given a value
+    # ("--streaming=false") its parser exits with status 2, and the job fails at start-up.
+    pytest.importorskip("apache_beam")
+    from apache_beam.options.pipeline_options import PipelineOptions, StandardOptions, WorkerOptions
+    from airflow.providers.apache.beam.hooks.beam import beam_options_to_args
+
+    with patch.object(BeamRunPythonPipelineOperator, "execute", autospec=True) as run:
+        BaseDataflowOperator(
+            task_id='test_task',
+            pipeline_name='test-pipeline',
+            processing_mode=mode,
+            use_template=False,
+            job_code_path='gs://bucket/script.py',
+            input_path='gs://in',
+            output_table='p:d.t',
+            max_workers=7,
+        ).execute(MagicMock())
+
+    args = beam_options_to_args(run.call_args.args[0].pipeline_options)
+    options = PipelineOptions(args)
+    assert options.view_as(StandardOptions).streaming is streaming
+    assert options.view_as(WorkerOptions).max_num_workers == 7

@@ -448,7 +448,10 @@ class BaseDataflowOperator(BaseOperator):
             "service_account_email": self.service_account,
             "network": self.network,
             "subnetwork": self.subnetwork,
-            "streaming": str(self.processing_mode == ProcessingMode.STREAMING).lower(),
+            # A bool, not "true"/"false": Beam's --streaming is a flag, and the provider writes
+            # True as "--streaming" and leaves False out. Given "--streaming=false", Beam's
+            # PipelineOptions parser exits, so a script that parses its arguments fails at start-up.
+            "streaming": self.processing_mode == ProcessingMode.STREAMING,
         }
 
         # Filter out None values

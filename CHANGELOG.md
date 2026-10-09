@@ -6,6 +6,12 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Fixed
 
+- **A Python Dataflow job without a template failed at start-up when its script parsed its command
+  line with Beam's `PipelineOptions`** (as `PipelineOptions()` does by default). `BaseDataflowOperator`
+  passed `streaming` as the string `"true"` or `"false"`, so the script received `--streaming=false`
+  (or `=true`). Beam's `--streaming` is a flag, and its parser exits with status 2 on either. It is
+  now a bool: `--streaming` for a streaming job, and nothing for a batch one. Flag options passed in
+  `additional_params` must be Python bools for the same reason.
 - **Dataflow template jobs failed with `apache-airflow-providers-google` 11.0.0 or later** (Airflow
   2.10.5's constraints pin 12.0.0). That release removed `DataflowCreatePythonJobOperator`, and
   `BaseDataflowOperator` imported it in one statement with the template operators, so all three
