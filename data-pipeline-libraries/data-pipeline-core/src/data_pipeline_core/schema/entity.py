@@ -30,9 +30,10 @@ class SchemaField:
     BigQuery's vocabulary because it's the framework's first reference
     warehouse, but the values are warehouse-neutral.
 
-    `classification` and `masking` are optional metadata used by the
-    `@governed` and `@masked` decorators (Stage 3) to apply
-    field-level policy without requiring an explicit decorator call.
+    `masking` is the policy `@masked(schema=...)` applies to this field
+    when no explicit policy names it. `classification` is descriptive
+    metadata: `@governed` reports the GovernancePolicy's `classify`
+    answer, not this field.
 
     `range` is an optional :class:`~data_pipeline_core.dataquality.NumericRange`
     that opts this field into OUT_OF_RANGE validation inside

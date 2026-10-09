@@ -33,7 +33,7 @@ def test_version() -> None:
 
 def test_all_contracts_and_the_stage_claim_types_exported() -> None:
     """The 17 shared contracts (15 original + StageMetrics + StageMetricsHook), plus the optional
-    StageClaim capability and its value types (#196)."""
+    StageClaim capability and its value types (#196), and the decorators (#3)."""
     expected = {
         "Source",
         "Sink",
@@ -61,6 +61,15 @@ def test_all_contracts_and_the_stage_claim_types_exported() -> None:
         "Acquired",
         "Held",
         "Completed",
+        # #3: the decorators, as docs/framework-evolution/02-redesign.md imports them
+        "pipeline",
+        "stage",
+        "source",
+        "transform",
+        "sink",
+        "masked",
+        "quality_check",
+        "governed",
     }
     actual = set(data_pipeline_core.__all__) - {"__version__"}
     assert actual == expected, f"missing: {expected - actual}, extra: {actual - expected}"

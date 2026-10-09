@@ -6,6 +6,35 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **Python stage policy decorators: `@masked`, `@quality_check` and `@governed`** (#3, Phase E).
+  The governance and source contracts already referred to these decorators; they now exist, in
+  `data_pipeline_core.decorators`. Each wraps a Transform's output, lazily, so they stack.
+  - **`@masked`** masks fields with `governance_api.masker.mask`. A field's policy is the first
+    that applies: an explicit `policy` for the named `fields`, then the schema field's `masking`,
+    then `context.governance.masking_for(field, table)`. It returns new dicts and never changes
+    its input.
+  - **`@quality_check(schema, min_score, on_invalid=)`** validates each record with
+    `DataQualityTransform`.
+    - Valid records pass on.
+    - Invalid ones go to `on_invalid`, or are dropped with a WARNING giving their count.
+    - When the output ends with too few valid, it raises `QualityCheckFailed`. Its `failure_stage`
+      is `VALIDATION`, for the code running the stage to record; nothing records it
+      automatically yet.
+  - **`@governed(table, classification, retention_days)`** declares the stage's table and
+    governance (`governance_of(stage)`). Once the output is consumed, it reports them in one
+    `context.lineage` event, with each field's classification and the policy's retention. It
+    reports; it does not enforce.
+
+  They are exported from `data_pipeline_core`, as the design imports them.
+
+  **Where they differ from `docs/framework-evolution/02-redesign.md` §4:**
+  - **`@quality_check`** has no `dimension`: it checks schema validity, the one check core has.
+  - **`@governed`** needs the `table`, and takes a `DataClassification` value (`"restricted"`,
+    not `"PII"`).
+  - **`@masked`** takes `"partial"` where the design wrote `"last4"`. It masks the stage's
+    output, as the design's prose says, not the input its example comment describes.
+
+  Still open in #3: `bootstrap_runtime`, a starter, and the Java annotations.
 - **Python `RuntimeContextImpl` rebuilds its registry after deserialization** (#122), as the Java
   `DefaultRuntimeContext` does.
   - **Before:** after a pickle round trip the registry was empty, and `get(Protocol)` raised

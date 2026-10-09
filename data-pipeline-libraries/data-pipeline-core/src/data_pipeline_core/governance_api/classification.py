@@ -1,9 +1,9 @@
 """DataClassification enum — the taxonomic levels for sensitive data.
 
 The values follow the common four-tier model used by Dataplex, AWS
-Macie, and Azure Purview. Stage 3's `@governed` decorator uses this
-enum on field-level metadata so the runtime knows what masking policy
-to apply.
+Macie, and Azure Purview. `@governed` (`data_pipeline_core.decorators`)
+declares a table's classification with it and reports each field's
+`GovernancePolicy.classify` value.
 """
 
 from enum import Enum

@@ -22,9 +22,11 @@ from data_pipeline_core.governance_api.policies import (
 class GovernancePolicy(Protocol):
     """Field- and table-level policy lookups.
 
-    The three methods are called by Stage 3's `@governed` and
-    `@masked` decorators to apply policy without requiring the
-    pipeline author to know which cloud governance product is in use.
+    The stage policy decorators (`data_pipeline_core.decorators`, #3)
+    call these through `context.governance`, so the pipeline author need
+    not know which cloud governance product is in use: `@masked` calls
+    `masking_for`; `@governed` calls `classify` and `retention_for` and
+    reports the answers in a lineage event.
     """
 
     def classify(self, field: str, table: str) -> DataClassification:

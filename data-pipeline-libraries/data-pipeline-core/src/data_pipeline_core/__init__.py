@@ -32,6 +32,16 @@ from data_pipeline_core.contracts.source import Sink, Source, Transform
 from data_pipeline_core.contracts.stage_claim import StageClaim
 from data_pipeline_core.contracts.stage_metrics import StageMetrics, StageMetricsHook
 from data_pipeline_core.contracts.warehouse import Warehouse
+from data_pipeline_core.decorators import (
+    governed,
+    masked,
+    pipeline,
+    quality_check,
+    sink,
+    source,
+    stage,
+    transform,
+)
 from data_pipeline_core.stage_claim_api.models import (
     Acquired,
     Claim,
@@ -44,6 +54,15 @@ from data_pipeline_core.stage_claim_api.models import (
 __version__ = "0.1.0"
 
 __all__ = [
+    # Decorators (#3: masked, quality_check, governed)
+    "pipeline",
+    "stage",
+    "source",
+    "transform",
+    "sink",
+    "masked",
+    "quality_check",
+    "governed",
     "__version__",
     # Source / Sink / Transform — the I/O primitives
     "Source",

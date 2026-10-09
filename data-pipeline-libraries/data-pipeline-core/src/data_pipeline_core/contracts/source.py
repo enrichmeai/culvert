@@ -53,8 +53,9 @@ class Sink(Protocol[U_contra]):
 class Transform(Protocol[V, W]):
     """Anything that maps records V to records W.
 
-    Pure where possible; side effects must be declared via the
-    `@governed` decorator (Stage 3) so the runtime can track them.
+    Pure where possible; declare the table a Transform writes with the
+    `@governed` decorator (`data_pipeline_core.decorators`), which the
+    runtime can read (`governance_of`) and which reports it as lineage.
     """
 
     def apply(self, records: Iterator[V], context: "RuntimeContext") -> Iterator[W]: ...
