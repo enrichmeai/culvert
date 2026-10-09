@@ -26,6 +26,7 @@ Typical usage::
 from data_pipeline_core.dataquality.data_quality_transform import DataQualityTransform
 from data_pipeline_core.dataquality.field_violation import FieldViolation
 from data_pipeline_core.dataquality.numeric_range import NumericRange
+from data_pipeline_core.dataquality.quality_check_failed import QualityCheckFailed
 from data_pipeline_core.dataquality.validation_result import (
     InvalidRow,
     ValidRow,
@@ -34,6 +35,7 @@ from data_pipeline_core.dataquality.validation_result import (
 from data_pipeline_core.dataquality.violation_kind import ViolationKind
 
 __all__ = [
+    "QualityCheckFailed",
     "DataQualityTransform",
     "FieldViolation",
     "InvalidRow",

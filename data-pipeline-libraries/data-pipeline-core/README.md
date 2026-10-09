@@ -47,6 +47,10 @@ Eleven Protocols are the entire framework-to-cloud seam:
 - `data_pipeline_core/contracts/` — the contract Protocols (plus the `StageMetrics` record).
 - `data_pipeline_core/{audit,lineage,finops_api,governance_api,job_control_api,schema}/` — the dataclasses, enums, and TypedDicts the Protocols reference.
 - `autoconfig.py`, `runtime.py`, `decorators.py` — discovery (entry-point registry), the runtime context, and the `@pipeline`/`@source`-style decorators.
+  - **Stage policy decorators** (#3) wrap a Transform's output, lazily, and stack:
+    - `@masked(fields=, policy=)` masks fields with `governance_api.masker`, falling back to the schema field's `masking`, then `context.governance`;
+    - `@quality_check(schema, min_score=, on_invalid=)` passes valid records on, hands invalid ones to `on_invalid` (or drops them with a WARNING), and raises `QualityCheckFailed` when too few are valid;
+    - `@governed(table, classification=, retention_days=)` declares a stage's table and governance and reports them in one lineage event.
 
 ## What's NOT in the package
 
