@@ -51,6 +51,45 @@ class GcsBlobStoreTest {
         assertThat(store.get(URI)).isEqualTo(payload);
     }
 
+    /**
+     * The stream is pinned to the generation the metadata read saw: every request carries
+     * ifGenerationMatch, so an object replaced while it is read fails (412) rather than mixing
+     * two versions in one stream. Python's GcsBlobStore.open_input does the same (#244).
+     */
+    @Test
+    void openInputPinsTheReadToTheGenerationItLookedUp() {
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+        when(blob.getGeneration()).thenReturn(1_726_500_000_123_456L);
+        when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(blob);
+        com.google.cloud.ReadChannel channel = org.mockito.Mockito.mock(com.google.cloud.ReadChannel.class);
+        when(storage.reader(eq(BlobId.of(BUCKET, OBJECT)), any(Storage.BlobSourceOption[].class))).thenReturn(channel);
+
+        assertThat(new GcsBlobStore(storage).openInput(URI)).isNotNull();
+
+        verify(storage).reader(BlobId.of(BUCKET, OBJECT),
+                Storage.BlobSourceOption.generationMatch(1_726_500_000_123_456L));
+        verify(blob, org.mockito.Mockito.never()).reader(any(Blob.BlobSourceOption[].class));
+    }
+
+    /**
+     * No generation would mean no pin: refuse, rather than read whatever version is there. Zero
+     * is refused too: ifGenerationMatch=0 means "only if the object does not exist".
+     */
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.NullSource
+    @org.junit.jupiter.params.provider.ValueSource(longs = {0L})
+    void openInputRefusesAnObjectWithNoGeneration(Long generation) {
+        Blob blob = org.mockito.Mockito.mock(Blob.class);
+        when(blob.getGeneration()).thenReturn(generation);
+        when(storage.get(BlobId.of(BUCKET, OBJECT))).thenReturn(blob);
+
+        assertThatThrownBy(() -> new GcsBlobStore(storage).openInput(URI))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no generation")
+                .hasMessageContaining(URI);
+        verify(storage, org.mockito.Mockito.never()).reader(any(BlobId.class), any(Storage.BlobSourceOption[].class));
+    }
+
     @Test
     void headReadsMetadataAndNeverTheBytes() {
         Blob blob = org.mockito.Mockito.mock(Blob.class);

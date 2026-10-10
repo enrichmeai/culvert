@@ -4,8 +4,17 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
+- **The Java `GcsBlobStore.openInput` sends an explicit `ifGenerationMatch`**, as the Python one
+  does (#244). It already read the generation its metadata read saw: `blob.reader()` passes that
+  generation as a selector, so a replaced object failed with a 404 rather than mixing versions. The
+  read now carries the precondition as well, which GCS documents as failing with 412 once the object
+  changes, and a missing or zero generation is refused (`IllegalStateException`) rather than read
+  without one. No test here exercises the 412: the emulator the integration test uses
+  (fake-gcs-server) ignores the precondition.
+
+### Fixed
 - **A Python Dataflow job without a template failed at start-up when its script parsed its command
   line with Beam's `PipelineOptions`** (as `PipelineOptions()` does by default). `BaseDataflowOperator`
   passed `streaming` as the string `"true"` or `"false"`, so the script received `--streaming=false`
