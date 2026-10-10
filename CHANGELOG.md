@@ -26,6 +26,10 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **The Java `BlobStoreContractTest` checks `openInput` too** (#15), as the Python one does: the
+  known object streams back its bytes, and a missing one fails when opened, as `get` does. The GCS
+  and S3 contract fakes now stub their streaming reads. The Azure `BlobStore` is still a skeleton
+  whose methods throw `UnsupportedOperationException`, so it has no contract subclass yet.
 - **The rendered DAGs are loaded in Airflow's own `DagBag` in the tests** (#54): the documented DAG
   entrypoint, next to a `system.yaml`, parses with no import errors into every DAG `create_dags`
   builds. `ci.yml` gains an orchestration leg with Airflow 2.10.5, beside the one without it; it
@@ -42,7 +46,7 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   - **`open()`** still works, delegating to the two new methods. Its `"rb"` mode used to download
     the whole object; it now streams.
   - **The shared Python `BlobStoreContract`** now checks that a store implements every method and
-    that `open_input` streams and fails on a missing object. These checks are Python-only so far.
+    that `open_input` streams and fails on a missing object.
 - **A GCP quickstart: GCS to BigQuery in 14 lines of Python** (#13), in `examples/python-quickstart/`.
   The starter is `pip install culvert[gcp]`: the one `culvert` distribution with an extra, rather
   than a separate starter package to version and publish. New pieces:

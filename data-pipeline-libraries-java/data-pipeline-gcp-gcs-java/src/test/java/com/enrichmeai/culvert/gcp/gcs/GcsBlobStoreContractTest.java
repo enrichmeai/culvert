@@ -2,11 +2,15 @@ package com.enrichmeai.culvert.gcp.gcs;
 
 import com.enrichmeai.culvert.contracttests.BlobStoreContractTest;
 import com.enrichmeai.culvert.contracts.BlobStore;
+import com.google.cloud.ReadChannel;
 import com.google.cloud.storage.Blob;
 import com.google.cloud.storage.BlobId;
 import com.google.cloud.storage.Storage;
 import com.google.cloud.storage.StorageException;
 
+import java.nio.ByteBuffer;
+
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -51,6 +55,8 @@ class GcsBlobStoreContractTest extends BlobStoreContractTest {
         when(knownBlob.getEtag()).thenReturn("CKih16bqlPUCEAE=");
         when(knownBlob.getUpdateTimeOffsetDateTime())
                 .thenReturn(java.time.OffsetDateTime.parse("2026-09-16T20:39:30Z"));
+        // openInput streams through the blob's ReadChannel: "hello", then end of stream.
+        when(knownBlob.reader()).thenAnswer(invocation -> helloChannel());
         when(storage.get(BlobId.of(BUCKET, KNOWN_OBJECT))).thenReturn(knownBlob);
 
         // Missing blob — client returns null (GcsBlobStore maps this to UncheckedIOException).
@@ -66,6 +72,26 @@ class GcsBlobStoreContractTest extends BlobStoreContractTest {
                 .thenThrow(new StorageException(404, "not found"));
 
         return new GcsBlobStore(storage);
+    }
+
+    /** A ReadChannel over "hello", as {@code Channels.newInputStream} reads it. */
+    private static ReadChannel helloChannel() throws java.io.IOException {
+        ByteBuffer content = ByteBuffer.wrap("hello".getBytes());
+        ReadChannel channel = mock(ReadChannel.class);
+        when(channel.isOpen()).thenReturn(true);
+        when(channel.read(any(ByteBuffer.class))).thenAnswer(invocation -> {
+            ByteBuffer dst = invocation.getArgument(0);
+            if (!content.hasRemaining()) {
+                return -1;
+            }
+            int n = Math.min(dst.remaining(), content.remaining());
+            ByteBuffer slice = content.slice();
+            slice.limit(n);
+            dst.put(slice);
+            content.position(content.position() + n);
+            return n;
+        });
+        return channel;
     }
 
     @Override

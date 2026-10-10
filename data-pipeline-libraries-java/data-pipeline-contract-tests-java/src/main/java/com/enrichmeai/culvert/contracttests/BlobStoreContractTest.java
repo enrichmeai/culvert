@@ -29,6 +29,32 @@ public abstract class BlobStoreContractTest {
         assertThat(data).isEqualTo("hello".getBytes());
     }
 
+    /**
+     * {@code openInput} streams the known object's bytes. Subclasses whose fake client must be told
+     * the content stub its streaming read too (a GCS {@code ReadChannel}, an S3 {@code getObject}),
+     * not only the whole-object read {@code get} uses. Python: {@code test_open_input_known_streams_the_bytes}.
+     */
+    @Test
+    void openInputKnownStreamsTheBytes() throws java.io.IOException {
+        try (java.io.InputStream in = store().openInput(knownUri())) {
+            assertThat(in).as("openInput's stream").isNotNull();
+            assertThat(in.readAllBytes()).isEqualTo("hello".getBytes());
+        }
+    }
+
+    /**
+     * A missing object fails when it is opened, the way {@code get} does: not with a null stream,
+     * and not later, on the first read. Python: {@code test_open_input_missing_fails_as_get_does}.
+     */
+    @Test
+    void openInputMissingFailsAsGetDoes() {
+        assertThatThrownBy(() -> store().openInput(missingUri()))
+                .satisfiesAnyOf(
+                        t -> assertThat(t).isInstanceOf(java.io.UncheckedIOException.class)
+                                .hasCauseInstanceOf(java.io.FileNotFoundException.class),
+                        t -> assertThat(t).isInstanceOf(java.io.FileNotFoundException.class));
+    }
+
     @Test
     void existsKnownTrue() {
         assertThat(store().exists(knownUri())).isTrue();
