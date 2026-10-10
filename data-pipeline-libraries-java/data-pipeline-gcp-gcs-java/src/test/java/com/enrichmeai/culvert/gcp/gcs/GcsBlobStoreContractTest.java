@@ -55,8 +55,12 @@ class GcsBlobStoreContractTest extends BlobStoreContractTest {
         when(knownBlob.getEtag()).thenReturn("CKih16bqlPUCEAE=");
         when(knownBlob.getUpdateTimeOffsetDateTime())
                 .thenReturn(java.time.OffsetDateTime.parse("2026-09-16T20:39:30Z"));
-        // openInput streams through the blob's ReadChannel: "hello", then end of stream.
-        when(knownBlob.reader()).thenAnswer(invocation -> helloChannel());
+        // openInput streams through a ReadChannel pinned to the generation get() reported:
+        // "hello", then end of stream.
+        when(knownBlob.getGeneration()).thenReturn(1_726_500_000_123_456L);
+        when(storage.reader(BlobId.of(BUCKET, KNOWN_OBJECT),
+                Storage.BlobSourceOption.generationMatch(1_726_500_000_123_456L)))
+                .thenAnswer(invocation -> helloChannel());
         when(storage.get(BlobId.of(BUCKET, KNOWN_OBJECT))).thenReturn(knownBlob);
 
         // Missing blob — client returns null (GcsBlobStore maps this to UncheckedIOException).

@@ -91,6 +91,18 @@ public final class GcsBlobStore implements BlobStore, AutoCloseable {
         return blob.getContent();
     }
 
+    /**
+     * Stream the object at {@code uri}, a chunk at a time.
+     *
+     * <p>One metadata read first: it turns a missing object into {@link java.io.FileNotFoundException}
+     * here, as the contract asks, rather than at the first read, and it records the object's
+     * generation. Every request the stream makes carries {@code ifGenerationMatch} for that
+     * generation, so an object replaced while it is being read fails (GCS documents a 412) rather
+     * than mixing two versions in one stream. Python's {@code GcsBlobStore.open_input} does the same.
+     *
+     * @throws IllegalStateException if GCS reports no generation (or zero) for the object, rather
+     *     than reading it without the precondition
+     */
     @Override
     public InputStream openInput(String uri) {
         BlobId id = parse(uri);
@@ -99,7 +111,13 @@ public final class GcsBlobStore implements BlobStore, AutoCloseable {
             throw new UncheckedIOException(
                     new java.io.FileNotFoundException("Object not found: " + uri));
         }
-        ReadChannel reader = blob.reader();
+        Long generation = blob.getGeneration();
+        if (generation == null || generation <= 0) {
+            // Without a generation there is nothing to pin to: refuse rather than read unpinned. A
+            // real object's generation is positive; ifGenerationMatch=0 means "only if absent".
+            throw new IllegalStateException("GCS reported no generation for " + uri + "; refusing an unpinned read");
+        }
+        ReadChannel reader = client.reader(id, Storage.BlobSourceOption.generationMatch(generation));
         return Channels.newInputStream(reader);
     }
 
