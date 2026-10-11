@@ -1,6 +1,6 @@
 # data-pipeline-core (Java)
 
-The cloud-neutral kernel of the Culvert data pipeline framework, Java edition. Sibling of the Python `data-pipeline-core` package; same contracts, JVM language. Zero dependencies on `google.cloud.*`, `software.amazon.awssdk.*`, or `com.azure.*`.
+The cloud-neutral kernel of the Culvert data pipeline framework, Java edition. Sibling of the Python `data-pipeline-core` package; same contracts, JVM language. Zero dependencies on `google.cloud.*`, `software.amazon.awssdk.*`, or `com.azure.*`; its only runtime dependencies are the SLF4J API and SnakeYAML (for entity schema files, `EntitySchemas`).
 
 ## Status
 

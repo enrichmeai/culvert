@@ -1,0 +1,10 @@
+# The layout of the Generic sample's accounts extract (see customers.schema.yaml).
+entity: accounts
+headers: [account_id, customer_id, account_type, balance, status, open_date]
+fields:
+  - {name: account_id, type: STRING, required: true}
+  - {name: customer_id, type: STRING, required: true}
+  - {name: account_type, type: STRING}
+  - {name: balance, type: NUMERIC}
+  - {name: status, type: STRING}
+  - {name: open_date, type: DATE}

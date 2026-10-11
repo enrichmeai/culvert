@@ -1,6 +1,8 @@
 package com.enrichmeai.culvert.deployments.ingestion.schema;
 
 import com.enrichmeai.culvert.schema.EntitySchema;
+import com.enrichmeai.culvert.schema.EntitySchemaFile;
+import com.enrichmeai.culvert.schema.EnvelopeSettings;
 import com.enrichmeai.culvert.schema.SchemaField;
 
 import java.util.List;
@@ -29,7 +31,7 @@ import java.util.Map;
  * is a genuine behavioural gap versus the Python original, not an oversight;
  * closing it requires either a Culvert core change (out of T20.5 scope) or a
  * bespoke enum-check stage layered on top of {@code DataQualityTransform}. See
- * README "Known gaps vs the Python reference".
+ * README "Known gaps".
  *
  * <p>Wire-type mapping: Culvert's {@code DataQualityTransform} only type-checks
  * {@code STRING/INT64/FLOAT64/BOOL} (see
@@ -126,5 +128,13 @@ public final class GenericEntities {
 
     public static boolean isKnownEntity(String entity) {
         return SCHEMAS.containsKey(entity);
+    }
+
+    /**
+     * The built-in entity as the layout a schema file would give: its schema, its headers, and the
+     * default envelope. {@code schemas/<entity>.schema.yaml} describes the same layout.
+     */
+    public static EntitySchemaFile layoutFor(String entity) {
+        return new EntitySchemaFile(schemaFor(entity), headersFor(entity), EnvelopeSettings.defaults());
     }
 }

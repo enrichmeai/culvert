@@ -37,6 +37,8 @@ classifiers = [
 ]
 dependencies = [
     "typing-extensions>=4.7",
+    # Entity schema files (data_pipeline_core.schema.files): a product's layout as YAML or JSON.
+    "PyYAML>=6.0",
 ]
 
 [project.urls]

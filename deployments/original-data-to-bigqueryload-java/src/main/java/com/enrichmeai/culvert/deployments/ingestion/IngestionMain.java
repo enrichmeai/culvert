@@ -10,6 +10,8 @@ import com.enrichmeai.culvert.gcp.bigquery.BigQueryWarehouse;
 import com.enrichmeai.culvert.gcp.dataflow.DataflowPipeline;
 import com.enrichmeai.culvert.gcp.gcs.GcsBlobStore;
 import com.enrichmeai.culvert.runtime.DefaultRuntimeContext;
+import com.enrichmeai.culvert.schema.EntitySchemaFile;
+import com.enrichmeai.culvert.schema.EntitySchemas;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.BigQueryOptions;
 import org.apache.beam.runners.dataflow.options.DataflowPipelineOptions;
@@ -41,7 +43,10 @@ import java.util.UUID;
  *
  * <h2>Args</h2>
  * <pre>
- *   --entity=customers|accounts|decision|applications   (required)
+ *   --entity=customers|accounts|decision|applications   (required without --schemaUri)
+ *   --schemaUri=gs://bucket/schemas/orders.schema.yaml   (optional; or a local path)
+ *       The entity's layout, from a schema file (see EntitySchemas and the README). With it,
+ *       any entity loads, and --entity is only a label for the run (default: the file's entity).
  *   --sourceUri=gs://bucket/path/to/file.csv             (required)
  *   --extractDate=yyyyMMdd                               (required)
  *   --project=my-gcp-project                             (required)
@@ -84,7 +89,10 @@ public final class IngestionMain {
     public static void main(String[] args) {
         Map<String, String> argMap = parseArgs(args);
 
-        String entity = require(argMap, "entity");
+        String schemaUri = argMap.get("schemaUri");
+        if (schemaUri == null) {
+            require(argMap, "entity");   // fail on a missing argument before any cloud client is built
+        }
         String sourceUri = require(argMap, "sourceUri");
         String extractDate = require(argMap, "extractDate");
         String project = require(argMap, "project");
@@ -93,7 +101,6 @@ public final class IngestionMain {
         String errorPathPrefix = require(argMap, "errorPathPrefix");
         String jobControlDataset = argMap.getOrDefault("jobControlDataset", "job_control");
         String jobControlTable = argMap.getOrDefault("jobControlTable", "pipeline_jobs");
-        String runId = argMap.getOrDefault("runId", "generic-" + entity + "-" + UUID.randomUUID());
         String runner = argMap.getOrDefault("runner", "DirectRunner");
         String cloud = normalizeCloud(argMap.getOrDefault("cloud", "gcp"));
 
@@ -125,6 +132,11 @@ public final class IngestionMain {
                     new BigQueryJobControlRepository(bigQuery, project, jobControlDataset, jobControlTable);
         }
 
+        EntityArgs entityArgs = entityArgs(argMap, blobStore);
+        String entity = entityArgs.entity();
+        String schemaText = entityArgs.schemaText();
+        String runId = argMap.getOrDefault("runId", "generic-" + entity + "-" + UUID.randomUUID());
+
         RuntimeContext context = DefaultRuntimeContext.builder(runId, argMap.getOrDefault("environment", "dev"))
                 .config(Map.of("entity", entity, "project", project))
                 .register(BlobStore.class, blobStore)
@@ -132,8 +144,8 @@ public final class IngestionMain {
                 .register(JobControlRepository.class, jobControlRepository)
                 .build();
 
-        IngestionStage stage = new IngestionStage(
-                runId, entity, sourceUri, extractDate, targetTable, stagingPathPrefix, errorPathPrefix);
+        IngestionStage stage = new IngestionStage(runId, entity, sourceUri, extractDate, targetTable,
+                stagingPathPrefix, errorPathPrefix, schemaUri, schemaText);
         DataflowPipeline pipeline = IngestionPipelines.of(stage);
         pipeline.validate();
 
@@ -147,6 +159,27 @@ public final class IngestionMain {
             org.apache.beam.sdk.Pipeline beam = pipeline.buildBeam(options, context);
             beam.run().waitUntilFinish();
         }
+    }
+
+    /** The run's entity label and, with {@code --schemaUri}, the schema file's text. */
+    record EntityArgs(String entity, String schemaText) {
+    }
+
+    /**
+     * Resolve {@code --entity} and {@code --schemaUri}. A schema file is read and validated here,
+     * before anything runs, and its text travels with the stage: a Dataflow worker cannot read a
+     * local path the launcher could. With a file, {@code --entity} defaults to the file's entity.
+     *
+     * <p>Package-private so it is testable without a cloud.
+     */
+    static EntityArgs entityArgs(Map<String, String> argMap, BlobStore blobStore) {
+        String schemaUri = argMap.get("schemaUri");
+        if (schemaUri == null) {
+            return new EntityArgs(require(argMap, "entity"), null);
+        }
+        String schemaText = EntitySchemas.read(schemaUri, blobStore);
+        EntitySchemaFile layout = IngestionRunner.checkLayout(EntitySchemas.parse(schemaText, schemaUri), schemaUri);
+        return new EntityArgs(argMap.getOrDefault("entity", layout.schema().name()), schemaText);
     }
 
     /**

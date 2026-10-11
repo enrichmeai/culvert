@@ -146,6 +146,10 @@
              it. Same version-skew failure mode as review finding #11. -->
         <bytebuddy.version>1.17.7</bytebuddy.version>
         <slf4j.version>2.0.13</slf4j.version>
+        <!-- data-pipeline-core's entity schema files (EntitySchemas). SnakeYAML 2.x has
+             no dependencies of its own and constructs only plain maps, lists and
+             scalars by default (no arbitrary classes). -->
+        <snakeyaml.version>2.3</snakeyaml.version>
         <assertj.version>3.25.3</assertj.version>
         <!-- Sprint-10: Testcontainers for emulator integration tests. -->
         <testcontainers.version>1.19.8</testcontainers.version>
@@ -164,6 +168,11 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.yaml</groupId>
+                <artifactId>snakeyaml</artifactId>
+                <version>${snakeyaml.version}</version>
+            </dependency>
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>

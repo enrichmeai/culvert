@@ -87,7 +87,7 @@ contract-test bases, WireMock UAT, AWS/Azure skeletons, book v1.
 ## 4. Verified module dependency graph
 
 ```
-                    data-pipeline-core   (zero deps — cloud-neutral kernel)
+                    data-pipeline-core   (cloud-neutral kernel; no cloud SDKs, only a YAML parser)
                           ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
    ┌────────┬───────┬─────┼─┼─┼─┼─┼─┼─┼─┼─┼────┬────────┬─────────┐
  bigquery  gcs  pubsub secrets observ. orchestration aws-s3 azure-blob

@@ -1,6 +1,6 @@
 # data-pipeline-core
 
-The cloud-neutral kernel of the Culvert data pipeline framework. Contains the framework's contracts (Python Protocols), the dataclass/enum/TypedDict types those contracts reference, and nothing else. Zero dependencies on `google.cloud.*`, `boto3`, or `azure.*`.
+The cloud-neutral kernel of the Culvert data pipeline framework. Contains the framework's contracts (Python Protocols), the dataclass/enum/TypedDict types those contracts reference, and the entity schema file loader (`data_pipeline_core.schema.load_entity_schema`). Zero dependencies on `google.cloud.*`, `boto3`, or `azure.*`; its only dependencies are `typing-extensions` and PyYAML.
 
 ## Status
 

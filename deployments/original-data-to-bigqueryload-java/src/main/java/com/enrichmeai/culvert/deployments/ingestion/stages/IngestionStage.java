@@ -49,7 +49,10 @@ public final class IngestionStage implements PipelineStage, Serializable {
     private final String targetTable;
     private final String stagingPathPrefix;
     private final String errorPathPrefix;
+    private final String schemaUri;
+    private final String schemaText;
 
+    /** A stage for one of the built-in entities. */
     public IngestionStage(
             String runId,
             String entity,
@@ -58,6 +61,24 @@ public final class IngestionStage implements PipelineStage, Serializable {
             String targetTable,
             String stagingPathPrefix,
             String errorPathPrefix) {
+        this(runId, entity, sourceUri, extractDate, targetTable, stagingPathPrefix, errorPathPrefix, null, null);
+    }
+
+    /**
+     * A stage whose layout comes from a schema file. {@code schemaText} is the file's text, read by
+     * the launcher and shipped with the stage, so a worker never has to reach {@code schemaUri}
+     * (a local path, say); {@code schemaUri} then only names it in messages.
+     */
+    public IngestionStage(
+            String runId,
+            String entity,
+            String sourceUri,
+            String extractDate,
+            String targetTable,
+            String stagingPathPrefix,
+            String errorPathPrefix,
+            String schemaUri,
+            String schemaText) {
         this.runId = Objects.requireNonNull(runId, "runId must not be null");
         this.entity = Objects.requireNonNull(entity, "entity must not be null");
         this.sourceUri = Objects.requireNonNull(sourceUri, "sourceUri must not be null");
@@ -66,6 +87,8 @@ public final class IngestionStage implements PipelineStage, Serializable {
         this.stagingPathPrefix =
                 Objects.requireNonNull(stagingPathPrefix, "stagingPathPrefix must not be null");
         this.errorPathPrefix = Objects.requireNonNull(errorPathPrefix, "errorPathPrefix must not be null");
+        this.schemaUri = schemaUri;
+        this.schemaText = schemaText;
     }
 
     @Override
@@ -93,7 +116,7 @@ public final class IngestionStage implements PipelineStage, Serializable {
                 blobStore, warehouse, jobControlRepository, stagingPathPrefix, errorPathPrefix);
 
         IngestionResult result = runner.run(
-                new IngestionRequest(runId, entity, sourceUri, extractDate, targetTable));
+                new IngestionRequest(runId, entity, sourceUri, extractDate, targetTable, schemaUri, schemaText));
         lastResult = result;
     }
 

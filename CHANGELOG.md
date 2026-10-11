@@ -35,6 +35,27 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **Entity schema files: an ODP's layout as configuration, not code.** One YAML (or JSON)
+  file describes one entity: its name, its column headers in order, and one entry per field
+  (`name`, `type`, `required`, and the `SchemaField` attributes `description`,
+  `classification`, `masking` and `range`), plus HDR/TRL envelope overrides when they differ
+  from the default.
+  - **The loader is in `data-pipeline-core`:** `EntitySchemas.load(uri, store)` in Java,
+    `data_pipeline_core.schema.load_entity_schema(uri, store)` in Python. The format, the rules
+    and the messages are the same in both. A file is refused, naming the file and the entry,
+    for an unknown key or type, a missing required entry, a duplicate field, header or key, a
+    header that names no field, a field with no header, or an invalid classification, masking
+    strategy or range.
+  - **`data-pipeline-core` gains one dependency in each language:** SnakeYAML 2.3 (Java) and
+    PyYAML (Python), so the `culvert` distribution now depends on PyYAML.
+  - **The ODP loader (`original-data-to-bigqueryload-java`) takes `--schemaUri`** (a `gs://`
+    URI or a local path). With it, any entity loads and `--entity` is only a label. Without it,
+    the four built-in sample entities behave as before. Their layouts ship as schema files in
+    `schemas/`, held equal to the built-in ones by a parity test.
+    The launcher reads and checks the file before anything runs and ships its text with the
+    stage, so a Dataflow worker never needs to reach a local path. A field named like one of
+    the loader's audit columns (`_run_id`, `_extract_date`, `_processed_at`) is refused.
+
 - **The Java `BlobStoreContractTest` checks `openInput` too** (#15), as the Python one does: the
   known object streams back its bytes, and a missing one fails when opened, as `get` does. The GCS
   and S3 contract fakes now stub their streaming reads. The Azure `BlobStore` is still a skeleton
