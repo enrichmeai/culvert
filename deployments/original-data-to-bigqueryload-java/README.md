@@ -16,7 +16,73 @@ the envelope count against the loaded count, and records job-control status.
 - `stages/IngestionStage` — the `PipelineStage` wrapper; adapters are fetched
   from the `RuntimeContext` at execute time (registry is rebuilt worker-side —
   see the T10.6 serialization notes in `DefaultRuntimeContext`).
-- `IngestionMain` — launcher (args: source URI, target table, project).
+- `IngestionMain` — launcher (args: source URI, target table, project; `--schemaUri` below).
+- `schema/GenericEntities` — the four built-in sample entities (customers, accounts,
+  decision, applications). `schemas/` holds the same four as schema files.
+
+## Loading your own entity: a schema file
+
+The loader needs no code change for a new original data product. Give it the product's
+layout as a schema file:
+
+```bash
+--schemaUri=gs://my-bucket/schemas/orders.schema.yaml   # or a local path
+```
+
+With `--schemaUri`, the layout comes from that file and `--entity` is only a label for the
+run's job, staging and error paths (it defaults to the file's `entity`). The HDR line must
+still name the file's `entity`: `--entity=orders_eu` with `entity: orders` expects
+`HDR|<system>|orders|…`. Without it, the
+four built-in entities load as before, and any other `--entity` is refused.
+
+```yaml
+# orders.schema.yaml
+entity: orders                      # the entity the HDR line must name
+headers: [order_id, customer_id, quantity, ordered_on]   # the CSV columns, in order
+fields:
+  - {name: order_id, type: STRING, required: true}
+  - {name: customer_id, type: STRING, required: true, classification: confidential, masking: hash}
+  - {name: quantity, type: STRING}
+  - {name: ordered_on, type: DATE}
+envelope:                           # optional: only what differs from the default
+  system_id: Retail                 # the HDR's system id (default: Generic)
+  csv_header_row: true              # a CSV header row after the HDR (default: true)
+```
+
+| Key | Required | What it is |
+|---|---|---|
+| `entity` | yes | The entity name, as the HDR line carries it. |
+| `headers` | yes | The file's columns, in order. Each must name a field. |
+| `fields` | yes | One entry per field: `name` and `type` (STRING, INT64, FLOAT64, BOOL, NUMERIC, BIGNUMERIC, DATE, DATETIME, TIMESTAMP, BYTES, JSON) are required; `required` (default false), `description`, `classification` (public, internal, confidential, restricted), `masking` (a strategy, or `{strategy, replacement, salt}`) and `range` (`{min, max}`) are optional. Every field needs a header. |
+| `version`, `description`, `primary_key`, `partition_key` | no | As on `EntitySchema`. |
+| `envelope` | no | `system_id` and `csv_header_row`, when they differ from the default. |
+
+JSON with the same keys is accepted too. The launcher reads and checks the file before
+anything runs, and ships its text with the stage, so a Dataflow worker never needs to reach
+the path. A file is refused, naming the file and the entry, for an unknown key or type, a
+missing required entry, a duplicate field, header or key, a header that names no field, a
+field with no header, or an invalid classification, masking strategy or range. The loader
+also refuses a field named `_run_id`, `_extract_date` or `_processed_at`: it adds those audit
+columns to every row itself.
+
+The loader is `EntitySchemas` in `data-pipeline-core` (Java) and
+`data_pipeline_core.schema.load_entity_schema` (Python): the same format and the same
+rules. `GenericEntitiesSchemaFileParityTest` holds `schemas/` equal to the built-in layouts.
+
+## Known gaps
+
+These apply to every entity, built-in or from a schema file:
+
+- **A numeric or boolean CSV column quarantines every row.** `DataQualityTransform`
+  checks INT64, FLOAT64 and BOOL fields against Java's number and boolean types, and a CSV
+  cell is always a string, so any non-empty value in such a field is a `TYPE_MISMATCH`
+  (`IngestionRunnerDqQuarantineTest` shows it). Declare those columns STRING for now.
+  NUMERIC, DATE, TIMESTAMP and the other types are not type-checked at all. For the same
+  reason a field's `range` has no effect on a CSV load: it is checked only on numeric values.
+- **An empty cell passes `required: true`.** The CSV parser gives an empty cell as `""`,
+  not as a missing value.
+- **No allowed-values constraint.** The retired Python pipeline rejected, for example,
+  `status` values outside `A`, `I`, `C`; `SchemaField` has no such constraint, so they load.
 
 ## Build & test
 
@@ -34,8 +100,10 @@ mvn -f data-pipeline-libraries-java/pom.xml install -DskipTests
 
 ## Status
 
-Built and unit-tested (in-memory adapters; DirectRunner stage test). Not yet
-exercised against live GCP — that is the deploy-and-test phase gating the 0.1.0
-release (see `docs/framework-evolution/13-python-parity-release.md` §2). The
+Built and unit-tested with in-memory adapters, including whole runs on Beam's DirectRunner.
+The Dataflow path ran against live GCP on 2026-09-08: two runs of the same `customers`
+extract left three rows in `odp_generic.customers`, not six, and both recorded `succeeded`
+in `job_control.pipeline_jobs` (see `IngestionMain`). A schema-file entity has not yet run
+on live GCP. The
 predecessor Python deployment was retired and removed in July 2026 (F1 legacy
 cleanup; it survives in git history).

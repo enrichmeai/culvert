@@ -1,0 +1,12 @@
+# The layout of the Generic sample's customers extract: the same layout as the loader's
+# built-in customers entity (GenericEntities), which GenericEntitiesSchemaFileParityTest checks.
+entity: customers
+headers: [customer_id, first_name, last_name, ssn, dob, status, created_date]
+fields:
+  - {name: customer_id, type: STRING, required: true}
+  - {name: first_name, type: STRING, required: true}
+  - {name: last_name, type: STRING, required: true}
+  - {name: ssn, type: STRING, required: true}
+  - {name: dob, type: DATE, required: true}
+  - {name: status, type: STRING}
+  - {name: created_date, type: DATE}

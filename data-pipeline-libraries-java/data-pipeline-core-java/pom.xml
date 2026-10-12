@@ -30,8 +30,16 @@
         <!--
             Intentionally minimal. The core defines interfaces and value types;
             it does not need a logging implementation, a JSON library, or
-            anything else. Consumers bring their own.
+            anything else. Consumers bring their own. The one exception is
+            SnakeYAML, below.
         -->
+
+        <!-- Entity schema files (EntitySchemas): a product's layout as YAML or JSON.
+             One jar, no transitive dependencies; JSON parses as YAML. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+        </dependency>
 
         <!-- SLF4J API only — no binding. Consumers add their own (Logback,
              JUL adapter, log4j2 adapter, etc.). -->

@@ -1,0 +1,13 @@
+# The layout of the Generic sample's applications extract (see customers.schema.yaml).
+entity: applications
+headers: [application_id, customer_id, loan_amount, interest_rate, term_months, application_date, status, event_type, account_type]
+fields:
+  - {name: application_id, type: STRING, required: true}
+  - {name: customer_id, type: STRING, required: true}
+  - {name: loan_amount, type: FLOAT64}
+  - {name: interest_rate, type: FLOAT64}
+  - {name: term_months, type: INT64}
+  - {name: application_date, type: DATE, required: true}
+  - {name: status, type: STRING, required: true}
+  - {name: event_type, type: STRING}
+  - {name: account_type, type: STRING}

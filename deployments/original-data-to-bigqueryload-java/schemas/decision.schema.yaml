@@ -1,0 +1,11 @@
+# The layout of the Generic sample's decision extract (see customers.schema.yaml).
+entity: decision
+headers: [decision_id, customer_id, application_id, decision_code, decision_date, score, reason_codes]
+fields:
+  - {name: decision_id, type: STRING, required: true}
+  - {name: customer_id, type: STRING, required: true}
+  - {name: application_id, type: STRING}
+  - {name: decision_code, type: STRING, required: true}
+  - {name: decision_date, type: TIMESTAMP, required: true}
+  - {name: score, type: INT64}
+  - {name: reason_codes, type: STRING}

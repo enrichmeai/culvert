@@ -17,6 +17,8 @@ import com.enrichmeai.culvert.jobcontrol.JobStatus;
 import com.enrichmeai.culvert.jobcontrol.JobType;
 import com.enrichmeai.culvert.jobcontrol.PipelineJob;
 import com.enrichmeai.culvert.schema.EntitySchema;
+import com.enrichmeai.culvert.schema.EntitySchemaFile;
+import com.enrichmeai.culvert.schema.EntitySchemas;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
@@ -26,6 +28,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -153,13 +156,14 @@ public final class IngestionRunner {
         String runId = request.runId();
         String entity = request.entity();
 
-        if (!GenericEntities.isKnownEntity(entity)) {
-            throw new IllegalArgumentException("Unknown entity: " + entity);
-        }
+        // Resolved before the job is recorded: an unknown entity or a bad schema file is a
+        // launch error, like a missing argument, not a run that failed.
+        EntitySchemaFile layout = layout(request);
+        String systemId = systemId(layout);
 
         LocalDate extractDate = parseExtractDate(request.extractDate());
-        PipelineJob job = PipelineJob.builder(runId, GenericEntities.SYSTEM_ID,
-                        "generic_" + entity + "_load", extractDate, JobStatus.CREATED)
+        PipelineJob job = PipelineJob.builder(runId, systemId,
+                        systemId.toLowerCase(Locale.ROOT) + "_" + entity + "_load", extractDate, JobStatus.CREATED)
                 .jobType(JobType.INGESTION)
                 .entityType(entity)
                 .sourceFile(request.sourceUri())
@@ -169,7 +173,7 @@ public final class IngestionRunner {
         jobControlRepository.updateStatus(runId, JobStatus.RUNNING, Optional.empty());
 
         try {
-            IngestionResult result = process(request);
+            IngestionResult result = process(request, layout);
             jobControlRepository.updateStatus(runId, JobStatus.SUCCEEDED,
                     Optional.of(result.loadedRowCount()));
             return result;
@@ -192,19 +196,61 @@ public final class IngestionRunner {
         }
     }
 
-    private IngestionResult process(IngestionRequest request) {
+    /**
+     * The entity's layout: from the request's schema file when it names one, else the built-in
+     * entity of that name.
+     */
+    private EntitySchemaFile layout(IngestionRequest request) {
+        if (request.schemaText() != null) {
+            String source = request.schemaUri() != null ? request.schemaUri() : "the schema file";
+            return checkLayout(EntitySchemas.parse(request.schemaText(), source), source);
+        }
+        if (request.schemaUri() != null) {
+            return checkLayout(EntitySchemas.load(request.schemaUri(), blobStore), request.schemaUri());
+        }
+        if (!GenericEntities.isKnownEntity(request.entity())) {
+            throw new IllegalArgumentException("Unknown entity: " + request.entity()
+                    + " (the built-in entities are customers, accounts, decision and applications;"
+                    + " any other needs --schemaUri)");
+        }
+        return GenericEntities.layoutFor(request.entity());
+    }
+
+    /** The audit columns this loader adds to every row; a schema file may not declare them. */
+    static final List<String> AUDIT_COLUMNS = List.of("_run_id", "_extract_date", "_processed_at");
+
+    /**
+     * Refuse a layout that declares one of the {@link #AUDIT_COLUMNS}: the load would carry the
+     * column twice. Package-private so the launcher checks it before anything runs.
+     */
+    static EntitySchemaFile checkLayout(EntitySchemaFile layout, String source) {
+        for (com.enrichmeai.culvert.schema.SchemaField field : layout.schema().fields()) {
+            if (AUDIT_COLUMNS.contains(field.name())) {
+                throw new com.enrichmeai.culvert.schema.SchemaFileException(source + ": field '" + field.name()
+                        + "' is an audit column this loader adds to every row; rename it");
+            }
+        }
+        return layout;
+    }
+
+    private static String systemId(EntitySchemaFile layout) {
+        return layout.envelope().systemId().orElse(GenericEntities.SYSTEM_ID);
+    }
+
+    private IngestionResult process(IngestionRequest request, EntitySchemaFile layout) {
         String runId = request.runId();
         String entity = request.entity();
-        EntitySchema schema = GenericEntities.schemaFor(entity);
-        List<String> headers = GenericEntities.headersFor(entity);
+        EntitySchema schema = layout.schema();
+        List<String> headers = layout.headers();
 
         // 1. Read source file.
         byte[] content = blobStore.get(request.sourceUri());
         List<String> lines = splitLines(new String(content, StandardCharsets.UTF_8));
 
         // 2. Parse + validate the HDR/TRL envelope.
-        EnvelopeParser envelopeParser = EnvelopeParser.withCsvHeaderRow();
-        ParsedEnvelope envelope = envelopeParser.parse(lines, GenericEntities.SYSTEM_ID, entity);
+        //    The HDR names the layout's entity; with a schema file, the request's entity is a label.
+        EnvelopeParser envelopeParser = new EnvelopeParser(layout.envelope().csvHeaderRow().orElse(true));
+        ParsedEnvelope envelope = envelopeParser.parse(lines, systemId(layout), schema.name());
 
         // 3. Parse CSV data lines (skip the leading CSV header row, mirrors
         //    ParseAndValidateRecordDoFn.process skipping a line that matches headers).
@@ -392,6 +438,7 @@ public final class IngestionRunner {
      */
     private static EntitySchema withAuditColumns(EntitySchema schema) {
         List<com.enrichmeai.culvert.schema.SchemaField> fields = new ArrayList<>(schema.fields());
+        // The names are AUDIT_COLUMNS; checkLayout keeps a schema file from declaring them.
         fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_run_id", "STRING"));
         fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_extract_date", "DATE"));
         fields.add(com.enrichmeai.culvert.schema.SchemaField.nullable("_processed_at", "TIMESTAMP"));
