@@ -44,13 +44,21 @@ sprint. Outside a sprint, the loop is the default.
 | `.claude/hooks/**`, `.claude/settings.json` | `.claude/hooks/test-hooks.sh` (add a case for every new guard, and prove it RED first) |
 | `*IT.java`, `mvn -P it verify` | needs Docker, so Joseph or CI runs it. Say it did not run |
 
-**Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`)** send errors straight back to you:
-- **After each edit:** a syntax check and `flake8` for an edited Python file, and a syntax check for JSON
-  and YAML files. Java is compiled once per turn instead, because that is too slow to do on every edit.
-- **When the turn ends:** `test-compile` for every reactor module whose Java or `pom.xml` this
-  branch touches, and the offline unit tests of every Python package listed in
-  `.claude/hooks/fast-pytest.txt` that changed. The hook is skipped when nothing changed since the last
-  clean run. It blocks the stop at most once. Opt out with `CLAUDE_SKIP_STOP_COMPILE=1`.
+**Hooks (`.claude/settings.json`, scripts in `.claude/hooks/`)** send errors straight back to you. A
+rule that matters goes in a hook: CLAUDE.md is advisory, a hook runs every time.
+- **Before a Read or a `cat`:** `read-gate.sh` refuses a whole read of a text file over 350 lines (a Read
+  with neither `offset` nor `limit`, or a bare `cat <file>`) and says to read a slice or `grep -n` first.
+  Slices, small files, binaries and piped `cat` pass. The `cat` match is best-effort (one file, nothing chained). Off with `CLAUDE_SKIP_READ_GATE=1`; the limit is
+  `CLAUDE_READ_GATE_LINES`.
+- **After each edit:** `post-edit-check.sh` sends back a syntax error and `flake8` for an edited Python file, and
+  a syntax error in an edited shell script, JSON, YAML (when PyYAML is installed) or `pom.xml` file. Java is compiled once per turn
+  instead, because that is too slow to do on every edit. It cannot be turned off; it checks only the edited file.
+- **When the turn ends:** `stop-fast-gates.sh` runs `test-compile` for every reactor module whose Java or
+  `pom.xml` this branch touches, the offline unit tests of every Python package listed in
+  `.claude/hooks/fast-pytest.txt` that changed, and `.claude/hooks/test-hooks.sh` when a hook or
+  `settings.json` changed. It is skipped when nothing changed since the last clean run and blocks the stop
+  at most once. A gate whose tool or dependencies are missing is reported as **not run**, never as passed.
+  Opt out with `CLAUDE_SKIP_STOP_COMPILE=1`.
 - **Before a Bash command:** `guard-destructive.sh` forces an approval prompt, even when an allow
   rule matches, for:
   - force pushes, any push to `main`, and ref/tag deletion;
@@ -59,11 +67,15 @@ sprint. Outside a sprint, the loop is the default.
   - `gcloud`, `gsutil`, `bq`, `kubectl`, `helm install|upgrade|uninstall`, `terraform apply|destroy`, and the `scripts/gcp/` scripts;
   - `reset --hard`, `clean -f` and recursive `rm`.
   - `git commit -s` / `--signoff`: a DCO sign-off is a person's certification, never Claude's.
+  - `psql`, `pg_restore`, `dropdb`, `liquibase` and destructive SQL (`DROP`, `TRUNCATE`, `DELETE FROM`) outside a search;
+  - the `aws` and `az` CLIs;
+  - a `gh api` call that writes: `-X`/`--method` other than GET, a field (`-f`/`-F`) or `--input`, or a GraphQL mutation.
 
-  The cases are pinned in `.claude/hooks/test-hooks.sh`.
+  It never denies, it only asks, and it cannot be turned off. The cases are pinned in `.claude/hooks/test-hooks.sh`.
 
 **Agents and models.** `reviewer` and `groomer` run on **Sonnet** to save usage. Keep Opus for
-design and debugging.
+design and debugging. Run `reviewer` (read-only) before every commit. Never hand file reads or code
+writing to a cheaper model: "verify before you write" needs the author to read the source itself.
 
 **Where things for Joseph go.** Anything that needs Joseph (a merge, a release, a key, a ruling, a GCP
 run) goes on the PR or issue it belongs to. `/groom` lists it in the Joseph queue of the Release

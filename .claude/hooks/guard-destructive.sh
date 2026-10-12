@@ -46,6 +46,27 @@ check "${P}mvnw?[^|;&]*[[:space:]]-P[[:space:]]*[^[:space:]]*\bit\b" 'mvn -P it 
 check "${P}(twine[[:space:]]+upload|hatch[[:space:]]+publish|flit[[:space:]]+publish|poetry[[:space:]]+publish|uv[[:space:]]+publish)" 'publish to PyPI'
 check "${P}gh[[:space:]]+(release|pr[[:space:]]+merge|repo[[:space:]]+(delete|edit|archive|rename)|workflow[[:space:]]+(run|enable|disable)|secret|variable|api[^|;&]*(-X|--method)[[:space:]=]*(DELETE|PUT|PATCH|POST))" 'GitHub merge, admin, release or dispatch'
 check "${P}pip3?[[:space:]]+install[^|;&]*(git\+|https?://|[[:space:]]-i[[:space:]]|--index-url|--extra-index-url)" 'pip install from a URL or another index'
+# #251, ported from enrichmeai.github.io: direct database clients and destructive SQL. The control
+# plane's Cloud SQL and the deployments' PostgreSQL are real data.
+check "${P}(psql|pg_restore|dropdb|liquibase)([[:space:]]|$)" 'direct database client'
+# Not when the command only searches for the words (grep, rg, git log/grep/show/diff).
+if [ -z "$reason" ] && ! printf '%s' "$cmd" | grep -Eq '^[[:space:]]*(grep|rg|egrep|git[[:space:]]+(log|grep|show|diff))[[:space:]]'; then
+  check '(drop[[:space:]]+(table|schema|database|view|index)|truncate[[:space:]]+(table[[:space:]]+)?[a-z_"]|delete[[:space:]]+from[[:space:]])' 'destructive SQL'
+fi
+# #251: the AWS and Azure adapters reach real accounts through these CLIs, as gcloud does for GCP.
+check "${P}(aws|az)([[:space:]]|$)" 'aws/az CLI (cloud account access)'
+# #251: `gh api` is a POST as soon as it carries a field (-f/-F/--field/--raw-field) or --input, with
+# no -X (docs: cli.github.com/manual/gh_api). An explicit -X/--method GET stays a read, and so does a
+# GraphQL query; a GraphQL mutation writes.
+if [ -z "$reason" ] && printf '%s' "$cmd" | grep -Eq "${P}gh[[:space:]]+api[[:space:]]" \
+   && printf '%s' "$cmd" | grep -Eq -- 'gh[[:space:]]+api[^|;&]*[[:space:]](-f|-F|--field|--raw-field|--input)([[:space:]=]|$)' \
+   && ! printf '%s' "$cmd" | grep -Eiq -- '(-X|--method)[[:space:]=]*GET([[:space:]]|$)'; then
+  if printf '%s' "$cmd" | grep -Eq "gh[[:space:]]+api[[:space:]]+graphql([[:space:]]|$)"; then
+    printf '%s' "$cmd" | grep -Eiq 'mutation' && reason='GitHub API write (GraphQL mutation)'
+  else
+    reason='GitHub API write (a field or --input makes gh api a POST)'
+  fi
+fi
 
 # DCO: a Signed-off-by certifies the Developer Certificate of Origin, which only a person can do
 # (CONTRIBUTING.md). Case-sensitive on purpose: -S is GPG signing, which is fine. 2026-09-26: Claude
