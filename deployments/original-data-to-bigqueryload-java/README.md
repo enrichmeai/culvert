@@ -79,10 +79,13 @@ BOOL is read as a number or a boolean (`CsvCellTypes`, #253):
 | INT64 | a whole number that fits in 64 bits (`720`, `-3`) | a number |
 | FLOAT64 | a finite decimal number, optionally with an exponent (`25000.50`, `6.02E23`) | a number |
 | BOOL | `true` or `false`, in any case | a boolean |
-| any of the three | empty | NULL: a required field is quarantined as `MISSING_REQUIRED` |
+| any of the three | empty, or only whitespace (non-breaking spaces included) | NULL: a required field is quarantined as `MISSING_REQUIRED` |
 | any of the three | anything else (`abc`, `7.0` for INT64, `NaN`, `yes`) | quarantined as a `TYPE_MISMATCH` naming the value |
 
-A field's `range` is checked on those numbers. Cells of every other type load as the text they are.
+A field's `range` is checked on those numbers. Cells of every other type load as the text they are,
+except that a blank cell (empty, or only whitespace, non-breaking spaces included) in a
+`required: true` field of any type is missing,
+so the row is quarantined as `MISSING_REQUIRED` (#255).
 This is stricter than the retired Python pipeline, which accepted thousands separators (`1,000`) and
 `1`, `0`, `yes` and `no` as booleans; here those are quarantined.
 
@@ -92,9 +95,9 @@ These apply to every entity, built-in or from a schema file:
 
 - **NUMERIC, DATE, TIMESTAMP and the other types are not checked by the loader.** Only
   STRING, INT64, FLOAT64 and BOOL are type-checked; the rest load as text.
-- **An empty cell in a column of any other type passes `required: true`.** The CSV parser
-  gives an empty cell as `""`, not as a missing value; only the three typed columns above
-  read it as missing.
+- **A blank cell in an optional column of any other type loads as `""`, not NULL.** The CSV
+  parser gives an empty cell as `""`. A blank cell is missing only in a required field, and
+  NULL in an optional INT64, FLOAT64 or BOOL column.
 - **No allowed-values constraint.** The retired Python pipeline rejected, for example,
   `status` values outside `A`, `I`, `C`; `SchemaField` has no such constraint, so they load.
 

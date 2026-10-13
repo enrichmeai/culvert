@@ -98,6 +98,43 @@ class CsvCellTypesTest {
         assertThat(raw).containsEntry("score", "720"); // the input is not changed
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"STRING", "DATE", "TIMESTAMP", "NUMERIC", "INT64", "FLOAT64", "BOOL"})
+    void aBlankCellInARequiredFieldOfAnyTypeIsMissing(String type) {
+        // #255: the retired Python SchemaValidator treated value.strip() == "" as missing too.
+        EntitySchema schema = EntitySchema.of("e", List.of(
+                SchemaField.required("a", type), SchemaField.required("b", type),
+                SchemaField.required("c", type)));
+        Map<String, Object> raw = new LinkedHashMap<>();
+        raw.put("a", "");
+        raw.put("b", "  ");
+        raw.put("c", "\u00A0\t\u202F"); // non-breaking spaces count, as Python's strip() does
+
+        Map<String, Object> typed = CsvCellTypes.typed(raw, schema);
+
+        assertThat(typed).containsEntry("a", null).containsEntry("b", null).containsEntry("c", null);
+    }
+
+    @Test
+    void aCellOfNonBreakingSpacesInATypedColumnIsMissing() {
+        assertThat(CsvCellTypes.cell("INT64", "\u00A0")).isNull();
+        assertThat(CsvCellTypes.blank("\u2007 ")).isTrue();
+        assertThat(CsvCellTypes.blank(" x ")).isFalse();
+    }
+
+    @Test
+    void aBlankOptionalStringCellIsStillEmptyText() {
+        EntitySchema schema = EntitySchema.of("e", List.of(
+                SchemaField.nullable("note", "STRING"), SchemaField.required("id", "STRING")));
+        Map<String, Object> raw = new LinkedHashMap<>();
+        raw.put("note", "");
+        raw.put("id", " x ");
+
+        assertThat(CsvCellTypes.typed(raw, schema))
+                .containsEntry("note", "")
+                .containsEntry("id", " x "); // a required value with text is unchanged, spaces included
+    }
+
     @Test
     void aNonStringValueIsLeftAlone() {
         Map<String, Object> raw = new HashMap<>();

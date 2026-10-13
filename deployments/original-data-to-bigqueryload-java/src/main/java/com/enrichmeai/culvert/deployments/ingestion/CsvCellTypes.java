@@ -34,6 +34,12 @@ import java.util.regex.Pattern;
  * fails as MISSING_REQUIRED. Anything else is left as the text it was, so the
  * validator reports the TYPE_MISMATCH with the value. Every other declared
  * type is left unchanged.
+ *
+ * <p>A blank cell (empty, or only whitespace, non-breaking spaces included)
+ * in a {@code REQUIRED} field is missing whatever the field's type (#255), so
+ * it fails as MISSING_REQUIRED instead of loading as {@code ""}; the retired
+ * Python {@code SchemaValidator} treated it the same way. A blank cell in an
+ * optional field of another type still loads as {@code ""}.
  */
 final class CsvCellTypes {
 
@@ -44,15 +50,28 @@ final class CsvCellTypes {
     private CsvCellTypes() {
     }
 
-    /** A copy of {@code row} with each cell of a declared INT64, FLOAT64 or BOOL column converted. */
+    /**
+     * A copy of {@code row} with each cell of a declared INT64, FLOAT64 or BOOL column converted,
+     * and a blank cell in a required field made missing.
+     */
     static Map<String, Object> typed(Map<String, Object> row, EntitySchema schema) {
         Map<String, Object> out = new LinkedHashMap<>(row);
         for (SchemaField field : schema.fields()) {
             if (out.containsKey(field.name())) {
-                out.put(field.name(), cell(field.type(), out.get(field.name())));
+                Object raw = out.get(field.name());
+                boolean blankRequired = "REQUIRED".equals(field.mode()) && raw instanceof String s && blank(s);
+                out.put(field.name(), blankRequired ? null : cell(field.type(), raw));
             }
         }
         return out;
+    }
+
+    /**
+     * Empty, or only whitespace. Non-breaking spaces count, as they do for Python's
+     * {@code str.strip()}; Java's {@code isBlank} and {@code strip} skip them.
+     */
+    static boolean blank(String text) {
+        return text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c));
     }
 
     /** One cell: the converted value, {@code null} for an empty cell, or {@code raw} unchanged. */
@@ -63,10 +82,10 @@ final class CsvCellTypes {
         if (!"INT64".equals(type) && !"FLOAT64".equals(type) && !"BOOL".equals(type)) {
             return raw;
         }
-        String value = text.strip();
-        if (value.isEmpty()) {
+        if (blank(text)) {
             return null;
         }
+        String value = text.strip();
         switch (type) {
             case "INT64":
                 if (INT64.matcher(value).matches()) {

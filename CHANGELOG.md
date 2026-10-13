@@ -15,6 +15,17 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   (fake-gcs-server) ignores the precondition.
 
 ### Fixed
+- **The ODP loader loaded a blank cell in a required field as `""`** (#255) unless the field
+  was INT64, FLOAT64 or BOOL. A `customers` row with no `ssn` or `dob`, both required, loaded.
+  A blank cell (empty, or only whitespace, non-breaking spaces included) in a `required: true`
+  field of any type is now missing, so the row is quarantined as `MISSING_REQUIRED`, as the
+  retired Python pipeline did. A blank cell in an optional field of another type still loads
+  as `""`. **Rows that loaded before can now be quarantined** in the built-in entities' required
+  fields: customers (`customer_id`, `first_name`, `last_name`, `ssn`, `dob`), accounts
+  (`account_id`, `customer_id`), decision (`decision_id`, `customer_id`, `decision_code`,
+  `decision_date`) and applications (`application_id`, `customer_id`, `application_date`,
+  `status`), and in any schema file's required fields. A cell of non-breaking spaces only in an
+  optional INT64, FLOAT64 or BOOL column is now NULL rather than a `TYPE_MISMATCH`.
 - **The ODP loader quarantined every row with a value in an INT64, FLOAT64 or BOOL column**
   (#253). A CSV cell is text and validation checks those types against Java's number and
   boolean types, so `720` in the `decision` sample's `score` was a `TYPE_MISMATCH`, and so
