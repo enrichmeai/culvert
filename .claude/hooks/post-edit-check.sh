@@ -25,6 +25,10 @@ case "$rel" in
       if ! o=$(cd "$root" && flake8 "$rel" 2>&1); then out+=$'flake8 (.flake8):\n'"$o"$'\n'; fail=1; fi
     fi
     ;;
+  *.sh)
+    # #251: the hooks themselves and the scripts/ tree are bash; a syntax error is caught on the edit.
+    if ! o=$(bash -n "$file" 2>&1); then out+=$'bash syntax:\n'"$o"$'\n'; fail=1; fi
+    ;;
   *.json)
     if ! o=$(jq empty "$file" 2>&1); then out+=$'invalid JSON:\n'"$o"$'\n'; fail=1; fi
     ;;

