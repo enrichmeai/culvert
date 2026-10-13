@@ -144,6 +144,29 @@ class IngestionRunnerDqQuarantineTest {
         assertThat(quarantined("run-dq-7")).contains("\"field\":\"active\"").contains("\"active\":\"yes\"");
     }
 
+    @Test
+    void aBlankRequiredStringIsQuarantinedAsMissing() {
+        // #255: customers.ssn and customers.dob are required; a blank cell used to load as "".
+        String header = "customer_id,first_name,last_name,ssn,dob,status,created_date";
+        String uri = "gs://landing/generic/customers/generic_customers_20260601.csv";
+        blobStore.seed(uri, EnvelopeFixtures.buildFileBytes("Generic", "customers", "20260601", header,
+                List.of("c-1,Ada,Lovelace,,1815-12-10,A,2020-01-01",
+                        "c-2,Alan,Turing,123-45-6789,  ,A,2020-01-01",
+                        "c-3,Grace,Hopper,987-65-4321,1906-12-09,,")));
+        warehouse.returnRowCount(1);
+
+        IngestionResult result = runner.run(new IngestionRequest(
+                "run-dq-8", "customers", uri, "20260601", "proj.odp_generic.customers"));
+
+        assertThat(result.validRowCount()).isEqualTo(1); // c-3: status and created_date are optional
+        assertThat(result.invalidRowCount()).isEqualTo(2);
+        assertThat(quarantined("run-dq-8"))
+                .contains("\"field\":\"ssn\"")
+                .contains("\"field\":\"dob\"")
+                .contains("is REQUIRED but was null or absent");
+        assertThat(staged("customers", "run-dq-8")).contains("\"customer_id\":\"c-3\"").contains("\"status\":\"\"");
+    }
+
     private IngestionResult runDecision(String runId, long loaded, String... rows) {
         blobStore.seed(SOURCE_URI, EnvelopeFixtures.buildFileBytes(
                 "Generic", "decision", "20260601", CSV_HEADER, List.of(rows)));
