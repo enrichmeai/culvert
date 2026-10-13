@@ -42,7 +42,9 @@ import java.util.Map;
  * BigQuery schema ({@code BigQueryWarehouse.mapSqlType} recognises
  * STRING/INT64/FLOAT64/BOOL/DATE/DATETIME/TIMESTAMP/NUMERIC/BIGNUMERIC/BYTES/JSON),
  * but DQ-stage type checking for those extra types is a no-op, same as the
- * INTEGER/NUMERIC/FLOAT/TIMESTAMP fields below.
+ * INTEGER/NUMERIC/FLOAT/TIMESTAMP fields below. A CSV cell in an INT64, FLOAT64
+ * or BOOL field is read as a number or a boolean before that check
+ * ({@code CsvCellTypes}, #253).
  */
 public final class GenericEntities {
 

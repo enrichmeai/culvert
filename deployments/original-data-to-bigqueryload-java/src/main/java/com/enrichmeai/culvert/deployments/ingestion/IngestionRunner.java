@@ -70,7 +70,8 @@ import java.util.function.Function;
  *   <li>Split into lines and parse the HDR/TRL envelope via {@link EnvelopeParser}
  *       (mirrors {@code ValidateFileDoFn} + {@code GenericFileValidator}).</li>
  *   <li>Parse each CSV data line into a field map via {@link CsvRowParser}
- *       (mirrors {@code ParseAndValidateRecordDoFn}'s CSV split).</li>
+ *       (mirrors {@code ParseAndValidateRecordDoFn}'s CSV split), and read each
+ *       INT64, FLOAT64 or BOOL cell as a number or a boolean via {@link CsvCellTypes}.</li>
  *   <li>Schema-validate each row via {@link DataQualityTransform} (mirrors
  *       {@code SchemaValidator} / {@code GenericRecordValidator}).</li>
  *   <li>Quarantine invalid rows (parse errors + schema violations) via
@@ -270,7 +271,8 @@ public final class IngestionRunner {
                 errRecord.put("error", row.error());
                 parseErrors.add(errRecord);
             } else {
-                candidateRows.add(row.fields());
+                // #253: an INT64, FLOAT64 or BOOL cell becomes a number or a boolean before validation.
+                candidateRows.add(CsvCellTypes.typed(row.fields(), schema));
             }
         }
 
