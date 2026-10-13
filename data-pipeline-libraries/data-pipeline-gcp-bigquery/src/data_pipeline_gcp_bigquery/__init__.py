@@ -1,6 +1,6 @@
 """Google Cloud BigQuery adapter for the Culvert data pipeline framework.
 
-Implements the cloud-neutral ``Warehouse``, ``FinOpsSink``, (write-path)
+Implements the cloud-neutral ``Warehouse``, ``FinOpsSink``, ``AuditEventPublisher``, (write-path)
 ``JobControlRepository`` and (``BigQueryTableSink``) ``Sink`` Protocols from
 ``data-pipeline-core`` over
 ``google-cloud-bigquery``.
@@ -8,6 +8,7 @@ Implements the cloud-neutral ``Warehouse``, ``FinOpsSink``, (write-path)
 
 from __future__ import annotations
 
+from data_pipeline_gcp_bigquery.audit_publisher import BigQueryAuditEventPublisher
 from data_pipeline_gcp_bigquery.finops_sink import BigQueryFinOpsSink, FinOpsInsertException
 from data_pipeline_gcp_bigquery.job_control import (
     BigQueryJobControlRepository,
@@ -19,6 +20,7 @@ from data_pipeline_gcp_bigquery.warehouse import BigQueryWarehouse
 __version__ = "0.1.0"
 
 __all__ = [
+    "BigQueryAuditEventPublisher",
     "BigQueryFinOpsSink",
     "BigQueryJobControlRepository",
     "BigQueryTableSink",
