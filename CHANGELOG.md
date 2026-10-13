@@ -60,6 +60,24 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ### Added
 
+- **A BigQuery `AuditEventPublisher` for Python, and the audit contract suite for Python** (#257).
+  - **`data_pipeline_gcp_bigquery.BigQueryAuditEventPublisher(client, project_id,
+    dataset="job_control", table="audit_events")`** writes each `AuditEvent` as one row of
+    `job_control.audit_events`, the ten columns of CONTRACT.md §4. It uses one parameterised
+    `INSERT`, waited on, as the Java publisher does, and `flush()` has nothing to do. It is
+    registered in the `audit` slot, so `discover().audit` finds it; like `BigQueryFinOpsSink`, it
+    needs constructor arguments, so `RuntimeContextImpl.from_auto_config()` skips it with a
+    WARNING and a deployment builds it.
+  - **A failed write is never silent.** A run-level event (`RUN_START`, `RUN_END`,
+    `RECONCILIATION`, `ERROR_RAISED`, `RETRY_ATTEMPTED`) raises, with the BigQuery error as its
+    cause. An aggregate event logs at ERROR with the whole event and returns.
+    `audit_failure_count` counts both. A payload JSON cannot encode (`NaN`, a circular
+    reference) fails the same way.
+  - **`data_pipeline_contract_tests.AuditEventPublisherContract`** mirrors the Java
+    `AuditEventPublisherContractTest` (#209) test for test. The BigQuery publisher and an
+    in-memory reference pass it, and a publisher that swallows a run-level failure fails it.
+  - **Not yet:** as in Java, a failed aggregate is logged, not dead-lettered to a blob.
+
 - **Entity schema files: an ODP's layout as configuration, not code.** One YAML (or JSON)
   file describes one entity: its name, its column headers in order, and one entry per field
   (`name`, `type`, `required`, and the `SchemaField` attributes `description`,

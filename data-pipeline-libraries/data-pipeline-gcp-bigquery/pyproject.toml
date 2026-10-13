@@ -45,6 +45,7 @@ Repository = "https://github.com/enrichmeai/culvert"
 warehouse = "data_pipeline_gcp_bigquery:BigQueryWarehouse"
 finops = "data_pipeline_gcp_bigquery:BigQueryFinOpsSink"
 job_control = "data_pipeline_gcp_bigquery:BigQueryJobControlRepository"
+audit = "data_pipeline_gcp_bigquery:BigQueryAuditEventPublisher"
 
 [tool.setuptools.packages.find]
 where = ["src"]

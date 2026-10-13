@@ -21,6 +21,16 @@ def test_discover_finds_warehouse():
     )
 
 
+def test_discover_finds_the_audit_publisher():
+    """BigQueryAuditEventPublisher must appear in discover().audit (#257)."""
+    from data_pipeline_gcp_bigquery import BigQueryAuditEventPublisher
+
+    cfg = discover()
+    assert BigQueryAuditEventPublisher in cfg.audit, (
+        f"BigQueryAuditEventPublisher not found in discover().audit; got: {cfg.audit}"
+    )
+
+
 def test_discover_finds_finops():
     """BigQueryFinOpsSink must appear in discover().finops."""
     cfg = discover()
