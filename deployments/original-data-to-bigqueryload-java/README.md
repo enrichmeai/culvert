@@ -69,18 +69,32 @@ The loader is `EntitySchemas` in `data-pipeline-core` (Java) and
 `data_pipeline_core.schema.load_entity_schema` (Python): the same format and the same
 rules. `GenericEntitiesSchemaFileParityTest` holds `schemas/` equal to the built-in layouts.
 
+## How a cell is read
+
+A CSV cell is text. Before a row is validated, a cell in a column declared INT64, FLOAT64 or
+BOOL is read as a number or a boolean (`CsvCellTypes`, #253):
+
+| Declared | The cell, spaces around it ignored | Loads as |
+|---|---|---|
+| INT64 | a whole number that fits in 64 bits (`720`, `-3`) | a number |
+| FLOAT64 | a finite decimal number, optionally with an exponent (`25000.50`, `6.02E23`) | a number |
+| BOOL | `true` or `false`, in any case | a boolean |
+| any of the three | empty | NULL: a required field is quarantined as `MISSING_REQUIRED` |
+| any of the three | anything else (`abc`, `7.0` for INT64, `NaN`, `yes`) | quarantined as a `TYPE_MISMATCH` naming the value |
+
+A field's `range` is checked on those numbers. Cells of every other type load as the text they are.
+This is stricter than the retired Python pipeline, which accepted thousands separators (`1,000`) and
+`1`, `0`, `yes` and `no` as booleans; here those are quarantined.
+
 ## Known gaps
 
 These apply to every entity, built-in or from a schema file:
 
-- **A numeric or boolean CSV column quarantines every row.** `DataQualityTransform`
-  checks INT64, FLOAT64 and BOOL fields against Java's number and boolean types, and a CSV
-  cell is always a string, so any non-empty value in such a field is a `TYPE_MISMATCH`
-  (`IngestionRunnerDqQuarantineTest` shows it). Declare those columns STRING for now.
-  NUMERIC, DATE, TIMESTAMP and the other types are not type-checked at all. For the same
-  reason a field's `range` has no effect on a CSV load: it is checked only on numeric values.
-- **An empty cell passes `required: true`.** The CSV parser gives an empty cell as `""`,
-  not as a missing value.
+- **NUMERIC, DATE, TIMESTAMP and the other types are not checked by the loader.** Only
+  STRING, INT64, FLOAT64 and BOOL are type-checked; the rest load as text.
+- **An empty cell in a column of any other type passes `required: true`.** The CSV parser
+  gives an empty cell as `""`, not as a missing value; only the three typed columns above
+  read it as missing.
 - **No allowed-values constraint.** The retired Python pipeline rejected, for example,
   `status` values outside `A`, `I`, `C`; `SchemaField` has no such constraint, so they load.
 

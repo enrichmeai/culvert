@@ -7,31 +7,23 @@ import com.enrichmeai.culvert.deployments.ingestion.testsupport.RecordingWarehou
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Exercises the schema-level (as opposed to CSV-field-count) quarantine path
- * through {@link IngestionRunner}, using the {@code decision} entity.
+ * The schema-level (as opposed to CSV-field-count) quarantine path through
+ * {@link IngestionRunner}, for typed columns (#253).
  *
- * <h2>Why {@code decision} and not {@code customers}</h2>
- * <p>{@link com.enrichmeai.culvert.deployments.ingestion.schema.GenericEntities}'s
- * {@code decision} schema declares {@code score} as {@code INT64} (see
- * {@code GenericEntities.DECISION_SCHEMA}), and
- * {@link com.enrichmeai.culvert.dataquality.DataQualityTransform} type-checks
- * INT64 fields against {@code Number.class} (see
- * {@code DataQualityTransform.WIRE_TYPE_MAP}). Every value produced by
- * {@link CsvRowParser} is a raw {@code String} (CSV has no native typing), so
- * <strong>any non-empty {@code score} value on a CSV-sourced {@code decision}
- * row is unconditionally a TYPE_MISMATCH</strong> — this is a genuine fidelity
- * gap versus the Python reference (whose {@code SchemaValidator} coerces/validates
- * string-typed CSV cells against declared types rather than doing a raw
- * {@code isInstance} check), not a bug in this port. See the deployment
- * README "Known gaps vs the Python reference" section.
- *
- * <p>This test documents the gap by asserting the (perhaps surprising) actual
- * behaviour: a numeric-looking CSV value in an INT64-typed field is quarantined.
+ * <p>A CSV cell is always text, and
+ * {@link com.enrichmeai.culvert.dataquality.DataQualityTransform} checks INT64
+ * and FLOAT64 fields against {@code Number} and BOOL against {@code Boolean}.
+ * Before #253 that made every value in such a column a TYPE_MISMATCH, so the
+ * {@code decision} and {@code applications} samples could not load a row with
+ * a score or an amount. {@link CsvCellTypes} now reads those cells as numbers
+ * and booleans first: a value that parses loads, one that does not is
+ * quarantined naming it, and an empty cell is a missing value.
  */
 class IngestionRunnerDqQuarantineTest {
 
@@ -56,50 +48,137 @@ class IngestionRunnerDqQuarantineTest {
     }
 
     @Test
-    void csvStringScoreIsAlwaysQuarantinedAsTypeMismatch() {
-        List<String> rows = List.of(
+    void aNumericScoreLoadsAsANumber() {
+        IngestionResult result = runDecision("run-dq-1", 1,
                 "dec-1,cust-1,app-1,APPROVE,2026-06-01T00:00:00Z,720,");
-        blobStore.seed(SOURCE_URI, EnvelopeFixtures.buildFileBytes(
-                "Generic", "decision", "20260601", CSV_HEADER, rows));
-        warehouse.returnRowCount(0);
 
-        IngestionResult result = runner.run(new IngestionRequest(
-                "run-dq-1", "decision", SOURCE_URI, "20260601", TARGET_TABLE));
-
-        assertThat(result.candidateRowCount()).isEqualTo(1);
-        // Documents the gap: the row is quarantined even though "720" is a
-        // perfectly valid decision score, because DataQualityTransform sees a
-        // String where it expects a Number.
-        assertThat(result.validRowCount()).isZero();
-        assertThat(result.invalidRowCount()).isEqualTo(1);
-        assertThat(blobStore.writtenUris()).anyMatch(uri -> uri.contains("/quarantine/run-dq-1/"));
-
-        String quarantineUri = blobStore.writtenUris().stream()
-                .filter(uri -> uri.contains("/quarantine/run-dq-1/"))
-                .findFirst()
-                .orElseThrow();
-        String quarantined = new String(blobStore.get(quarantineUri), java.nio.charset.StandardCharsets.UTF_8);
-        assertThat(quarantined)
-                .contains("\"field\":\"score\"")
-                .contains("expected type compatible with INT64");
+        assertThat(result.validRowCount()).isEqualTo(1);
+        assertThat(result.invalidRowCount()).isZero();
+        assertThat(staged("decision", "run-dq-1")).contains("\"score\":720,");
+        assertThat(quarantineUris("run-dq-1")).isEmpty();
     }
 
     @Test
-    void emptyScoreFieldIsAlsoQuarantinedBecauseCsvNeverProducesJavaNull() {
-        // score is NULLABLE (not required); CsvRowParser fills a trailing-empty CSV
-        // field with "" (empty string), never Java `null`. Because "" is a String
-        // (not null), MISSING_REQUIRED does not fire (score isn't required anyway,
-        // and the value isn't null) — but TYPE_MISMATCH DOES fire, since "" is still
-        // a String, not a Number. This proves the gap applies even to an
-        // intentionally-blank optional numeric field, not just populated ones.
-        List<String> rows = List.of("dec-2,cust-1,app-1,APPROVE,2026-06-01T00:00:00Z,,");
-        blobStore.seed(SOURCE_URI, EnvelopeFixtures.buildFileBytes(
-                "Generic", "decision", "20260601", CSV_HEADER, rows));
-        warehouse.returnRowCount(0);
+    void aScoreThatIsNotANumberIsQuarantinedNamingTheValue() {
+        IngestionResult result = runDecision("run-dq-2", 0,
+                "dec-2,cust-1,app-1,APPROVE,2026-06-01T00:00:00Z,abc,");
+
+        assertThat(result.validRowCount()).isZero();
+        assertThat(result.invalidRowCount()).isEqualTo(1);
+        assertThat(quarantined("run-dq-2"))
+                .contains("\"field\":\"score\"")
+                .contains("\"score\":\"abc\"")
+                .contains("expected type compatible with INT64 (Number) but got String");
+    }
+
+    @Test
+    void anEmptyOptionalScoreLoadsAsMissing() {
+        IngestionResult result = runDecision("run-dq-3", 1,
+                "dec-3,cust-1,app-1,APPROVE,2026-06-01T00:00:00Z,,");
+
+        assertThat(result.validRowCount()).isEqualTo(1);
+        assertThat(result.invalidRowCount()).isZero();
+        assertThat(staged("decision", "run-dq-3")).contains("\"score\":null,");
+    }
+
+    @Test
+    void theApplicationsSampleLoadsItsAmountsAndTerm() {
+        String header = "application_id,customer_id,loan_amount,interest_rate,term_months,"
+                + "application_date,status,event_type,account_type";
+        String uri = "gs://landing/generic/applications/generic_applications_20260601.csv";
+        blobStore.seed(uri, EnvelopeFixtures.buildFileBytes("Generic", "applications", "20260601", header,
+                List.of("app-1,cust-1,25000.50,4.25,36,2026-05-30,SUBMITTED,,")));
+        warehouse.returnRowCount(1);
 
         IngestionResult result = runner.run(new IngestionRequest(
-                "run-dq-2", "decision", SOURCE_URI, "20260601", TARGET_TABLE));
+                "run-dq-4", "applications", uri, "20260601", "proj.odp_generic.applications"));
+
+        assertThat(result.validRowCount()).isEqualTo(1);
+        assertThat(staged("applications", "run-dq-4"))
+                .contains("\"loan_amount\":25000.5,")
+                .contains("\"interest_rate\":4.25,")
+                .contains("\"term_months\":36,");
+    }
+
+    @Test
+    void anEmptyRequiredNumberIsQuarantinedAsMissing() {
+        IngestionResult result = runFromSchemaFile("run-dq-5", 0, "r-1,");
 
         assertThat(result.invalidRowCount()).isEqualTo(1);
+        assertThat(quarantined("run-dq-5"))
+                .contains("\"field\":\"amount\"")
+                .contains("is REQUIRED but was null or absent");
+    }
+
+    @Test
+    void aRangeOnANumericColumnIsNowEnforced() {
+        IngestionResult result = runFromSchemaFile("run-dq-6", 1, "r-1,10", "r-2,1000");
+
+        assertThat(result.validRowCount()).isEqualTo(1);
+        assertThat(result.invalidRowCount()).isEqualTo(1);
+        assertThat(quarantined("run-dq-6")).contains("\"field\":\"amount\"").contains("1000");
+        assertThat(staged("payments", "run-dq-6")).contains("\"amount\":10,").doesNotContain("1000");
+    }
+
+    @Test
+    void aBooleanAndAnExponentLoadThroughASchemaFile() {
+        String schema = """
+                entity: flags
+                headers: [flag_id, active, weight]
+                fields:
+                  - {name: flag_id, type: STRING, required: true}
+                  - {name: active, type: BOOL}
+                  - {name: weight, type: FLOAT64}
+                """;
+        String uri = "gs://landing/generic/flags/generic_flags_20260601.csv";
+        blobStore.seed(uri, EnvelopeFixtures.buildFileBytes(
+                "Generic", "flags", "20260601", "flag_id,active,weight",
+                List.of("f-1,TRUE,1.5e3", "f-2,yes,1")));
+        warehouse.returnRowCount(1);
+
+        IngestionResult result = runner.run(new IngestionRequest("run-dq-7", "flags", uri, "20260601",
+                "proj.odp_generic.flags", "flags.schema.yaml", schema));
+
+        assertThat(result.validRowCount()).isEqualTo(1);
+        assertThat(staged("flags", "run-dq-7")).contains("\"active\":true,").contains("\"weight\":1500.0,");
+        assertThat(quarantined("run-dq-7")).contains("\"field\":\"active\"").contains("\"active\":\"yes\"");
+    }
+
+    private IngestionResult runDecision(String runId, long loaded, String... rows) {
+        blobStore.seed(SOURCE_URI, EnvelopeFixtures.buildFileBytes(
+                "Generic", "decision", "20260601", CSV_HEADER, List.of(rows)));
+        warehouse.returnRowCount(loaded);
+        return runner.run(new IngestionRequest(runId, "decision", SOURCE_URI, "20260601", TARGET_TABLE));
+    }
+
+    private IngestionResult runFromSchemaFile(String runId, long loaded, String... rows) {
+        String schema = """
+                entity: payments
+                headers: [payment_id, amount]
+                fields:
+                  - {name: payment_id, type: STRING, required: true}
+                  - {name: amount, type: INT64, required: true, range: {min: 0, max: 500}}
+                """;
+        String uri = "gs://landing/generic/payments/generic_payments_20260601.csv";
+        blobStore.seed(uri, EnvelopeFixtures.buildFileBytes(
+                "Generic", "payments", "20260601", "payment_id,amount", List.of(rows)));
+        warehouse.returnRowCount(loaded);
+        return runner.run(new IngestionRequest(runId, "payments", uri, "20260601",
+                "proj.odp_generic.payments", "payments.schema.yaml", schema));
+    }
+
+    private String staged(String entity, String runId) {
+        return new String(blobStore.get(STAGING_PREFIX + "/" + entity + "/" + runId + ".ndjson"),
+                StandardCharsets.UTF_8);
+    }
+
+    private List<String> quarantineUris(String runId) {
+        return blobStore.writtenUris().stream().filter(u -> u.contains("/quarantine/" + runId + "/")).toList();
+    }
+
+    private String quarantined(String runId) {
+        List<String> uris = quarantineUris(runId);
+        assertThat(uris).hasSize(1);
+        return new String(blobStore.get(uris.get(0)), StandardCharsets.UTF_8);
     }
 }

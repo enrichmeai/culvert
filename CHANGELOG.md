@@ -15,6 +15,20 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
   (fake-gcs-server) ignores the precondition.
 
 ### Fixed
+- **The ODP loader quarantined every row with a value in an INT64, FLOAT64 or BOOL column**
+  (#253). A CSV cell is text and validation checks those types against Java's number and
+  boolean types, so `720` in the `decision` sample's `score` was a `TYPE_MISMATCH`, and so
+  was an empty optional one: the `decision` and `applications` samples could not load a
+  row with a score or an amount. The loader now reads such a cell as a number or a boolean
+  before validation (`CsvCellTypes`):
+  - a whole number (INT64), a finite decimal (FLOAT64) or `true`/`false` in any case (BOOL)
+    loads as that value;
+  - an empty cell is NULL, so a required field is quarantined as `MISSING_REQUIRED`;
+  - anything else is quarantined as a `TYPE_MISMATCH` naming the value;
+  - a field's `range` is now enforced on those columns.
+
+  Other types, and empty cells in them, are unchanged. This is stricter than the retired
+  Python pipeline, which accepted thousands separators and `1`/`0`/`yes`/`no` as booleans.
 - **A Python Dataflow job without a template failed at start-up when its script parsed its command
   line with Beam's `PipelineOptions`** (as `PipelineOptions()` does by default). `BaseDataflowOperator`
   passed `streaming` as the string `"true"` or `"false"`, so the script received `--streaming=false`
