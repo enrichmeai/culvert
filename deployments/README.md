@@ -1,8 +1,8 @@
 # Pipeline Deployments
 
-> **Last Updated:** March 2026
+> **Last Updated:** October 2026 (the summary table; the detailed sections below date from March 2026)
 
-This directory contains **7 deployment units (3 active, 2 code-complete, 2 reference)** that demonstrate different data pipeline patterns for mainframe-to-GCP migration using the shared library architecture.
+This directory contains **10 deployment units** that demonstrate different data pipeline patterns for mainframe-to-GCP migration on Culvert. Each unit's own README is the source of truth for its status.
 
 ---
 
@@ -63,10 +63,15 @@ This directory contains **7 deployment units (3 active, 2 code-complete, 2 refer
 | 1 | **data-pipeline-orchestrator** | Airflow DAGs for workflow coordination | Cloud Composer (Google-managed) | Event-driven orchestration, entity dependencies |
 | 2 | **original-data-to-bigqueryload-java** | Beam pipeline for CSV → BigQuery ingestion (Java, Culvert libraries) | Dataflow (Google-managed) | HDR/TRL parsing, schema validation, audit trail |
 | 3 | **bigquery-to-mapped-product** | dbt models for ODP → FDP transformation | BigQuery (native SQL) | JOIN/MAP patterns, schema routing, audit columns |
-| 4 | **mainframe-segment-transform** | Beam pipeline for CDP → GCS segmented exports | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
+| 4 | **mainframe-segment-transform-java** | Beam pipeline for CDP → GCS segmented exports, with a JSON manifest (Java) | Dataflow (Google-managed) | Parallel reads, segmented writes, CDP pattern |
 | 5 | **spanner-to-bigquery-load** | dbt models with Spanner federated queries | BigQuery (federated) | External queries, cross-service integration |
 | 6 | **fdp-to-consumable-product** | dbt models for FDP → CDP transformation | BigQuery (native SQL) | 3-table JOIN, incremental model, code-complete |
 | 7 | **postgres-cdc-streaming** | Streaming pipeline: Postgres → Kafka → Beam → BigQuery | Dataflow (streaming) | CDC, real-time ingestion, reference/planned |
+| 8 | **postgres-cdc-streaming-java** | Java streaming port of #7: Debezium CDC events from Pub/Sub, applied to a BigQuery ODP target; invalid events to a dead-letter topic (#141) | Dataflow (streaming) | CDC, dead-lettering, Culvert `Warehouse` contract |
+| 9 | **fdp-trigger** | Polls BigQuery partition metadata until the producing FDP tables are stable, then launches the segment-transform Flex Template, deduplicated through job control | Cloud Run (with Cloud Scheduler) | Readiness polling instead of Composer, job-control dedup |
+| 10 | **reference-e2e-gcp** | The control-plane proof: a pipeline on the control plane (#231), the seven-scenario proof harness (#232), its Terraform (#233) and the Composer mode that prepares the real-GCP run (#234, still open). Not yet run on real GCP | DirectRunner locally; Composer + Dataflow + Cloud SQL for the proof | Stage claims, gates, readiness, resume after interruption |
+
+Rows 8 to 10 have no detailed section below; their READMEs (`fdp-trigger/README.md`, `reference-e2e-gcp/README.md`, and `docs/CONTROL_PLANE_PROOF_GCP.md` for the proof) describe them. `postgres-cdc-streaming-java` has no README yet; its `pom.xml` description is the summary above.
 
 ---
 
@@ -204,7 +209,7 @@ BigQuery ODP → Staging Views (odp_generic) → FDP Models (fdp_generic) → Bi
 
 ---
 
-### 4. mainframe-segment-transform (CDP/Segmentation)
+### 4. mainframe-segment-transform-java (CDP/Segmentation)
 
 **What it is:** Apache Beam pipeline that reads CDP tables and exports segmented files to GCS.
 
@@ -402,7 +407,7 @@ BigQuery FDP (3 tables) → 3-Table JOIN → BigQuery CDP (customer_risk_profile
 │     └──────────────────┘                                                    │
 │           │                                                                 │
 │           ▼                                                                 │
-│  6. OPTIONAL: CDP EXPORT (mainframe-segment-transform)                      │
+│  6. OPTIONAL: CDP EXPORT (mainframe-segment-transform-java)                 │
 │     ┌──────────────────┐                                                    │
 │     │ Read CDP tables  │ → parallel BigQuery reads                         │
 │     │ Apply Segments   │ → group by region/type                            │
