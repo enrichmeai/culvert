@@ -41,6 +41,15 @@ concurrency:
   group: publish-maven
   cancel-in-progress: false
 
+# Maven for the verify and deploy jobs, pinned (#266). The runner's own Maven moved to 3.10,
+# and under it central-publishing-maven-plugin 0.11.0 zips the local repository's
+# maven-metadata-local.xml and _remote.repositories into the bundle; Central then rejects every
+# artifact as having "content that does NOT have a .pom file" (the 0.5.0 run). Unpin once the
+# plugin bundles cleanly under Maven 3.10. The SHA-512 is Apache's published one for this file.
+env:
+  MAVEN_VERSION: 3.9.16
+  MAVEN_SHA512: 831a8591fe20c8243b1dbe7d71e3244f31d1665b0804b2e825e38cbbe5ce0cafb8338851f90780735568773e0a6cd07bbec107cda0b896b008b861075358b6f6
+
 jobs:
   gate:
     runs-on: ubuntu-latest
@@ -76,6 +85,15 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
+      - name: Use the pinned Maven (#266)
+        run: |
+          curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/maven.tar.gz" \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          echo "${MAVEN_SHA512}  $RUNNER_TEMP/maven.tar.gz" | sha512sum -c -
+          tar xzf "$RUNNER_TEMP/maven.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/apache-maven-${MAVEN_VERSION}/bin" >> "$GITHUB_PATH"
+      - name: Maven version
+        run: mvn -v
       - name: Build + sources + javadoc (no secrets — proves the bundle assembles)
         run: mvn -B -f data-pipeline-libraries-java/pom.xml clean install -DskipTests
       - name: Assert every publishable module has main + sources + javadoc
@@ -135,6 +153,15 @@ jobs:
           server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           gpg-passphrase: MAVEN_GPG_PASSPHRASE
+      - name: Use the pinned Maven (#266)
+        run: |
+          curl -fsSL --retry 3 --retry-all-errors -o "$RUNNER_TEMP/maven.tar.gz" \
+            "https://archive.apache.org/dist/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz"
+          echo "${MAVEN_SHA512}  $RUNNER_TEMP/maven.tar.gz" | sha512sum -c -
+          tar xzf "$RUNNER_TEMP/maven.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/apache-maven-${MAVEN_VERSION}/bin" >> "$GITHUB_PATH"
+      - name: Maven version
+        run: mvn -v
       - name: Deploy to Maven Central (validation stage; you confirm in the portal)
         run: mvn -B -f data-pipeline-libraries-java/pom.xml -P release clean deploy -DskipTests
         env:

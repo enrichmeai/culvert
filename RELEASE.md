@@ -25,6 +25,12 @@ Both `gate` jobs run `scripts/release/gate.py`. Each one first runs its tests, `
 
 A push that leaves the version as it was is a no-op, such as a dependency bump, or a pom edit while the bundle waits in Central's validation stage. These fail the run loudly: a missing CHANGELOG section, a package left at another version, or a registry answer other than "found" or "not found".
 
+**Pinned Maven (#266):** publish-maven's verify and deploy jobs run Maven 3.9.16 (`MAVEN_VERSION` in the
+workflow, checked against its SHA-512), not the runner's own. Under Maven 3.10, central-publishing-maven-plugin
+0.11.0 puts `maven-metadata-local.xml` and `_remote.repositories` in the bundle, and Central rejects it with
+"Bundle has content that does NOT have a .pom file" (the 0.5.0 run). Unpin once the plugin bundles cleanly
+under Maven 3.10.
+
 **When something fails half-way:**
 - PyPI took the version but the tag job failed: re-run the failed job, or run publish-pypi by hand. On a version already on PyPI, the manual run only creates the missing tag and GitHub Release.
 - The two workflows run independently, so PyPI can succeed while the Maven upload fails. Check both runs after a merge, and fix the failed one and run it by hand.
