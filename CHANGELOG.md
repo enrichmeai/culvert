@@ -4,6 +4,23 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-15
+
+The W1 batch (the `wave:W1` issues). The highlights, in both languages, are below; the full list follows them.
+- **Schema files.** An ODP's layout can now live in a schema file instead of code, and the ODP
+  loader takes `--schemaUri`.
+- **ODP loader fixes.** It reads INT64, FLOAT64 and BOOL cells as numbers and booleans, and it
+  treats a blank cell in a required field as missing.
+- **New in Python:**
+  - a BigQuery `AuditEventPublisher` and the audit contract suite;
+  - the whole `BlobStore` contract on `GcsBlobStore`;
+  - the stage policy decorators;
+  - `StageClaim`, with `data-pipeline-postgres` (`culvert[postgres]`) as its first library on
+    the Python side.
+- **New in Java:** readiness as a gate predicate.
+- **New dependencies:** `data-pipeline-core` gains SnakeYAML 2.3 (Java) and PyYAML (Python).
+- **Maven Central:** no library is new there.
+
 ### Changed
 
 - **The Java `GcsBlobStore.openInput` sends an explicit `ifGenerationMatch`**, as the Python one
