@@ -21,17 +21,14 @@ import java.util.Map;
  * schema) and a CSV header list (for {@code CsvRowParser}).
  *
  * <h2>Fidelity gaps (flagged, not silently dropped)</h2>
- * <p>Culvert's {@link SchemaField} carries {@code name/type/mode/description/
- * classification/masking/range} — it has <strong>no {@code allowed_values}
- * (enum) constraint</strong>, unlike the Python {@code SchemaField.allowed_values}
+ * <p>The retired Python schemas also constrained some fields to a list of values
  * (e.g. {@code status in ["A","I","C"]}, {@code decision_code in
- * ["APPROVE","DECLINE","REVIEW","PENDING"]}). {@link com.enrichmeai.culvert.dataquality.DataQualityTransform}
- * therefore does NOT enforce these enums — a value like {@code status=ZZZ} loads
- * successfully in this Java port where the Python pipeline would reject it. This
- * is a genuine behavioural gap versus the Python original, not an oversight;
- * closing it requires either a Culvert core change (out of T20.5 scope) or a
- * bespoke enum-check stage layered on top of {@code DataQualityTransform}. See
- * README "Known gaps".
+ * ["APPROVE","DECLINE","REVIEW","PENDING"]}). Culvert's {@link SchemaField} can now say
+ * so ({@code allowed}, checked by {@link com.enrichmeai.culvert.dataquality.DataQualityTransform}
+ * as {@code NOT_ALLOWED}; #259), but the four layouts here deliberately do not declare
+ * those lists yet, and nor do their files in {@code schemas/}: a value like
+ * {@code status=ZZZ} still loads for them where the Python pipeline would reject it.
+ * A schema file passed with {@code --schemaUri} can declare them. See README "Known gaps".
  *
  * <p>Wire-type mapping: Culvert's {@code DataQualityTransform} only type-checks
  * {@code STRING/INT64/FLOAT64/BOOL} (see
