@@ -167,6 +167,31 @@ class IngestionRunnerDqQuarantineTest {
         assertThat(staged("customers", "run-dq-8")).contains("\"customer_id\":\"c-3\"").contains("\"status\":\"\"");
     }
 
+    @Test
+    void anAllowedListOnAStatusColumnIsEnforced() {
+        // #259: the retired Python pipeline refused a status outside A, I, C; a schema file can now say so.
+        String schema = """
+                entity: accounts
+                headers: [account_id, status]
+                fields:
+                  - {name: account_id, type: STRING, required: true}
+                  - {name: status, type: STRING, allowed: [A, I, C]}
+                """;
+        String uri = "gs://landing/generic/accounts/generic_accounts_20260601.csv";
+        blobStore.seed(uri, EnvelopeFixtures.buildFileBytes("Generic", "accounts", "20260601",
+                "account_id,status", List.of("a-1,A", "a-2,X", "a-3,")));
+        warehouse.returnRowCount(2);
+
+        IngestionResult result = runner.run(new IngestionRequest("run-dq-9", "accounts", uri, "20260601",
+                "proj.odp_generic.accounts", "accounts.schema.yaml", schema));
+
+        assertThat(result.validRowCount()).isEqualTo(2); // a-3: an optional status left blank is no value
+        assertThat(quarantined("run-dq-9"))
+                .contains("\"field\":\"status\"")
+                .contains("\"status\":\"X\"").contains("is not one of [A, I, C]");
+        assertThat(staged("accounts", "run-dq-9")).contains("\"account_id\":\"a-1\"").doesNotContain("a-2");
+    }
+
     private IngestionResult runDecision(String runId, long loaded, String... rows) {
         blobStore.seed(SOURCE_URI, EnvelopeFixtures.buildFileBytes(
                 "Generic", "decision", "20260601", CSV_HEADER, List.of(rows)));

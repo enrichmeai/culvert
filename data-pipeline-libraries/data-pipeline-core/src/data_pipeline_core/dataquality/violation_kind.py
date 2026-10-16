@@ -1,7 +1,7 @@
 """ViolationKind — classification of a single field violation.
 
 Mirrors ``com.enrichmeai.culvert.dataquality.ViolationKind`` (Java
-Sprint 14 / issue #73).  Three variants, same names, same semantics.
+Sprint 14 / issue #73).  Same variants, same names, same semantics.
 
 Port: T18.2 / issue #118.
 """
@@ -23,6 +23,8 @@ class ViolationKind(Enum):
       schema-declared wire type. (Java line 28)
     * ``OUT_OF_RANGE``     — a numeric field falls outside its declared
       :class:`NumericRange`. (Java line 31)
+    * ``NOT_ALLOWED``      — a STRING field's value is not one of its
+      ``SchemaField.allowed`` values (#259).
     """
 
     MISSING_REQUIRED = "MISSING_REQUIRED"
@@ -33,3 +35,6 @@ class ViolationKind(Enum):
 
     OUT_OF_RANGE = "OUT_OF_RANGE"
     """The field's numeric value falls outside its declared NumericRange."""
+
+    NOT_ALLOWED = "NOT_ALLOWED"
+    """The field's value is not one of its declared allowed values (#259)."""

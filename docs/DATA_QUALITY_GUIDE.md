@@ -51,9 +51,10 @@ Use for **post-load profiling** across large historical datasets where inline va
 
 ### Step 1 — Define Validation Rules via the Entity Schema
 
-Validation is schema-grounded: declare required fields, wire types, and numeric
-ranges on the `EntitySchema`, then let `DataQualityTransform` accumulate
-violations (`MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE`) per row:
+Validation is schema-grounded: declare required fields, wire types, numeric
+ranges and, on STRING fields, allowed values (#259) on the `EntitySchema`, then let
+`DataQualityTransform` accumulate violations (`MISSING_REQUIRED`, `TYPE_MISMATCH`,
+`OUT_OF_RANGE`, `NOT_ALLOWED`) per row:
 
 ```python
 from data_pipeline_core.dataquality import DataQualityTransform, InvalidRow, NumericRange

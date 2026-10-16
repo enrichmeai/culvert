@@ -117,6 +117,16 @@ class EntitySchemasTest {
                 .hasMessageContaining("no store to read a remote schema file from");
     }
 
+    @Test
+    void readsAllowedValues() {
+        EntitySchemaFile file = EntitySchemas.parse(
+                "entity: accounts\nheaders: [status]\nfields: [{name: status, type: STRING, allowed: [A, I, C]}]",
+                "accounts.schema.yaml");
+
+        assertThat(file.schema().fields())
+                .containsExactly(SchemaField.nullable("status", "STRING").withAllowed(List.of("A", "I", "C")));
+    }
+
     /** Each invalid file and the start of its message, after "s.yaml: ". */
     @ParameterizedTest(name = "{0}")
     @CsvSource(delimiter = '|', textBlock = """
@@ -144,6 +154,11 @@ class EntitySchemasTest {
             primary key naming no field | entity: e\\nheaders: [a]\\nfields: [{name: a, type: STRING}]\\nprimary_key: [b]     | primary_key[0]: 'b' names no field
             header YAML reads as a bool | entity: e\\nheaders: [on]\\nfields: [{name: a, type: STRING}]                      | headers[0]: must be a non-blank string
             not a mapping               | - just a list                                                                  | the file: must be a mapping
+            allowed on a non-STRING field | entity: e\\nheaders: [a]\\nfields: [{name: a, type: INT64, allowed: [1, 2]}] | fields[0].allowed: allowed values are for STRING fields, and 'a' is INT64
+            allowed empty               | entity: e\\nheaders: [a]\\nfields: [{name: a, type: STRING, allowed: []}]       | fields[0].allowed: must be a non-empty list of values
+            allowed not a list          | entity: e\\nheaders: [a]\\nfields: [{name: a, type: STRING, allowed: A}]        | fields[0].allowed: must be a non-empty list of values
+            allowed value YAML reads as a number | entity: e\\nheaders: [a]\\nfields: [{name: a, type: STRING, allowed: [A, 01]}] | fields[0].allowed[1]: must be a non-blank string
+            duplicate allowed value     | entity: e\\nheaders: [a]\\nfields: [{name: a, type: STRING, allowed: [A, I, A]}] | fields[0].allowed[2]: duplicate value 'A'
             """)
     void refuses(String name, String yaml, String message) {
         assertThatThrownBy(() -> EntitySchemas.parse(yaml.replace("\\n", "\n"), "s.yaml"))

@@ -247,8 +247,43 @@ INVALID = [
         "entity: e\nheaders: [on]\nfields: [{name: a, type: STRING}]",
         "headers[0]: must be a non-blank string",
     ),
+    (
+        "allowed on a non-STRING field",
+        "entity: e\nheaders: [a]\nfields: [{name: a, type: INT64, allowed: [1, 2]}]",
+        "fields[0].allowed: allowed values are for STRING fields, and 'a' is INT64",
+    ),
+    (
+        "allowed empty",
+        "entity: e\nheaders: [a]\nfields: [{name: a, type: STRING, allowed: []}]",
+        "fields[0].allowed: must be a non-empty list of values",
+    ),
+    (
+        "allowed not a list",
+        "entity: e\nheaders: [a]\nfields: [{name: a, type: STRING, allowed: A}]",
+        "fields[0].allowed: must be a non-empty list of values",
+    ),
+    (
+        "allowed value YAML reads as a number",
+        "entity: e\nheaders: [a]\nfields: [{name: a, type: STRING, allowed: [A, 01]}]",
+        "fields[0].allowed[1]: must be a non-blank string",
+    ),
+    (
+        "duplicate allowed value",
+        "entity: e\nheaders: [a]\nfields: [{name: a, type: STRING, allowed: [A, I, A]}]",
+        "fields[0].allowed[2]: duplicate value 'A'",
+    ),
     ("not a mapping", "- just a list", "the file: must be a mapping"),
 ]
+
+
+def test_reads_allowed_values():
+    file = parse_entity_schema(
+        "entity: accounts\nheaders: [status]\n"
+        "fields: [{name: status, type: STRING, allowed: [A, I, C]}]",
+        "accounts.schema.yaml",
+    )
+
+    assert file.schema.fields == [SchemaField("status", "STRING", allowed=("A", "I", "C"))]
 
 
 @pytest.mark.parametrize("name, text, message", INVALID, ids=[case[0] for case in INVALID])
