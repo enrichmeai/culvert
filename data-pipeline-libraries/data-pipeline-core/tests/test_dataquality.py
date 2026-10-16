@@ -65,6 +65,7 @@ class TestViolationKind:
         assert ViolationKind.MISSING_REQUIRED.value == "MISSING_REQUIRED"
         assert ViolationKind.TYPE_MISMATCH.value == "TYPE_MISMATCH"
         assert ViolationKind.OUT_OF_RANGE.value == "OUT_OF_RANGE"
+        assert ViolationKind.NOT_ALLOWED.value == "NOT_ALLOWED"
 
 
 # ---------------------------------------------------------------------------
@@ -560,3 +561,68 @@ class TestMaskingEndToEnd:
         assert results[1].row["email"] == "***"
         assert results[0].row["user_id"] == "u-001"
         assert results[1].row["user_id"] == "u-002"
+
+
+# ---------------------------------------------------------------------------
+# Allowed values (#259) — mirrors the Java DataQualityTransformTest cases
+# ---------------------------------------------------------------------------
+
+
+class TestAllowedValues:
+    def _validate(self, value: Any, field: Optional[SchemaField] = None) -> ValidationResult[Row]:
+        field = field or SchemaField("status", "STRING", allowed=("A", "I", "C"))
+        dq = DataQualityTransform(_make_schema(field), _accessor)
+        return dq.validate({"status": value})
+
+    def test_a_value_outside_the_list_is_not_allowed(self) -> None:
+        result = self._validate("X")
+        assert isinstance(result, InvalidRow)
+        [v] = result.violations
+        assert v.field_name == "status"
+        assert v.violation_kind is ViolationKind.NOT_ALLOWED
+        assert v.detail == "Field 'status' value 'X' is not one of [A, I, C]"
+
+    @pytest.mark.parametrize("value", ["A", "I", "C"])
+    def test_a_listed_value_passes(self, value: str) -> None:
+        assert self._validate(value).is_valid()
+
+    def test_the_comparison_is_exact(self) -> None:
+        for value in ("a", " A", "A "):
+            assert not self._validate(value).is_valid(), value
+
+    @pytest.mark.parametrize("value", [None, "", "  ", "\u00a0"])
+    def test_no_value_in_an_optional_field_passes(self, value: Any) -> None:
+        assert self._validate(value).is_valid()
+
+    def test_a_next_line_character_is_not_blank(self) -> None:
+        # U+0085: Python's isspace() says yes, Java's whitespace test says no; both treat it as a value.
+        assert not self._validate("\x85").is_valid()
+
+    def test_a_blank_value_in_a_required_field_is_not_allowed(self) -> None:
+        required = SchemaField("status", "STRING", mode="REQUIRED", allowed=("A", "I", "C"))
+        result = self._validate("", required)
+        assert isinstance(result, InvalidRow)
+        assert [v.violation_kind for v in result.violations] == [ViolationKind.NOT_ALLOWED]
+
+    def test_a_type_mismatch_is_not_also_reported_as_not_allowed(self) -> None:
+        result = self._validate(7)
+        assert isinstance(result, InvalidRow)
+        assert [v.violation_kind for v in result.violations] == [ViolationKind.TYPE_MISMATCH]
+
+    def test_the_values_are_held_as_a_tuple(self) -> None:
+        assert SchemaField("s", "STRING", allowed=["A", "I"]).allowed == ("A", "I")
+
+    @pytest.mark.parametrize(
+        "kwargs, message",
+        [
+            ({"type": "INT64", "allowed": ("1",)}, "allowed values are for STRING fields"),
+            ({"type": "STRING", "allowed": ()}, "allowed must not be empty"),
+            ({"type": "STRING", "allowed": ("A", None)}, "allowed values must be strings"),
+            ({"type": "STRING", "allowed": ("A", " ")}, "allowed values must not be blank"),
+            ({"type": "STRING", "allowed": "AIC"}, "not a single value"),
+            ({"type": "STRING", "allowed": ("A", "A")}, "duplicate allowed value 'A'"),
+        ],
+    )
+    def test_a_field_refuses_an_invalid_list(self, kwargs: Dict[str, Any], message: str) -> None:
+        with pytest.raises(ValueError, match=message):
+            SchemaField("s", **kwargs)

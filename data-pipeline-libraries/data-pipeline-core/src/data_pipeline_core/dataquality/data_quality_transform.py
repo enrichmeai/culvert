@@ -74,6 +74,33 @@ _WIRE_TYPE_MAP: Dict[str, type] = {
 }
 
 
+def _blank(text: str) -> bool:
+    """Empty, or only whitespace (non-breaking spaces included).
+
+    The same set as Java's ``Character.isWhitespace || Character.isSpaceChar``: Python's
+    ``isspace()`` also counts U+0085 (NEXT LINE), which Java does not.
+    """
+    return all(c.isspace() and c != "\x85" for c in text)
+
+
+def _not_allowed(sf: Any, value: Any, type_mismatch: bool) -> List[FieldViolation]:
+    """A NOT_ALLOWED violation when a STRING value is not one of ``sf.allowed`` (#259).
+
+    Nothing when the value already failed its type check. A blank value in a field that is
+    not REQUIRED is no value, not a wrong one, so it passes.
+    """
+    allowed = sf.allowed
+    if type_mismatch or allowed is None or not isinstance(value, str) or value in allowed:
+        return []
+    if sf.mode != "REQUIRED" and _blank(value):
+        return []
+    return [FieldViolation(
+        field_name=sf.name,
+        violation_kind=ViolationKind.NOT_ALLOWED,
+        detail=f"Field '{sf.name}' value '{value}' is not one of [{', '.join(allowed)}]",
+    )]
+
+
 def _is_type_match(wire_type: str, value: Any) -> bool:
     """Return True iff ``value`` is compatible with ``wire_type``.
 
@@ -109,6 +136,9 @@ class DataQualityTransform(Generic[R]):
        :class:`~data_pipeline_core.dataquality.NumericRange` attached to
        the :class:`~data_pipeline_core.schema.entity.SchemaField`
        (schema-grounded, Java lines 222-236).
+    4. **NOT_ALLOWED** — a STRING value that is not one of the field's
+       ``allowed`` values, compared exactly (#259). A blank value in a field
+       that is not ``REQUIRED`` is no value and passes.
 
     All violations are accumulated; validation does not short-circuit on
     the first failure (Java lines 48-50).
@@ -258,6 +288,9 @@ class DataQualityTransform(Generic[R]):
                                 f"[{numeric_range.min}, {numeric_range.max}]"
                             ),
                         ))
+
+            # 4 — NOT_ALLOWED (#259; Java mirrors it). Skipped on a type mismatch.
+            violations.extend(_not_allowed(sf, value, type_mismatch))
 
         if violations:
             return InvalidRow.of(row=row, violations=violations)

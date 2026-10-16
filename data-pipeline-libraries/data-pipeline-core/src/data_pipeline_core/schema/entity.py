@@ -8,7 +8,7 @@ in the adapter packages.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Sequence, Tuple
 
 from data_pipeline_core.governance_api.classification import DataClassification
 from data_pipeline_core.governance_api.policies import MaskingPolicy
@@ -39,6 +39,12 @@ class SchemaField:
     that opts this field into OUT_OF_RANGE validation inside
     :class:`~data_pipeline_core.dataquality.DataQualityTransform`.
     Mirrors ``SchemaField.range()`` (Java T14.7 / issue #100).
+
+    `allowed` is an optional list of the values a STRING field may hold
+    (#259). It opts the field into NOT_ALLOWED validation: a value must
+    equal one of them exactly. A sequence is stored as a tuple; it must be
+    non-empty, hold only non-blank strings and repeat none. Mirrors
+    ``SchemaField.allowed()`` in Java.
     """
 
     name: str
@@ -51,6 +57,30 @@ class SchemaField:
     # validation in DataQualityTransform.  Existing callers that omit this
     # field are unaffected (default None → range validation skipped).
     range: Optional["NumericRange"] = None
+    allowed: Optional[Tuple[str, ...]] = None
+
+    def __post_init__(self) -> None:
+        if self.allowed is None:
+            return
+        if self.type != "STRING":
+            raise ValueError(
+                f"allowed values are for STRING fields, and '{self.name}' is {self.type}"
+            )
+        if isinstance(self.allowed, str) or not isinstance(self.allowed, Sequence):
+            raise ValueError("allowed must be a sequence of strings, not a single value")
+        values = tuple(self.allowed)
+        if not values:
+            raise ValueError("allowed must not be empty")
+        seen = set()
+        for value in values:
+            if not isinstance(value, str):
+                raise ValueError("allowed values must be strings")
+            if all(c.isspace() and c != "\x85" for c in value):
+                raise ValueError("allowed values must not be blank")
+            if value in seen:
+                raise ValueError(f"duplicate allowed value '{value}'")
+            seen.add(value)
+        object.__setattr__(self, "allowed", values)
 
 
 @dataclass(frozen=True)

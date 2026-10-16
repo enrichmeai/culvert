@@ -13,6 +13,8 @@ package com.enrichmeai.culvert.dataquality;
  *   <li>{@link #OUT_OF_RANGE} — the field's numeric value falls outside the
  *       {@link NumericRange} that was supplied to
  *       {@link DataQualityTransform} at construction time.</li>
+ *   <li>{@link #NOT_ALLOWED} — a {@code STRING} field's value is not one of its
+ *       {@link com.enrichmeai.culvert.schema.SchemaField#allowed()} values (#259).</li>
  * </ul>
  *
  * <p>Zero GCP / Beam dependencies — this enum lives in the cloud-neutral core.
@@ -28,5 +30,8 @@ public enum ViolationKind {
     TYPE_MISMATCH,
 
     /** The field's numeric value falls outside its declared {@link NumericRange}. */
-    OUT_OF_RANGE
+    OUT_OF_RANGE,
+
+    /** The field's value is not one of its declared allowed values (#259). */
+    NOT_ALLOWED
 }

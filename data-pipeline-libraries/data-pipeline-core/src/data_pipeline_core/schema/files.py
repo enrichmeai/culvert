@@ -14,6 +14,7 @@ A product supplies its layout as configuration rather than as code::
         classification: restricted   #   optional: public | internal | confidential | restricted
         masking: hash                #   optional: a strategy, or {strategy, replacement, salt}
         range: {min: 0, max: 150}    #   optional: closed numeric bounds
+        allowed: [A, I, C]           #   optional, STRING fields only: the values it may hold
     primary_key: [customer_id]       # optional: field names
     partition_key: dob               # optional: a field name
     envelope:                        # optional HDR/TRL overrides
@@ -25,7 +26,7 @@ entry, when it is not a mapping, has a key this format does not define (a
 misspelt ``requried`` is an error, not a field that silently stays optional),
 lacks a required entry, names an unknown type, repeats a field, a header or a
 key, has a header that names no field or a field no header supplies, or has an
-invalid classification, masking strategy or range.
+invalid classification, masking strategy, range or list of allowed values.
 
 Mirrors the Java ``com.enrichmeai.culvert.schema.EntitySchemas``: the same
 format, rules and messages.
@@ -35,7 +36,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 from urllib.request import url2pathname
 
@@ -73,7 +74,9 @@ _TOP_KEYS = {
     "partition_key",
     "envelope",
 }
-_FIELD_KEYS = {"name", "type", "required", "description", "classification", "masking", "range"}
+_FIELD_KEYS = {
+    "name", "type", "required", "description", "classification", "masking", "range", "allowed"
+}
 _MASKING_KEYS = {"strategy", "replacement", "salt"}
 _RANGE_KEYS = {"min", "max"}
 _ENVELOPE_KEYS = {"system_id", "csv_header_row"}
@@ -265,6 +268,7 @@ class _Reader:
                     ),
                     masking=self._masking(entry.get("masking"), f"{at}.masking"),
                     range=self._range(entry.get("range"), f"{at}.range"),
+                    allowed=self._allowed(entry.get("allowed"), name, type_, f"{at}.allowed"),
                 )
             )
         return fields
@@ -320,6 +324,19 @@ class _Reader:
         if hi < lo:
             raise self._error(at, f"max ({hi}) must be >= min ({lo})")
         return NumericRange.of(lo, hi)
+
+    def _allowed(self, value: Any, name: str, type_: str, at: str) -> Optional[Tuple[str, ...]]:
+        if value is None:
+            return None
+        if type_ != "STRING":
+            raise self._error(at, f"allowed values are for STRING fields, and '{name}' is {type_}")
+        if not isinstance(value, list) or not value:
+            raise self._error(at, "must be a non-empty list of values")
+        values = self._string_list(value, at)
+        for i, text in enumerate(values):
+            if text in values[:i]:
+                raise self._error(f"{at}[{i}]", f"duplicate value '{text}'")
+        return tuple(values)
 
     def _envelope(self, value: Any) -> EnvelopeSettings:
         if value is None:

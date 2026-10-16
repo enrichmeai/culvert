@@ -53,7 +53,7 @@ envelope:                           # optional: only what differs from the defau
 |---|---|---|
 | `entity` | yes | The entity name, as the HDR line carries it. |
 | `headers` | yes | The file's columns, in order. Each must name a field. |
-| `fields` | yes | One entry per field: `name` and `type` (STRING, INT64, FLOAT64, BOOL, NUMERIC, BIGNUMERIC, DATE, DATETIME, TIMESTAMP, BYTES, JSON) are required; `required` (default false), `description`, `classification` (public, internal, confidential, restricted), `masking` (a strategy, or `{strategy, replacement, salt}`) and `range` (`{min, max}`) are optional. Every field needs a header. |
+| `fields` | yes | One entry per field: `name` and `type` (STRING, INT64, FLOAT64, BOOL, NUMERIC, BIGNUMERIC, DATE, DATETIME, TIMESTAMP, BYTES, JSON) are required; `required` (default false), `description`, `classification` (public, internal, confidential, restricted), `masking` (a strategy, or `{strategy, replacement, salt}`), `range` (`{min, max}`) and `allowed` (STRING fields only: the values the field may hold, such as `[A, I, C]`) are optional. Every field needs a header. |
 | `version`, `description`, `primary_key`, `partition_key` | no | As on `EntitySchema`. |
 | `envelope` | no | `system_id` and `csv_header_row`, when they differ from the default. |
 
@@ -61,8 +61,8 @@ JSON with the same keys is accepted too. The launcher reads and checks the file 
 anything runs, and ships its text with the stage, so a Dataflow worker never needs to reach
 the path. A file is refused, naming the file and the entry, for an unknown key or type, a
 missing required entry, a duplicate field, header or key, a header that names no field, a
-field with no header, or an invalid classification, masking strategy or range. The loader
-also refuses a field named `_run_id`, `_extract_date` or `_processed_at`: it adds those audit
+field with no header, or an invalid classification, masking strategy, range or list of allowed
+values. The loader also refuses a field named `_run_id`, `_extract_date` or `_processed_at`: it adds those audit
 columns to every row itself.
 
 The loader is `EntitySchemas` in `data-pipeline-core` (Java) and
@@ -82,7 +82,9 @@ BOOL is read as a number or a boolean (`CsvCellTypes`, #253):
 | any of the three | empty, or only whitespace (non-breaking spaces included) | NULL: a required field is quarantined as `MISSING_REQUIRED` |
 | any of the three | anything else (`abc`, `7.0` for INT64, `NaN`, `yes`) | quarantined as a `TYPE_MISMATCH` naming the value |
 
-A field's `range` is checked on those numbers. Cells of every other type load as the text they are,
+A field's `range` is checked on those numbers. A STRING field's `allowed` values are checked as written:
+a value that is not exactly one of them is quarantined as `NOT_ALLOWED` (#259), and a blank cell in an
+optional field is no value and passes. Cells of every other type load as the text they are,
 except that a blank cell (empty, or only whitespace, non-breaking spaces included) in a
 `required: true` field of any type is missing,
 so the row is quarantined as `MISSING_REQUIRED` (#255).
@@ -98,8 +100,9 @@ These apply to every entity, built-in or from a schema file:
 - **A blank cell in an optional column of any other type loads as `""`, not NULL.** The CSV
   parser gives an empty cell as `""`. A blank cell is missing only in a required field, and
   NULL in an optional INT64, FLOAT64 or BOOL column.
-- **No allowed-values constraint.** The retired Python pipeline rejected, for example,
-  `status` values outside `A`, `I`, `C`; `SchemaField` has no such constraint, so they load.
+- **The sample layouts declare no allowed values.** The retired Python pipeline refused, for
+  example, `status` values outside `A`, `I`, `C`. A schema file can now say so with `allowed`
+  (#259), but the four samples in `schemas/` and the built-in layouts do not, so any status loads.
 
 ## Build & test
 

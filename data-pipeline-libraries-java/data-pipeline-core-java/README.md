@@ -183,7 +183,7 @@ that validates each incoming row against an `EntitySchema`. It lives in
 | `ValidationResult.ValidRow<R>` | Record | Row passed all checks |
 | `ValidationResult.InvalidRow<R>` | Record | Row failed; holds `List<FieldViolation>` |
 | `FieldViolation` | Record | `(fieldName, violationKind, detail)` |
-| `ViolationKind` | Enum | `MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE` |
+| `ViolationKind` | Enum | `MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE`, `NOT_ALLOWED` |
 | `NumericRange` | Record | Closed range `[min, max]` for out-of-range checking |
 
 ### Validation rules (per field, all accumulated — no short-circuit)
@@ -206,6 +206,10 @@ that validates each incoming row against an `EntitySchema`. It lives in
    Bounds are read directly from the schema — no separate side-map is required.
    Checked only when the value is non-null and no `TYPE_MISMATCH` was detected
    for the same field.
+4. **NOT_ALLOWED** — the `SchemaField` carries allowed values (via
+   `SchemaField.withAllowed(List.of("A", "I", "C"))`, `STRING` fields only) and the value
+   is not exactly one of them (#259). Skipped after a `TYPE_MISMATCH`; a blank value in a
+   field that is not `REQUIRED` is no value and passes.
 
 ### Usage — direct row validation
 

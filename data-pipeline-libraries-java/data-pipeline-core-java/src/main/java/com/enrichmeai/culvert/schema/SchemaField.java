@@ -4,7 +4,10 @@ import com.enrichmeai.culvert.dataquality.NumericRange;
 import com.enrichmeai.culvert.governance.DataClassification;
 import com.enrichmeai.culvert.governance.MaskingPolicy;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * A single field in an {@link EntitySchema}.
@@ -23,6 +26,12 @@ import java.util.Optional;
  * flag any value outside the range as an {@code OUT_OF_RANGE} violation —
  * no separate side-map is needed.
  *
+ * <p>{@code allowed} is an optional list of the values a {@code STRING} field may hold (#259).
+ * When present, {@link com.enrichmeai.culvert.dataquality.DataQualityTransform} flags any other
+ * value as a {@code NOT_ALLOWED} violation, comparing exactly. The list is copied; it must be
+ * non-empty, hold no {@code null} or blank value and repeat no value. Mirrors the Python
+ * {@code SchemaField.allowed}.
+ *
  * @param name           The field name.
  * @param type           The wire type ({@code STRING}, {@code INT64}, etc.).
  * @param mode           {@code REQUIRED}, {@code NULLABLE}, or {@code REPEATED}.
@@ -30,8 +39,9 @@ import java.util.Optional;
  * @param classification Optional sensitivity classification.
  * @param masking        Optional field-level masking policy.
  * @param range          Optional numeric bounds for range validation.
+ * @param allowed        Optional values a STRING field may hold (#259).
  *
- * @since Sprint 14 / T14.7 (range added)
+ * @since Sprint 14 / T14.7 (range added); 0.6.0 / #259 (allowed added)
  */
 public record SchemaField(
         String name,
@@ -40,7 +50,8 @@ public record SchemaField(
         Optional<String> description,
         Optional<DataClassification> classification,
         Optional<MaskingPolicy> masking,
-        Optional<NumericRange> range) {
+        Optional<NumericRange> range,
+        Optional<List<String>> allowed) {
 
     /** Canonical compact constructor — normalises nulls and validates invariants. */
     public SchemaField {
@@ -57,6 +68,55 @@ public record SchemaField(
         if (classification == null) classification = Optional.empty();
         if (masking == null) masking = Optional.empty();
         if (range == null) range = Optional.empty();
+        if (allowed == null) allowed = Optional.empty();
+        if (allowed.isPresent()) {
+            allowed = Optional.of(checkedAllowed(name, type, allowed.get()));
+        }
+    }
+
+    private static List<String> checkedAllowed(String name, String type, List<String> values) {
+        if (!"STRING".equals(type)) {
+            throw new IllegalArgumentException(
+                    "allowed values are for STRING fields, and '" + name + "' is " + type);
+        }
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("allowed must not be empty");
+        }
+        Set<String> seen = new HashSet<>();
+        for (String value : values) {
+            if (value == null) {
+                throw new IllegalArgumentException("allowed values must be strings");
+            }
+            if (value.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+                throw new IllegalArgumentException("allowed values must not be blank");
+            }
+            if (!seen.add(value)) {
+                throw new IllegalArgumentException("duplicate allowed value '" + value + "'");
+            }
+        }
+        return List.copyOf(values);
+    }
+
+    /**
+     * Backward-compatible 7-arg constructor (no allowed values), the canonical one before #259.
+     *
+     * @param name           The field name.
+     * @param type           The wire type.
+     * @param mode           {@code REQUIRED}, {@code NULLABLE}, or {@code REPEATED}.
+     * @param description    Optional human description.
+     * @param classification Optional sensitivity classification.
+     * @param masking        Optional field-level masking policy.
+     * @param range          Optional numeric bounds for range validation.
+     */
+    public SchemaField(
+            String name,
+            String type,
+            String mode,
+            Optional<String> description,
+            Optional<DataClassification> classification,
+            Optional<MaskingPolicy> masking,
+            Optional<NumericRange> range) {
+        this(name, type, mode, description, classification, masking, range, Optional.empty());
     }
 
     /**
@@ -80,7 +140,7 @@ public record SchemaField(
             Optional<String> description,
             Optional<DataClassification> classification,
             Optional<MaskingPolicy> masking) {
-        this(name, type, mode, description, classification, masking, Optional.empty());
+        this(name, type, mode, description, classification, masking, Optional.empty(), Optional.empty());
     }
 
     /**
@@ -97,18 +157,34 @@ public record SchemaField(
     public SchemaField withRange(NumericRange numericRange) {
         if (numericRange == null) throw new IllegalArgumentException("numericRange must not be null");
         return new SchemaField(name, type, mode, description, classification, masking,
-                Optional.of(numericRange));
+                Optional.of(numericRange), allowed);
     }
 
-    /** Convenience: NULLABLE field with no description, classification, masking, or range. */
+    /**
+     * Returns a copy of this STRING field that holds only the supplied values (#259):
+     * <pre>{@code
+     * SchemaField.nullable("status", "STRING").withAllowed(List.of("A", "I", "C"))
+     * }</pre>
+     *
+     * @param values The allowed values: non-empty, no {@code null}, no repeats. Copied.
+     * @return A new {@link SchemaField} identical to this one, with {@code allowed} set.
+     * @throws IllegalArgumentException if this field is not {@code STRING} or the list is invalid.
+     */
+    public SchemaField withAllowed(List<String> values) {
+        if (values == null) throw new IllegalArgumentException("values must not be null");
+        return new SchemaField(name, type, mode, description, classification, masking, range,
+                Optional.of(values));
+    }
+
+    /** Convenience: NULLABLE field with no description, classification, masking, range or allowed values. */
     public static SchemaField nullable(String name, String type) {
         return new SchemaField(name, type, "NULLABLE",
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 
-    /** Convenience: REQUIRED field with no description, classification, masking, or range. */
+    /** Convenience: REQUIRED field with no description, classification, masking, range or allowed values. */
     public static SchemaField required(String name, String type) {
         return new SchemaField(name, type, "REQUIRED",
-                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+                Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
     }
 }

@@ -42,6 +42,11 @@ import java.util.Optional;
  *       This check is skipped if the value is null or already flagged with a
  *       type mismatch. No separate side-map is required — bounds live in the
  *       schema definition.</li>
+ *   <li><strong>NOT_ALLOWED</strong> — the {@link SchemaField} carries a list of allowed
+ *       values (via {@link SchemaField#allowed()}, {@code STRING} fields only) and the value
+ *       is not one of them, compared exactly. Skipped after a type mismatch. A blank value
+ *       (empty or only whitespace) in a field that is not {@code REQUIRED} is no value, and
+ *       passes (#259).</li>
  * </ol>
  *
  * <h2>All violations are accumulated</h2>
@@ -234,6 +239,17 @@ public final class DataQualityTransform<R>
                     }
                 }
             }
+
+            // 4 — NOT_ALLOWED (#259): a STRING value outside SchemaField.allowed(), compared exactly
+            if (!typeMismatch && field.allowed().isPresent() && value instanceof String text
+                    && !field.allowed().get().contains(text)
+                    && !(!"REQUIRED".equals(field.mode()) && blank(text))) {
+                violations.add(new FieldViolation(
+                        field.name(),
+                        ViolationKind.NOT_ALLOWED,
+                        "Field '" + field.name() + "' value '" + text + "' is not one of "
+                                + field.allowed().get()));
+            }
         }
 
         if (!violations.isEmpty()) {
@@ -355,5 +371,10 @@ public final class DataQualityTransform<R>
                 // (Same swallow-on-error contract as StageMetricsHook Javadoc)
             }
         }
+    }
+
+    /** Empty, or only whitespace (non-breaking spaces included). */
+    private static boolean blank(String text) {
+        return text.codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c));
     }
 }

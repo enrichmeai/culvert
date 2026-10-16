@@ -4,6 +4,22 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+### Added
+- **Allowed values on a STRING field** (#259), in both languages. A schema file's field can say
+  `allowed: [A, I, C]`, and `SchemaField` carries it (`allowed()` in Java, `allowed` in Python;
+  `withAllowed(List)` builds one in Java). `DataQualityTransform` flags any other value as the new
+  `ViolationKind.NOT_ALLOWED`, comparing exactly. A blank value in a field that is not `REQUIRED`
+  is no value and passes. The list is for STRING fields only, must be non-empty and may not repeat
+  a value; a schema file is refused, naming the entry, otherwise. In the ODP loader the row is
+  quarantined. The Java `SchemaField` record gains an eighth component; its six- and seven-argument
+  constructors stay, so existing code compiles and behaves as before.
+
+### Changed
+- **`docs/CONTRACT.md` §3 describes the entity schema format the code reads** (#259): the schema
+  file of `EntitySchemas` and `load_entity_schema`, with `type`, `required`, `classification`,
+  `masking`, `range` and now `allowed`. It used to give a JSON Schema (`dtype`, `nullable`, `pii`,
+  `pattern`, `formats`, `min_value`) that no Culvert code read or wrote.
+
 ## [0.5.0] — 2026-10-15
 
 The W1 batch (the `wave:W1` issues). The highlights, in both languages, are below; the full list follows them.

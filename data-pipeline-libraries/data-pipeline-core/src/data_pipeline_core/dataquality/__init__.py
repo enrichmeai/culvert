@@ -5,7 +5,8 @@ T14.4 / issue #76; T14.7 / issue #100) to Python.  T18.2 / issue #118.
 
 Five types, same shapes, same semantics:
 
-* :class:`ViolationKind`         — enum: MISSING_REQUIRED | TYPE_MISMATCH | OUT_OF_RANGE
+* :class:`ViolationKind`         — enum: MISSING_REQUIRED | TYPE_MISMATCH | OUT_OF_RANGE |
+  NOT_ALLOWED
 * :class:`NumericRange`          — closed inclusive [min, max] with ``contains()``
 * :class:`FieldViolation`        — (field_name, violation_kind, detail) triple
 * :class:`ValidationResult`      — base; subclasses: :class:`ValidRow`, :class:`InvalidRow`

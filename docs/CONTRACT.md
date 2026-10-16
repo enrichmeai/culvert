@@ -1,13 +1,13 @@
 # Culvert — Wire Contract Specification
 
-**CONTRACT_VERSION:** `1.0.0`  *(the wire contract's own version, independent of the framework release, which is 0.1.0)*
+**CONTRACT_VERSION:** `1.0.0`  *(the wire contract's own version, independent of the framework release)*
 **Audience:** Engineers implementing a non-Python emitter, satellite tool, or contract-conformance test suite for Culvert.
 
 ---
 
 ## 1. Purpose
 
-This document is the authoritative, language-neutral specification for every record Culvert emits. It defines the exact shape of EntitySchema definitions, the BigQuery table schemas for audit events, FinOps usage, and reconciliation records, plus the cross-cutting concerns of run ID format, Pub/Sub trace propagation, and error classification. Any team can implement to this spec in any language and produce records that are indistinguishable from those produced by Culvert's own libraries. **Changing this document is a breaking or additive contract change and must follow the versioning policy below.** Treat it accordingly — a field renamed here requires a coordinated migration across every producer and consumer.
+This document is the authoritative, language-neutral specification for every record Culvert emits. It defines the entity schema file that describes each entity, the BigQuery table schemas for audit events, FinOps usage, and reconciliation records, plus the cross-cutting concerns of run ID format, Pub/Sub trace propagation, and error classification. Any team can implement to this spec in any language and produce records that are indistinguishable from those produced by Culvert's own libraries. **Changing this document is a breaking or additive contract change and must follow the versioning policy below.** Treat it accordingly — a field renamed here requires a coordinated migration across every producer and consumer.
 
 ---
 
@@ -25,67 +25,64 @@ Every record emitted by a conformant library MUST carry a `contract_version` fie
 
 ---
 
-## 3. EntitySchema — Source-of-Truth Definition
+## 3. EntitySchema — the Entity Schema File
 
-Every entity processed by the framework is described by an EntitySchema JSON document. All framework components — regardless of language — read this JSON directly. **No component may read or import the Python `EntitySchema` class.** The JSON file is the contract.
+Every entity is described by an **entity schema file**: one entity's layout, as YAML (JSON with the same keys is accepted too). Java reads it with `com.enrichmeai.culvert.schema.EntitySchemas` and Python with `data_pipeline_core.schema.load_entity_schema`; both apply the same rules and refuse a bad file with the same messages, and their tests run the same cases (`EntitySchemasTest`, `test_schema_files.py`). The file is the contract: an implementation in another language reads this format, not either library's `EntitySchema` class.
 
-### 3.1 JSON Schema
+*Rewritten for #259: this section used to give a JSON Schema (`dtype`, `nullable`, `pii`, `pattern`, `formats`, `min_value`/`max_value`) that no Culvert code read or wrote. It now describes the format the code reads, including the new optional `allowed`. `contract_version` (§2) is still `1.0.0`: it is carried by the emitted records of §4–§6, and none of them changes. Whether a change to this input format should move it is open for a ruling (#259).*
 
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12",
-  "title": "EntitySchema",
-  "type": "object",
-  "required": ["name", "primary_key", "expected_file_frequency", "fields"],
-  "properties": {
-    "name":                   { "type": "string" },
-    "primary_key":            { "type": "array", "items": { "type": "string" }, "minItems": 1 },
-    "header_marker":          { "type": "string", "default": "HDR" },
-    "trailer_marker":         { "type": "string", "default": "TRL" },
-    "expected_file_frequency":{ "type": "string", "enum": ["DAILY", "HOURLY", "WEEKLY", "ON_DEMAND"] },
-    "fields": {
-      "type": "array",
-      "items": { "$ref": "#/$defs/SchemaField" },
-      "minItems": 1
-    }
-  },
-  "$defs": {
-    "SchemaField": {
-      "type": "object",
-      "required": ["name", "dtype", "nullable"],
-      "properties": {
-        "name":      { "type": "string" },
-        "dtype":     { "type": "string", "enum": ["STRING","INTEGER","NUMERIC","FLOAT","BOOLEAN","DATE","TIMESTAMP","BYTES"] },
-        "nullable":  { "type": "boolean" },
-        "pii":       { "type": "boolean", "default": false },
-        "pattern":   { "type": "string", "description": "Optional regex the value must match" },
-        "formats":   { "type": "array", "items": { "type": "string" }, "description": "Accepted formats for DATE/TIMESTAMP fields" },
-        "min_value": { "type": "number", "description": "Inclusive lower bound for numeric fields" },
-        "max_value": { "type": "number", "description": "Inclusive upper bound for numeric fields" }
-      }
-    }
-  }
-}
+### 3.1 Format
+
+```yaml
+entity: customers                # required: the entity name, as a file's HDR line carries it
+version: "1"                     # optional, default "1"
+description: Customer records    # optional
+headers: [customer_id]           # required: the file's columns, in order
+fields:                          # required: one entry per field, at least one;
+                                 #   every key is shown here, a real field uses the ones it needs
+  - name: customer_id            #   required
+    type: STRING                 #   required: one of the types below (any case)
+    required: true               #   optional, default false
+    description: ...             #   optional
+    classification: restricted   #   optional: public | internal | confidential | restricted
+    masking: hash                #   optional: a strategy, or {strategy, replacement, salt}
+    range: {min: 0, max: 150}    #   optional: closed numeric bounds
+    allowed: [A, I, C]           #   optional, STRING fields only: the values it may hold
+primary_key: [customer_id]       # optional: field names
+partition_key: customer_id       # optional: a field name
+envelope:                        # optional: HDR/TRL settings that differ from the default
+  system_id: Generic
+  csv_header_row: true
 ```
 
-### 3.2 Example — `customers` Entity
+| Field key | Meaning |
+|---|---|
+| `type` | One of `STRING`, `INT64`, `FLOAT64`, `BOOL`, `NUMERIC`, `BIGNUMERIC`, `DATE`, `DATETIME`, `TIMESTAMP`, `BYTES`, `JSON`. |
+| `required` | `true` makes the field `REQUIRED`: a null or absent value is a `MISSING_REQUIRED` violation. Otherwise the field is `NULLABLE`. |
+| `classification` | Descriptive sensitivity metadata. |
+| `masking` | The masking policy for the field: `full`, `partial`, `redacted`, `hash` or `none`, or a mapping with `strategy` and optional `replacement` and `salt`. |
+| `range` | `{min, max}`, both required, `max >= min`. A numeric value outside it is an `OUT_OF_RANGE` violation. |
+| `allowed` | A non-empty list of distinct, non-blank strings, on a `STRING` field only. A value that is not exactly one of them is a `NOT_ALLOWED` violation; a blank value (empty or only whitespace) in a field that is not `required` is no value and passes. |
 
-```json
-{
-  "name": "customers",
-  "primary_key": ["customer_id"],
-  "header_marker": "HDR",
-  "trailer_marker": "TRL",
-  "expected_file_frequency": "DAILY",
-  "fields": [
-    { "name": "customer_id",  "dtype": "STRING",    "nullable": false, "pii": false, "pattern": "^CUST[0-9]{6}$" },
-    { "name": "full_name",    "dtype": "STRING",    "nullable": false, "pii": true  },
-    { "name": "date_of_birth","dtype": "DATE",      "nullable": true,  "pii": true,  "formats": ["YYYY-MM-DD", "YYYYMMDD"] },
-    { "name": "postcode",     "dtype": "STRING",    "nullable": true,  "pii": true,  "pattern": "^[A-Z]{1,2}[0-9][0-9A-Z]? [0-9][A-Z]{2}$" },
-    { "name": "opened_at",   "dtype": "TIMESTAMP", "nullable": false, "pii": false, "formats": ["YYYY-MM-DDTHH:MM:SSZ"] }
-  ]
-}
+A file is refused, naming the file and the entry (for example `s.yaml: fields[0].allowed[2]: duplicate value 'A'`), when it is not a mapping or not valid YAML, has a key this format does not define, lacks a required entry, names an unknown type, repeats a field, a header or a key, has a header that names no field or a field no header supplies, names a field in `primary_key` or `partition_key` that does not exist, or has an invalid classification, masking strategy, range or list of allowed values.
+
+The violation kinds a row can raise against a schema are `MISSING_REQUIRED`, `TYPE_MISMATCH`, `OUT_OF_RANGE` and `NOT_ALLOWED` (`ViolationKind` in both languages).
+
+### 3.2 Example — `accounts` Entity
+
+```yaml
+entity: accounts
+headers: [account_id, customer_id, balance, status, open_date]
+fields:
+  - {name: account_id, type: STRING, required: true}
+  - {name: customer_id, type: STRING, required: true, classification: confidential, masking: hash}
+  - {name: balance, type: FLOAT64, range: {min: 0, max: 10000000}}
+  - {name: status, type: STRING, allowed: [A, I, C]}
+  - {name: open_date, type: DATE}
+primary_key: [account_id]
 ```
+
+The ODP loader's sample layouts are in `deployments/original-data-to-bigqueryload-java/schemas/`.
 
 ---
 

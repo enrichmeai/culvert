@@ -42,6 +42,7 @@ import java.util.Set;
  *     classification: restricted   #   optional: public | internal | confidential | restricted
  *     masking: hash                #   optional: a strategy, or {strategy, replacement, salt}
  *     range: {min: 0, max: 150}    #   optional: closed numeric bounds
+ *     allowed: [A, I, C]           #   optional, STRING fields only: the values it may hold
  * primary_key: [customer_id]       # optional: field names
  * partition_key: dob               # optional: a field name
  * envelope:                        # optional HDR/TRL overrides
@@ -53,7 +54,7 @@ import java.util.Set;
  * it is not a mapping, has a key this format does not define (a misspelt {@code requried} is an
  * error, not a field that silently stays optional), lacks a required entry, names an unknown type,
  * repeats a field or a header, has a header that names no field or a field no header supplies, or
- * has an invalid classification, masking strategy or range.
+ * has an invalid classification, masking strategy, range or list of allowed values.
  *
  * <p>Mirrors the Python {@code data_pipeline_core.schema.files}: the same format, rules and
  * messages.
@@ -68,7 +69,7 @@ public final class EntitySchemas {
     private static final Set<String> TOP_KEYS = Set.of(
             "entity", "version", "description", "headers", "fields", "primary_key", "partition_key", "envelope");
     private static final Set<String> FIELD_KEYS = Set.of(
-            "name", "type", "required", "description", "classification", "masking", "range");
+            "name", "type", "required", "description", "classification", "masking", "range", "allowed");
     private static final Set<String> MASKING_KEYS = Set.of("strategy", "replacement", "salt");
     private static final Set<String> RANGE_KEYS = Set.of("min", "max");
     private static final Set<String> ENVELOPE_KEYS = Set.of("system_id", "csv_header_row");
@@ -243,7 +244,8 @@ public final class EntitySchemas {
                         optionalString(entry, "description", at + ".description"),
                         classification(entry.get("classification"), at + ".classification"),
                         masking(entry.get("masking"), at + ".masking"),
-                        range(entry.get("range"), at + ".range")));
+                        range(entry.get("range"), at + ".range"),
+                        allowed(entry.get("allowed"), name, type, at + ".allowed")));
             }
             return fields;
         }
@@ -300,6 +302,28 @@ public final class EntitySchemas {
                 throw error(at, "max (" + max + ") must be >= min (" + min + ")");
             }
             return Optional.of(NumericRange.of(min, max));
+        }
+
+        private Optional<List<String>> allowed(Object value, String name, String type, String at) {
+            if (value == null) {
+                return Optional.empty();
+            }
+            if (!"STRING".equals(type)) {
+                throw error(at, "allowed values are for STRING fields, and '" + name + "' is " + type);
+            }
+            if (!(value instanceof List<?> list) || list.isEmpty()) {
+                throw error(at, "must be a non-empty list of values");
+            }
+            List<String> values = stringList(value, at);
+            for (int i = 0; i < values.size(); i++) {
+                if (values.get(i).codePoints().allMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c))) {
+                    throw error(at + "[" + i + "]", "must be a non-blank string");
+                }
+                if (values.subList(0, i).contains(values.get(i))) {
+                    throw error(at + "[" + i + "]", "duplicate value '" + values.get(i) + "'");
+                }
+            }
+            return Optional.of(values);
         }
 
         private EnvelopeSettings envelope(Object value) {
