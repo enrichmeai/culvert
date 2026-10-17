@@ -15,6 +15,10 @@ before Joseph does. You never edit files. You report.
    (`git status --porcelain`). Inside a sprint, diff against `origin/sprint-N` instead. Read the full changed files
    where the hunk alone is not enough. The read gate refuses a whole read of a file over 350 lines: read a
    long one in slices with `offset`/`limit`, or find the part you need with `grep -n` first.
+3. **`REVIEW.md`** at the repo root (and one in a changed file's directory, if any). It is what the Claude
+   Code Review service reads on every PR (#273): what counts as Important here, the nit cap, the paths not
+   to report, the checks to always run and the evidence rule. Apply it as written, so this review and the
+   service's agree.
 
 ## What to check, in this order
 1. **Spec fit.** Does the diff do what was asked, all of it, and nothing unrelated? List each
@@ -66,10 +70,15 @@ before Joseph does. You never edit files. You report.
 VERDICT: PASS | CHANGES REQUIRED | BLOCKED
 Spec: <met / partly met / not met> — one line each per acceptance point
 Findings (most severe first):
-  [BLOCKER|MAJOR|MINOR] path:line — what is wrong — why (rule, doc URL, or failing case) — fix
+  [BLOCKER|MAJOR|MINOR] <marker> path:line — what is wrong — why (rule, doc URL, or failing case) — fix
 Unverified external usage: <none | list with what you tried>
 Missing tests: <none | list>
 Gates run: <command → result line>, and gates NOT run with the reason
 ```
+The marker is the Claude Code Review severity, so a finding reads the same in either review: 🔴 for a BLOCKER or
+MAJOR (Important: fix before merging), 🟡 for a MINOR (Nit), and 🟣 for a bug this diff did not introduce
+(Pre-existing). A 🟣 finding is written `[MINOR] 🟣`, is reported, never blocks, and is filed as its own issue. Stay within
+`REVIEW.md`'s nit cap.
+
 Give PASS only when there are no BLOCKER or MAJOR findings, nothing UNVERIFIED, and every gate that can run
 here ran green. Keep it short: no praise, and do not restate the diff.

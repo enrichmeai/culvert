@@ -14,7 +14,16 @@
 branch off `main`, one PR into `main`. The sprint model below still applies when Joseph opens a
 sprint. Outside a sprint, the loop is the default.
 
-`/new-issue` (idea → ready issue) → `/groom` (Release board) → `/build-task <issue>` → hooks on every edit → `reviewer` → fix (max 3 attempts) → `/compound` → PR
+`/new-issue` (idea → ready issue) → `/groom` (Release board) → `/build-task <issue>` → hooks on every edit → `reviewer` → fix (max 3 attempts) → `/compound` → PR → Claude Code Review → Joseph merges
+
+**Claude Code Review (#273).** Once Joseph turns it on (Admin settings › Claude Code › Code review, Team or
+Enterprise), the service reviews each PR on Anthropic's side: agents find issues in parallel, a verification step
+drops false positives, and findings land as inline comments marked 🔴 Important, 🟡 Nit or 🟣 Pre-existing, with a
+neutral `Claude Code Review` check run. It never approves or blocks. `@claude review` on a PR asks for one; the
+builder workflow ignores that comment. It reads this file and `REVIEW.md` (review-only rules: what Important
+means here, the nit cap, what not to report), from the protected default branch, never from the PR, so a
+`REVIEW.md` change applies after it merges. The local `reviewer` agent reads `REVIEW.md` too and uses the same
+markers. A 🔴 finding on a PR is fixed before merge; a 🟡 or 🟣 one is answered on its thread.
 
 **The four rules. They are not negotiable:**
 1. **Verify before you write.** Any use of an external library, API, cloud service, CLI flag or
