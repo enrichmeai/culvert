@@ -5,6 +5,13 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 ## [Unreleased]
 
 ### Added
+- **`com.enrichmeai.culvert:data-pipeline-pdf-text`** (Java, #275), a new module.
+  `PdfTextExtract.extract(byte[])` turns a PDF into text with PDFBox 3.0.7 and never throws an
+  exception. It returns `null` for a PDF with no text layer, such as a scanned one, and for input
+  PDFBox cannot read: corrupt, truncated, not a PDF, or protected by a user password. Its only
+  dependencies are `pdfbox` 3.0.7 and `slf4j-api`, so an application and a Dataflow job can run
+  the same extraction. A PDF that uses public-key encryption still escapes as a
+  `NoClassDefFoundError`, because PDFBox's BouncyCastle dependency is optional. Java only.
 - **Allowed values on a STRING field** (#259), in both languages. A schema file's field can say
   `allowed: [A, I, C]`, and `SchemaField` carries it (`allowed()` in Java, `allowed` in Python;
   `withAllowed(List)` builds one in Java). `DataQualityTransform` flags any other value as the new

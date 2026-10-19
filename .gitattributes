@@ -1,0 +1,2 @@
+# Test fixtures are binary: never convert their line endings.
+*.pdf binary
