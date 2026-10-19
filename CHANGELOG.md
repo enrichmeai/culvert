@@ -4,6 +4,15 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+## [0.6.0] — 2026-10-19
+
+A small release, for one new library. The highlights are below; the full list follows them.
+- **New on Maven Central:** `com.enrichmeai.culvert:data-pipeline-pdf-text` (#275).
+  `PdfTextExtract.extract(byte[])` turns a PDF into text with PDFBox 3.0.7, and returns `null`
+  instead of throwing an exception. Java only.
+- **Schema files:** a STRING field can list its allowed values (#259), in both languages.
+- Nothing is breaking.
+
 ### Added
 - **`com.enrichmeai.culvert:data-pipeline-pdf-text`** (Java, #275), a new module.
   `PdfTextExtract.extract(byte[])` turns a PDF into text with PDFBox 3.0.7 and never throws an

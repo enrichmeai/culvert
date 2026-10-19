@@ -7,7 +7,7 @@ extract text the same way. Issue #275.
 <dependency>
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-pdf-text</artifactId>
-    <version><!-- the first Culvert release that ships it --></version>
+    <version>0.6.0</version>
 </dependency>
 ```
 
