@@ -44,6 +44,12 @@ public final class PdfTextExtract {
     /**
      * Extracts the text of a PDF.
      *
+     * <p>It catches {@link RuntimeException} as well as {@link IOException}, deliberately:
+     * PDFBox throws unchecked exceptions on structurally corrupt input. At corpus scale an
+     * escaping exception marks a document failed, so it stays in the work queue and fails
+     * again on every future pass, forever. Returning {@code null} lets the caller record it
+     * as having no text and move on.
+     *
      * @param pdfBytes the whole PDF file
      * @return the text, or {@code null} if the PDF yields no text or cannot be read
      */

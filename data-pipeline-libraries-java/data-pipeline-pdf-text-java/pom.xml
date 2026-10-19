@@ -17,7 +17,7 @@
     <name>Culvert :: data-pipeline-pdf-text (Java)</name>
     <description>
         Cloud-neutral PDF-to-text extraction on Apache PDFBox 3. PdfTextExtract.extract
-        turns PDF bytes into text and never throws: it returns null for a PDF with no
+        turns PDF bytes into text and never throws an exception: it returns null for a PDF with no
         text layer, and for corrupt, password-protected or unparseable input, so a
         caller working through millions of documents records "no text" and moves on.
         Depends only on PDFBox and slf4j-api, so it runs inside a Beam or Dataflow
