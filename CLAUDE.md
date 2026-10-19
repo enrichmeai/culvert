@@ -139,6 +139,7 @@ marks it ✓ and deletes this note.
 | Cloud Composer 2 | https://cloud.google.com/composer/docs/composer-2 |
 | dbt (BigQuery adapter) | https://docs.getdbt.com/docs/core/connect-data-platform/bigquery-setup |
 | Maven Enforcer `bannedDependencies` 3.4.1 ✓ | https://raw.githubusercontent.com/apache/maven-enforcer/enforcer-3.4.1/enforcer-rules/src/site/apt/bannedDependencies.apt.vm. Fetched 2026-10-02 (#192) when `maven.apache.org` was blocked by egress |
+| Apache PDFBox 3.0.7 ✓ | https://javadoc.io/doc/org.apache.pdfbox/pdfbox/3.0.7/ (the javadoc jar on Central). Fetched 2026-10-19 (#275): `Loader.loadPDF(byte[])`, `PDFTextStripper.getText`. PDFBox's own `src/test/resources` at tag `3.0.7` hold real encrypted PDFs for tests |
 | JUnit 5.10 | https://junit.org/junit5/docs/5.10.2/user-guide/ |
 | Testcontainers Java | https://java.testcontainers.org/ |
 | Maven Surefire / Failsafe 3.2.5 | https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-surefire-plugin/ · https://maven.apache.org/surefire-archives/surefire-3.2.5/maven-failsafe-plugin/ |
