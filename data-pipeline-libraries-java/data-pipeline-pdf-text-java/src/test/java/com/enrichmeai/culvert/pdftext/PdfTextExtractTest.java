@@ -33,8 +33,8 @@ class PdfTextExtractTest {
                 .contains("THE HONOURABLE MR.JUSTICE MURALI PURUSHOTHAMAN")
                 .contains("WP(C) NO. 18565 OF 2013")
                 .contains("The  writ  petition  is,  accordingly,  dismissed  as\ninfructuous.");
-        // The same PDFBox 3.0.7 call in the valuedocs-data-platform Phase 0 measurement
-        // (#203) recorded chars=1271 (String.length()) for this file.
+        // An earlier measurement of this file with the same PDFBox 3.0.7 call recorded
+        // 1271 chars (String.length()).
         assertThat(text).hasSize(1271);
     }
 

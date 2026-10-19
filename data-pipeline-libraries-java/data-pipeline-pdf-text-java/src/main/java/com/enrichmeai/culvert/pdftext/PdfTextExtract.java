@@ -23,13 +23,8 @@ import java.io.IOException;
  *   <li>it never throws an exception.</li>
  * </ul>
  *
- * <p>Two cases a caller might not expect:
- * <ul>
- *   <li>{@code Loader.loadPDF(byte[])} opens an encrypted PDF whose user password is
- *       empty, as when only an owner password is set, so its text is returned.</li>
- *   <li>PDFBox rebuilds a damaged cross-reference table where it can, so a PDF that
- *       lost only its last bytes still returns its text.</li>
- * </ul>
+ * <p>PDFBox rebuilds a damaged cross-reference table where it can, so a PDF that lost
+ * only its last bytes still returns its text.
  *
  * <p>{@link Error}s are not caught, so they escape: {@code NoClassDefFoundError} on a
  * PDF that uses public-key encryption (PDFBox's BouncyCastle dependency is optional,

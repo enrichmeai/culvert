@@ -14,7 +14,7 @@ None was made for these tests.
 The three court files come from the Indian High Court Judgments and Indian Supreme Court
 Judgments datasets on the AWS Registry of Open Data, managed by
 [Dattam Labs](https://dattam.in) and licensed
-[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). They were part of the
-valuedocs-data-platform EXTRACT_TEXT Phase 0 sample (2026-10-18), and the statuses that
-measurement recorded are the ones the tests assert: EXTRACTED (1271 chars), NO_TEXT_LAYER
-and PARSE_FAILED.
+[CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/). They were picked from
+a measurement sample of 2026-10-18 in which the same PDFBox 3.0.7 call recorded, in turn,
+1271 characters of text, blank text, and a parse failure. Those are the results the tests
+assert.

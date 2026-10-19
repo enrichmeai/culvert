@@ -31,13 +31,9 @@ String text = PdfTextExtract.extract(pdfBytes);   // null means "no text"
 
 It does not catch `Error`s. The one to know about: a PDF that uses **public-key encryption**
 escapes as `NoClassDefFoundError`, because PDFBox's BouncyCastle dependency is optional and this
-module does not add it. A caller that must never fail on such a PDF can catch it, or add
-`org.bouncycastle:bcprov-jdk18on` and `bcpkix-jdk18on` itself.
+module does not add it. A caller that must never fail on such a PDF catches it around the call.
 
-Two more cases:
-- An encrypted PDF with an empty user password, as when only an owner password is set, opens,
-  so its text is returned.
-- A PDF that lost only its last bytes is repaired by PDFBox, so it returns its text.
+PDFBox repairs a PDF that lost only its last bytes, so it returns its text.
 
 ## Not in this module
 
