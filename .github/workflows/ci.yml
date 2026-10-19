@@ -3,7 +3,7 @@
 #
 # Replaces the retired predecessor's Python-only CI with a polyglot
 # workflow that covers:
-#   1. Java reactor  — 21 modules under data-pipeline-libraries-java/
+#   1. Java reactor  — 22 modules under data-pipeline-libraries-java/
 #   2. Python — every library under data-pipeline-libraries/ (11), one leg
 #      each; the verify-module-list job fails when one has no leg.
 #   3. [T15.2] Java emulator ITs — `mvn -P it verify` against Testcontainers
@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check all 21 modules are enumerated
+      - name: Check all 22 modules are enumerated
         run: |
           set -euo pipefail
           # Authoritative list from pom.xml (order-independent)
@@ -109,6 +109,7 @@ jobs:
           data-pipeline-orchestration-java
           data-pipeline-console-java
           data-pipeline-postgres-java
+          data-pipeline-pdf-text-java
           data-pipeline-registration-audit-java
           data-pipeline-tester-java
           MODEOF
@@ -125,7 +126,7 @@ jobs:
             echo "$DIFF"
             exit 1
           fi
-          echo "OK: all 21 modules are enumerated"
+          echo "OK: all 22 modules are enumerated"
 
       - name: Check every Python library has a python-tests leg
         run: |
@@ -158,7 +159,7 @@ jobs:
 
 # ============================================================================
 # ── Job 2: Java reactor build + unit tests ──────────────────────────────────
-# Runs the full reactor (all 21 modules) via -pl <module> -am so each module
+# Runs the full reactor (all 22 modules) via -pl <module> -am so each module
 # only builds the modules it depends on, making individual matrix legs fast.
 # The surefire default excludes *IT.java (integration tests) — Testcontainers
 # jobs come in T15.2.
@@ -192,6 +193,7 @@ jobs:
           - data-pipeline-orchestration-java
           - data-pipeline-console-java
           - data-pipeline-postgres-java
+          - data-pipeline-pdf-text-java
           # Build gate, publishes nothing: audits every META-INF/services
           # registration in the reactor (Story 1.2). Last because it depends
           # on every adapter module.

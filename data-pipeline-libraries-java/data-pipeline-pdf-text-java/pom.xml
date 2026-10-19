@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.enrichmeai.culvert</groupId>
+        <artifactId>data-pipeline-libraries-parent</artifactId>
+        <version>0.5.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>data-pipeline-pdf-text</artifactId>
+    <packaging>jar</packaging>
+
+    <name>Culvert :: data-pipeline-pdf-text (Java)</name>
+    <description>
+        Cloud-neutral PDF-to-text extraction on Apache PDFBox 3. PdfTextExtract.extract
+        turns PDF bytes into text and never throws: it returns null for a PDF with no
+        text layer, and for corrupt, password-protected or unparseable input, so a
+        caller working through millions of documents records "no text" and moves on.
+        Depends only on PDFBox and slf4j-api, so it runs inside a Beam or Dataflow
+        worker as well as in an application. Issue #275.
+    </description>
+
+    <properties>
+        <!--
+            Pinned in this module, not the parent, because no other module uses
+            PDFBox. 3.0.7 is the version both consumers resolve (#275).
+        -->
+        <pdfbox.version>3.0.7</pdfbox.version>
+    </properties>
+
+    <dependencies>
+        <!--
+            Brings pdfbox-io, fontbox and commons-logging (PDFBox's own logging
+            API, which it needs at runtime). Its BouncyCastle dependencies are
+            optional, so they do not come along.
+        -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>${pdfbox.version}</version>
+        </dependency>
+
+        <!-- SLF4J API only — consumers bring their own binding -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
