@@ -4,6 +4,12 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+## [0.6.1] — 2026-10-25
+
+A patch release for one fix. Nothing is breaking, and no library is new.
+- **`data-pipeline-pdf-text`:** a PDF that uses public-key (certificate) encryption returns `null`
+  instead of escaping as a `NoClassDefFoundError` (#279). Java only.
+
 ### Fixed
 - **`PdfTextExtract.extract(byte[])` returns `null` for a PDF that uses public-key (certificate)
   encryption** (#279), where 0.6.0 let a `NoClassDefFoundError` escape. PDFBox needs BouncyCastle

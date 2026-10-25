@@ -7,7 +7,7 @@ extract text the same way. Issue #275.
 <dependency>
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-pdf-text</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
 </dependency>
 ```
 
@@ -32,7 +32,7 @@ String text = PdfTextExtract.extract(pdfBytes);   // null means "no text"
 
 A PDF that uses **public-key encryption** makes PDFBox reach for BouncyCastle, an optional
 dependency this module does not add, and that raises `NoClassDefFoundError`. It is the one `Error`
-caught, so such a PDF returns `null` (#279; 0.6.0 let it escape). Other `Error`s, such as
+caught, so such a PDF returns `null` (since 0.6.1, #279; 0.6.0 let it escape). Other `Error`s, such as
 `StackOverflowError` or `OutOfMemoryError` on pathological input, still escape.
 
 PDFBox repairs a PDF that lost only its last bytes, so it returns its text.
