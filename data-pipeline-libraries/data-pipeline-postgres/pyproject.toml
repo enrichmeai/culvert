@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "data-pipeline-postgres"
-version = "0.6.0"
+version = "0.6.1"
 description = "PostgreSQL adapter for the Culvert data pipeline framework. Implements the StageClaim capability from data-pipeline-core, on the same tables as the Java data-pipeline-postgres."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -23,7 +23,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "data-pipeline-core>=0.6.0",
+    "data-pipeline-core>=0.6.1",
     "psycopg2-binary>=2.9",
 ]
 
