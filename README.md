@@ -4,7 +4,7 @@
 
 Culvert is a framework for building data pipelines that are **defined once against a language-neutral contract and implemented in the language that fits the job**. The same 16 contracts (Source, Sink, Transform, Pipeline, RuntimeContext, BlobStore, Warehouse, FinOpsSink, GovernancePolicy, …) are realised in both a Java library set and a Python library set; cloud specifics live behind adapters, so the core stays portable across clouds.
 
-> **Status — RELEASED.** The latest release is **0.6.0** (tag `v0.6.0`, 19 October 2026), in both ecosystems at one version: [`culvert` on PyPI](https://pypi.org/project/culvert/) (`pip install culvert[gcp]`) and [`com.enrichmeai.culvert:*` on Maven Central](https://central.sonatype.com/search?q=com.enrichmeai.culvert). What each release added, and what is on `main` but not yet released, is in [CHANGELOG.md](CHANGELOG.md). The first release, 0.1.0, was proven end-to-end on a real GCP project (cloudrun-only, event-driven) before it shipped; that deploy caught 8 production-only bugs that 1,145 green tests had missed.
+> **Status — RELEASED.** The latest release is **0.6.1** (tag `v0.6.1`, 25 October 2026), in both ecosystems at one version: [`culvert` on PyPI](https://pypi.org/project/culvert/) (`pip install culvert[gcp]`) and [`com.enrichmeai.culvert:*` on Maven Central](https://central.sonatype.com/search?q=com.enrichmeai.culvert). What each release added, and what is on `main` but not yet released, is in [CHANGELOG.md](CHANGELOG.md). The first release, 0.1.0, was proven end-to-end on a real GCP project (cloudrun-only, event-driven) before it shipped; that deploy caught 8 production-only bugs that 1,145 green tests had missed.
 
 > **Repo vs product.** The GitHub repo is `enrichmeai/culvert`; the working-tree folder is still `gcp-pipeline-reference`. The folder name is an operational identifier, not the product name.
 
@@ -77,7 +77,7 @@ blob_store = autoconfig.discover().first("blob_store")   # GcsBlobStore with cul
 <dependency>
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-core</artifactId>
-    <version>0.6.0</version>
+    <version>0.6.1</version>
 </dependency>
 <!-- adapters: data-pipeline-gcp-bigquery, data-pipeline-gcp-gcs,
      data-pipeline-aws-s3, ... same groupId/version -->
@@ -117,7 +117,7 @@ The framework is being completed in sprint waves; the authoritative plan is [`do
 - ✅ **Python contracts + core depth** — Protocols reconciled to Java; `DefaultRuntimeContext`, data-quality, governance policies, FinOps cost model.
 - ✅ **Python GCP adapters** — secrets, observability, and per-service cost trackers; all auto-discoverable.
 - ✅ **AWS adapter family (Sprints 21–22, epic #144)** — `S3BlobStore` (all 8 methods), `AwsSecretsManagerProvider`, `SqsSource`/`SqsSink`, append-only `DynamoDbJobControlRepository` **and `AthenaJobControlRepository`** (both pass the shared `JobControlRepositoryContractTest`, as do BigQuery and, since #193, PostgreSQL), `AthenaWarehouse` (incl. the external-table load path), CloudWatch hooks — unit- and LocalStack-IT-tested. **The same ingestion pipeline runs on both clouds** (`IngestionMain --cloud gcp|aws`; `CrossCloudIngestionLocalStackIT` proves the AWS path against real S3 + DynamoDB). Honest caveats: Athena leg is mock-tested (no community-LocalStack Athena; real-AWS validation in the deploy phase); no AWS execution layer (Beam is runner-portable; EMR/Flink is a future runner story); Python-side AWS parity later. **Azure is explicitly later** (BlobStore-only skeleton).
-- ✅ **Packaging & coordinated release** — the one `culvert` PyPI distribution and the Maven Central artifacts; released from 0.1.0 to 0.6.0, at one version across Java and Python since 0.3.0. Releases are batched. From 0.4.0, merging the release PR publishes to PyPI and tags the release, and stages the Maven bundle for Joseph to publish (RELEASE.md).
+- ✅ **Packaging & coordinated release** — the one `culvert` PyPI distribution and the Maven Central artifacts; released from 0.1.0 to 0.6.1, at one version across Java and Python since 0.3.0. Releases are batched. From 0.4.0, merging the release PR publishes to PyPI and tags the release, and stages the Maven bundle for Joseph to publish (RELEASE.md).
 
 Architecture: [`docs/framework-evolution/10-architecture.md`](docs/framework-evolution/10-architecture.md). Full series (audit, redesign, dev process, sprint plans): [`docs/framework-evolution/`](docs/framework-evolution/).
 
