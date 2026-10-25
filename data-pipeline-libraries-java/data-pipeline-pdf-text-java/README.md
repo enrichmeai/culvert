@@ -23,15 +23,17 @@ String text = PdfTextExtract.extract(pdfBytes);   // null means "no text"
 - returns the text of a PDF that has a text layer;
 - returns `null` when that text is blank, as from a scanned, image-only PDF;
 - returns `null` for input PDFBox cannot open or read: corrupt, truncated, not a PDF, empty,
-  `null`, or protected by a non-empty user password;
+  `null`, protected by a non-empty user password, or protected by public-key (certificate)
+  encryption;
 - never throws an exception. It catches `RuntimeException` as well as `IOException`, because
   PDFBox throws unchecked exceptions on corrupt input. A caller working through millions of
   documents can then record "no text" and move on, instead of re-queueing a document that will
   fail on every pass.
 
-It does not catch `Error`s. The one to know about: a PDF that uses **public-key encryption**
-escapes as `NoClassDefFoundError`, because PDFBox's BouncyCastle dependency is optional and this
-module does not add it. A caller that must never fail on such a PDF catches it around the call.
+A PDF that uses **public-key encryption** makes PDFBox reach for BouncyCastle, an optional
+dependency this module does not add, and that raises `NoClassDefFoundError`. It is the one `Error`
+caught, so such a PDF returns `null` (#279; 0.6.0 let it escape). Other `Error`s, such as
+`StackOverflowError` or `OutOfMemoryError` on pathological input, still escape.
 
 PDFBox repairs a PDF that lost only its last bytes, so it returns its text.
 

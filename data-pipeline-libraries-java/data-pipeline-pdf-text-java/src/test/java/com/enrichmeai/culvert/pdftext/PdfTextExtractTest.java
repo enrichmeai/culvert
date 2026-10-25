@@ -9,7 +9,6 @@ import java.io.InputStream;
 import java.util.Arrays;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Pins the {@link PdfTextExtract} contract on real PDFs. Where each fixture comes from,
@@ -86,14 +85,14 @@ class PdfTextExtractTest {
     }
 
     @Test
-    void publicKeyEncryptedPdfEscapesAsAnError() throws IOException {
-        // Known gap, pinned so that a change to it is deliberate: PDFBox's BouncyCastle
-        // dependency is optional, and an Error is not caught, so a PDF that uses public-key
-        // encryption escapes extract() instead of returning null.
+    void publicKeyEncryptedPdfYieldsNullWithoutThrowing() throws IOException {
+        // PDFBox's BouncyCastle dependency is optional and this module does not add it, so
+        // opening a PDF that uses public-key encryption raises NoClassDefFoundError inside
+        // PDFBox (#279). extract() returns null for it, as for every other unreadable PDF.
         byte[] publicKeyEncrypted = fixture("AESkeylength128.pdf");
 
-        assertThatThrownBy(() -> PdfTextExtract.extract(publicKeyEncrypted))
-                .isInstanceOf(NoClassDefFoundError.class)
-                .hasMessageContaining("org/bouncycastle");
+        assertThat(PdfTextExtract.extract(publicKeyEncrypted)).isNull();
+        // A second call in the same JVM hits the already-failed class resolution.
+        assertThat(PdfTextExtract.extract(publicKeyEncrypted)).isNull();
     }
 }
