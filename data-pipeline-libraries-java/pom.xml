@@ -366,6 +366,10 @@
                         <configuration>
                             <publishingServerId>central</publishingServerId>
                             <autoPublish>false</autoPublish>
+                            <!-- MD5 and SHA-1 only (#283). The default, ALL, adds SHA-256 and SHA-512
+                                 for every file, which took a 22-module release from 255 to 425 files
+                                 (unsigned) and the organisation past Central's monthly file-count limit. -->
+                            <checksums>required</checksums>
                         </configuration>
                     </plugin>
                 </plugins>

@@ -31,6 +31,11 @@ workflow, checked against its SHA-512), not the runner's own. Under Maven 3.10, 
 "Bundle has content that does NOT have a .pom file" (the 0.5.0 run). Unpin once the plugin bundles cleanly
 under Maven 3.10.
 
+**Required checksums only (#283):** the release profile sets `checksums=required`, so the bundle carries
+MD5 and SHA-1 for each file and not SHA-256 or SHA-512. Central counts every file against the organisation's
+monthly limit, and the default (`ALL`) took a release from 255 to 425 files before signatures (about 340 to
+510 with the `.asc` files). The Portal warned that the limit was reached on 2026-10-25.
+
 **When something fails half-way:**
 - PyPI took the version but the tag job failed: re-run the failed job, or run publish-pypi by hand. On a version already on PyPI, the manual run only creates the missing tag and GitHub Release.
 - The two workflows run independently, so PyPI can succeed while the Maven upload fails. Check both runs after a merge, and fix the failed one and run it by hand.
