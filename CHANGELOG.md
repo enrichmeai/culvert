@@ -4,6 +4,12 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+## [0.6.2] — 2026-11-16
+
+A patch release for one fix. Nothing is breaking, and no library is new.
+- **`data-pipeline-pdf-text`:** doubled letters such as "ff" and "ll" are no longer dropped in fonts
+  that declare every glyph one em wide (#288). Java only.
+
 ### Fixed
 - **`data-pipeline-pdf-text` keeps doubled letters in fonts that declare every glyph one em wide**
   (#288). PDFBox drops a character that sits within a third of the glyph's declared width of the
