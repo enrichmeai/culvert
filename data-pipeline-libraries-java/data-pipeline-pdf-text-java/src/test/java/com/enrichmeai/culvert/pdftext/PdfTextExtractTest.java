@@ -95,4 +95,42 @@ class PdfTextExtractTest {
         // A second call in the same JVM hits the already-failed class resolution.
         assertThat(PdfTextExtract.extract(publicKeyEncrypted)).isNull();
     }
+
+    @Test
+    void doubledLettersSurviveWhenTheFontDeclaresEveryGlyphOneEmWide() throws IOException {
+        // #288. This court template's font declares every glyph 1000 units (one em) wide, so
+        // PDFBox's overprint check, which allows a third of the glyph width, takes the second
+        // of two close letters (3.6 to 4.2 points apart at 13 points: "ff", "ll") for a copy
+        // and drops it. Before the fix this file read "ofence", "alegations" and so on.
+        String text = PdfTextExtract.extract(fixture("close-doubles-bombay-hc-2020.pdf"));
+
+        assertThat(text).contains(
+                "offence", "Collector", "official", "allegations", "allowed", "sufficient",
+                "illegally", "affairs", "Officer", "effect");
+        assertThat(text).doesNotContain(
+                "ofence", "Colector", "oficial", "alegations", "alowed", "suficient",
+                "ilegaly", "afairs", "Oficer", "efect");
+        // Doubles PDFBox already kept are unchanged.
+        assertThat(count(text, "applications")).isEqualTo(6);
+        assertThat(count(text, "oppose")).isEqualTo(2);
+        // 0.6.1 gave 3211 chars. 3235 is every glyph on the page with no overprint
+        // check at all: the 24 restored letters, and nothing else.
+        assertThat(text).hasSize(3235);
+    }
+
+    @Test
+    void overprintedBoldTextIsStillReadOnce() throws IOException {
+        // The other side of #288: this template prints its bold headings three times, a
+        // fraction of a point apart. Those copies must still be dropped.
+        String text = PdfTextExtract.extract(fixture("overprinted-bold-bombay-hc-2005.pdf"));
+
+        assertThat(count(text, "IN  THE HIGH COURT OF JUDICATURE AT BOMBAY")).isEqualTo(1);
+        assertThat(count(text, "ORDINARY ORIGINAL CIVIL JURISDICTION")).isEqualTo(1);
+        // PDFBox 3.0.7's own duplicate suppression gives 889 chars for this file.
+        assertThat(text).hasSize(889);
+    }
+
+    private static int count(String text, String word) {
+        return text.split(java.util.regex.Pattern.quote(word), -1).length - 1;
+    }
 }

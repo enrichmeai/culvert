@@ -2,15 +2,16 @@ package com.enrichmeai.culvert.pdftext;
 
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.text.PDFTextStripper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
 /**
- * Plain PDFBox 3 text extraction: {@link Loader#loadPDF(byte[])}, then
- * {@link PDFTextStripper#getText(PDDocument)}.
+ * PDFBox 3 text extraction: {@link Loader#loadPDF(byte[])}, then PDFBox's
+ * {@code PDFTextStripper} with its overprint check capped at a fifth of an em, so that a
+ * font declaring every glyph one em wide does not lose real doubled letters (#288; see
+ * {@code OverprintTextStripper}).
  *
  * <p>The contract of {@link #extract(byte[])}:
  * <ul>
@@ -59,7 +60,7 @@ public final class PdfTextExtract {
      */
     public static String extract(byte[] pdfBytes) {
         try (PDDocument document = Loader.loadPDF(pdfBytes)) {
-            String text = new PDFTextStripper().getText(document);
+            String text = new OverprintTextStripper().getText(document);
             return (text == null || text.isBlank()) ? null : text;
         } catch (IOException | RuntimeException | NoClassDefFoundError e) {
             // RuntimeException as well as IOException, deliberately: PDFBox throws unchecked
