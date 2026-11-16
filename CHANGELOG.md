@@ -4,6 +4,18 @@ All notable changes to the Culvert data pipeline framework. See [DEV_PROCESS.md]
 
 ## [Unreleased]
 
+### Fixed
+- **`data-pipeline-pdf-text` keeps doubled letters in fonts that declare every glyph one em wide**
+  (#288). PDFBox drops a character that sits within a third of the glyph's declared width of the
+  same character, to undo text overprinted as fake bold. Bombay High Court judgments of 2019 to
+  2024 use fonts that declare every glyph 1000 units wide, so the second letter of a real "ff" or
+  "ll" was dropped: "offence" read "ofence", "allegations" read "alegations". The check now
+  reaches at most a fifth of an em, measured from the text rendering matrix. Overprinted copies
+  (under 0.05 em apart in 2,600 court PDFs) are still dropped. On that sample, 27 documents
+  change: 16 Bombay judgments regain their doubled letters, and 11 others gain one to five
+  characters. The cause was not ligature glyphs, as #288 first guessed: these fonts have none.
+  Java only.
+
 ## [0.6.1] — 2026-10-25
 
 A patch release for one fix. Nothing is breaking, and no library is new.
