@@ -7,7 +7,7 @@ extract text the same way. Issue #275.
 <dependency>
     <groupId>com.enrichmeai.culvert</groupId>
     <artifactId>data-pipeline-pdf-text</artifactId>
-    <version>0.6.1</version>
+    <version>0.6.2</version>
 </dependency>
 ```
 
@@ -37,7 +37,7 @@ caught, so such a PDF returns `null` (since 0.6.1, #279; 0.6.0 let it escape). O
 
 PDFBox repairs a PDF that lost only its last bytes, so it returns its text.
 
-**Overprinted text (#288, the release after 0.6.1).** Some PDFs print a glyph two or three times a fraction of
+**Overprinted text (since 0.6.2, #288).** Some PDFs print a glyph two or three times a fraction of
 a point apart, to fake bold type. PDFBox drops such a copy when the same character already sits
 within a third of the glyph's declared width. A font that declares every glyph one em wide (seen in
 Bombay High Court judgments of 2019 to 2024) then loses real doubles: "offence" reads "ofence",
